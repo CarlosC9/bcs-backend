@@ -1,0 +1,78 @@
+{
+  "configVersion": 1,
+  "timestamp": 1594811373591,
+  "index": "/gui/index.html",
+  "assetGroups": [
+    {
+      "name": "app",
+      "installMode": "prefetch",
+      "updateMode": "prefetch",
+      "urls": [
+        "/gui/favicon.ico",
+        "/gui/index.html",
+        "/gui/main-es2015.7d6d1a0f4d054e34f569.js",
+        "/gui/main-es5.7d6d1a0f4d054e34f569.js",
+        "/gui/manifest.webmanifest",
+        "/gui/polyfills-es2015.6daee520f35267e9e80c.js",
+        "/gui/polyfills-es5.dbd43042a7cf47dc578f.js",
+        "/gui/runtime-es2015.1eba213af0b233498d9d.js",
+        "/gui/runtime-es5.1eba213af0b233498d9d.js",
+        "/gui/styles.6285b3c63e39b40bcab6.css"
+      ],
+      "patterns": []
+    },
+    {
+      "name": "assets",
+      "installMode": "lazy",
+      "updateMode": "prefetch",
+      "urls": [
+        "/gui/assets/images/LogoNEXTGENDEM_Color_cropped.png",
+        "/gui/assets/images/LogoNEXTGENDEM_Color_cropped.xcf",
+        "/gui/fontawesome-webfont.1e59d2330b4c6deb84b3.ttf",
+        "/gui/fontawesome-webfont.20fd1704ea223900efa9.woff2",
+        "/gui/fontawesome-webfont.8b43027f47b20503057d.eot",
+        "/gui/fontawesome-webfont.c1e38fd9e0e74ba58f7a.svg",
+        "/gui/fontawesome-webfont.f691f37e57f04c152e23.woff"
+      ],
+      "patterns": []
+    }
+  ],
+  "dataGroups": [],
+  "hashTable": {
+    "/gui/assets/images/LogoNEXTGENDEM_Color_cropped.png": "785c6cd21128fa863427aa1aaddd9b48f35e617a",
+    "/gui/assets/images/LogoNEXTGENDEM_Color_cropped.xcf": "6ff6ac33145206b566c70421ce4a94039a0969c0",
+    "/gui/favicon.ico": "05c8495a7d3166fd2fb8ed8ec4b51e57bddb0c94",
+    "/gui/fontawesome-webfont.1e59d2330b4c6deb84b3.ttf": "13b1eab65a983c7a73bc7997c479d66943f7c6cb",
+    "/gui/fontawesome-webfont.20fd1704ea223900efa9.woff2": "d6f48cba7d076fb6f2fd6ba993a75b9dc1ecbf0c",
+    "/gui/fontawesome-webfont.8b43027f47b20503057d.eot": "d980c2ce873dc43af460d4d572d441304499f400",
+    "/gui/fontawesome-webfont.c1e38fd9e0e74ba58f7a.svg": "98a8aa5cf7d62c2eff5f07ede8d844b874ef06ed",
+    "/gui/fontawesome-webfont.f691f37e57f04c152e23.woff": "28b782240b3e76db824e12c02754a9731a167527",
+    "/gui/index.html": "4490d6d97df0b2016502cd45b8c19213c8d1aae7",
+    "/gui/main-es2015.7d6d1a0f4d054e34f569.js": "b3ce3a6dc98448fd098bdf8be921bbfbba61aa80",
+    "/gui/main-es5.7d6d1a0f4d054e34f569.js": "2e227d5d7d4e6558642dec831ec629fbcad2184c",
+    "/gui/manifest.webmanifest": "253a2f19661459cb833880df7ce047922a9d5335",
+    "/gui/polyfills-es2015.6daee520f35267e9e80c.js": "90fb474e1a7d87bd57bc8a95fb3fd361b919d815",
+    "/gui/polyfills-es5.dbd43042a7cf47dc578f.js": "ccfff1a6bd0b9531245e25bf3c0c8cf948ced8c2",
+    "/gui/runtime-es2015.1eba213af0b233498d9d.js": "a9aafcf49f49145093fc831efd9b8e2f6c71bb9c",
+    "/gui/runtime-es5.1eba213af0b233498d9d.js": "a9aafcf49f49145093fc831efd9b8e2f6c71bb9c",
+    "/gui/styles.6285b3c63e39b40bcab6.css": "3bb1b0c76fe105598a640760947926346a3c4f95"
+  },
+  "navigationUrls": [
+    {
+      "positive": true,
+      "regex": "^\\/.*$"
+    },
+    {
+      "positive": false,
+      "regex": "^\\/(?:.+\\/)?[^/]*\\.[^/]*$"
+    },
+    {
+      "positive": false,
+      "regex": "^\\/(?:.+\\/)?[^/]*__[^/]*$"
+    },
+    {
+      "positive": false,
+      "regex": "^\\/(?:.+\\/)?[^/]*__[^/]*\\/.*$"
+    }
+  ]
+}
