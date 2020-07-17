@@ -5,7 +5,14 @@ from flask_cors import CORS
 
 from biobarcoding.rest import logger, log_level, load_configuration_file, construct_session_persistence_backend, \
     initialize_database
+from biobarcoding.rest.auth import bp_auth
 from biobarcoding.rest.bos import bp_bos
+from biobarcoding.rest.sequences import bp_seq
+from biobarcoding.rest.msa import bp_msa
+from biobarcoding.rest.phylo import bp_phylo
+from biobarcoding.rest.metadata import bp_meta
+from biobarcoding.rest.io import bp_io
+from biobarcoding.rest.job import bp_job
 from biobarcoding.rest.gui_static import bp_gui
 
 
