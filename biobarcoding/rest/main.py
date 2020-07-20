@@ -33,7 +33,8 @@ CORS(app,                    # CORS
 app.logger.setLevel(log_level)
 logger.setLevel(log_level)
 
-for bp in [bp_bos, bp_gui]:
+# for bp in [bp_bos, bp_gui]:
+for bp in [bp_auth,bp_bos,bp_seq,bp_msa,bp_phylo,bp_meta,bp_io,bp_job,bp_gui]:
     app.register_blueprint(bp)
 
 
