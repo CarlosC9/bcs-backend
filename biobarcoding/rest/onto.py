@@ -1,13 +1,16 @@
+from flask import Blueprint
+
+bp_onto = Blueprint('ontology', __name__)
+
 from flask import request, make_response, jsonify
 from flask.views import MethodView
 
-class JobAPI(MethodView):
+class OntologyAPI(MethodView):
     """
-    Job Resource
+    Ontology Resource
     """
-
-    def post(self, type):
-        msg = f'POST {request.path}\nCreating job {args}'
+    def get(self, id=None):
+        msg = f'Getting ontology {id}'
         print(msg)
         self._check_data()
 
@@ -18,20 +21,20 @@ class JobAPI(MethodView):
         return make_response(jsonify(responseObject)), 200
 
 
-    def put(self, id):
-        msg = f'PUT {request.path}\nModifying job {id}'
+    def post(self):
+        msg = f'Creating ontology'
         print(msg)
         self._check_data()
 
         responseObject = {
-        'status': 'success',
-        'message': msg
+            'status': 'success',
+            'message': msg
         }
         return make_response(jsonify(responseObject)), 200
 
 
     def delete(self, id):
-        msg = f'DELETE {request.path}\nDeleting job {id}'
+        msg = f'Deleting ontology {id}'
         print(msg)
         self._check_data()
 
@@ -46,3 +49,16 @@ class JobAPI(MethodView):
 
         post_data = request.get_json()
         print(f'JSON data: {post_data}')
+
+
+onto = OntologyAPI.as_view('onto_api')
+bp_onto.add_url_rule(
+    '/bo/ontology',
+    view_func=onto,
+    methods=['GET','POST']
+)
+bp_onto.add_url_rule(
+    '/bo/ontology/<int:id>',
+    view_func=onto,
+    methods=['GET','DELETE']
+)

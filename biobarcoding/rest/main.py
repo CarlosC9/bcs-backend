@@ -7,12 +7,15 @@ from biobarcoding.rest import logger, log_level, load_configuration_file, constr
     initialize_database
 from biobarcoding.rest.auth import bp_auth
 from biobarcoding.rest.bos import bp_bos
-from biobarcoding.rest.sequences import bp_seq
+from biobarcoding.rest.seq import bp_seq
 from biobarcoding.rest.msa import bp_msa
 from biobarcoding.rest.phylo import bp_phylo
-from biobarcoding.rest.metadata import bp_meta
+from biobarcoding.rest.ansis import bp_ansis
+from biobarcoding.rest.onto import bp_onto
+from biobarcoding.rest.taxon import bp_taxon
 from biobarcoding.rest.io import bp_io
 from biobarcoding.rest.job import bp_job
+from biobarcoding.rest.job import bp_jobqueue
 from biobarcoding.rest.gui_static import bp_gui
 
 
@@ -34,7 +37,7 @@ app.logger.setLevel(log_level)
 logger.setLevel(log_level)
 
 # for bp in [bp_bos, bp_gui]:
-for bp in [bp_auth,bp_bos,bp_seq,bp_msa,bp_phylo,bp_meta,bp_io,bp_job,bp_gui]:
+for bp in [bp_auth,bp_bos,bp_seq,bp_msa,bp_phylo,bp_ansis,bp_onto,bp_taxon,bp_io,bp_job,bp_jobqueue,bp_gui]:
     app.register_blueprint(bp)
 
 

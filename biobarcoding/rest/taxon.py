@@ -1,3 +1,7 @@
+from flask import Blueprint
+
+bp_taxon = Blueprint('taxonomy', __name__)
+
 from flask import request, make_response, jsonify
 from flask.views import MethodView
 
@@ -45,3 +49,16 @@ class TaxonomyAPI(MethodView):
 
         post_data = request.get_json()
         print(f'JSON data: {post_data}')
+
+
+taxon = TaxonomyAPI.as_view('taxon_api')
+bp_taxon.add_url_rule(
+    '/bo/organism',
+    view_func=taxon,
+    methods=['GET','POST']
+)
+bp_taxon.add_url_rule(
+    '/bo/organism/<int:id>',
+    view_func=taxon,
+    methods=['GET','DELETE']
+)

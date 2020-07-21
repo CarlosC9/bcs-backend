@@ -1,16 +1,16 @@
 from flask import Blueprint
 
-bp_phylo = Blueprint('phylo', __name__)
+bp_seq = Blueprint('seq', __name__)
 
 from flask import request, make_response, jsonify
 from flask.views import MethodView
 
-class PhyloAPI(MethodView):
+class SeqAPI(MethodView):
     """
-    Phylo Resource
+    Sequence Resource
     """
     def get(self, id=None):
-        msg = f'GET {request.path}\nGetting tree {id}'
+        msg = f'GET {request.path}\nGetting sequence {id}'
         print(msg)
         self._check_data()
 
@@ -22,7 +22,7 @@ class PhyloAPI(MethodView):
 
 
     def post(self):
-        msg = f'POST {request.path}\nCreating tree'
+        msg = f'POST {request.path}\nCreating sequence'
         print(msg)
         self._check_data()
 
@@ -34,7 +34,7 @@ class PhyloAPI(MethodView):
 
 
     def put(self, id):
-        msg = f'PUT {request.path}\nCreating tree {id}'
+        msg = f'PUT {request.path}\nCreating sequence {id}'
         print(msg)
         self._check_data()
 
@@ -46,7 +46,7 @@ class PhyloAPI(MethodView):
 
 
     def delete(self, id):
-        msg = f'DELETE {request.path}\nDeleting tree {id}'
+        msg = f'DELETE {request.path}\nDeleting sequence {id}'
         print(msg)
         self._check_data()
 
@@ -58,14 +58,26 @@ class PhyloAPI(MethodView):
 
 
     def _check_data(self):
-
         post_data = request.get_json()
         print(f'JSON data: {post_data}')
 
 
-class PhyloFeatAPI(MethodView):
+seq = SeqAPI.as_view('seq_api')
+bp_seq.add_url_rule(
+    '/bo/sequence',
+    view_func=seq,
+    methods=['GET','POST']
+)
+bp_seq.add_url_rule(
+    '/bo/sequence/<int:id>',
+    view_func=seq,
+    methods=['GET','PUT','DELETE']
+)
+
+
+class SeqFeatAPI(MethodView):
     """
-    Phylogenetic Tree Feature Resource
+    Sequence Feature Resource
     """
     def get(self, id=None):
         msg = f'GET {request.path}\nGetting comment {id}'
@@ -116,31 +128,18 @@ class PhyloFeatAPI(MethodView):
 
 
     def _check_data(self):
-
         post_data = request.get_json()
         print(f'JSON data: {post_data}')
 
 
-phylo = PhyloAPI.as_view('phylo_api')
-bp_phylo.add_url_rule(
-    '/bo/phylo/',
-    view_func=phylo,
+seq_feat = SeqFeatAPI.as_view('seq_feat_api')
+bp_seq.add_url_rule(
+    '/bo/sequence/<seq_id>/feature/',
+    view_func=seq_feat,
     methods=['GET','POST']
 )
-bp_phylo.add_url_rule(
-    '/bo/phylo/<int:phylo_id>',
-    view_func=phylo,
-    methods=['GET','PUT','DELETE']
-)
-
-phylo_feat = PhyloFeatAPI.as_view('phylo_feat_api')
-bp_phylo.add_url_rule(
-    '/bo/phylo/<phylo_id>/feature/',
-    view_func=phylo_feat,
-    methods=['GET','POST']
-)
-bp_phylo.add_url_rule(
-    '/bo/phylo/<int:phylo_id>/feature/<int:cmt_id>',
-    view_func=phylo,
+bp_seq.add_url_rule(
+    '/bo/sequence/<int:seq_id>/feature/<int:cmt_id>',
+    view_func=seq_feat,
     methods=['GET','PUT','DELETE']
 )
