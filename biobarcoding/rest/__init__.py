@@ -29,9 +29,15 @@ def build_json_response(obj, status=200):
 
 def prepare_default_configuration(create_directories):
     def default_directories(path, tmp_path):
+        REDIS_HOST = "redis"
+        REDIS_PORT = 6379
+        BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
+        BACKEND_URL = BROKER_URL
         return {
             "DB_CONNECTION_STRING": f"sqlite:///{path}/bcs.db",
             "CACHE_FILE_LOCATION": f"{tmp_path}/cache",
+            "CELERY_BROKER_URL": BROKER_URL,
+            "CELERY_BACKEND_URL": BACKEND_URL,
             "REDIS_HOST_FILESYSTEM_DIR": f"{tmp_path}/sessions",
         }
 

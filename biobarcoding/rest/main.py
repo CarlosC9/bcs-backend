@@ -7,7 +7,7 @@ from biobarcoding.rest import logger, log_level, load_configuration_file, constr
     initialize_database
 from biobarcoding.rest.bos import bp_bos
 from biobarcoding.rest.gui_static import bp_gui
-
+from biobarcoding.tasks import initialize_celery
 
 app = Flask(__name__)
 app.debug = True
@@ -29,9 +29,13 @@ logger.setLevel(log_level)
 for bp in [bp_bos, bp_gui]:
     app.register_blueprint(bp)
 
+initialize_celery(app)
+
 
 @app.route("/test")
 def test_rest_open():
+    from biobarcoding.tasks.main import add
+    add.delay(2, 3)
     return "<h1 style='color:blue'>Test!</h1>"
 
 

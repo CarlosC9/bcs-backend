@@ -1,0 +1,3 @@
+celery_config = {
+
+}
