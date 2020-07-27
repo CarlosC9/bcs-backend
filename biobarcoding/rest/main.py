@@ -15,7 +15,7 @@ from biobarcoding.rest.onto import bp_onto
 from biobarcoding.rest.taxon import bp_taxon
 from biobarcoding.rest.io import bp_io
 from biobarcoding.rest.job import bp_job
-from biobarcoding.rest.job import bp_jobqueue
+from biobarcoding.rest.jobqueue import bp_jobqueue
 from biobarcoding.rest.gui_static import bp_gui
 
 
