@@ -22,6 +22,7 @@ Werkzeug==1.0.1  # >=
 requests==2.24.0  # >=
 requests_cache==0.4.13
 SQLAlchemy>=1.3.18
+SQLAlchemy-Continuum==1.3.11
 redis>=3.5.3
 #redislite>=5.0.124623  # Disabled because it leads to a problem in "setup.py". It is explicitly used in the Dockerfile
 pyparsing>=2.2.0

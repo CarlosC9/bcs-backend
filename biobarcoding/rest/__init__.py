@@ -10,7 +10,8 @@ from sqlalchemy.pool import StaticPool
 import biobarcoding
 from biobarcoding.common import generate_json
 from biobarcoding.common.gp_helpers import create_pg_database_engine, load_table
-from biobarcoding.models import DBSession, ORMBase
+from biobarcoding.db_models import DBSession, ORMBase
+from biobarcoding.db_models.bioinformatics import *
 
 bcs_api_base = "/api"  # Base for all RESTful calls
 bcs_gui_base = "/gui"  # Base for the Angular2 GUI
@@ -188,6 +189,7 @@ def initialize_database(flask_app):
         if False in table_existence:
             ORMBase.metadata.bind = biobarcoding.engine
             ORMBase.metadata.create_all()
+        sa.orm.configure_mappers()
         # connection = biobarcoding.engine.connect()
         # table_existence = [biobarcoding.engine.dialect.has_table(connection, tables[t].name) for t in tables]
         # connection.close()
