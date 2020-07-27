@@ -9,6 +9,7 @@ class TaxonomyAPI(MethodView):
     """
     Taxonomy Resource
     """
+    @token_required
     def get(self, id=None):
         msg = f'GET {request.path}\nGetting taxonomy {id}'
         print(msg)
@@ -20,7 +21,7 @@ class TaxonomyAPI(MethodView):
         }
         return make_response(jsonify(responseObject)), 200
 
-
+    @token_required
     def post(self):
         msg = f'POST {request.path}\nCreating taxonomy'
         print(msg)
@@ -32,7 +33,7 @@ class TaxonomyAPI(MethodView):
         }
         return make_response(jsonify(responseObject)), 200
 
-
+    @token_required
     def delete(self, id):
         msg = f'DELETE {request.path}\nDeleting taxonomy {id}'
         print(msg)
