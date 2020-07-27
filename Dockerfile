@@ -93,7 +93,7 @@ VOLUME /srv
 # needs to be set else Celery gives an error (because docker runs commands inside container as root)
 ENV C_FORCE_ROOT=1
 
-# gunicorn --workers=1 --log-level=debug --timeout=2000 --bind 0.0.0.0:80 nexinfosys.restful_service.service_main:app
+# gunicorn --workers=1 --log-level=debug --timeout=2000 --bind 0.0.0.0:80 biobarcoding.rest.main:app
 #CMD ["/usr/local/bin/gunicorn", "--workers=3", "--log-level=debug", "--timeout=2000", "--bind", "0.0.0.0:80", "biobarcoding.rest.main:app"]
 # Run supervisord
 CMD ["supervisord", "-c", "/etc/supervisord.conf"]
