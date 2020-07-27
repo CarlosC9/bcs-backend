@@ -73,7 +73,7 @@ setup(
     name=package_name,
     version=version,
     install_requires=install_reqs,
-    packages=['biobarcoding', 'biobarcoding.common', 'biobarcoding.models',
+    packages=['biobarcoding', 'biobarcoding.common', 'biobarcoding.db_models',
               'biobarcoding.io',
               'biobarcoding.authentication', 'biobarcoding.authorization', 'biobarcoding.services',
               'biobarcoding.rest'],

@@ -2,8 +2,12 @@ from copy import deepcopy
 
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker, class_mapper, ColumnProperty, RelationshipProperty
+from sqlalchemy_continuum import make_versioned
+
+make_versioned(user_cls=None)
 
 DBSession = scoped_session(sessionmaker())
+print("DBSESSIONED!!!")
 
 
 class BaseMixin(object):

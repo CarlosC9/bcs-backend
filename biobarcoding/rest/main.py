@@ -17,32 +17,44 @@ from biobarcoding.rest.io import bp_io
 from biobarcoding.rest.job import bp_job
 from biobarcoding.rest.jobqueue import bp_jobqueue
 from biobarcoding.rest.gui_static import bp_gui
+from biobarcoding.tasks import initialize_celery
 
+# Flask and configuration file
 
 app = Flask(__name__)
 app.debug = True
 UPLOAD_FOLDER = '/tmp/'
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 load_configuration_file(app)
-initialize_database(app)
-d = construct_session_persistence_backend(app)
-app.config.update(d)
-
 FlaskSessionServerSide(app)  # Flask Session
 CORS(app,                    # CORS
      resources={r"/api/*": {"origins": "*"}},
      supports_credentials=True
      )
-app.logger.setLevel(log_level)
-logger.setLevel(log_level)
 
 # for bp in [bp_bos, bp_gui]:
 for bp in [bp_auth,bp_bos,bp_seq,bp_msa,bp_phylo,bp_ansis,bp_onto,bp_taxon,bp_io,bp_job,bp_jobqueue,bp_gui]:
     app.register_blueprint(bp)
 
+# Database
+initialize_database(app)
+
+# Session persistence
+d = construct_session_persistence_backend(app)
+app.config.update(d)
+
+# Celery
+initialize_celery(app)
+
+# Logger
+app.logger.setLevel(log_level)
+logger.setLevel(log_level)
+
 
 @app.route("/test")
 def test_rest_open():
+    from biobarcoding.tasks.definitions import add
+    add.delay(2, 3)
     return "<h1 style='color:blue'>Test!</h1>"
 
 

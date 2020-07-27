@@ -10,7 +10,8 @@ from sqlalchemy.pool import StaticPool
 import biobarcoding
 from biobarcoding.common import generate_json
 from biobarcoding.common.gp_helpers import create_pg_database_engine, load_table
-from biobarcoding.models import DBSession, ORMBase
+from biobarcoding.db_models import DBSession, ORMBase
+from biobarcoding.db_models.bioinformatics import *
 
 bcs_api_base = "/api"  # Base for all RESTful calls
 bcs_gui_base = "/gui"  # Base for the Angular2 GUI
@@ -29,9 +30,15 @@ def build_json_response(obj, status=200):
 
 def prepare_default_configuration(create_directories):
     def default_directories(path, tmp_path):
+        REDIS_HOST = "redis"
+        REDIS_PORT = 6379
+        BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
+        BACKEND_URL = BROKER_URL
         return {
             "DB_CONNECTION_STRING": f"sqlite:///{path}/bcs.db",
             "CACHE_FILE_LOCATION": f"{tmp_path}/cache",
+            "CELERY_BROKER_URL": BROKER_URL,
+            "CELERY_BACKEND_URL": BACKEND_URL,
             "REDIS_HOST_FILESYSTEM_DIR": f"{tmp_path}/sessions",
         }
 
@@ -182,6 +189,7 @@ def initialize_database(flask_app):
         if False in table_existence:
             ORMBase.metadata.bind = biobarcoding.engine
             ORMBase.metadata.create_all()
+        sa.orm.configure_mappers()
         # connection = biobarcoding.engine.connect()
         # table_existence = [biobarcoding.engine.dialect.has_table(connection, tables[t].name) for t in tables]
         # connection.close()

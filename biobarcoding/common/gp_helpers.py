@@ -4,7 +4,7 @@ import sqlalchemy
 from multidict import MultiDict, CIMultiDict
 
 import biobarcoding
-from biobarcoding.models import ORMBase
+from biobarcoding.db_models import ORMBase
 
 
 # #####################################################################################################################
