@@ -11,12 +11,10 @@ from biobarcoding.rest.bos import bp_bos
 from biobarcoding.rest.seq import bp_seq
 from biobarcoding.rest.msa import bp_msa
 from biobarcoding.rest.phylo import bp_phylo
-from biobarcoding.rest.ansis import bp_ansis
-from biobarcoding.rest.onto import bp_onto
-from biobarcoding.rest.taxon import bp_taxon
-from biobarcoding.rest.in_out import bp_io
-from biobarcoding.rest.job import bp_job
-from biobarcoding.rest.jobqueue import bp_jobqueue
+from biobarcoding.rest.meta import bp_meta
+from biobarcoding.rest.io import bp_io
+from biobarcoding.rest.jobs import bp_jobs
+from biobarcoding.rest.tasks import bp_tasks
 from biobarcoding.rest.gui_static import bp_gui
 from biobarcoding.tasks import initialize_celery
 
@@ -33,7 +31,8 @@ CORS(app,                    # CORS
      supports_credentials=True
      )
 
-for bp in [bp_auth, bp_bos, bp_seq, bp_msa, bp_phylo, bp_ansis, bp_onto, bp_taxon, bp_io, bp_job, bp_jobqueue, bp_gui]:
+# for bp in [bp_bos, bp_gui]:
+for bp in [bp_auth, bp_bos, bp_seq, bp_msa, bp_phylo, bp_meta, bp_io, bp_jobs, bp_tasks, bp_gui]:
     app.register_blueprint(bp)
 
 # Database
