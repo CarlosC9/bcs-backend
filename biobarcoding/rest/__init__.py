@@ -10,8 +10,9 @@ from sqlalchemy.pool import StaticPool
 import biobarcoding
 from biobarcoding.common import generate_json
 from biobarcoding.common.gp_helpers import create_pg_database_engine, load_table
-from biobarcoding.db_models import DBSession, ORMBase
+from biobarcoding.db_models import DBSession, ORMBase, ObjectType
 from biobarcoding.db_models.bioinformatics import *
+from biobarcoding.db_models.sysadmin import Identity, Authenticator, PermissionType
 
 bcs_api_base = "/api"  # Base for all RESTful calls
 bcs_gui_base = "/gui"  # Base for the Angular2 GUI
@@ -145,23 +146,59 @@ def construct_session_persistence_backend(flask_app):
     return d
 
 
+# "22bc2577-883a-4408-bba9-fcace20c0fc8":
+# "e80a7d27-3ec8-4aa1-b49c-5498e0f85bee":
+# "d30120f0-28df-4bca-90e4-4f0676d1c874":
+# "83084df6-7ad0-45d7-b3f1-6de594c78611":
+# "7e23991b-24a0-4da1-8251-c3c3434dfb87":
+# "bfc0c9fe-631f-44d0-8e96-e22d01ffb1ed":
+# "dec7e901-b3f4-4343-b3d1-4fa5fbf3804e":
+# "013b2f3b-4b2f-4b6c-8f5f-425132aea74b":
+# "3eef41be-fde1-4ad4-92d0-fe795158b41d":
+# "0fba3591-4ffc-4a88-977a-6e1d922f0735":
+# "a61fc587-1272-4d46-bdd0-027cde1b8a78":
+# "600397ef-0102-486e-a6f7-d43b0f8ce4b9":
+# "763e57b7-2636-4c04-9861-d865fe0bb5ab":
+# "788065a7-d9f5-46fa-b8ba-8bc223d09331":
+# "38fb34f7-a952-4036-9b0b-4d6c59e8f8d4":
+# "0292821a-dd33-450a-bdd8-813b2b95c456":
+
+tm_object_types = {  # ObjectType
+    "22bc2577-883a-4408-bba9-fcace20c0fc8": "sequence",
+    "e80a7d27-3ec8-4aa1-b49c-5498e0f85bee": "multiple-sequence-alignment",
+    "d30120f0-28df-4bca-90e4-4f0676d1c874": "phylogenetic-tree",
+    "83084df6-7ad0-45d7-b3f1-6de594c78611": "geographic-layer",
+    "7e23991b-24a0-4da1-8251-c3c3434dfb87": "sequence-alignment"
+}
+
+tm_permissions = {  # PermissionType
+    "f19ad19f-0a74-44e8-bd4e-4762404a35aa": "read",
+    "04cac7ca-a90b-4d12-a966-d8b0c77fca70": "annotate",
+    "d0924822-32fa-4456-8143-0fd48da33fd7": "contribute",
+    "83d837ab-01b2-4260-821b-8c4a3c52e9ab": "share",
+    "d3137471-84a0-4bcf-8dd8-16387ea46a30": "delete"
+}
+
+tm_default_users = {  # Identities
+    "f3848599-4aa3-4964-b7e1-415d478560be": "admin",
+    "2a512320-cef7-41c6-a141-8380d900761b": "_anonymous",
+    "27c6a285-dd80-44d3-9493-3e390092d301": "test_user",
+}
+
+tm_authenticators = {  # Authenticator
+    "b33193c3-63b9-49f7-b888-ceba619d2812": "firebase-google",
+    "c09fa36b-62a3-4904-9600-e3bb5028d809": "firebase-facebook",
+    "f510cb30-7a44-4cb1-86f5-1b112e43293a": "firebase-mail",
+    "5f32a593-306f-4b69-983c-0a5680556fae": "local",
+}
+
+
 def initialize_database_data():
     # Load base tables
-    # load_table(DBSession, User, tm_default_users)
-    # load_table(DBSession, Authenticator, tm_authenticators)
-    # load_table(DBSession, CaseStudyStatus, tm_case_study_version_statuses)
-    # load_table(DBSession, ObjectType, tm_object_types)
-    # load_table(DBSession, PermissionType, tm_permissions)
-    # # Create and insert a user
-    # session = DBSession()
-    # # Create test User, if it does not exist
-    # u = session.query(User).filter(User.name == 'test_user').first()
-    # if not u:
-    #     u = User()
-    #     u.name = "test_user"
-    #     u.uuid = "27c6a285-dd80-44d3-9493-3e390092d301"
-    #     session.add(u)
-    #     session.commit()
+    load_table(DBSession, Identity, tm_default_users)
+    load_table(DBSession, Authenticator, tm_authenticators)
+    load_table(DBSession, ObjectType, tm_object_types)
+    load_table(DBSession, PermissionType, tm_permissions)
     DBSession.remove()
 
 
@@ -182,6 +219,7 @@ def initialize_database(flask_app):
 
         # global DBSession # global DBSession registry to get the scoped_session
         DBSession.configure(bind=biobarcoding.engine)  # reconfigure the sessionmaker used by this scoped_session
+        sa.orm.configure_mappers()  # Important for SQLAlchemy-Continuum
         tables = ORMBase.metadata.tables
         connection = biobarcoding.engine.connect()
         table_existence = [biobarcoding.engine.dialect.has_table(connection, tables[t].name) for t in tables]
@@ -189,10 +227,10 @@ def initialize_database(flask_app):
         if False in table_existence:
             ORMBase.metadata.bind = biobarcoding.engine
             ORMBase.metadata.create_all()
-        sa.orm.configure_mappers()
         # connection = biobarcoding.engine.connect()
         # table_existence = [biobarcoding.engine.dialect.has_table(connection, tables[t].name) for t in tables]
         # connection.close()
+
         # Load base tables
         initialize_database_data()
     else:
