@@ -1,6 +1,6 @@
 import datetime
 
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, JSON
 from sqlalchemy.orm import relationship, backref
 
 from biobarcoding.db_models import ORMBase, GUID, ObjectType
@@ -12,9 +12,12 @@ class Format:
 
 # AUTHENTICATION / AUTHORIZATION
 
+prefix = "sa_auth_"
+
+
 class Authenticator(ORMBase):  # CODES
     """ List of valid authenticators """
-    __tablename__ = "authenticators"
+    __tablename__ = f"{prefix}authenticators"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(GUID, unique=True)
@@ -27,7 +30,7 @@ class Identity(ORMBase):
      Users can have one or more authenticators
      Permissions (ACLs) are assigned to Identities or Groups of identities """
     __versioned__ = {}
-    __tablename__ = "identities"
+    __tablename__ = f"{prefix}identities"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(GUID, unique=True)
@@ -39,7 +42,7 @@ class Identity(ORMBase):
 
 class IdentityAuthenticator(ORMBase):
     """ Recognized identity authenticator """
-    __tablename__ = "identities_authenticators"
+    __tablename__ = f"{prefix}identities_authenticators"
 
     identity_id = Column(Integer, ForeignKey(Identity.id), nullable=False, primary_key=True)
     identity = relationship(Identity, backref=backref("authenticators", cascade="all, delete-orphan"))
@@ -50,7 +53,7 @@ class IdentityAuthenticator(ORMBase):
 
 
 class Group(ORMBase):
-    __tablename__ = "groups"
+    __tablename__ = f"{prefix}groups"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(GUID, unique=True)
@@ -58,7 +61,7 @@ class Group(ORMBase):
 
 
 class GroupIdentity(ORMBase):
-    __tablename__ = "groups_identities"
+    __tablename__ = f"{prefix}groups_identities"
     group_id = Column(Integer, ForeignKey(Group.id), nullable=False, primary_key=True)
     identity_id = Column(Integer, ForeignKey(Identity.id), nullable=False, primary_key=True)
     group = relationship(Group, backref=backref("identities", cascade="all, delete-orphan"))
@@ -66,7 +69,7 @@ class GroupIdentity(ORMBase):
 
 
 class PermissionType(ORMBase):  # CODES
-    __tablename__ = "permission_types"
+    __tablename__ = f"{prefix}permission_types"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(GUID, nullable=False)  # Object ID (ACL are on objects with UUID)
@@ -75,7 +78,7 @@ class PermissionType(ORMBase):  # CODES
 
 class ACL(ORMBase):
     """ List of permissions on an object. The detail """
-    __tablename__ = "permissions"
+    __tablename__ = f"{prefix}permissions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(GUID, nullable=False)  # Object ID (ACL are on objects with UUID)
@@ -84,7 +87,7 @@ class ACL(ORMBase):
 
 
 class ACLDetail(ORMBase):
-    __tablename__ = "permissions_detail"
+    __tablename__ = f"{prefix}permissions_detail"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     acl_id = Column(Integer, ForeignKey(ACL.id))
@@ -97,8 +100,29 @@ class ACLDetail(ORMBase):
 
 # TASKS
 
-class Task:  # Celery task
+prefix = "sa_task_"
+
+
+class TaskStatus(ORMBase):
+    __tablename__ = f"{prefix}statuses"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(GUID, nullable=False)  # Object ID
+    name = Column(String(80))
+
+
+class Task(ORMBase):  # Celery task
     """
     Submitted task -To Celery-. Status, log, result, start/end time
     """
-    pass
+    __tablename__ = f"{prefix}instances"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(GUID, nullable=False)  # Object ID (ACL are on objects with UUID)
+    description = Column(String(80))
+    params = Column(JSON)
+    creation_time = Column(DateTime, default=datetime.datetime.utcnow())
+    finalization_time = Column(DateTime)
+    status = Column(Integer, ForeignKey(TaskStatus.id))
+    log = Column(Text)
+

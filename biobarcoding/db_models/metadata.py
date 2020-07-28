@@ -1,15 +1,37 @@
+from sqlalchemy import Column, Integer, String
 
-class Ontology:
-    pass
+from biobarcoding.db_models import ORMBase, GUID
 
-
-class Publication:
-    pass
+prefix = "md_"
 
 
-class Taxonomy:
-    pass
+class Ontology(ORMBase):
+    __tablename__ = f"{prefix}ontologies"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(GUID, unique=True)
+    name = Column(String(80))
 
 
-class Taxon:
-    pass
+class Publication(ORMBase):
+    __tablename__ = f"{prefix}publications"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(GUID, unique=True)
+    name = Column(String(80))
+
+
+class Taxonomy(ORMBase):
+    __tablename__ = f"{prefix}taxonomies"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(GUID, unique=True)
+    name = Column(String(80))
+
+
+class Taxon(ORMBase):
+    __tablename__ = f"{prefix}taxa"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(GUID, unique=True)
+    name = Column(String(80))

@@ -5,6 +5,7 @@ import sys
 import redis
 import sqlalchemy
 from flask import Response
+from sqlalchemy import orm
 from sqlalchemy.pool import StaticPool
 
 import biobarcoding
@@ -12,7 +13,10 @@ from biobarcoding.common import generate_json
 from biobarcoding.common.gp_helpers import create_pg_database_engine, load_table
 from biobarcoding.db_models import DBSession, ORMBase, ObjectType
 from biobarcoding.db_models.bioinformatics import *
-from biobarcoding.db_models.sysadmin import Identity, Authenticator, PermissionType
+from biobarcoding.db_models.sysadmin import *
+from biobarcoding.db_models.geographics import *
+from biobarcoding.db_models.metadata import *
+from biobarcoding.db_models.jobs import *
 
 bcs_api_base = "/api"  # Base for all RESTful calls
 bcs_gui_base = "/gui"  # Base for the Angular2 GUI
@@ -219,7 +223,7 @@ def initialize_database(flask_app):
 
         # global DBSession # global DBSession registry to get the scoped_session
         DBSession.configure(bind=biobarcoding.engine)  # reconfigure the sessionmaker used by this scoped_session
-        sa.orm.configure_mappers()  # Important for SQLAlchemy-Continuum
+        orm.configure_mappers()  # Important for SQLAlchemy-Continuum
         tables = ORMBase.metadata.tables
         connection = biobarcoding.engine.connect()
         table_existence = [biobarcoding.engine.dialect.has_table(connection, tables[t].name) for t in tables]
