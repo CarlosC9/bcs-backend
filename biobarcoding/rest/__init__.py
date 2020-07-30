@@ -45,6 +45,7 @@ def prepare_default_configuration(create_directories):
             "CELERY_BROKER_URL": BROKER_URL,
             "CELERY_BACKEND_URL": BACKEND_URL,
             "REDIS_HOST_FILESYSTEM_DIR": f"{tmp_path}/sessions",
+            "GOOGLE_APPLICATION_CREDENTIALS": f"{path}/firebase-key.json"
         }
 
     from appdirs import AppDirs
@@ -240,4 +241,3 @@ def initialize_database(flask_app):
     else:
         print("No database connection defined (DB_CONNECTION_STRING), exiting now!")
         sys.exit(1)
-

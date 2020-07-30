@@ -2,6 +2,7 @@
 .idea
 .mypy_cache
 /venv/
+sqlite:
 
 build/
 dist/
