@@ -1,7 +1,7 @@
 #!/bin/bash
 # REDIS
 if [ ! "$(docker ps -q -f name=redis)" ]; then
-  docker run -name redis --rm -d -p 6379:6379 redis
+  docker run -n redis --rm -d -p 6379:6379 redis
 fi
 
 # PostgreSQL
@@ -17,7 +17,7 @@ fi
 if ["$(whoami)" == "rnebot"]; then
   cd ~/GoogleDrive/AA_NEXTGENDEM/bcs-backend/
 elif [ "$(whoami)" == "acurbelo" ]; then
-  cd .
+  cd ~/Proyectos/NEXTGENDEM/bcs-backend/
 fi
 
 # CELERY

@@ -12,7 +12,7 @@ from biobarcoding.rest.seq import bp_seq
 from biobarcoding.rest.msa import bp_msa
 from biobarcoding.rest.phylo import bp_phylo
 from biobarcoding.rest.meta import bp_meta
-from biobarcoding.rest.io import bp_io
+from biobarcoding.rest.in_out import bp_io
 from biobarcoding.rest.jobs import bp_jobs
 from biobarcoding.rest.tasks import bp_tasks
 from biobarcoding.rest.gui_static import bp_gui

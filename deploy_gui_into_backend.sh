@@ -1,7 +1,13 @@
 #!/bin/bash
 # Script to compile "bcs-gui" and deploy it into "bcs-backend", inside "static_gui" directory
 
-cd ~/Proyectos/NEXTGENDEM/bcs-gui/
+if ["$(whoami)" == "rnebot"]; then
+  ngddir = ~/GoogleDrive/AA_NEXTGENDEM
+elif [ "$(whoami)" == "acurbelo" ]; then
+  ngddir = ~/Proyectos/NEXTGENDEM
+fi
+# CD
+cd $ngddir/bcs-gui
 # Update Javascript packages
 npm install
 # Clear everything in the "dist" directory
@@ -11,6 +17,6 @@ rm dist -fr
 ng build --prod --aot --base-href /gui/
 
 # Delete GUI files in the "bcs-backend" project
-rm ~/Proyectos/NEXTGENDEM/bcs-backend/biobarcoding/static_gui/* -fr
+rm $ngddir/bcs-backend/biobarcoding/static_gui/* -fr
 # Copy just compiled bcs-gui files into "bcs-backend" project
-cp -r ~/Proyectos/NEXTGENDEM/bcs-gui/dist/bcs-gui/* ~/Proyectos/NEXTGENDEM/bcs-backend/biobarcoding/static_gui
+cp -r $ngddir/bcs-gui/dist/bcs-gui/* $ngddir/bcs-backend/biobarcoding/static_gui

@@ -7,10 +7,12 @@ from flask import request, abort
 from functools import wraps
 import os
 import firebase_admin
-from firebase_admin import credentials
+from firebase_admin import credentials, auth
 
-cert_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
-
+from biobarcoding import flask_app
+# cert_path = flask_app.config['GOOGLE_APPLICATION_CREDENTIALS']
+# cert_path = '/home/acurbelo/.local/share/bcs-backend/firebase-key.json'
+cert_path = '../firebase-key.json'
 cred = credentials.Certificate(cert_path)
 firebase_app = firebase_admin.initialize_app(cred)
 
@@ -24,7 +26,7 @@ def token_required(func):
         if not auth_token:
             abort(401, 'The session token is missing')
         try:
-            print(firebase_admin.auth.verify_id_token(auth_token))
+            print(auth.verify_id_token(auth_token))
             # current_user = User.query.filter(User.id == user_id).first()
         except Exception as e:
             print(e)
