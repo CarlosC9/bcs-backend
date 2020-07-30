@@ -3,6 +3,7 @@ from flask import (Flask, Response, request, session as flask_session, send_from
 from flask_session import Session as FlaskSessionServerSide
 from flask_cors import CORS
 
+import biobarcoding
 from biobarcoding.rest import logger, log_level, load_configuration_file, construct_session_persistence_backend, \
     initialize_database
 from biobarcoding.rest.auth import bp_auth
@@ -49,12 +50,14 @@ initialize_celery(app)
 app.logger.setLevel(log_level)
 logger.setLevel(log_level)
 
+biobarcoding.flask_app = app
+
 
 @app.route("/test")
 def test_rest_open():
     from biobarcoding.tasks.definitions import add
-    add.delay(2, 3)
-    return "<h1 style='color:blue'>Test!</h1>"
+    # add.delay(2, 3)
+    return f"<h1 style='color:blue'>{biobarcoding.flask_app['DB_CONNECTION_STRING']}!</h1>"
 
 
 @app.after_request
