@@ -1,11 +1,10 @@
-from flask import (Flask, Response, request, session as flask_session, send_from_directory
-                   )
+from flask import (Flask, request, session as flask_session, redirect, current_app)
 from flask_session import Session as FlaskSessionServerSide
 from flask_cors import CORS
 
 import biobarcoding
 from biobarcoding.rest import logger, log_level, load_configuration_file, construct_session_persistence_backend, \
-    initialize_database
+    initialize_database, bcs_gui_base
 from biobarcoding.rest.auth import bp_auth
 from biobarcoding.rest.bos import bp_bos
 from biobarcoding.rest.seq import bp_seq
@@ -52,11 +51,16 @@ logger.setLevel(log_level)
 biobarcoding.flask_app = app
 
 
+@app.route("/")
+def index():
+    return redirect(bcs_gui_base)
+
+
 @app.route("/test")
 def test_rest_open():
     from biobarcoding.tasks.definitions import add
     # add.delay(2, 3)
-    return f"<h1 style='color:blue'>{biobarcoding.flask_app['DB_CONNECTION_STRING']}!</h1>"
+    return f"<h1 style='color:blue'>{biobarcoding.flask_app.config['DB_CONNECTION_STRING']}!<br>{current_app.config['DB_CONNECTION_STRING']}</h1>"
 
 
 @app.after_request
