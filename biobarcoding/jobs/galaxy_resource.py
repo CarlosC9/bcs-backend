@@ -57,34 +57,37 @@ def create_library(gi, library_name):
 
 
 
-def create_input(step, source, d_id):
+def create_input(step, source,id):
     '''
     Create a rorkflow input
     :param step:  step input
     :param source: 'hdda' (history); 'lbda' (library)
-    :param d_id: dataset id
+    :param id: dataset id
     :return: Input dictionary
     '''
     datamap = dict()
-    datamap[step] = {'id': d_id, 'src': source}
+    datamap[step] = {'id': id, 'src': source}
     return datamap
 
 
-def run_workflow(gi , name: 'str', input_path: 'str', *, step_input: 'str' ='1', history_name: 'str' ='defoult_library'):
+def run_workflow(gi , name: 'str', input_path: 'str',input_name, *, step_index: 'str' ='0', history_name: 'str' ='Test_History'):
     '''
     Directly run a workflow from a local file
-
     #1 Create New History
     #2 Upload Dataset
-    #3 create the new input
+    #3 create the new input usinf upload_file tool in the History just created
     #4 Invoke the Workflow in the new History -> this Generates: id (como WorkflowInvocation), workflow_id, history_id, y cada step de ese Workflow invocation tendrá un Job ID
     '''
     h_id = gi.histories.create_history(name=history_name)['id']
-    gi.tools.upload_file(input_path, h_id)
+    d_id = gi.tools.upload_file(input_path, h_id, filename= input_name)['outputs'][0]['id']
     w_id = workflow_id(gi, name)
-    datamap = create_input(step_input, 'hda', input_path)  # tengo que cambiar mel input path?? prbar
-    w_invk_id = gi.workflows.invoke_workflow(w_id, inputs=datamap, history_id=h_id)['id']
-    return w_invk_id
+    dataset = {'src': 'hda', 'id': d_id}
+    invocation = gi.workflows.invoke_workflow(w_id,
+                                              inputs={step_index: dataset},
+                                              history_id=h_id,
+                                              inputs_by='step_index',
+                                              )
+    return invocation
 
 def list_invocation_results(gi,invocation_id):
     '''
