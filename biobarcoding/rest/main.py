@@ -16,6 +16,7 @@ from biobarcoding.rest.jobs import bp_jobs
 from biobarcoding.rest.tasks import bp_tasks
 from biobarcoding.rest.gui_static import bp_gui
 from biobarcoding.tasks import initialize_celery
+from biobarcoding.authentication import initialize_firebase
 
 # Flask and configuration file
 
@@ -33,10 +34,7 @@ def create_app(debug, cfg_dict=None):
     UPLOAD_FOLDER = '/tmp/'
     app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-    if not cfg_dict:
-        load_configuration_file(app)
-    else:
-        app.config.from_mapping(**cfg_dict)
+    initialize_firebase(app)
 
     FlaskSessionServerSide(app)  # Flask Session
     CORS(app,                    # CORS
