@@ -31,7 +31,7 @@ class JobAPI(MethodView):
 
     def post(self):
         # Submit new Job
-        msg = f'POST {request.path}\nPosting job {id}'
+        msg = f'POST {request.path}\nPosting job'
         responseObject = {
         'status': 'success',
         'message': msg
