@@ -4,7 +4,7 @@ import sys
 
 import redis
 import sqlalchemy
-from flask import Response
+from flask import Response, Blueprint
 from sqlalchemy import orm
 from sqlalchemy.pool import StaticPool
 
@@ -241,3 +241,10 @@ def initialize_database(flask_app):
     else:
         print("No database connection defined (DB_CONNECTION_STRING), exiting now!")
         sys.exit(1)
+
+
+def register_api(bp: Blueprint, view, endpoint: str, url: str, pk='id', pk_type='int'):
+    view_func = view.as_view(endpoint)
+    bp.add_url_rule(url, defaults={pk: None}, view_func=view_func, methods=['GET'])
+    bp.add_url_rule(url, view_func=view_func, methods=['POST'])
+    bp.add_url_rule(f'{url}<{pk_type}:{pk}>', view_func=view_func, methods=['GET', 'PUT', 'DELETE'])
