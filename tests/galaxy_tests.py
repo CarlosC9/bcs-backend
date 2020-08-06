@@ -25,13 +25,12 @@ class MyTestCase(unittest.TestCase):
         gi = login(user_key,url=url)
         fn = 'data_test/ls_orchid.fasta'
         invocation = run_workflow(gi,"Workflow_Input",fn,'marK1')
-        results = list_invocation_results(gi,invocation_id=invocation['id'])
-        download_result(gi,results,'data_test/')
-        # history_state = gi.histories.show_history(invocation['history_id'])['state']
-        # self.assertEqual (history_state,'ok',"No Workflow running")
-        self.assertIsInstance(results,list,'There are no results')
-
-
+        state = invocation['state']
+        self.assertEqual(state,'new','invocation failed')
+        # TODO control job execution
+        #results = list_invocation_results(gi,invocation_id=invocation['id'])
+        #download_result(gi,results,'data_test/')
+        #self.assertIsInstance(results,list,'There are no results')
 
 
 

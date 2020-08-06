@@ -1,7 +1,7 @@
 from bioblend import galaxy
 
 
-def login(api_key, url):
+def login(api_key:'str', url:'str'):
     user_key = api_key
     gi = galaxy.GalaxyInstance(url=url, key=user_key)
     return gi
@@ -12,7 +12,7 @@ def library_list(gi):
     return libraries
 
 
-def library_id(gi,libname: 'library name to search'):
+def library_id(gi,libname: 'str'):
     libraries = gi.libraries.get_libraries()
     lib = next(item for item in libraries if item["name"] == libname)
     return lib['id']
@@ -23,7 +23,7 @@ def workflow_list(gi):
     return workflows
 
 
-def workflow_id(gi, name: 'library name to search'):
+def workflow_id(gi, name: 'str'):
     workflows = gi.workflows.get_workflows()
     work = next(item for item in workflows if item["name"] == name)
     return work['id']
@@ -34,13 +34,13 @@ def dataset_list(gi):
     return datasets
 
 
-def dataset_id(gi, name: 'libraty name to search'):
+def dataset_id(gi, name: 'str'):
     datasets = dataset_list(gi)
     dat = next(item for item in datasets if item["name"] == name)
     return dat['id']
 
 
-def create_library(gi, library_name):
+def create_library(gi, library_name: 'str'):
     '''
     look for a library or creates a new library if it donst exists.
     Returns the library id of the dirst library finded with that name
@@ -57,7 +57,7 @@ def create_library(gi, library_name):
 
 
 
-def create_input(step, source,id):
+def create_input(step: 'str', source:'str',id:'str'):
     '''
     Create a rorkflow input
     :param step:  step input
@@ -70,13 +70,21 @@ def create_input(step, source,id):
     return datamap
 
 
-def run_workflow(gi , name: 'str', input_path: 'str',input_name, *, step_index: 'str' ='0', history_name: 'str' ='Test_History'):
+def run_workflow(gi , name: 'str', input_path: 'str',input_name, *, step_index: 'str' ='0', history_name: 'str' ='Test_History')->'dict':
     '''
     Directly run a workflow from a local file
     #1 Create New History
     #2 Upload Dataset
     #3 create the new input usinf upload_file tool in the History just created
     #4 Invoke the Workflow in the new History -> this Generates: id (como WorkflowInvocation), workflow_id, history_id, y cada step de ese Workflow invocation tendrá un Job ID
+
+    :param gi: Falaxy Instance
+    :param name: Workflow Name
+    :param input_path: Input path
+    :param input_name: Name
+    :param step_index: Input step index
+    :param history_name: Name of the history where the workflow will bw invocated. If this history does not exist ir will be created
+    :return:an invocation dictionary
     '''
     h_id = gi.histories.create_history(name=history_name)['id']
     d_id = gi.tools.upload_file(input_path, h_id, filename= input_name)['outputs'][0]['id']
@@ -89,8 +97,9 @@ def run_workflow(gi , name: 'str', input_path: 'str',input_name, *, step_index: 
                                               )
     return invocation
 
-def list_invocation_results(gi,invocation_id):
+def list_invocation_results(gi,invocation_id: 'str'):
     '''
+    Generates a list of results from an invocation
     :param gi: Galaxy Instance
     :param invocation_id: Workgflow Invocation Id
     :return: a list of dictionary of datasets or a error
@@ -107,9 +116,9 @@ def list_invocation_results(gi,invocation_id):
 
 
 
-def download_result(gi, results, path):
+def download_result(gi, results:'list', path:'str'):
     '''
-
+    Download invocation result
     :param gi: Galaxy Instance
     :param invocation_id:Workgflow Invocation Id
     :param name: list of dictionaties of datasets
@@ -121,10 +130,6 @@ def download_result(gi, results, path):
     else:
         print(results)
 
-
-
-def show_jobs():
-    pass
 
 
 
