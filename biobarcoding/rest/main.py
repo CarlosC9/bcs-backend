@@ -16,6 +16,7 @@ from biobarcoding.rest.jobs import bp_jobs
 from biobarcoding.rest.tasks import bp_tasks
 from biobarcoding.rest.gui_static import bp_gui
 from biobarcoding.tasks import initialize_celery
+from biobarcoding.authentication import initialize_firebase
 
 # Flask and configuration file
 
@@ -43,6 +44,9 @@ app.config.update(d)
 
 # Celery
 initialize_celery(app)
+
+# Firebase
+initialize_firebase(app)
 
 # Logger
 app.logger.setLevel(log_level)
