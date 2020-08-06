@@ -97,6 +97,16 @@ def run_workflow(gi , name: 'str', input_path: 'str',input_name, *, step_index: 
                                               )
     return invocation
 
+def invocation_percent_complete(gi,invocation)->'int':
+    status = gi.histories.get_status(invocation['history_id'])
+    return status['percent_complete']
+
+def invocation_errors(gi,invocation)->'int':
+    status = gi.histories.get_status(invocation['history_id'])
+    return status['state_details']['error']
+
+
+
 def list_invocation_results(gi,invocation_id: 'str'):
     '''
     Generates a list of results from an invocation

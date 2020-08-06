@@ -1,7 +1,7 @@
 import unittest
 from pathlib import Path
 from bioblend import galaxy
-from biobarcoding.jobs.galaxy_resource import login,run_workflow,download_result,list_invocation_results
+from biobarcoding.jobs.galaxy_resource import login,run_workflow,download_result,list_invocation_results,invocation_percent_complete,invocation_errors
 
 class MyTestCase(unittest.TestCase):
     def test_upload_file(self):
@@ -27,10 +27,13 @@ class MyTestCase(unittest.TestCase):
         invocation = run_workflow(gi,"Workflow_Input",fn,'marK1')
         state = invocation['state']
         self.assertEqual(state,'new','invocation failed')
-        # TODO control job execution
-        #results = list_invocation_results(gi,invocation_id=invocation['id'])
-        #download_result(gi,results,'data_test/')
-        #self.assertIsInstance(results,list,'There are no results')
+        while invocation_errors(gi, invocation) == 0 and invocation_percent_complete(gi, invocation) < 100:
+            pass
+        errors = invocation_errors(gi,invocation)
+        self.assertEqual(errors,0,'There is an error in the invocation')
+        results = list_invocation_results(gi,invocation_id=invocation['id'])
+        download_result(gi,results,'data_test/')
+        self.assertIsInstance(results,list,'There are no results')
 
 
 
