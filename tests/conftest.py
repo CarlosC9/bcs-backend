@@ -1,7 +1,7 @@
 import os
 
 import pytest
-import chromedriver_binary  # Overwrite "chromedriver" installed by the package with one of a version matching Chrome installed in the machine
+# import chromedriver_binary  # Overwrite "chromedriver" installed by the package with one of a version matching Chrome installed in the machine
 from selenium import webdriver
 from selenium.common.exceptions import StaleElementReferenceException
 from selenium.webdriver.chrome.options import Options
@@ -12,9 +12,31 @@ import time
 import ctypes.util
 import pyodbc
 from typing import Union
-from pyvirtualdisplay import Display
+# from pyvirtualdisplay import Display
 
 # scopes (broader to narrower): session, module, class, function (default)
+from biobarcoding.rest.main import create_app
+from pathlib import Path
+
+
+@pytest.fixture(scope="module")
+def testful():
+    home = str(Path.home())
+    cfg = dict(DB_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432/",
+               CACHE_FILE_LOCATION=f"{home}/.cache/bcs-backend/cache",
+               REDIS_HOST_FILESYSTEM_DIR=f"{home}/.cache/bcs-backend/sessions",
+               REDIS_HOST="filesystem:local_session",
+               TESTING="True",
+               SELF_SCHEMA="")
+    app = create_app(True, cfg)
+    testing_client = app.test_client()
+    ctx = app.app_context()
+    ctx.push()
+
+    yield testing_client
+
+    ctx.pop()
+    # TODO - ISSUE: "after_a_request" function seems to be not called. WHY? SOLVE
 
 
 @pytest.fixture(scope="session")
