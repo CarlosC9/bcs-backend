@@ -19,51 +19,77 @@ from biobarcoding.tasks import initialize_celery
 
 # Flask and configuration file
 
-app = Flask(__name__)
-app.debug = True
-UPLOAD_FOLDER = '/tmp/'
-app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
-load_configuration_file(app)
-FlaskSessionServerSide(app)  # Flask Session
-CORS(app,                    # CORS
-     resources={r"/api/*": {"origins": "*"}},
-     supports_credentials=True
-     )
 
-# for bp in [bp_bos, bp_gui]:
-for bp in [bp_auth, bp_bos, bp_seq, bp_msa, bp_phylo, bp_meta, bp_io, bp_jobs, bp_tasks, bp_gui]:
-    app.register_blueprint(bp)
+def create_app(debug, cfg_dict=None):
+    """
 
-# Database
-initialize_database(app)
+    TODO - Possible improvements, noted at: http://www.patricksoftwareblog.com/structuring-a-flask-project/
 
-# Session persistence
-d = construct_session_persistence_backend(app)
-app.config.update(d)
+    :return:
+    """
+    app = Flask(__name__)
+    app.debug = debug
 
-# Celery
-initialize_celery(app)
+    UPLOAD_FOLDER = '/tmp/'
+    app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
-# Logger
-app.logger.setLevel(log_level)
-logger.setLevel(log_level)
+    if not cfg_dict:
+        load_configuration_file(app)
+    else:
+        app.config.from_mapping(**cfg_dict)
 
-biobarcoding.flask_app = app
+    FlaskSessionServerSide(app)  # Flask Session
+    CORS(app,                    # CORS
+         resources={r"/api/*": {"origins": "*"}},
+         supports_credentials=True
+         )
+
+    for bp in [bp_auth,
+               bp_bos,
+               bp_seq,
+               bp_msa,
+               bp_phylo,
+               bp_meta,
+               bp_io,
+               bp_jobs,
+               bp_tasks,
+               bp_gui
+               ]:
+        app.register_blueprint(bp)
+
+    # Database
+    initialize_database(app)
+
+    # Session persistence
+    d = construct_session_persistence_backend(app)
+    app.config.update(d)
+
+    # Celery
+    initialize_celery(app)
+
+    # Logger
+    app.logger.setLevel(log_level)
+    logger.setLevel(log_level)
+
+    return app
 
 
-@app.route("/")
+biobarcoding.flask_app = create_app(True)
+
+
+@biobarcoding.flask_app.route("/")
 def index():
     return redirect(bcs_gui_base)
 
 
-@app.route("/test")
+@biobarcoding.flask_app.route("/test")
 def test_rest_open():
     from biobarcoding.tasks.definitions import add
     # add.delay(2, 3)
     return f"<h1 style='color:blue'>{biobarcoding.flask_app.config['DB_CONNECTION_STRING']}!<br>{current_app.config['DB_CONNECTION_STRING']}</h1>"
 
 
-@app.after_request
+@biobarcoding.flask_app.after_request
 def after_a_request(response):
     # Keep cookies ...
     for i in request.cookies.items():
@@ -71,10 +97,10 @@ def after_a_request(response):
 
     # ... except when Invalidation requested
     if "__invalidate__" in flask_session:
-        response.delete_cookie(app.session_cookie_name)
+        response.delete_cookie(current_app.session_cookie_name)
 
     return response
 
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0')
+    biobarcoding.flask_app.run(host='0.0.0.0')
