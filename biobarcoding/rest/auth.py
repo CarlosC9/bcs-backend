@@ -5,6 +5,7 @@ bp_auth = Blueprint('auth', __name__)
 
 from firebase_admin import auth
 
+# Access from bcs-sys through 'rev-proxy/conf.d/sub-auth.conf'
 @bp_auth.route("/auth", methods=["GET","POST","PUT","DELETE"])
 def token_verification():
     auth_token = None
