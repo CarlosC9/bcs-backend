@@ -45,7 +45,8 @@ def prepare_default_configuration(create_directories):
             "CELERY_BROKER_URL": BROKER_URL,
             "CELERY_BACKEND_URL": BACKEND_URL,
             "REDIS_HOST_FILESYSTEM_DIR": f"{tmp_path}/sessions",
-            "GOOGLE_APPLICATION_CREDENTIALS": f"{path}/firebase-key.json"
+            "GOOGLE_APPLICATION_CREDENTIALS": f"{path}/firebase-key.json",
+            "CHADO_CONF": f"{path}/chado_conf.yml"
         }
 
     from appdirs import AppDirs
