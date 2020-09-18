@@ -5,6 +5,9 @@ bp_msa = Blueprint('msa', __name__)
 from flask import request, make_response, jsonify
 from flask.views import MethodView
 
+from biobarcoding.rest import bcs_api_base
+
+
 class AlignAPI(MethodView):
     """
     Align Resource
@@ -123,24 +126,24 @@ class AlignFeatAPI(MethodView):
 
 msa = AlignAPI.as_view('msa_api')
 bp_msa.add_url_rule(
-    '/bo/msa/',
+    bcs_api_base + '/bo/msa/',
     view_func=msa,
     methods=['GET','POST']
 )
 bp_msa.add_url_rule(
-    '/bo/msa/<int:msa_id>',
+    bcs_api_base + '/bo/msa/<int:msa_id>',
     view_func=msa,
     methods=['GET','PUT','DELETE']
 )
 
 msa_feat = AlignFeatAPI.as_view('msa_feat_api')
 bp_msa.add_url_rule(
-    '/bo/msa/<msa_id>/feature/',
+    bcs_api_base + '/bo/msa/<msa_id>/feature/',
     view_func=msa_feat,
     methods=['GET','POST']
 )
 bp_msa.add_url_rule(
-    '/bo/msa/<int:msa_id>/feature/<int:cmt_id>',
+    bcs_api_base + '/bo/msa/<int:msa_id>/feature/<int:cmt_id>',
     view_func=msa_feat,
     methods=['GET','PUT','DELETE']
 )
