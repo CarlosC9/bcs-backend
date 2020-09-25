@@ -34,7 +34,7 @@ def import_sequences(input_file, organism_id = None, analysis_id = None):
     if not analysis_id:
         analysis_id = conn.analysis.get_analyses(name='Unknown analysis')[0]['analysis_id']
     try:
-        resp = conn.feature.load_fasta(input_file, organism_id, update=True)
+        resp = conn.feature.load_fasta(input_file, organism_id, analysis_id=analysis_id, update=True)
     except Exception as e:
         resp = e
     return resp

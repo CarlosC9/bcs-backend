@@ -155,7 +155,8 @@ class AnalysisAPI(MethodView):
     def get(self, id=None):
         print(f'GET {request.path}\nGetting analysis {id}')
         self._check_data()
-
+        from biobarcoding.services.analyses import read_analysis
+        resp = read_analysis()
         responseObject = {
             'status': 'success',
             'message': resp
@@ -166,7 +167,14 @@ class AnalysisAPI(MethodView):
     def post(self):
         print(f'POST {request.path}\nCreating analysis')
         self._check_data()
-
+        if not ('program' in request.json and 'programversion' in request.json):
+            responseObject = {
+                'status': 'error',
+                'message': 'Parameters missing: program and programversion are required.'
+            }
+            return make_response(jsonify(responseObject)), 400
+        from biobarcoding.services.analyses import create_analysis
+        resp = create_analysis(request.json['program'],request.json['programversion'])
         responseObject = {
             'status': 'success',
             'message': resp
@@ -177,7 +185,8 @@ class AnalysisAPI(MethodView):
     def delete(self, id):
         print(f'DELETE {request.path}\nDeleting analysis {id}')
         self._check_data()
-
+        from biobarcoding.services.analyses import delete_analysis
+        resp = delete_analysis(id)
         responseObject = {
         'status': 'success',
         'message': resp

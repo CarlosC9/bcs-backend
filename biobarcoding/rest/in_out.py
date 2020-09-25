@@ -14,7 +14,7 @@ class FileAPI(MethodView):
     File Resource
     """
     def get(self, item):
-        print(f'GET {request.path}\nUploading file.')
+        print(f'GET {request.path}\nDownloading file.')
         self._check_data()
         if item == 'sequence':
             from biobarcoding.services.sequences import export_sequences
@@ -33,7 +33,7 @@ class FileAPI(MethodView):
 
 
     def post(self, item):
-        print(f'POST {request.path}\nDownloading file.')
+        print(f'POST {request.path}\nUploading file.')
         self._check_data()
         msg = ''
         for key,file in request.files.items(multi=True):
@@ -53,8 +53,12 @@ class FileAPI(MethodView):
     def _check_data(self):
         post_data = request.get_json()
         self.organism_id = None
-        if post_data and 'organism_id' in post_data:
-            self.organism_id = post_data['organism_id']
+        self.analysis_id = None
+        if post_data:
+            if 'organism_id' in post_data:
+                self.organism_id = post_data['organism_id']
+            if 'analysis_id' in post_data:
+                self.analysis_id = post_data['analysis_id']
         print(f'JSON data: {post_data}')
 
     def _make_file(self, file):
@@ -66,7 +70,7 @@ class FileAPI(MethodView):
     def _import_file(self, filename, bioitem):
         if bioitem == 'sequence':
             from biobarcoding.services.sequences import import_sequences
-            return import_sequences(filename, self.organism_id)
+            return import_sequences(filename, self.organism_id, self.analysis_id)
         elif bioitem == 'taxonomy':
             from biobarcoding.services.taxonomies import import_taxonomy
             return import_taxonomy(filename)
