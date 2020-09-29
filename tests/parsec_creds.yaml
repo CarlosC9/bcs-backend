@@ -1,0 +1,22 @@
+__default: local
+
+local:
+  key: "af107bf81f146b6746944b9488986822"
+  url: "http://localhost:8080/"
+  
+  
+beauvoir3:
+  key: "cdfea1333ebbd03556ef00ae864fefc7"
+  url: "https://beauvoir3.corp.itccanarias.org/"
+  
+
+ngphylogeny: 
+  key: "499d48ecdee06745a2cb88a6204d3563"
+  url: "http://localhost:8080/"
+  
+ 
+  
+  
+    
+ 
+  

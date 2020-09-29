@@ -20,11 +20,13 @@ class MyTestCase(unittest.TestCase):
         self.assertNotEqual(d, None, "should be something here")
 
     def test_run_workflow_from_file(self):
-        user_key = 'af107bf81f146b6746944b9488986822'
-        url = 'http://127.0.0.1:8080'
-        gi = login(user_key,url=url)
+        insfile = 'parsec_creds.yaml'
+        insname = 'beauvoir3'
+        ins = galaxy_instance(insfile, name = insname)
+        gi = login(ins['key'],url=ins['url'])
         fn = 'data_test/ls_orchid.fasta'
-        invocation = run_workflow(gi,"Workflow_Input",fn,'marK1')
+        workflow = 'MSA ClustalW'
+        invocation = run_workflow(gi,workflow,fn,'marK1')
         state = invocation['state']
         self.assertEqual(state,'new','invocation failed')
         while invocation_errors(gi, invocation) == 0 and invocation_percent_complete(gi, invocation) < 100:
@@ -58,13 +60,13 @@ class MyTestCase(unittest.TestCase):
         self.assertEqual(step_job['params'][parameter_name].strip('"'),new_parameters[step][parameter_name])
 
 
-    def test_file_inputs(self):
+    def test_inputs_files(self):
         user_key = 'af107bf81f146b6746944b9488986822'
         url = 'http://127.0.0.1:8080'
         gi = login(user_key, url=url)
         input_file_path = '/home/paula/Documentos/NEXTGENDEM/bcs-backend/tests/data_test/wf_inputs.yaml'
         params_file_path = '/home/paula/Documentos/NEXTGENDEM/bcs-backend/tests/data_test/wf_parameters.yaml'
-        workflow = "Workflow_Input_labels"
+        workflow = "test_workflow2"
         history_name = "history_test_input_files"
         invocation = run_workflow_files(gi,workflow,input_file_path,params_file_path,history_name)
         state = invocation['state']
@@ -77,8 +79,10 @@ class MyTestCase(unittest.TestCase):
 
 
 
+
+
 if __name__ == '__main__':
     # MyTestCase.test_upload_file()
     # MyTestCase.test_run_workflow_from_file()
     # MyTestCase.test_change_parameter()
-     MyTestCase.test_read_inputs()
+     MyTestCase.test_inputs_files()

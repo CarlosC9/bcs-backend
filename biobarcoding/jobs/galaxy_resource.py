@@ -3,6 +3,17 @@ import time
 import yaml
 import os
 
+def galaxy_instance(path, name ='__default'):
+    data = read_yaml_file(path)
+    assert name in data, 'unknown instance'
+    gal = data[name]
+    if isinstance(gal,dict):
+        return gal
+    else:
+        return data[gal] #caso de que es el defaoult
+
+
+
 
 def login(api_key:'str', url:'str'):
     user_key = api_key
@@ -434,7 +445,6 @@ def download_result(gi, results:'list', path:'str'):
     else:
         print(results)
     # TODO delete history after successfully download
-    # gi.histories.delete_history(history_id)
 
 
 
