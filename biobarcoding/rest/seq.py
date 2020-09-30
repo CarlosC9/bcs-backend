@@ -14,9 +14,9 @@ class SeqAPI(MethodView):
     """
     def get(self, id=None):
         print(f'GET {request.path}\nGetting sequence {id}')
-        self._check_data()
+        self._check_data(request.args)
         from biobarcoding.services.sequences import get_sequence
-        result = get_sequence(id)
+        result = get_sequence(id, self.organism_id, self.analysis_id)
         responseObject = {
             'status': 'success',
             'message': result
@@ -60,9 +60,18 @@ class SeqAPI(MethodView):
         return make_response(jsonify(responseObject)), 200
 
 
-    def _check_data(self):
-        post_data = request.get_json()
-        print(f'JSON data: {post_data}')
+    def _check_data(self, data):
+        print(data)
+        self.organism_id = None
+        self.analysis_id = None
+        try:
+            if 'organism_id' in data:
+                self.organism_id = data['organism_id']
+            if 'analysis_id' in data:
+                self.analysis_id = data['analysis_id']
+        except Exception as e:
+            pass
+        print(f'JSON data: {data}')
 
 
 seq = SeqAPI.as_view('seq_api')

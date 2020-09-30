@@ -1,17 +1,12 @@
 def create_sequence(organism_id = None, analysis_id = None, residues = None):
     return 'dummy completed'
 
-def get_sequence(sequence_id = None):
+def get_sequence(sequence_id = None, organism_id = None, analysis_id = None):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
-    if sequence_id:
-        resp = conn.feature.get_features(sequence_id)
-    else:
-        # organism_id = conn.organism.get_organisms(species='unknown')[0]['organism_id']
-        # analysis_id = conn.analysis.get_analyses(name='Unknown analysis')[0]['analysis_id']
-        # resp = conn.feature.get_features(organism_id = organism_id, analysis_id = analysis_id)
-        resp = conn.feature.get_features()
-        # print(f'organism_id = {organism_id}\nanalysis_id = {analysis_id}\nSECUENCIAS: {resp}')
+    # resp = conn.feature.get_features()
+    resp = conn.feature.get_features(organism_id = organism_id,
+        analysis_id = analysis_id, name = sequence_id)
     return resp
 
 def update_sequence(sequence_id, organism_id = None, analysis_id = None, residues = None):
