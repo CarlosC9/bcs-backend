@@ -5,9 +5,10 @@ from biobarcoding.jobs.galaxy_resource import *
 
 class MyTestCase(unittest.TestCase):
     def test_upload_file(self):
-        user_key = 'af107bf81f146b6746944b9488986822'
-        url = 'http://127.0.0.1:8080'
-        gi = galaxy.GalaxyInstance(url = url, key = user_key)
+        insfile = 'data_test/parsec_creds.yaml'
+        insname = 'beauvoir3'
+        ins = galaxy_instance(insfile, name = insname)
+        gi = login(ins['key'],url=ins['url'])
         history = gi.histories.create_history(name="test_upload_file history")
         fn =  Path('data_test/ls_orchid.fasta')
         file_name = "test1"
@@ -20,7 +21,7 @@ class MyTestCase(unittest.TestCase):
         self.assertNotEqual(d, None, "should be something here")
 
     def test_run_workflow_from_file(self):
-        insfile = 'parsec_creds.yaml'
+        insfile = 'data_test/parsec_creds.yaml'
         insname = 'beauvoir3'
         ins = galaxy_instance(insfile, name = insname)
         gi = login(ins['key'],url=ins['url'])
@@ -38,16 +39,17 @@ class MyTestCase(unittest.TestCase):
         self.assertIsInstance(results,list,'There are no results')
 
     def test_change_parameter(self):
-        user_key = 'af107bf81f146b6746944b9488986822'
-        url = 'http://127.0.0.1:8080'
-        gi = login(user_key, url=url)
+        insfile = 'data_test/parsec_creds.yaml'
+        insname = 'beauvoir3'
+        ins = galaxy_instance(insfile, name = insname)
+        gi = login(ins['key'],url=ins['url'])
         fn = 'data_test/ls_orchid.fasta'
-        workflow = "Workflow_Input"
+        workflow = "PhyML_test_labels"
         step = '2'
         parameter_name = 'nbSubstCat'
         value = '3'
         w_id = workflow_id(gi,workflow)
-        new_parameters = set_parameters(gi,w_id,step,parameter_name,value) # esta función me la podría cargar
+        new_parameters = set_parameters(step,parameter_name,value)
         invocation = run_workflow(gi, workflow, fn, 'marK1', params=new_parameters)
         state = invocation['state']
 
@@ -61,12 +63,13 @@ class MyTestCase(unittest.TestCase):
 
 
     def test_inputs_files(self):
-        user_key = 'af107bf81f146b6746944b9488986822'
-        url = 'http://127.0.0.1:8080'
-        gi = login(user_key, url=url)
-        input_file_path = '/home/paula/Documentos/NEXTGENDEM/bcs-backend/tests/data_test/wf_inputs.yaml'
-        params_file_path = '/home/paula/Documentos/NEXTGENDEM/bcs-backend/tests/data_test/wf_parameters.yaml'
-        workflow = "test_workflow2"
+        insfile = 'data_test/parsec_creds.yaml'
+        insname = 'beauvoir3'
+        ins = galaxy_instance(insfile, name = insname)
+        gi = login(ins['key'],url=ins['url'])
+        input_file_path = 'data_test/wf_inputs.yaml'
+        params_file_path = 'data_test/wf_parameters.yaml'
+        workflow = "PhyML_test_labels"
         history_name = "history_test_input_files"
         invocation = run_workflow_files(gi,workflow,input_file_path,params_file_path,history_name)
         state = invocation['state']
@@ -82,7 +85,7 @@ class MyTestCase(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    # MyTestCase.test_upload_file()
-    # MyTestCase.test_run_workflow_from_file()
-    # MyTestCase.test_change_parameter()
-     MyTestCase.test_inputs_files()
+    MyTestCase.test_upload_file()
+    MyTestCase.test_run_workflow_from_file()
+    MyTestCase.test_change_parameter()
+    MyTestCase.test_inputs_files()
