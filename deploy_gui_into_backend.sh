@@ -1,18 +1,18 @@
 #!/bin/bash
 # Script to compile "bcs-gui" and deploy it into "bcs-backend", inside "static_gui" directory
-
-if ["$(whoami)" == "rnebot"]; then
-  ngddir = ~/GoogleDrive/AA_NEXTGENDEM
-elif [ "$(whoami)" == "acurbelo" ]; then
-  ngddir = ~/Proyectos/NEXTGENDEM
-elif [ "$(whoami)" == "pmoreno" ]; then
-  ngddir = ~/pmoreno/NEXTGENDEM
-elif [ "$(whoami)" == "dreyes" ]; then
-  ngddir = ~/dreyes/NEXTGENDEM
+if [ "$(whoami)" == "rnebot" ] ; then
+  ngddir=~/GoogleDrive/AA_NEXTGENDEM
+elif [ "$(whoami)" == "acurbelo" ] ; then
+  ngddir=~/Proyectos/NEXTGENDEM
+elif [ "$(whoami)" == "pmoreno" ] ; then
+  ngddir=~/pmoreno/NEXTGENDEM
+elif [ "$(whoami)" == "dreyes" ] ; then
+  ngddir=~/dreyes/NEXTGENDEM
 fi
 
 # CD
 cd $ngddir/bcs-gui
+
 # Update Javascript packages
 npm install
 # Clear everything in the "dist" directory
