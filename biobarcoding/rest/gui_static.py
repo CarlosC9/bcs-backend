@@ -26,7 +26,8 @@ def send_web_client_file(path=None):
     To generate these files (ON EACH UPDATE TO THE CLIENT:
     * CD to the Angular2 project directory
     * ng build --prod --aot --base-href /gui/
-    * CP * <STATIC_GUI directory>
+    * rm ../../static_gui/* -fr
+    * cp * ../../static_gui
 
     :param path:
     :return:

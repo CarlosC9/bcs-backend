@@ -9,3 +9,4 @@ dist/
 dump\.rdb
 biobarcoding/rest/*.conf
 celerybeat*
+jc_tests.py
