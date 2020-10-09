@@ -9,6 +9,10 @@ beauvoir3:
   key: "cdfea1333ebbd03556ef00ae864fefc7"
   url: "https://beauvoir3.corp.itccanarias.org/"
   
+balder:
+  url: "http://balder.corp.itccanarias.org:8090/"
+  key: "817a1109f5c10413f86aa0e06a95d4a8"
+
 
 ngphylogeny: 
   key: "499d48ecdee06745a2cb88a6204d3563"

@@ -79,10 +79,18 @@ class MyTestCase(unittest.TestCase):
         errors = invocation_errors(gi, invocation)
         self.assertEqual(errors, 0, 'There is an error in the invocation')
 
-
-
-
-
+    def test_wf_inst_2_inst(self):
+        insfile = 'data_test/parsec_creds.yaml'
+        instanceIn = instance(insfile,'beauvoir')
+        instanceOut = instance(insfile,'balder')
+        wf_in = get_workflow_from_name('MSA Clustaw')
+        wf_dic_in = export_workflow(instanceIn, wf_in['id'])
+        wf_out = import_workflow(instanceOut, wf_dic_in)
+        wf_dic_out = export_workflow(wf_out)
+        list_of_tools = check_tools(wf_dic_in,wf_dic_out)
+        if isinstance(list_of_tools,list):
+            tools_message = install_tools(instanceOut,list_of_tools)
+        return tools_message
 
 if __name__ == '__main__':
     MyTestCase.test_upload_file()

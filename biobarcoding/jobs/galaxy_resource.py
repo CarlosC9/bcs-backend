@@ -2,6 +2,7 @@ from bioblend import galaxy
 import time
 import yaml
 import os
+from bioblend.galaxy import workflows
 
 def galaxy_instance(path, name ='__default'):
     data = read_yaml_file(path)
@@ -445,6 +446,72 @@ def download_result(gi, results:'list', path:'str'):
     else:
         print(results)
     # TODO delete history after successfully download
+
+
+def export_workflow(instance, wf_name):
+    gi = instance.connect()
+    wf_id = get_workflow_from_name(gi,wf_name)
+    wf_dic = gi.workflows.import_workflow_dict(wf_id)
+    return wf_dic
+
+def import_workflow(instance, wf_Id):
+    gi = instance.connect()
+    wf = gi.workflows.import_workflow_dict(wf_Id)
+    return wf
+
+
+def check_tools(wf1_dic,wf2_dic):
+    steps1 = wf1_dic['step']
+    steps2 = wf2_dic['step']
+    tool_list = list()
+    for step, content in steps1.items():
+        if step['errors'] == "Tool is not installed":
+            tool_list.append(steps2[step]['tool_shed_repository'])
+    if len(tool_list) == 0:
+        return 'all tools are instaled'
+    else:
+        return tool_list
+
+
+def install_tools(instance,tools):
+
+    '''
+    tool_shed_url, name, owner,
+    changeset_revision,
+    install_tool_dependencies = False,
+    install_repository_dependencies = False,
+    install_resolver_dependencies = False,
+    tool_panel_section_id = None,
+    new_tool_panel_section_label = Non
+    '''
+    if isinstance(tools, list):
+        gi = instance.connect()
+        for tool in tools:
+            tool_shed_url = 'https://' + tool['tool_shed']
+            gi.tooshed.install_repository_revision(tool_shed_url=tool_shed_url,
+                                                   name=tool['name'],
+                                                   owner=tool['owner'],
+                                                   changeset_revision= tool['changeset_revision'],
+                                                   install_tool_dependencies=True,
+                                                   install_repository_dependencies=True,
+                                                   install_resolver_dependencies=True,
+                                                   new_tool_panel_section_label='New'
+                                                   )
+
+class instance():
+    def __init__(self,name,file):
+        self.name = name
+        self.file = file
+
+
+    def connect(self):
+        gi = galaxy_instance(self.file, name=self.name)
+        return gi
+
+
+
+
+
 
 
 
