@@ -8,6 +8,7 @@ from functools import wraps
 import firebase_admin
 from firebase_admin import credentials, auth
 
+
 def initialize_firebase(app):
     # cert_path = '/home/acurbelo/.local/share/bcs-backend/firebase-key.json'
     cert_path = app.config['GOOGLE_APPLICATION_CREDENTIALS']

@@ -8,7 +8,7 @@ prefix = "hie_"
 
 
 class HierarchyType(ORMBase):
-    __tablename__ = f"{prefix}_hierarchy_types"
+    __tablename__ = f"{prefix}hierarchy_types"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(GUID, unique=True)
@@ -16,7 +16,7 @@ class HierarchyType(ORMBase):
 
 
 class Hierarchy(ORMBase):
-    __tablename__ = f"{prefix}_hierarchies"
+    __tablename__ = f"{prefix}hierarchies"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(GUID, unique=True)
@@ -25,7 +25,7 @@ class Hierarchy(ORMBase):
 
 
 class HierarchyLevel(ORMBase):
-    __tablename__ = f"{prefix}_hierarchy_levels"
+    __tablename__ = f"{prefix}hierarchy_levels"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(128))
@@ -35,16 +35,16 @@ class HierarchyLevel(ORMBase):
 
 
 class HierarchyNode(ORMBase):
-    __tablename__ = f"{prefix}_hierarchy_levels"
+    __tablename__ = f"{prefix}hierarchy_nodes"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String(128))
 
     hierarchy_id = Column(Integer, ForeignKey(Hierarchy.id), nullable=False, primary_key=False)
 
-    parent_node_id = Column(Integer, ForeignKey("HierarchyNode.id"), nullable=False, primary_key=False)
+    parent_node_id = Column(Integer, ForeignKey(f"{prefix}hierarchy_nodes.id"), nullable=True, primary_key=False)
     # Backref -backref=backref("children", cascade="all, delete-orphan")- not used because a node may be thousands of children?
-    parent_node = relationship("HierarchyNode")
+    parent_node = relationship("HierarchyNode", foreign_keys=[parent_node_id], remote_side=[id])
 
     # Backref -backref=backref("nodes", cascade="all, delete-orphan")- not used because a hierarchy can contains millions of nodes
     # hierarchy = relationship(Hierarchy)
@@ -52,6 +52,6 @@ class HierarchyNode(ORMBase):
     # Backref -backref=backref("nodes", cascade="all, delete-orphan")- not used because a hierarchy can contains millions of nodes
     level = relationship(HierarchyLevel)
 
-    referred_node_id = Column(Integer, ForeignKey("HierarchyNode.id"), nullable=False, primary_key=False)
-    referred_node = relationship("HierarchyNode")
+    referred_node_id = Column(Integer, ForeignKey(f"{prefix}hierarchy_nodes.id"), nullable=True, primary_key=False)
+    referred_node = relationship("HierarchyNode", foreign_keys=[referred_node_id], remote_side=[id])
 

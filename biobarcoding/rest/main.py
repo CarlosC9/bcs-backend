@@ -34,6 +34,8 @@ def create_app(debug, cfg_dict=None):
     UPLOAD_FOLDER = '/tmp/'
     app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 
+    load_configuration_file(app)
+
     initialize_firebase(app)
 
     FlaskSessionServerSide(app)  # Flask Session
