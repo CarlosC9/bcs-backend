@@ -5,7 +5,12 @@ if ["$(whoami)" == "rnebot"]; then
   ngddir = ~/GoogleDrive/AA_NEXTGENDEM
 elif [ "$(whoami)" == "acurbelo" ]; then
   ngddir = ~/Proyectos/NEXTGENDEM
+elif [ "$(whoami)" == "pmoreno" ]; then
+  ngddir = ~/pmoreno/NEXTGENDEM
+elif [ "$(whoami)" == "dreyes" ]; then
+  ngddir = ~/dreyes/NEXTGENDEM
 fi
+
 # CD
 cd $ngddir/bcs-gui
 # Update Javascript packages
