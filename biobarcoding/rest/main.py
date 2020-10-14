@@ -19,6 +19,7 @@ from biobarcoding.tasks import initialize_celery
 from biobarcoding.authentication import initialize_firebase
 
 # Flask and configuration file
+app = None
 
 
 def create_app(debug, cfg_dict=None):
@@ -28,6 +29,7 @@ def create_app(debug, cfg_dict=None):
 
     :return:
     """
+    global app
     app = Flask(__name__)
     app.debug = debug
 
