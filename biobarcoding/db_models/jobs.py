@@ -1,4 +1,10 @@
+"""
 
+How to manage file Inputs and Outputs NOT in BCS, but in other places
+ - INPUTS: upload previously from somewhere.
+ - OUTPUTS: commit into system, download it, just delete it.
+
+"""
 
 # ALGORITHMS
 import datetime
@@ -134,8 +140,9 @@ class WorkflowInComputeResource(ORMBase):
 
 
 class JobStatus(ORMBase):
-    """ created, preparing_workspace, transferring_data_to_resource, submitted, completed_successfully, transferring_data_from_resource, cleaning_up_workspace,
-    cancelled, paused, completed_error """
+    """ created, preparing_workspace, transferring_data_to_resource, submitted, completed_successfully,
+        transferring_data_from_resource, cleaning_up_workspace, cancelled, paused, completed_error
+    """
     __tablename__ = f"{prefix}job_statuses"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -144,7 +151,7 @@ class JobStatus(ORMBase):
 
 
 class Job(ORMBase):
-    """ Core entity in the ALgorithmic domain.
+    """ Core entity in the Algorithmic domain.
     Workflows are launched into ComputeResources with some parameters and under an Identity
     Then, jobs can be checked, cancelled and results obtained
     Also, listing of filtered/ordered jobs may be retrieved

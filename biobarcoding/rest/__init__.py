@@ -17,6 +17,7 @@ from biobarcoding.db_models.sysadmin import *
 from biobarcoding.db_models.geographics import *
 from biobarcoding.db_models.metadata import *
 from biobarcoding.db_models.jobs import *
+from biobarcoding.db_models.hierarchies import *
 
 bcs_api_base = "/api"  # Base for all RESTful calls
 bcs_gui_base = "/gui"  # Base for the Angular2 GUI
