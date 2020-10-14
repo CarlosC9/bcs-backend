@@ -1,6 +1,6 @@
 from flask import Blueprint
 
-bp_seq = Blueprint('seq', __name__)
+bp_phylotrees = Blueprint('phylo', __name__)
 
 from flask import request, make_response, jsonify
 from flask.views import MethodView
@@ -8,88 +8,67 @@ from flask.views import MethodView
 from biobarcoding.rest import bcs_api_base
 
 
-class SeqAPI(MethodView):
+class PhyloAPI(MethodView):
     """
-    Sequence Resource
+    Phylo Resource
     """
     def get(self, id=None):
-        print(f'GET {request.path}\nGetting sequence {id}')
-        self._check_data(request.args)
-        from biobarcoding.services.sequences import get_sequence
-        result = get_sequence(id, self.organism_id, self.analysis_id)
+        msg = f'GET {request.path}\nGetting tree {id}'
+        print(msg)
+        self._check_data()
+
         responseObject = {
             'status': 'success',
-            'message': result
+            'message': msg
         }
         return make_response(jsonify(responseObject)), 200
 
 
     def post(self):
-        print(f'POST {request.path}\nCreating sequence')
+        msg = f'POST {request.path}\nCreating tree'
+        print(msg)
         self._check_data()
-        from biobarcoding.services.sequences import create_sequence
-        result = create_sequence()
+
         responseObject = {
             'status': 'success',
-            'message': result
+            'message': msg
         }
         return make_response(jsonify(responseObject)), 200
 
 
     def put(self, id):
-        print(f'PUT {request.path}\nCreating sequence {id}')
+        msg = f'PUT {request.path}\nCreating tree {id}'
+        print(msg)
         self._check_data()
-        from biobarcoding.services.sequences import update_sequence
-        result = update_sequence(id)
+
         responseObject = {
             'status': 'success',
-            'message': result
+            'message': msg
         }
         return make_response(jsonify(responseObject)), 200
 
 
-    def delete(self, id=None):
-        print(f'DELETE {request.path}\nDeleting sequence {id}')
+    def delete(self, id):
+        msg = f'DELETE {request.path}\nDeleting tree {id}'
+        print(msg)
         self._check_data()
-        from biobarcoding.services.sequences import delete_sequence
-        result = delete_sequence(id)
+
         responseObject = {
         'status': 'success',
-        'message': result
+        'message': msg
         }
         return make_response(jsonify(responseObject)), 200
 
 
-    def _check_data(self, data):
-        print(data)
-        self.organism_id = None
-        self.analysis_id = None
-        try:
-            if 'organism_id' in data:
-                self.organism_id = data['organism_id']
-            if 'analysis_id' in data:
-                self.analysis_id = data['analysis_id']
-        except Exception as e:
-            pass
-        print(f'JSON data: {data}')
+    def _check_data(self):
+
+        post_data = request.get_json()
+        print(f'JSON data: {post_data}')
 
 
-seq = SeqAPI.as_view('seq_api')
-bp_seq.add_url_rule(
-    bcs_api_base + '/bo/sequence',
-    view_func=seq,
-    methods=['GET','POST','DELETE']
-)
-bp_seq.add_url_rule(
-    bcs_api_base + '/bo/sequence/<int:id>',
-    view_func=seq,
-    methods=['GET','PUT','DELETE']
-)
-
-
-class SeqFeatAPI(MethodView):
+class PhyloFeatAPI(MethodView):
     """
-    Sequence Feature Resource
+    Phylogenetic Tree Feature Resource
     """
     def get(self, id=None):
         msg = f'GET {request.path}\nGetting comment {id}'
@@ -140,18 +119,31 @@ class SeqFeatAPI(MethodView):
 
 
     def _check_data(self):
+
         post_data = request.get_json()
         print(f'JSON data: {post_data}')
 
 
-seq_feat = SeqFeatAPI.as_view('seq_feat_api')
-bp_seq.add_url_rule(
-    bcs_api_base + '/bo/sequence/<seq_id>/feature/',
-    view_func=seq_feat,
+phylo = PhyloAPI.as_view('phylo_api')
+bp_phylotrees.add_url_rule(
+    bcs_api_base + '/bo/phylo/',
+    view_func=phylo,
     methods=['GET','POST']
 )
-bp_seq.add_url_rule(
-    bcs_api_base + '/bo/sequence/<int:seq_id>/feature/<int:cmt_id>',
-    view_func=seq_feat,
+bp_phylotrees.add_url_rule(
+    bcs_api_base + '/bo/phylo/<int:phylo_id>',
+    view_func=phylo,
+    methods=['GET','PUT','DELETE']
+)
+
+phylo_feat = PhyloFeatAPI.as_view('phylo_feat_api')
+bp_phylotrees.add_url_rule(
+    bcs_api_base + '/bo/phylo/<phylo_id>/feature/',
+    view_func=phylo_feat,
+    methods=['GET','POST']
+)
+bp_phylotrees.add_url_rule(
+    bcs_api_base + '/bo/phylo/<int:phylo_id>/feature/<int:cmt_id>',
+    view_func=phylo,
     methods=['GET','PUT','DELETE']
 )

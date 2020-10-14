@@ -1,10 +1,10 @@
 #!/bin/bash
 # Script to compile "bcs-gui" and deploy it into "bcs-backend", inside "static_gui" directory
 
-if ["$(whoami)" == "rnebot"]; then
-  ngddir = ~/GoogleDrive/AA_NEXTGENDEM
+if [ "$(whoami)" == "rnebot" ]; then
+  ngddir=~/GoogleDrive/AA_NEXTGENDEM
 elif [ "$(whoami)" == "acurbelo" ]; then
-  ngddir = ~/Proyectos/NEXTGENDEM
+  ngddir=~/Proyectos/NEXTGENDEM
 fi
 # CD
 cd $ngddir/bcs-gui

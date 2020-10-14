@@ -1,6 +1,6 @@
 from flask import Blueprint
 
-bp_msa = Blueprint('msa', __name__)
+bp_alignments = Blueprint('msa', __name__)
 
 from flask import request, make_response, jsonify
 from flask.views import MethodView
@@ -125,24 +125,24 @@ class AlignFeatAPI(MethodView):
 
 
 msa = AlignAPI.as_view('msa_api')
-bp_msa.add_url_rule(
+bp_alignments.add_url_rule(
     bcs_api_base + '/bo/msa/',
     view_func=msa,
     methods=['GET','POST']
 )
-bp_msa.add_url_rule(
+bp_alignments.add_url_rule(
     bcs_api_base + '/bo/msa/<int:msa_id>',
     view_func=msa,
     methods=['GET','PUT','DELETE']
 )
 
 msa_feat = AlignFeatAPI.as_view('msa_feat_api')
-bp_msa.add_url_rule(
+bp_alignments.add_url_rule(
     bcs_api_base + '/bo/msa/<msa_id>/feature/',
     view_func=msa_feat,
     methods=['GET','POST']
 )
-bp_msa.add_url_rule(
+bp_alignments.add_url_rule(
     bcs_api_base + '/bo/msa/<int:msa_id>/feature/<int:cmt_id>',
     view_func=msa_feat,
     methods=['GET','PUT','DELETE']

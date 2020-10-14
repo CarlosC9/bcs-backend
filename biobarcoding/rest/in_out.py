@@ -18,18 +18,18 @@ class FileAPI(MethodView):
         self._check_data()
         if item == 'sequence':
             from biobarcoding.services.sequences import export_sequences
-            res = export_sequences(request.args['output'], self.organism_id)
-        elif item == 'taxonomy':
-            from biobarcoding.services.taxonomies import export_taxonomy
-            res = export_taxonomy(request.args['output'], self.organism_id)
+            response, code = export_sequences(request.args['output'], sequence_id=self.sequence_id, organism_id=self.organism_id, analysis_id=self.analysis_id)
+        # elif item == 'taxonomy':
+        #     from biobarcoding.services.taxonomies import export_taxonomy
+        #     response, code = export_taxonomy(request.args['output'], id=self.taxonomy_id)
         elif item == 'organism':
             from biobarcoding.services.organisms import export_organism
-            res = export_organism(request.args['output'], self.organism_id)
-        elif item == 'ontology':
-            abort(make_response(jsonify({'status': 'failure', 'message': 'Method not available yet.'}), 405))
+            response, code = export_organism(request.args['output'], self.organism_id)
         else:
             abort(make_response(jsonify({'status': 'failure', 'message': 'Method not available yet.'}), 405))
-        return send_file(res, mimetype='text/plain'), 200
+        if not code==200:
+            abort(make_response(jsonify({'status': 'failure', 'message': response}), code))
+        return send_file(response, mimetype='text/plain'), code
 
 
     def post(self, item):
@@ -52,9 +52,15 @@ class FileAPI(MethodView):
 
     def _check_data(self):
         post_data = request.get_json()
+        self.sequence_id = None
+        self.taxonomy_id = None
         self.organism_id = None
         self.analysis_id = None
         if post_data:
+            if 'sequence_id' in post_data:
+                self.sequence_id = post_data['sequence_id']
+            if 'taxonomy_id' in post_data:
+                self.taxonomy_id = post_data['taxonomy_id']
             if 'organism_id' in post_data:
                 self.organism_id = post_data['organism_id']
             if 'analysis_id' in post_data:

@@ -1,4 +1,4 @@
-def create_analysis(program, programversion, name = None, description = None, algorithm = None, sourcename = None, sourceversion = None, sourceuri = None, timeexecuted = None):
+def create_analysis(program, programversion, name = '', sourcename = '', description = None, algorithm = None, sourceversion = None, sourceuri = None, date_executed = None):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
     res = conn.analysis.add_analysis(
@@ -10,8 +10,8 @@ def create_analysis(program, programversion, name = None, description = None, al
             sourcename = sourcename,
             sourceversion = sourceversion,
             sourceuri = sourceuri,
-            timeexecuted = timeexecuted)
-    return res
+            date_executed = date_executed)
+    return res, 0
 
 
 def read_analysis(analysis_id = None):
@@ -21,23 +21,11 @@ def read_analysis(analysis_id = None):
         res = conn.analysis.get_analyses(analysis_id = analysis_id)
     else:
         res = conn.analysis.get_analyses()
-    return res
+    return res, 0
 
 
-def update_analysis(analysis_id, program, programversion, name = None, description = None, algorithm = None, sourcename = None, sourceversion = None, sourceuri = None, timeexecuted = None):
-    from biobarcoding.services import conn_chado
-    conn = conn_chado()
-    # res = conn.analysis.update_analysis(
-    #         program = program,
-    #         programversion = programversion,
-    #         name = name,
-    #         description = description,
-    #         algorithm = algorithm,
-    #         sourcename = sourcename,
-    #         sourceversion = sourceversion,
-    #         sourceuri = sourceuri,
-    #         timeexecuted = timeexecuted)
-    return res
+def update_analysis(analysis_id, program, programversion, name = None, description = None, algorithm = None, sourcename = None, sourceversion = None, sourceuri = None, date_executed = None):
+    return 'dummy completed', 0
 
 def delete_analysis(analysis_id = None):
     from biobarcoding.services import conn_chado
@@ -46,4 +34,4 @@ def delete_analysis(analysis_id = None):
         res = conn.analysis.delete_analyses(analysis_id = analysis_id)
     else:
         res = conn.analysis.delete_analyses()
-    return res
+    return res, 0
