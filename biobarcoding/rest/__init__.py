@@ -11,7 +11,7 @@ from sqlalchemy.pool import StaticPool
 import biobarcoding
 from biobarcoding.common import generate_json
 from biobarcoding.common.gp_helpers import create_pg_database_engine, load_table
-from biobarcoding.db_models import DBSession, ORMBase, ObjectType
+from biobarcoding.db_models import DBSession, ORMBase, DBSessionChado, ORMBaseChado, ObjectType
 from biobarcoding.db_models.bioinformatics import *
 from biobarcoding.db_models.sysadmin import *
 from biobarcoding.db_models.geographics import *
@@ -239,6 +239,26 @@ def initialize_database(flask_app):
 
         # Load base tables
         initialize_database_data()
+    else:
+        print("No database connection defined (DB_CONNECTION_STRING), exiting now!")
+        sys.exit(1)
+
+
+def initialize_database_chado(flask_app):
+    if 'CHADO_CONF' in flask_app.config:
+        with open(flask_app.config["CHADO_CONF"], 'r') as chado_conf:
+            import yaml
+            cfg = yaml.load(chado_conf, Loader=yaml.FullLoader)
+        db_connection_string = f'postgres://{cfg["user"]}:{cfg["password"]}@{cfg["host"]}:{cfg["port"]}/{cfg["database"]}'
+        print("Connecting to Chado database server")
+        print(db_connection_string)
+        print("-----------------------------")
+        biobarcoding.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=True)
+        # global DBSessionChado # global DBSessionChado registry to get the scoped_session
+        DBSessionChado.configure(bind=biobarcoding.chado_engine)  # reconfigure the sessionmaker used by this scoped_session
+        orm.configure_mappers()  # Important for SQLAlchemy-Continuum
+        ORMBaseChado.metadata.bind = biobarcoding.chado_engine
+        ORMBaseChado.metadata.reflect()
     else:
         print("No database connection defined (DB_CONNECTION_STRING), exiting now!")
         sys.exit(1)

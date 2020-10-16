@@ -2,7 +2,19 @@ def create_ontologies(name, definition = None, remote_url = None):
     return {'status':'success','message':'dummy completed'}, 200
 
 def read_ontologies(ontology_id = None, name = None):
-    return {'status':'success','message':'dummy completed'}, 200
+    from biobarcoding.db_models import DBSessionChado
+    from biobarcoding.db_models.chado import Cv
+    result = DBSessionChado().query(Cv)
+    if ontology_id:
+        result = result.filter(Cv.cv_id==ontology_id)
+    if name:
+        result = result.filter(Cv.name==name)
+    response = []
+    for value in result.all():
+        tmp = value.__dict__
+        tmp.pop('_sa_instance_state', None)
+        response.append(tmp)
+    return {'status':'success','message':response}, 200
 
 def update_ontologies(ontology_id, name = None, definition = None, remote_url = None, input_file = None):
     return {'status':'success','message':'dummy completed'}, 200
@@ -31,7 +43,7 @@ def import_ontologies(input_file, name = None, definition = None):
         print(err)
         import os
         return {'status':'failure','message':f'Ontology in {os.path.basename(input_file)} could not be imported.\n{err}'}, 500
-    return {'status':'success','message':f'Ontology in {input_file} imported properly.'}, 200
+    return {'status':'success','message':f'Ontology in {input_file} imported properly.\n{out}'}, 200
 
 def export_ontologies(id = None, name = None):
     return {'status':'success','message':'dummy completed'}, 200

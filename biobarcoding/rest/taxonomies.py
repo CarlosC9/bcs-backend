@@ -17,12 +17,12 @@ class TaxonomiesAPI(MethodView):
 
     def get(self, id=None):
         print(f'GET {request.path}\nGetting taxonomies {id}')
-        if 'Accept' in request.headers and request.headers['Accept']=='text/fasta':
-            from biobarcoding.services.taxonomies import export_taxonomy
-            response, code = export_taxonomy(id)
+        if 'Accept' in request.headers and request.headers['Accept']=='text/ncbi':
+            from biobarcoding.services.taxonomies import export_taxonomies
+            response, code = export_taxonomies(id)
         else:
-            from biobarcoding.services.taxonomies import read_taxonomy
-            response, code = read_taxonomy(id)
+            from biobarcoding.services.taxonomies import read_taxonomies
+            response, code = read_taxonomies(id)
         return make_response(response, code)
 
 
@@ -32,33 +32,33 @@ class TaxonomiesAPI(MethodView):
         if 'Content-type' in request.headers and request.headers['Content-type']=='text/fasta':
             response, code = self._import_files()
         else:
-            from biobarcoding.services.taxonomies import create_taxonomy
-            response, code = create_taxonomy(self.name, self.comment)
+            from biobarcoding.services.taxonomies import create_taxonomies
+            response, code = create_taxonomies(self.name, self.comment)
         return make_response(response, code)
 
 
     def put(self, id):
         print(f'PUT {request.path}\nUpdating taxonomies {id}')
         self._check_data(request.get_json())
-        from biobarcoding.services.taxonomies import update_taxonomy
-        response, code = update_taxonomy(id, self.name, self.comment)
+        from biobarcoding.services.taxonomies import update_taxonomies
+        response, code = update_taxonomies(id, self.name, self.comment)
         return make_response(response, code)
 
 
     def delete(self, id):
         print(f'DELETE {request.path}\nDeleting taxonomies {id}')
-        from biobarcoding.services.taxonomies import delete_taxonomy
-        response, code = delete_taxonomy(id)
+        from biobarcoding.services.taxonomies import delete_taxonomies
+        response, code = delete_taxonomies(id)
         return make_response(response, code)
 
 
     def _import_files(self):
         responses = []
-        from biobarcoding.services.taxonomies import import_taxonomy
+        from biobarcoding.services.taxonomies import import_taxonomies
         for key,file in request.files.items(multi=True):
             try:
                 file_cpy = self._make_file(file)
-                response, code = import_taxonomy(file_cpy, self.name, self.comment)
+                response, code = import_taxonomies(file_cpy, self.name, self.comment)
                 responses.append({'status':code,'message':response})
             except Exception as e:
                 responses.append({'status':409,'message':'Could not import the file {file}.'})

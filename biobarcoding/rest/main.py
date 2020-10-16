@@ -4,7 +4,7 @@ from flask_cors import CORS
 
 import biobarcoding
 from biobarcoding.rest import logger, log_level, load_configuration_file, construct_session_persistence_backend, \
-    initialize_database, bcs_gui_base
+    initialize_database, initialize_database_chado, bcs_gui_base
 from biobarcoding.rest.auth import bp_auth
 from biobarcoding.rest.sequences import bp_sequences
 from biobarcoding.rest.alignments import bp_alignments
@@ -58,8 +58,10 @@ def create_app(debug, cfg_dict=None):
                ]:
         app.register_blueprint(bp)
 
-    # Database
+    # Database BCS
     initialize_database(app)
+    # Database Chado
+    initialize_database_chado(app)
 
     # Session persistence
     d = construct_session_persistence_backend(app)

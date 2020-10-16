@@ -1,5 +1,3 @@
-# TODO: manage cvterm, dbxref, annotations, comments
-
 def conn_chado():
     from flask import current_app
     from chado import ChadoInstance

@@ -1,6 +1,6 @@
 from flask import Blueprint
 
-bp_alignments = Blueprint('msa', __name__)
+bp_alignments = Blueprint('alignment', __name__)
 
 from flask import request, make_response, jsonify
 from flask.views import MethodView
@@ -124,26 +124,26 @@ class AlignFeatAPI(MethodView):
         print(f'JSON data: {post_data}')
 
 
-msa = AlignAPI.as_view('msa_api')
+alignment = AlignAPI.as_view('alignment_api')
 bp_alignments.add_url_rule(
-    bcs_api_base + '/bo/msa/',
-    view_func=msa,
+    bcs_api_base + '/bos/alignments/',
+    view_func=alignment,
     methods=['GET','POST']
 )
 bp_alignments.add_url_rule(
-    bcs_api_base + '/bo/msa/<int:msa_id>',
-    view_func=msa,
+    bcs_api_base + '/bos/alignments/<int:alignment_id>',
+    view_func=alignment,
     methods=['GET','PUT','DELETE']
 )
 
-msa_feat = AlignFeatAPI.as_view('msa_feat_api')
+alignment_feat = AlignFeatAPI.as_view('alignment_feat_api')
 bp_alignments.add_url_rule(
-    bcs_api_base + '/bo/msa/<msa_id>/feature/',
-    view_func=msa_feat,
+    bcs_api_base + '/bos/alignments/<alignment_id>/features/',
+    view_func=alignment_feat,
     methods=['GET','POST']
 )
 bp_alignments.add_url_rule(
-    bcs_api_base + '/bo/msa/<int:msa_id>/feature/<int:cmt_id>',
-    view_func=msa_feat,
+    bcs_api_base + '/bos/alignments/<int:alignment_id>/features/<int:cmt_id>',
+    view_func=alignment_feat,
     methods=['GET','PUT','DELETE']
 )

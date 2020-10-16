@@ -1,4 +1,4 @@
-def create_organism(genus, species, common = None, abbr = None):
+def create_organisms(genus, species, common = None, abbr = None):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
     res = conn.organism.add_organism(
@@ -9,7 +9,7 @@ def create_organism(genus, species, common = None, abbr = None):
     return res
 
 
-def read_organism(organism_id = None):
+def read_organisms(organism_id = None):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
     if organism_id:
@@ -19,7 +19,7 @@ def read_organism(organism_id = None):
     return res
 
 
-def update_organism(organism_id, genus, species, common = None, abbr = None):
+def update_organisms(organism_id, genus, species, common = None, abbr = None):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
     # res = conn.organism.update_organism(
@@ -30,7 +30,7 @@ def update_organism(organism_id, genus, species, common = None, abbr = None):
     return res
 
 
-def delete_organism(organism_id = None):
+def delete_organisms(organism_id = None):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
     if organism_id:
@@ -40,7 +40,7 @@ def delete_organism(organism_id = None):
     return res
 
 
-def export_organism(output_file = None, organism_id = None):
+def export_organisms(output_file = None, organism_id = None):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
     if not output_file:
