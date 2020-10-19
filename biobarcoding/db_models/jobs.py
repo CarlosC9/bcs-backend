@@ -18,7 +18,7 @@ prefix = "jobs_"
 
 
 class AlgorithmType(ORMBase):
-    """ """
+    """ BLAST, MSA, PhylogeneticTree, GeneticDiversity"""
     __tablename__ = f"{prefix}algorithm_types"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -34,40 +34,72 @@ class Algorithm(ORMBase):
     uuid = Column(GUID, unique=True)
     name = Column(String(80))
     description = Column(Text)
+    algorithm_type_id = Column(Integer, ForeignKey(AlgorithmType.id), nullable=False, primary_key=False)
+    algorithm_type = relationship(AlgorithmType)
 
 
-class Workflow(ORMBase):
-    """ Bioinformatic repeatable workflows executed in a compute resource to process bioinformatic information """
+class ProcessBrokerTemplate(ORMBase):
+    """
+    A template used to ensure the process is carried out.
+    Steps of the template adapt to the process being executed. For instance,
+    """
+    __tablename__ = f"{prefix}process_broker_templates"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(GUID, unique=True)
+    name = Column(String(80))
+
+
+class Process(ORMBase):
+    """ Repeatable processes executed locally or in a compute resource to process bioinformatic information
+      Computation
+      - Multiple alignment
+      - BLAST
+      - Phylogenetic tree
+      - Phylogenetic diversity
+      Possibly long operations
+      - Import/export sequences
+      - Import/export multiple aligment
+      - Import/export phylogenetic tree
+      - Prepare complex visualization
+      Maintainance
+      - Database clean-up
+      - Batch notifications
+      - Single notification
+    """
     __versioned__ = {}
-    __tablename__ = f"{prefix}wfs"
+    __tablename__ = f"{prefix}processes"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(GUID, unique=True)
     name = Column(String(80))
     description = Column(Text)
-    schema_inputs = Column(JSON)  # How to specify inputs for the workflow
-    schema_outputs = Column(JSON)  # How to read workflow outputs
-    execution = Column(JSON)  # How to call the workflow in a resource independent ("generic") way
+    schema_inputs = Column(JSON)  # How to specify inputs for the Process
+    schema_outputs = Column(JSON)  # How to read Process outputs
+    execution = Column(JSON)  # How to call the Process in a resource independent ("generic") way
 
 
-class WorkflowAlgorithm(ORMBase):
-    """ One of the steps in a Workflow """
-    __tablename__ = f"{prefix}wfs_algorithms"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
-    workflow_id = Column(Integer, ForeignKey(Workflow.id), nullable=False, primary_key=False)
-    workflow = relationship(Workflow, backref=backref("algorithms", cascade="all, delete-orphan"))
-
-
-class WorkflowStep(ORMBase):
-    """ One of the steps in a Workflow """
-    __tablename__ = f"{prefix}wfs_steps"
+class ProcessAlgorithm(ORMBase):
+    """ To register which algorithms are used in a Process """
+    __tablename__ = f"{prefix}process_algorithms"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(GUID, unique=True)
-    workflow_id = Column(Integer, ForeignKey(Workflow.id), nullable=False, primary_key=False)
-    workflow = relationship(Workflow, backref=backref("steps", cascade="all, delete-orphan"))
+    process_id = Column(Integer, ForeignKey(Process.id), nullable=False, primary_key=False)
+    process = relationship(Process, backref=backref("algorithms", cascade="all, delete-orphan"))
+    algorithm_id = Column(Integer, ForeignKey(Algorithm.id), nullable=False, primary_key=False)
+    algorithm = relationship(Algorithm)
+
+
+class ProcessStep(ORMBase):
+    """ To enumerate the steps in a process """
+    __tablename__ = f"{prefix}process_steps"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(GUID, unique=True)
+    name = Column(String(80))
+    process_id = Column(Integer, ForeignKey(Process.id), nullable=False, primary_key=False)
+    process = relationship(Process, backref=backref("steps", cascade="all, delete-orphan"))
 
 
 class ProcessorArchitecture(ORMBase):
@@ -98,6 +130,7 @@ class ComputingType(ORMBase):
 
 
 class JobManagementType(ORMBase):
+    """ Manager types: Galaxy, ssh, EBI web service, ... """
     __tablename__ = f"{prefix}job_mgmt_types"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -113,30 +146,31 @@ class ComputeResource(ORMBase):
     id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(GUID, unique=True)
     name = Column(String(80))
-    proc_arch_id = Column(Integer, ForeignKey(ProcessorArchitecture.id), nullable=False, primary_key=False)
+    proc_arch_id = Column(Integer, ForeignKey(ProcessorArchitecture.id), nullable=True, primary_key=False)
     proc_arch = relationship(ProcessorArchitecture)
-    os_id = Column(Integer, ForeignKey(OperatingSystem.id), nullable=False, primary_key=False)
+    os_id = Column(Integer, ForeignKey(OperatingSystem.id), nullable=True, primary_key=False)
     operating_system = relationship(OperatingSystem)
     jm_type_id = Column(Integer, ForeignKey(JobManagementType.id), nullable=False, primary_key=False)
     jm_type = relationship(JobManagementType)
-    jm_credentials = Column(JSON)
+    jm_location = Column(JSON, nullable=False)
+    jm_credentials = Column(JSON, nullable=False)
     agreement = Column(JSON)
     consumption_counters = Column(JSON)
 
 
-class WorkflowInComputeResource(ORMBase):
+class ProcessInComputeResource(ORMBase):
     """
-    Specific adaptation of a Worflow to a ComputeResource
+    Specific adaptation of a Process to a ComputeResource
     """
 
     __tablename__ = f"{prefix}wfs_compute_resources"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(GUID, unique=True)
-    workflow_id = Column(Integer, ForeignKey(Workflow.id), nullable=False, primary_key=False)
-    workflow = relationship(Workflow, backref=backref("resource_adaptations", cascade="all, delete-orphan"))
+    process_id = Column(Integer, ForeignKey(Process.id), nullable=False, primary_key=False)
+    process = relationship(Process, backref=backref("resource_adaptations", cascade="all, delete-orphan"))
     resource_id = Column(Integer, ForeignKey(ComputeResource.id), nullable=False, primary_key=False)
-    resource = relationship(ComputeResource, backref=backref("workflow_adaptations", cascade="all, delete-orphan"))
+    resource = relationship(ComputeResource, backref=backref("process_adaptations", cascade="all, delete-orphan"))
 
 
 class JobStatus(ORMBase):
@@ -152,19 +186,21 @@ class JobStatus(ORMBase):
 
 class Job(ORMBase):
     """ Core entity in the Algorithmic domain.
-    Workflows are launched into ComputeResources with some parameters and under an Identity
+    Processes are launched into ComputeResources with some parameters and under an Identity
     Then, jobs can be checked, cancelled and results obtained
     Also, listing of filtered/ordered jobs may be retrieved
+    NOTE: IF NO COMPUTERESOURCE IS SPECIFIED, THE JOB IS KEPT ON HOLD. LATER, A COMPUTE RESOURCE CAN BE ASSIGNED
     """
     __tablename__ = f"{prefix}jobs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(GUID, unique=True)
 
-    workflow_id = Column(Integer, ForeignKey(Workflow.id), nullable=False, primary_key=False)
-    workflow = relationship(Workflow)
-    resource_id = Column(Integer, ForeignKey(ComputeResource.id), nullable=False, primary_key=False)
+    process_id = Column(Integer, ForeignKey(Process.id), nullable=False, primary_key=False)
+    process = relationship(Process)
+    resource_id = Column(Integer, ForeignKey(ComputeResource.id), nullable=True, primary_key=False)
     resource = relationship(ComputeResource)
+    status = Column(String(80))
     log = Column(Text)
     inputs = Column(JSON)
     outputs = Column(JSON)
