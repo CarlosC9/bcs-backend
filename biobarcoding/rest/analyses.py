@@ -24,7 +24,7 @@ class AnalysesAPI(MethodView):
 
     def get(self, id=None):
         print(f'GET {request.path}\nGetting analyses {id}')
-        self._check_data(request.args.to_dict(flat=False))
+        self._check_data(request.args.to_dict())
         from biobarcoding.services.analyses import read_analyses
         response, code = read_analyses(id)
         return make_response(response, code)
@@ -66,7 +66,7 @@ class AnalysesAPI(MethodView):
 
     def delete(self, id):
         print(f'DELETE {request.path}\nDeleting analyses {id}')
-        self._check_data(request.args.to_dict(flat=False))
+        self._check_data(request.args.to_dict())
         from biobarcoding.services.analyses import delete_analyses
         response, code = delete_analyses(id)
         return make_response(response, code)
@@ -97,7 +97,7 @@ class AnalysesAPI(MethodView):
 
 analyses = AnalysesAPI.as_view('ansis_api')
 bp_analyses.add_url_rule(
-    bcs_api_base + '/bos/analyses',
+    bcs_api_base + '/bos/analyses/',
     view_func=analyses,
     methods=['GET','POST']
 )

@@ -1,52 +1,46 @@
-def create_organisms(genus, species, common = None, abbr = None):
+def create_organisms(genus, species, common = None, abbr = None, comment = None):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
-    res = conn.organism.add_organism(
+    resp = conn.organism.add_organism(
         genus=genus,
         species=species,
         common=common,
-        abbr=abbr)
-    return res
+        abbr=abbr,
+        comment=comment)
+    return {'status':'success','message':resp}, 200
 
 
-def read_organisms(organism_id = None):
+def read_organisms(organism_id = None, genus = None, species = None, common = None, abbr = None, comment = None):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
-    if organism_id:
-        res = conn.organism.get_organisms(organism_id = organism_id)
-    else:
-        res = conn.organism.get_organisms()
-    return res
+    resp = conn.organism.get_organisms(organism_id, genus, species, common, abbr, comment)
+    return {'status':'success','message':resp}, 200
 
 
-def update_organisms(organism_id, genus, species, common = None, abbr = None):
+def update_organisms(organism_id, genus = None, species = None, common = None, abbr = None, comment = None):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
-    # res = conn.organism.update_organism(
+    # resp = conn.organism.update_organism(
     #     genus=genus,
     #     species=species,
     #     common=common,
     #     abbr=abbr)
-    return res
+    return {'status':'success','message':resp}, 200
 
 
-def delete_organisms(organism_id = None):
+def delete_organisms(organism_id = None, genus = None, species = None, common = None, abbr = None, comment = None):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
-    if organism_id:
-        res = conn.organism.delete_organisms(organism_id = organism_id)
-    else:
-        res = conn.organism.delete_organisms()
-    return res
+    resp = conn.organism.delete_organisms(organism_id, genus, species, common, abbr, comment)
+    return {'status':'success','message':resp}, 200
 
 
-def export_organisms(output_file = None, organism_id = None):
+def export_organisms(organism_id = None):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
-    if not output_file:
-        output_file = 'output_taxa.gbk'
     import sys
-    with open('/tmp/' + output_file, "w") as sys.stdout:
+    stdout = sys.stdout
+    with open('/tmp/output_taxa.gbk', "w") as sys.stdout:
         if organism_id:
             conn.export.export_gbk(organism_id)
         else:
@@ -56,4 +50,5 @@ def export_organisms(output_file = None, organism_id = None):
                     conn.export.export_gbk(org['organism_id'])
                 except Exception as e:
                     pass
-    return '/tmp/' + output_file
+    sys.stdout = stdout
+    return '/tmp/' + output_file, 200

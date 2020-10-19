@@ -19,7 +19,7 @@ class OntologiesAPI(MethodView):
     def get(self, id=None):
         print(f'GET {request.path}\nGetting ontologies {id}')
         self._check_data(request.get_json())
-        self._check_data(request.args.to_dict(flat=False))
+        self._check_data(request.args.to_dict())
         if 'Accept' in request.headers and request.headers['Accept']=='text/obo':
             from biobarcoding.services.ontologies import export_ontologies
             response, code = export_ontologies(id=id, ids=self.ids)
@@ -33,7 +33,7 @@ class OntologiesAPI(MethodView):
     def post(self):
         print(f'POST {request.path}\nCreating ontologies')
         self._check_data(request.get_json())
-        if 'Content-type' in request.headers and request.headers['Content-type']=='text/obo':
+        if 'Content-Type' in request.headers and request.headers['Content-Type']=='text/obo':
             response, code = self._import_files()
         else:
             from biobarcoding.services.ontologies import create_ontologies
@@ -52,7 +52,7 @@ class OntologiesAPI(MethodView):
     def delete(self, id=None):
         print(f'DELETE {request.path}\nDeleting ontologies {id}')
         self._check_data(request.get_json())
-        self._check_data(request.args.to_dict(flat=False))
+        self._check_data(request.args.to_dict())
         from biobarcoding.services.ontologies import delete_ontologies
         response, code = delete_ontologies(id, self.organism_id, self.analysis_id)
         return make_response(response, code)
@@ -91,7 +91,7 @@ class OntologiesAPI(MethodView):
 
 ontologies = OntologiesAPI.as_view('onto_api')
 bp_ontologies.add_url_rule(
-    bcs_api_base + '/bos/ontologies',
+    bcs_api_base + '/bos/ontologies/',
     view_func=ontologies,
     methods=['GET','POST']
 )

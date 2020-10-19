@@ -29,7 +29,7 @@ class TaxonomiesAPI(MethodView):
     def post(self):
         print(f'POST {request.path}\nCreating taxonomies')
         self._check_data(request.get_json())
-        if 'Content-type' in request.headers and request.headers['Content-type']=='text/fasta':
+        if 'Content-Type' in request.headers and request.headers['Content-Type']=='text/fasta':
             response, code = self._import_files()
         else:
             from biobarcoding.services.taxonomies import create_taxonomies
@@ -82,7 +82,7 @@ class TaxonomiesAPI(MethodView):
 
 taxonomies = TaxonomiesAPI.as_view('taxonomies_api')
 bp_taxonomies.add_url_rule(
-    bcs_api_base + '/bos/taxonomies',
+    bcs_api_base + '/bos/taxonomies/',
     view_func=taxonomies,
     methods=['GET','POST']
 )

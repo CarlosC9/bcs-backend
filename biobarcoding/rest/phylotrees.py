@@ -29,7 +29,7 @@ class PhyloAPI(MethodView):
     def post(self):
         print(f'POST {request.path}\nCreating phylotrees')
         self._check_data(request.get_json())
-        if 'Content-type' in request.headers and request.headers['Content-type']=='text/newick':
+        if 'Content-Type' in request.headers and request.headers['Content-Type']=='text/newick':
             response, code = self._import_files()
         else:
             from biobarcoding.services.phylotrees import create_phylotrees

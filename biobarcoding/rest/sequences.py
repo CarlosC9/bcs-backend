@@ -19,7 +19,7 @@ class SequencesAPI(MethodView):
     def get(self, id=None):
         print(f'GET {request.path}\nGetting sequences {id}')
         self._check_data(request.get_json())
-        self._check_data(request.args.to_dict(flat=False))
+        self._check_data(request.args.to_dict())
         if 'Accept' in request.headers and request.headers['Accept']=='text/fasta':
             from biobarcoding.services.sequences import export_sequences
             response, code = export_sequences(id, self.organism_id, self.analysis_id)
@@ -33,7 +33,7 @@ class SequencesAPI(MethodView):
     def post(self):
         print(f'POST {request.path}\nCreating sequences')
         self._check_data(request.get_json())
-        if 'Content-type' in request.headers and request.headers['Content-type']=='text/fasta':
+        if 'Content-Type' in request.headers and request.headers['Content-Type']=='text/fasta':
             response, code = self._import_files()
         else:
             from biobarcoding.services.sequences import create_sequences
@@ -52,7 +52,7 @@ class SequencesAPI(MethodView):
     def delete(self, id=None):
         print(f'DELETE {request.path}\nDeleting sequences {id}')
         self._check_data(request.get_json())
-        self._check_data(request.args.to_dict(flat=False))
+        self._check_data(request.args.to_dict())
         from biobarcoding.services.sequences import delete_sequences
         response, code = delete_sequences(id, self.organism_id, self.analysis_id)
         return make_response(response, code)
@@ -91,7 +91,7 @@ class SequencesAPI(MethodView):
 
 sequences = SequencesAPI.as_view('sequences_api')
 bp_sequences.add_url_rule(
-    bcs_api_base + '/bos/sequences',
+    bcs_api_base + '/bos/sequences/',
     view_func=sequences,
     methods=['GET','POST','DELETE']
 )
@@ -108,25 +108,25 @@ class SeqFeatAPI(MethodView):
     """
     def get(self, seq_id, cmt_id=None):
         print(f'GET {request.path}\nGetting comments {seq_id} {cmt_id}')
-        # self._check_data(request.args.to_dict(flat=False)
+        # self._check_data(request.args.to_dict())
         return make_response({'status':'success','message':'dummy complete'}, 200)
 
 
     def post(self, seq_id):
         print(f'POST {request.path}\nCreating comments')
-        # self._check_data(request.args.to_dict(flat=False)
+        # self._check_data(request.args.to_dict())
         return make_response({'status':'success','message':'dummy complete'}, 200)
 
 
     def put(self, seq_id, cmt_id):
         print(f'PUT {request.path}\nCreating comments {seq_id} {cmt_id}')
-        # self._check_data(request.args.to_dict(flat=False)
+        # self._check_data(request.args.to_dict())
         return make_response({'status':'success','message':'dummy complete'}, 200)
 
 
     def delete(self, seq_id, cmt_id=None):
         print(f'DELETE {request.path}\nDeleting comments {seq_id} {cmt_id}')
-        # self._check_data(request.args.to_dict(flat=False)
+        # self._check_data(request.args.to_dict())
         return make_response({'status':'success','message':'dummy complete'}, 200)
 
 
