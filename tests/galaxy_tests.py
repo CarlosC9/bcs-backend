@@ -22,7 +22,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_run_workflow_from_file(self):
         insfile = 'data_test/parsec_creds.yaml'
-        insname = 'beauvoir3'
+        insname = 'local'
         ins = galaxy_instance(insfile, name = insname)
         gi = login(ins['key'],url=ins['url'])
         fn = 'data_test/ls_orchid.fasta'
@@ -40,7 +40,7 @@ class MyTestCase(unittest.TestCase):
 
     def test_change_parameter(self):
         insfile = 'data_test/parsec_creds.yaml'
-        insname = 'beauvoir3'
+        insname = 'local'
         ins = galaxy_instance(insfile, name = insname)
         gi = login(ins['key'],url=ins['url'])
         fn = 'data_test/ls_orchid.fasta'
@@ -52,7 +52,6 @@ class MyTestCase(unittest.TestCase):
         new_parameters = set_parameters(step,parameter_name,value)
         invocation = run_workflow(gi, workflow, fn, 'marK1', params=new_parameters)
         state = invocation['state']
-
         self.assertEqual(state, 'new', 'invocation failed')
         while invocation_errors(gi, invocation) == 0 and invocation_percent_complete(gi, invocation) < 100:
             pass
@@ -64,20 +63,16 @@ class MyTestCase(unittest.TestCase):
 
     def test_inputs_files(self):
         insfile = 'data_test/parsec_creds.yaml'
-        insname = 'beauvoir3'
+        insname = 'local'
         ins = galaxy_instance(insfile, name = insname)
         gi = login(ins['key'],url=ins['url'])
         input_file_path = 'data_test/wf_inputs.yaml'
         params_file_path = 'data_test/wf_parameters.yaml'
-        workflow = "PhyML_test_labels"
+        workflow = "MSA ClustalW"
         history_name = "history_test_input_files"
         invocation = run_workflow_files(gi,workflow,input_file_path,params_file_path,history_name)
-        state = invocation['state']
-        self.assertEqual(state, 'new', 'invocation failed')
-        while invocation_errors(gi, invocation) == 0 and invocation_percent_complete(gi, invocation) < 100:
-            pass
-        errors = invocation_errors(gi, invocation)
-        self.assertEqual(errors, 0, 'There is an error in the invocation')
+        state = invocation_errors(gi,invocation)
+        self.assertEqual(state,'ok')
 
     def test_wf_inst_2_inst(self):
         insfile = 'data_test/parsec_creds.yaml'
@@ -93,7 +88,7 @@ class MyTestCase(unittest.TestCase):
         return tools_message
 
 if __name__ == '__main__':
-    MyTestCase.test_upload_file()
+    # MyTestCase.test_upload_file()
     MyTestCase.test_run_workflow_from_file()
-    MyTestCase.test_change_parameter()
-    MyTestCase.test_inputs_files()
+    # MyTestCase.test_change_parameter()
+    # MyTestCase.test_inputs_files()

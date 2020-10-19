@@ -2,7 +2,20 @@ from bioblend import galaxy
 import time
 import yaml
 import os
-from bioblend.galaxy import workflows
+
+
+# no tiene sentido que haga esto xq galaxy ya es este objeto
+class instance():
+    def __init__(self,name,file):
+        self.name = name
+        self.file = file
+
+    #en realidad está definida por su url y su key pero yo lo puedo sacar
+
+    def connect(self): #esta función es la que debería crearme la instance
+        gi = galaxy_instance(self.file, name=self.name)
+        return gi
+
 
 def galaxy_instance(path, name ='__default'):
     data = read_yaml_file(path)
@@ -29,8 +42,13 @@ def library_list(gi):
 
 def library_id(gi,libname: 'str'):
     libraries = gi.libraries.get_libraries()
-    lib = next(item for item in libraries if item["name"] == libname)
-    return lib['id']
+    try:
+        lib = next(item for item in libraries if item["name"] == libname)
+    except StopIteration:
+        return 'there is no library named{}'.format(libname)
+    else:
+        return lib['id']
+
 
 
 def workflow_list(gi):
@@ -40,8 +58,13 @@ def workflow_list(gi):
 
 def workflow_id(gi, name: 'str'):
     workflows = gi.workflows.get_workflows()
-    work = next(item for item in workflows if item["name"] == name)
-    return work['id']
+    try:
+        work = next(item for item in workflows if item["name"] == name)
+    except StopIteration:
+        return 'there is no workflow named{}'.format(name)
+    else:
+
+        return work['id']
 
 
 def get_workflow_from_file(gi, workflow_file):
@@ -104,14 +127,6 @@ def create_library(gi, library_name: 'str'):
     else:
         gi.libraries.create_library(library_name)
         return library_id(library_name)
-
-
-
-def set_parameters(nstep, param_name, new_value):
-    params = dict()
-    params[nstep] = {param_name: new_value}
-    return params
-    #TODO delete
 
 
 def set_params(json_wf, param_data):
@@ -353,7 +368,6 @@ def run_workflow_files(gi,wf_name,input_file: 'str',param_file: 'str',history_na
     w_id = workflow_id(gi, wf_name)
     wf_dict = gi.workflows.export_workflow_dict(w_id)
     show_wf = gi.workflows.show_workflow(w_id)
-    allowed_error_states = {'tools': {}, 'datasets': set()}
     # Move any simple parameters from parameters to inputs
     params_to_move = []
     for pk, pv in param_data.items():
@@ -376,6 +390,7 @@ def run_workflow_files(gi,wf_name,input_file: 'str',param_file: 'str',history_na
         history = gi.histories.create_history(name=history_name)
         datamap = load_input_files(gi, inputs=inputs_data,
                                    workflow=show_wf, history=history)
+        # TODO check that input parameters are correct
         print('Set parameters ...')
         params = set_params(wf_dict, param_data)
 
@@ -387,6 +402,16 @@ def run_workflow_files(gi,wf_name,input_file: 'str',param_file: 'str',history_na
 
     # time.sleep(100)
     return results #invocation objectt
+
+
+def invocation_errors(gi,invocation)->'int':
+    status = gi.histories.get_status(invocation['history_id'])
+    state = status['state']
+    if state != 'ok':
+        errors_detail = status['state_details']
+        return errors_detail
+    else:
+        return state
 
 def get_job(gi,invocation,step):
     '''
@@ -400,17 +425,6 @@ def get_job(gi,invocation,step):
     job_id = step['job_id']
     job =  gi.jobs.show_job(job_id)
     return job
-
-
-def invocation_percent_complete(gi,invocation)->'int':
-    status = gi.histories.get_status(invocation['history_id'])
-    return status['percent_complete']
-# TODO WRITE A BETER WAY TO CHECK PROCESSES
-
-def invocation_errors(gi,invocation)->'int':
-    status = gi.histories.get_status(invocation['history_id'])
-    return status['state_details']['error']
-
 
 
 def list_invocation_results(gi,invocation_id: 'str'):
@@ -468,7 +482,7 @@ def check_tools(wf1_dic,wf2_dic):
         if step['errors'] == "Tool is not installed":
             tool_list.append(steps2[step]['tool_shed_repository'])
     if len(tool_list) == 0:
-        return 'all tools are instaled'
+        return 'all tools are installed'
     else:
         return tool_list
 
@@ -497,16 +511,6 @@ def install_tools(instance,tools):
                                                    install_resolver_dependencies=True,
                                                    new_tool_panel_section_label='New'
                                                    )
-
-class instance():
-    def __init__(self,name,file):
-        self.name = name
-        self.file = file
-
-
-    def connect(self):
-        gi = galaxy_instance(self.file, name=self.name)
-        return gi
 
 
 
