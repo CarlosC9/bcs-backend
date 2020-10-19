@@ -10,11 +10,12 @@ from firebase_admin import credentials, auth
 
 
 def initialize_firebase(app):
-    # cert_path = '/home/acurbelo/.local/share/bcs-backend/firebase-key.json'
     cert_path = app.config['GOOGLE_APPLICATION_CREDENTIALS']
-    # cert_path = '../firebase-key.json'
     cred = credentials.Certificate(cert_path)
-    firebase_app = firebase_admin.initialize_app(cred)
+    try:
+        firebase_app = firebase_admin.initialize_app(cred)
+    except Exception as e:
+        pass
 
 
 def token_required(func):

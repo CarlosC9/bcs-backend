@@ -10,6 +10,7 @@ from sqlalchemy_continuum import make_versioned
 make_versioned(user_cls=None, options={'native_versioning': True})
 
 DBSession = scoped_session(sessionmaker())
+DBSessionChado = scoped_session(sessionmaker())
 
 
 class GUID(TypeDecorator):
@@ -84,6 +85,7 @@ class BaseMixin(object):
 
 
 ORMBase = declarative_base(cls=BaseMixin)
+ORMBaseChado = declarative_base(cls=BaseMixin)
 
 
 class ObjectType(ORMBase):  # CODES

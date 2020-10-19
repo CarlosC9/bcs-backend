@@ -127,7 +127,7 @@ Adapted from GMOD load_taxonomy.pl:
 by
 Naama Menda <nm249@cornell.edu>
 
-=head1 VERISON AND DATE
+=head1 VERSION AND DATE
 
 Version 2.1, March 2012.
 
@@ -263,7 +263,7 @@ my $phylotree = $schema->resultset('Phylogeny::Phylotree')->find_or_create(
     );
 
 my $phylotree_id = $phylotree->phylotree_id();
-message( "Created a new phylotee with id $phylotree_id\n\n\n", 1);
+message( "Created a new phylotree with id $phylotree_id\n\n\n", 1);
 
 #remove all existing phylonodes for this tree and reset the database sequence
 
@@ -278,8 +278,8 @@ my %tax_file=() ; # hash for storing taxonomy ids from -i
 if ($infile) {
     open (INFILE, "<$infile") || die "Can't open infile $infile!!\n\n";  #
     while (my $t_id = <INFILE>) {
-	chomp $t_id;
-	$tax_file{$t_id} = $t_id;
+    	chomp $t_id;
+    	$tax_file{$t_id} = $t_id;
     }
 }
 my $error = "load_taxonomy.err";
@@ -292,21 +292,22 @@ open( NODE, "nodes.dmp" );
 while ( my $line = <NODE> ) {
     chomp $line;
     my ( $id, $parent, $level ) = split /\s+\|\s+/, $line;
-    ###message("id = $id, parent = $parent, level = $level\n",1);
+    ###message("NODES: id = $id, parent = $parent, level = $level\n",1);
     if ( !($okay_level{ $level } ) ) {
-        message("Node rank not found in the database (" . $okay_level{ $level } . "). Skipping\n");
+        # message("Node rank not found in the database (" . $okay_level{ $level } . ") (level: " . $level . "). Skipping\n");
         next;
     }
     # check for data consistency
     if ($infile) {
-	if (  exists $tax_file{$id}  ) {
-	    # check if the parent is in the taxfile
-	    if ( $parent && !(exists $tax_file{ $parent } ) ) {
-		message ("Parent $parent for tax_id '" . $id . "' does not exist in your input file ! This means $id is your root, or you need to check your input!\n",1);
-	    }
-	} else{  next(); } # skip nodes not in tax_file
+    	if (  exists $tax_file{$id}  ) {
+    	    # check if the parent is in the taxfile
+    	    if ( $parent && !(exists $tax_file{ $parent } ) ) {
+    		      message ("Parent $parent for tax_id '" . $id . "' does not exist in your input file ! This means $id is your root, or you need to check your input!\n",1);
+    	    }
+    	} else{  next(); } # skip nodes not in tax_file
     }
 
+    message("NODES: id = $id, parent = $parent, level = $level\n",1);
     ###message("STORING NODE is node hash\n",1);
     $node{$id}{ 'parent_taxid' } = $parent;
     $node{$id}{ 'self_taxid'   } = $id;
@@ -322,19 +323,20 @@ while ( my $line = <NAME> ) {
     ###message("NAMES: id = $id, name = $name\n",1);
     next unless $node{$id}; #skip nodes
     if ( $line =~ /scientific name/) {
-	###message("Storing scientific name '$name'\n",1);
-	$node{$id}{ 'name' } = $name;
-	$node{$id}{ 'name' } .= " Taxonomy:$id" if $seen{ $name }++;
+    	###message("Storing scientific name '$name'\n",1);
+    	$node{$id}{ 'name' } = $name;
+    	$node{$id}{ 'name' } .= " Taxonomy:$id" if $seen{ $name }++;
     } elsif  ( $line =~ /common name/) { #  genbank common names
-	push(@{ $node{$id}{ 'common_name' } } , $name);
-	push(@{ $node{$id}{ 'synonyms' } }, $name);
+    	push(@{ $node{$id}{ 'common_name' } } , $name);
+    	push(@{ $node{$id}{ 'synonyms' } }, $name);
 
     } elsif ( $line =~ /synonym/ ) {
-	push @{ $node{$id}{ 'synonyms' } }, $name;
+	     push @{ $node{$id}{ 'synonyms' } }, $name;
     }
+    message("NAMES: id = $id, name = $name\n",1);
     # populate $tax_file with the ids from the names file if a filtering file is not passed
     if (!$infile) {
-	$tax_file{$id} = $id;
+	     $tax_file{$id} = $id;
     }
     #
 }
@@ -342,26 +344,26 @@ while ( my $line = <NAME> ) {
 close( NAME );
 
 foreach my $id ( keys %node ) {
-    ##message("Looking at id '" . $id . "' in node hash... level = " . $node{$id}{'level'} . "\n",1);
+    ###message("Looking at id '" . $id . "' in node hash... level = " . $node{$id}{'level'} . "\n",1);
     my $parent_taxid = $node{$id}{ 'parent_taxid' } ;
     if (!$tax_file{$parent_taxid}) {
-	message("No parent id found for  species " . $node{ $id }{ 'name' } . " (id = '" . $id . "') !! This means your species is the root node, or there is an error in yout input file \n\n", 1);
+	     message("No parent id found for species " . $node{ $id }{ 'name' } . " (id = '" . $id . "') !! This means your species is the root node, or there is an error in yout input file \n\n", 1);
     }
     if ( $node{ $id }{ 'level' } eq 'species' ) {
-	# load the genus name from the parent_taxid
-	if (!$tax_file{$parent_taxid}) {
-	    die "No parent id found for species " . $node{ $id }{ 'name' } . " (id = '" . $id . "') !! Check your input file !!\n" ;
-	}
+    	# load the genus name from the parent_taxid
+    	if (!$tax_file{$parent_taxid}) {
+    	    die "No parent id found for species " . $node{ $id }{ 'name' } . " (id = '" . $id . "') !! Check your input file !!\n" ;
+    	}
 
-	$node{ $id }{ 'genus' }   = $node{ $parent_taxid }{ 'name' };
-	$node{ $id }{ 'species' } = $node{ $id }{ 'name' };
-	###message("FOUND SPECIES: " . $node{ $id }{ 'name' } . " genus = " . $node{ $id }{ 'genus' } . "\n" , 1);
+    	$node{ $id }{ 'genus' }   = $node{ $parent_taxid }{ 'name' };
+    	$node{ $id }{ 'species' } = $node{ $id }{ 'name' };
+    	###message("FOUND SPECIES: " . $node{ $id }{ 'name' } . " genus = " . $node{ $id }{ 'genus' } . "\n" , 1);
 
     } else {
-	###message("FOUND NODE NAME: " . $node{ $node{ $id }{ 'parent_taxid' }}{ 'name' } . "( genus = " . $node{ $id }{ 'level' } . " species = " . $node{ $id }{ 'name' } . "\n",1);
+    	###message("FOUND NODE NAME: " . $node{ $node{ $id }{ 'parent_taxid' }}{ 'name' } . "( genus = " . $node{ $id }{ 'level' } . " species = " . $node{ $id }{ 'name' } . "\n",1);
 
-	$node{ $id }{ 'genus'   } = $node{ $id }{ 'level' };
-	$node{ $id }{ 'species' } = $node{ $id }{ 'name' };
+    	$node{ $id }{ 'genus'   } = $node{ $id }{ 'level' };
+    	$node{ $id }{ 'species' } = $node{ $id }{ 'name' };
     }
 }
 
@@ -370,14 +372,14 @@ foreach my $id ( keys %node ) {
 #use temp table for generating the phylonode_ids
 
 $dbh->do("CREATE TEMP TABLE tmp_phylonode (
- phylonode_id integer NOT NULL PRIMARY KEY,
- phylotree_id integer ,
- organism_id integer,
- parent_phylonode_id integer,
- left_idx integer,
- right_idx integer,
- type_id integer)"
-    );
+   phylonode_id integer NOT NULL PRIMARY KEY,
+   phylotree_id integer,
+   organism_id integer,
+   parent_phylonode_id integer,
+   left_idx integer,
+   right_idx integer,
+   type_id integer)"
+  );
 
 
 ############################################
@@ -388,132 +390,140 @@ my $node_count=0;
 my $coderef = sub {
     my $root_id;
     my $organism_id = $maxval{'organism'};
-  NODE: foreach my $id ( keys %node ) {
-      ######
-      #Store the genbank taxon_id in dbxref and in organism_dbxref
-      #
-      my $genbank_taxon_accession= $node{ $id }{ 'self_taxid' };
-      if (!$genbank_taxon_accession) {
-	  print ERR "SKIPPING: No record found for genbank taxon id $id! Check your infile !\n";
-	  next NODE;
-      }
-      my $dbxref = $schema->resultset("General::Dbxref")->find_or_create(
-	  { accession => $genbank_taxon_accession,
-	    db_id => $db_id,
-	  });
-      my $dbxref_id = $dbxref->get_column('dbxref_id');
+    NODE: foreach my $id ( keys %node ) {
+        ######
+        #Store the genbank taxon_id in dbxref and in organism_dbxref
+        #
+        my $genbank_taxon_accession= $node{ $id }{ 'self_taxid' };
+        if (!$genbank_taxon_accession) {
+      	  print ERR "SKIPPING: No record found for genbank taxon id $id! Check your infile !\n";
+      	  next NODE;
+        }
+        my $dbxref = $schema->resultset("General::Dbxref")->find_or_create(
+      	  { accession => $genbank_taxon_accession,
+      	    db_id => $db_id,
+      	  });
+        my $dbxref_id = $dbxref->get_column('dbxref_id');
 
-      my $abbreviation;
-      if ($node{ $id }{level} eq 'species' ) {
-	  ###message("Found species " . $node{ $id }{ 'species' } . "\n" ,1) ;
-	  if ( $node{ $id }{ 'species' } =~ m/(.*)\s(.*)/ ) {
-	      my $gen=$1;
-	      my $sp=$2;
-	      $abbreviation= uc( substr( $gen ,0, 1 ) ) . "." .  $sp;
-	  }
-      }
-      my $common_name;
-      my $c= @{ $node{$id}{'common_name'} } if ($node{$id}{'common_name'});
-      $common_name =    join("," , @{ $node{ $id }{ 'common_name' } }) if $c;
+        my $abbreviation;
+        if ($node{ $id }{level} eq 'species' ) {
+      	  ###message("Found species " . $node{ $id }{ 'species' } . "\n" ,1) ;
+      	  if ( $node{ $id }{ 'species' } =~ m/(.*)\s(.*)/ ) {
+      	      my $gen=$1;
+      	      my $sp=$2;
+      	      $abbreviation= uc( substr( $gen ,0, 1 ) ) . "." .  $sp;
+      	  }
+        }
+        my $common_name;
+        my $c= @{ $node{$id}{'common_name'} } if ($node{$id}{'common_name'});
+        $common_name = join("," , @{ $node{ $id }{ 'common_name' } }) if $c;
 
-      my $genus = $node{ $id }{ 'genus' } ;
-      my $species = $node{ $id }{ 'species' } ;
-      my ($organism, $update, $insert);
+        my $genus = $node{ $id }{ 'genus' } ;
+        if (!$genus) {
+          $node{ $id }{ 'genus' } = $node{ $node{$id}{ 'parent_taxid' } }{ 'name' };
+          $genus = $node{ $id }{ 'genus' } ;
+        }
+        my $species = $node{ $id }{ 'species' } ;
+        my ($organism, $update, $insert);
 
-      ###message("looking at organism $genbank_taxon_accession, genus=$genus, species=$species\n");
+        ###message("looking at organism $genbank_taxon_accession, genus=$genus, species=$species\n");
 
-      if (!$genus || !$species) { die "NO GENUS OR SPECIES FOUND FOR tax_id $genbank_taxon_accession! Check your input file! \n" ; }
-      $organism = $schema->resultset('Organism::Organism')->search(
-	  {
-	      species => {'ilike' => $species }
-	  })->single; # lookup is by species only . NCBI species should be unique!
-      if (!$organism) {  #maybe the organism is already loaded with the ncbi taxonomy id, but the species name has changed?
-	  my $organism_dbxref = $dbxref->organism_dbxrefs->single;
-	  $organism= $organism_dbxref->organism if $organism_dbxref;
-      }
-      if (!$organism) { #create a new empty row object
-	  $organism = $schema->resultset('Organism::Organism')->new({});
-	  $insert=1;
-      } else { $update = 1; }
+        if (!$genus || !$species) {
+          die "NO GENUS OR SPECIES FOUND FOR tax_id $genbank_taxon_accession! Check your input file! \n" ;
+        }
+        $organism = $schema->resultset('Organism::Organism')->search(
+      	  {
+      	      species => {'ilike' => $species }
+      	  })->single; # lookup is by species only . NCBI species should be unique!
+        if (!$organism) {  #maybe the organism is already loaded with the ncbi taxonomy id, but the species name has changed?
+      	  my $organism_dbxref = $dbxref->organism_dbxrefs->single;
+      	  $organism= $organism_dbxref->organism if $organism_dbxref;
+        }
+        if (!$organism) { #create a new empty row object
+      	  $organism = $schema->resultset('Organism::Organism')->new({});
+      	  $insert=1;
+        } else { $update = 1; }
 
-      $organism->set_column(genus => $node{ $id }{ 'genus' } );
-      $organism->set_column(species => $node{ $id }{ 'species' } );
-      $organism->set_column(abbreviation => $abbreviation );
-      $organism->set_column(common_name => $common_name );
+        $organism->set_column(genus => $node{ $id }{ 'genus' } );
+        $organism->set_column(species => $node{ $id }{ 'species' } );
+        $organism->set_column(abbreviation => $abbreviation );
+        $organism->set_column(common_name => $common_name );
 
-      if ($update) {
-	  $organism->update();
-	  message( "*Updating organism " . $organism->get_column('organism_id') . " (species=" . $organism->species . ")\n", 1);
-      }
-      if ($insert) {
-	  $organism->insert();
-	  message("New organism " . $organism->get_column('organism_id') . " (species=" . $organism->species . ")\n", 1);
-      }
-      my $organism_id= $organism->get_column('organism_id');
+        if ($update) {
+      	  $organism->update();
+      	  message( "*Updating organism " . $organism->get_column('organism_id') . " (species=" . $organism->species . ")\n", 1);
+        }
+        if ($insert) {
+      	  $organism->insert();
+      	  message("New organism " . $organism->get_column('organism_id') . " (species=" . $organism->species . ")\n", 1);
+        }
+        my $organism_id= $organism->get_column('organism_id');
 
-      ###########################################
-      #store the organism synonyms
-      foreach (@{$node{ $id }{synonyms} } ) {
-	  $organism->create_organismprops( { synonym => $_ }, { autocreate => 1} , );
-	  message( $node{ $id }{name} . " LEVEL=( " . $node{ $id }{level} . ") Synonym is $_ \n" );
-      }
-      ####################################################################
+        ###########################################
+        #store the organism synonyms
+        foreach (@{$node{ $id }{synonyms} } ) {
+      	  $organism->create_organismprops( { synonym => $_ }, { autocreate => 1} , );
+      	  message( $node{ $id }{name} . " LEVEL=( " . $node{ $id }{level} . ") Synonym is $_ \n" );
+        }
+        ####################################################################
 
-      my $organism_dbxref = $schema->resultset('Organism::OrganismDbxref')->find_or_create(
-	  {
-	      organism_id => $organism_id,
-	      dbxref_id   => $dbxref_id,
-	  },
-	  );
+        my $organism_dbxref = $schema->resultset('Organism::OrganismDbxref')->find_or_create(
+      	  {
+      	      organism_id => $organism_id,
+      	      dbxref_id   => $dbxref_id,
+      	  },
+      	  );
 
-      #get the cvterm_id of the taxonomy level
-      my $level= $node{ $id }{level};
-      my $taxonomy_cv = $schema->resultset("Cv::Cv")->find( { name => 'taxonomy' } );
-      if (!$taxonomy_cv) { die "No cv found for 'taxonomy' . Did you run 'load_taxonomy_cvterms.pl' ? See the perldoc for more details \n\n"; }
-      my ($level_cvterm) = $taxonomy_cv->find_related("cvterms" , { name  => $level } ) ;
+        #get the cvterm_id of the taxonomy level
+        my $level= $node{ $id }{level};
+        my $taxonomy_cv = $schema->resultset("Cv::Cv")->find( { name => 'taxonomy' } );
+        if (!$taxonomy_cv) { die "No cv found for 'taxonomy' . Did you run 'load_taxonomy_cvterms.pl' ? See the perldoc for more details \n\n"; }
+        my ($level_cvterm) = $taxonomy_cv->find_related("cvterms" , { name  => $level } ) ;
 
-      my $level_id = $level_cvterm->get_column("cvterm_id") if $level_cvterm ;
+        my $level_id = $level_cvterm->get_column("cvterm_id") if $level_cvterm ;
 
-      if (!$level_cvterm) {
+        if (!$level_cvterm) {
 
-	  print ERR "No cvterm found for type $level! Check your cvterm table for loaded taxonomy (cv name should be 'taxonomy') \n\n";
-	  die "No cvterm found for type $level! Check your cvterm table for loaded taxonomy (cv name should be 'taxonomy') . See perldoc load_taxonomy_cvterms.pl \n\n";
-      }
-      #store a new phylonode_id + phylonode_organism. This is necessary for storing later the parent_phylonode_id
-      # and eventuay the left_idx and right_idx.
+      	  print ERR "No cvterm found for type $level! Check your cvterm table for loaded taxonomy (cv name should be 'taxonomy') \n\n";
+      	  die "No cvterm found for type $level! Check your cvterm table for loaded taxonomy (cv name should be 'taxonomy') . See perldoc load_taxonomy_cvterms.pl \n\n";
+        }
+        #store a new phylonode_id + phylonode_organism. This is necessary for storing later the parent_phylonode_id
+        # and eventuay the left_idx and right_idx.
 
-      $phylonode{ $id }{ 'phylonode_id' } = $next_phylonode_id++;
-      $phylonode{ $id }{ 'organism_id' } = $organism_id;
-      $phylonode{ $id }{ 'parent_taxid' } = $node{ $id }{ 'parent_taxid' };
-      $phylonode{ $id }{ 'type_id' } = $level_id ;
+        $phylonode{ $id }{ 'phylonode_id' } = $next_phylonode_id++;
+        $phylonode{ $id }{ 'organism_id' } = $organism_id;
+        $phylonode{ $id }{ 'parent_taxid' } = $node{ $id }{ 'parent_taxid' };
+        $phylonode{ $id }{ 'type_id' } = $level_id ;
 
-  }
+    }
 
 
 #now that all the organisms are stored, we can store the relationships (=phylonodes)
     my %stored=();
     my %test=();
     foreach my $id (keys %phylonode ) {
+      	my $phylonode_id = $phylonode{ $id }{ 'phylonode_id' };
+      	my $organism_id = $phylonode{ $id }{ 'organism_id' } ;
+      	my $parent_phylonode_id = $phylonode{ $phylonode{ $id }{ 'parent_taxid' } }{ 'phylonode_id' } || 'NULL';
+      	$root_id = $phylonode_id if $parent_phylonode_id eq 'NULL';
+      	if ($parent_phylonode_id eq 'NULL') {
+      	    message("organism $organism_id does not have a parent! (phylonode_id = $phylonode_id)\n", 1);
+      	    message("taxon $id does not have a parent! (parent_taxid = $phylonode{ $id }{ 'parent_taxid' })\n", 1);
+      	    message("parent: taxon $phylonode{ $id }{ 'parent_taxid' } does not have a phylonode_id = $phylonode{ $phylonode{ $id }{ 'parent_taxid' } }{ 'phylonode_id' }\n", 1);
+      	}
+      	my $type_id = $phylonode{ $id }{'type_id'} || 'NULL';
+      	push @{$test{$parent_phylonode_id} } , $phylonode_id ;
+      	my $insert="INSERT INTO tmp_phylonode (phylotree_id, phylonode_id, parent_phylonode_id, organism_id, type_id)
+                   VALUES ($phylotree_id, $phylonode_id, $parent_phylonode_id, $organism_id, $type_id)";
 
-	my $phylonode_id = $phylonode{ $id }{ 'phylonode_id' };
-	my $organism_id = $phylonode{ $id }{ 'organism_id' } ;
-	my $parent_phylonode_id = $phylonode{ $phylonode{ $id }{ 'parent_taxid' } }{ 'phylonode_id' } || 'NULL';
-	$root_id = $phylonode_id if $parent_phylonode_id eq 'NULL';
-	if ($parent_phylonode_id eq 'NULL') {
-	    message("organism $organism_id does not have a parent! (phylonode_id = $phylonode_id)\n", 1);
-	}
-	my $type_id = $phylonode{ $id }{'type_id'} || 'NULL';
-	push @{$test{$parent_phylonode_id} } , $phylonode_id ;
-	my $insert="INSERT INTO tmp_phylonode (phylotree_id, phylonode_id, parent_phylonode_id, organism_id, type_id)
-             VALUES ($phylotree_id,$phylonode_id, $parent_phylonode_id, $organism_id, $type_id)";
-
-	$node_count++;
-	$dbh->do($insert);
+      	$node_count++;
+      	$dbh->do($insert);
     }
 
     #now walk through the tmp table and update the indexes
 
     message( "the root_id is $root_id\n",1);
+    # message( "the root_taxid is $phylonode{ $root_id }{ 'self_taxid' }\n",1);
 
     if (!$root_id) { die "No organism id found for root node! \n" ; }
     walktree($root_id, 1);
@@ -622,3 +632,6 @@ species
 subspecies
 varietas
 forma
+section
+subsection
+clade

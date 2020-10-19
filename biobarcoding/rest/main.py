@@ -4,14 +4,15 @@ from flask_cors import CORS
 
 import biobarcoding
 from biobarcoding.rest import logger, log_level, load_configuration_file, construct_session_persistence_backend, \
-    initialize_database, bcs_gui_base
+    initialize_database, initialize_database_chado, bcs_gui_base
 from biobarcoding.rest.auth import bp_auth
-from biobarcoding.rest.bos import bp_bos
-from biobarcoding.rest.seq import bp_seq
-from biobarcoding.rest.msa import bp_msa
-from biobarcoding.rest.phylo import bp_phylo
-from biobarcoding.rest.meta import bp_meta
-from biobarcoding.rest.in_out import bp_io
+from biobarcoding.rest.sequences import bp_sequences
+from biobarcoding.rest.alignments import bp_alignments
+from biobarcoding.rest.phylotrees import bp_phylotrees
+from biobarcoding.rest.taxonomies import bp_taxonomies
+from biobarcoding.rest.organisms import bp_organisms
+from biobarcoding.rest.analyses import bp_analyses
+from biobarcoding.rest.ontologies import bp_ontologies
 from biobarcoding.rest.jobs import bp_jobs
 from biobarcoding.rest.tasks import bp_tasks
 from biobarcoding.rest.gui_static import bp_gui
@@ -35,6 +36,7 @@ def create_app(debug, cfg_dict=None):
 
     UPLOAD_FOLDER = '/tmp/'
     app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+    load_configuration_file(app)
 
     load_configuration_file(app)
 
@@ -47,20 +49,23 @@ def create_app(debug, cfg_dict=None):
          )
 
     for bp in [bp_auth,
-               bp_bos,
-               bp_seq,
-               bp_msa,
-               bp_phylo,
-               bp_meta,
-               bp_io,
+               bp_sequences,
+               bp_alignments,
+               bp_phylotrees,
+               bp_taxonomies,
+               bp_organisms,
+               bp_analyses,
+               bp_ontologies,
                bp_jobs,
                bp_tasks,
                bp_gui
                ]:
         app.register_blueprint(bp)
 
-    # Database
+    # Database BCS
     initialize_database(app)
+    # Database Chado
+    initialize_database_chado(app)
 
     # Session persistence
     d = construct_session_persistence_backend(app)

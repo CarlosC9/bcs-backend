@@ -2,12 +2,12 @@
 =head1 NAME
 
  load_taxonomy_cvterms.pl
-    
+
 =head1 DESCRIPTION
 
  Usage: perl load_taxonomy_cvterms.pl -H [dbhost] -D [dbname] [-t] -g gmod_dbprofile
 
-populate a chado database with NCBI taxon terms 
+populate a chado database with NCBI taxon terms
 
 
 =head2 parameters
@@ -22,7 +22,7 @@ hostname for database
 
 database name
 
- 
+
 =item -t
 
 trial mode. Do not perform any store operations at all.
@@ -34,13 +34,13 @@ GMOD database profile name (can provide host and DB name) Default: 'default'
 
 =item -u
 
-username. Override username in gmod_config 
+username. Override username in gmod_config
 
-=item -d 
+=item -d
 
 driver. Override driver name in gmod_config
 
-=item -p 
+=item -p
 
 password. Override password in gmod_config
 
@@ -78,14 +78,14 @@ if ($opt_g) {
     $DBPROFILE ||= 'default';
     my $gmod_conf = Bio::GMOD::Config->new() ;
     my $db_conf = Bio::GMOD::DB::Config->new( $gmod_conf, $DBPROFILE ) ;
-    
+
     $dbhost ||= $db_conf->host();
     $dbname ||= $db_conf->name();
     $driver ||= $db_conf->driver();
     $port   ||= $db_conf->port();
     $pass   ||= $db_conf->password();
     $user   ||= $db_conf->user();
-}   
+}
 
 if (!$dbhost && !$dbname) { die "Need -D dbname and -H hostname arguments.\n"; }
 
@@ -102,47 +102,47 @@ if (!$schema || !$dbh) { die "No schema or dbh is avaiable! \n"; }
 
 
 eval {
-    
-    my $db = $schema->resultset("General::Db")->find_or_create( 
+
+    my $db = $schema->resultset("General::Db")->find_or_create(
 	{
 	    name =>'species_taxonomy',
 	});
-    
+
     my $db_id = $db->get_column('db_id');
-    
+
     my $cv= $schema->resultset("Cv::Cv")->find_or_create(
 	{
 	    name => 'taxonomy',
 	});
     my $cv_id = $cv->get_column('cv_id');
-    
-    
+
+
     while ( my $tax =  <DATA> )  {
 	chomp $tax;
 	my $dbxref= $schema->resultset("General::Dbxref")->find_or_create(
 	    {
 		db_id     => $db_id,
 		accession => "taxonomy:$tax",
-	    }); 
+	    });
 	my $dbxref_id = $dbxref->get_column('dbxref_id');
-	
+
 	my $cvterm = $schema->resultset("Cv::Cvterm")->find_or_create(
 	    {
 		cv_id => $cv_id,
 		name  => $tax,
 		dbxref_id => $dbxref_id,
-		
+
 	    });
 	my $cvterm_id= $cvterm->get_column('cvterm_id');
 	print STDERR "Stored cvterm for $tax ($cvterm_id)\n";
     }
-};   
+};
 
 if($@) {
     print $@;
     print"Failed; rolling back.\n";
     $dbh->rollback();
-}else{ 
+}else{
     print"Succeeded.\n";
     if (!$opt_t) {
 	print STDERR "committing ! \n";
@@ -185,3 +185,6 @@ species
 subspecies
 varietas
 forma
+section
+subsection
+clade
