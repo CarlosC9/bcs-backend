@@ -1,6 +1,6 @@
 from flask import Blueprint
 
-bp_alignments = Blueprint('alignment', __name__)
+bp_alignments = Blueprint('bp_alignments', __name__)
 
 from flask import request, make_response, jsonify
 from flask.views import MethodView
@@ -21,7 +21,7 @@ class AlignAPI(MethodView):
             'status': 'success',
             'message': msg
         }
-        return make_response(jsonify(responseObject)), 200
+        return make_response(jsonify(responseObject), 200)
 
 
     def post(self):
@@ -33,7 +33,7 @@ class AlignAPI(MethodView):
             'status': 'success',
             'message': msg
         }
-        return make_response(jsonify(responseObject)), 200
+        return make_response(jsonify(responseObject), 200)
 
 
     def put(self, id):
@@ -45,7 +45,7 @@ class AlignAPI(MethodView):
             'status': 'success',
             'message': msg
         }
-        return make_response(jsonify(responseObject)), 200
+        return make_response(jsonify(responseObject), 200)
 
 
     def delete(self, id):
@@ -57,7 +57,7 @@ class AlignAPI(MethodView):
         'status': 'success',
         'message': msg
         }
-        return make_response(jsonify(responseObject)), 200
+        return make_response(jsonify(responseObject), 200)
 
 
     def _check_data(self):
@@ -79,7 +79,7 @@ class AlignFeatAPI(MethodView):
             'status': 'success',
             'message': msg
         }
-        return make_response(jsonify(responseObject)), 200
+        return make_response(jsonify(responseObject), 200)
 
 
     def post(self):
@@ -91,7 +91,7 @@ class AlignFeatAPI(MethodView):
             'status': 'success',
             'message': msg
         }
-        return make_response(jsonify(responseObject)), 200
+        return make_response(jsonify(responseObject), 200)
 
 
     def put(self, id):
@@ -103,7 +103,7 @@ class AlignFeatAPI(MethodView):
             'status': 'success',
             'message': msg
         }
-        return make_response(jsonify(responseObject)), 200
+        return make_response(jsonify(responseObject), 200)
 
 
     def delete(self, id):
@@ -115,7 +115,7 @@ class AlignFeatAPI(MethodView):
         'status': 'success',
         'message': msg
         }
-        return make_response(jsonify(responseObject)), 200
+        return make_response(jsonify(responseObject), 200)
 
 
     def _check_data(self):
@@ -124,26 +124,26 @@ class AlignFeatAPI(MethodView):
         print(f'JSON data: {post_data}')
 
 
-alignment = AlignAPI.as_view('alignment_api')
+alignment_view = AlignAPI.as_view('api_alignments')
 bp_alignments.add_url_rule(
     bcs_api_base + '/bos/alignments/',
-    view_func=alignment,
+    view_func=alignment_view,
     methods=['GET','POST']
 )
 bp_alignments.add_url_rule(
     bcs_api_base + '/bos/alignments/<int:alignment_id>',
-    view_func=alignment,
+    view_func=alignment_view,
     methods=['GET','PUT','DELETE']
 )
 
-alignment_feat = AlignFeatAPI.as_view('alignment_feat_api')
+alignment_feat_view = AlignFeatAPI.as_view('api_alignment_feat')
 bp_alignments.add_url_rule(
     bcs_api_base + '/bos/alignments/<alignment_id>/features/',
-    view_func=alignment_feat,
+    view_func=alignment_feat_view,
     methods=['GET','POST']
 )
 bp_alignments.add_url_rule(
     bcs_api_base + '/bos/alignments/<int:alignment_id>/features/<int:cmt_id>',
-    view_func=alignment_feat,
+    view_func=alignment_feat_view,
     methods=['GET','PUT','DELETE']
 )

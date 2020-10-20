@@ -1,6 +1,6 @@
 from flask import Blueprint
 
-bp_organisms = Blueprint('organisms', __name__)
+bp_organisms = Blueprint('bp_organisms', __name__)
 
 from flask import request, make_response, jsonify
 from flask.views import MethodView
@@ -26,10 +26,11 @@ class OrganismsAPI(MethodView):
         if 'Accept' in request.headers and request.headers['Accept']=='text/genbank':
             from biobarcoding.services.organisms import export_organisms
             response, code = export_organisms(id)
+            return send_file(response, mimetype='text/genbank'), code
         else:
             from biobarcoding.services.organisms import read_organisms
             response, code = read_organisms(id, self.genus, self.species, self.common_name, self.abbreviation, self.comment)
-        return make_response(jsonify(response), code)
+            return make_response(jsonify(response), code)
 
 
     def post(self):
@@ -37,7 +38,7 @@ class OrganismsAPI(MethodView):
         self._check_data(request.json)
         from biobarcoding.services.organisms import create_organisms
         response, code = create_organisms(self.genus, self.species, self.common_name, self.abbreviation, self.comment)
-        return make_response(response, code)
+        return make_response(jsonify(response), code)
 
 
     def put(self, id):
@@ -45,7 +46,7 @@ class OrganismsAPI(MethodView):
         self._check_data(request.json)
         from biobarcoding.services.organisms import update_organisms
         response, code = update_organisms(id, self.genus, self.species, self.common_name, self.abbreviation, self.comment)
-        return make_response(response, code)
+        return make_response(jsonify(response), code)
 
 
     def delete(self, id):
@@ -53,7 +54,7 @@ class OrganismsAPI(MethodView):
         self._check_data(request.args)
         from biobarcoding.services.organisms import delete_organisms
         response, code = delete_organisms(id, self.genus, self.species, self.common_name, self.abbreviation, self.comment)
-        return make_response(response, code)
+        return make_response(jsonify(response), code)
 
 
     def _check_data(self, data):
@@ -71,14 +72,14 @@ class OrganismsAPI(MethodView):
         print(f'DATA: {data}')
 
 
-organisms = OrganismsAPI.as_view('organisms_api')
+organisms_view = OrganismsAPI.as_view('api_organisms')
 bp_organisms.add_url_rule(
-    bcs_api_base + '/bos/organisms/',
-    view_func=organisms,
+    bcs_api_base + '/organisms/',
+    view_func=organisms_view,
     methods=['GET','POST','DELETE']
 )
 bp_organisms.add_url_rule(
-    bcs_api_base + '/bos/organisms/<int:id>',
-    view_func=organisms,
+    bcs_api_base + '/organisms/<int:id>',
+    view_func=organisms_view,
     methods=['GET','PUT','DELETE']
 )

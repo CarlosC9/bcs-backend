@@ -1,6 +1,6 @@
 from flask import Blueprint
 
-bp_ontologies = Blueprint('ontologies', __name__)
+bp_ontologies = Blueprint('bp_ontologies', __name__)
 
 from flask import request, make_response, jsonify
 from flask.views import MethodView
@@ -18,44 +18,48 @@ class OntologiesAPI(MethodView):
 
     def get(self, id=None):
         print(f'GET {request.path}\nGetting ontologies {id}')
-        self._check_data(request.get_json())
-        self._check_data(request.args.to_dict())
+        # self._check_data(request.json)
+        self._check_data(request.args)
         if 'Accept' in request.headers and request.headers['Accept']=='text/obo':
             from biobarcoding.services.ontologies import export_ontologies
-            response, code = export_ontologies(id=id, ids=self.ids)
+            response, code = export_ontologies(id)
             return send_file(response, mimetype='text/obo'), code
         else:
             from biobarcoding.services.ontologies import read_ontologies
             response, code = read_ontologies(id, self.name)
-            return make_response(response, code)
+            return make_response(jsonify(response), code)
 
 
     def post(self):
         print(f'POST {request.path}\nCreating ontologies')
-        self._check_data(request.get_json())
+        self._check_data(request.json)
         if 'Content-Type' in request.headers and request.headers['Content-Type']=='text/obo':
             response, code = self._import_files()
         else:
             from biobarcoding.services.ontologies import create_ontologies
             response, code = create_ontologies(self.name, definition = self.definition, remote_url = self.remote_url)
-        return make_response(response, code)
+        return make_response(jsonify(response), code)
 
 
     def put(self, id):
-        print(f'PUT {request.path}\nCreating ontologies {id}')
-        self._check_data(request.get_json())
+        print(f'PUT {request.path}\nUpdating ontologies {id}')
+        self._check_data(request.json)
         from biobarcoding.services.ontologies import update_ontologies
-        response, code = update_ontologies(id, self.name, self.definition)
-        return make_response(response, code)
+        response, code = update_ontologies(id,
+            name=self.name,
+            definition=self.definition,
+            remote_url=self.remote_url,
+            input_file=None)
+        return make_response(jsonify(response), code)
 
 
-    def delete(self, id=None):
+    def delete(self, id):
         print(f'DELETE {request.path}\nDeleting ontologies {id}')
-        self._check_data(request.get_json())
-        self._check_data(request.args.to_dict())
+        # self._check_data(request.json)
+        self._check_data(request.args)
         from biobarcoding.services.ontologies import delete_ontologies
-        response, code = delete_ontologies(id, self.organism_id, self.analysis_id)
-        return make_response(response, code)
+        response, code = delete_ontologies(id)
+        return make_response(jsonify(response), code)
 
 
     def _import_files(self):
@@ -89,14 +93,14 @@ class OntologiesAPI(MethodView):
         print(f'DATA: {data}')
 
 
-ontologies = OntologiesAPI.as_view('onto_api')
+ontologies_view = OntologiesAPI.as_view('api_ontologies')
 bp_ontologies.add_url_rule(
-    bcs_api_base + '/bos/ontologies/',
-    view_func=ontologies,
+    bcs_api_base + '/ontologies/',
+    view_func=ontologies_view,
     methods=['GET','POST']
 )
 bp_ontologies.add_url_rule(
-    bcs_api_base + '/bos/ontologies/<int:id>',
-    view_func=ontologies,
-    methods=['GET','DELETE']
+    bcs_api_base + '/ontologies/<int:id>',
+    view_func=ontologies_view,
+    methods=['GET','PUT','DELETE']
 )
