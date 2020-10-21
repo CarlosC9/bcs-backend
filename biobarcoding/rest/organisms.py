@@ -2,7 +2,7 @@ from flask import Blueprint
 
 bp_organisms = Blueprint('bp_organisms', __name__)
 
-from flask import request, make_response, jsonify
+from flask import request, make_response, jsonify, send_file
 from flask.views import MethodView
 
 from biobarcoding.rest import bcs_api_base

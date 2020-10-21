@@ -37,7 +37,7 @@ def import_sequences(input_file, organism_id = None, analysis_id = None):
         return {'status':'failure','message':e}, 500
 
 
-def export_sequences(output_file = None, sequence_id = None, organism_id = None, analysis_id = None):
+def export_sequences(sequence_id = None, organism_id = None, analysis_id = None, output_file = None):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
     if not output_file:

@@ -2,7 +2,7 @@ from flask import Blueprint
 
 bp_sequences = Blueprint('bp_sequences', __name__)
 
-from flask import request, make_response, jsonify
+from flask import request, make_response, jsonify, send_file
 from flask.views import MethodView
 
 from biobarcoding.rest import bcs_api_base
@@ -23,7 +23,7 @@ class SequencesAPI(MethodView):
         if 'Accept' in request.headers and request.headers['Accept']=='text/fasta':
             from biobarcoding.services.sequences import export_sequences
             response, code = export_sequences(id, self.organism_id, self.analysis_id)
-            return send_file(jsonify(response), mimetype='text/fasta'), code
+            return send_file(response, mimetype='text/fasta'), code
         else:
             from biobarcoding.services.sequences import read_sequences
             response, code = read_sequences(id, self.organism_id, self.analysis_id)
