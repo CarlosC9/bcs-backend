@@ -15,16 +15,7 @@ class JobManagementAPI:
         # TODO Which process?
         #
         params2 = params
-        chain(wf1_prepare_workspace.s(params2),
-              wf1_export_to_supported_file_formats.s(),
-              wf1_transfer_data_from_resource.s(),
-              wf1_submit.s(),
-              wf1_wait_until_execution_starts.s(),
-              wf1_wait_for_execution_finish.s(),
-              wf1_transfer_data_from_resource.s(),
-              wf1_import_into_database.s(),
-              wf1_cleanup_workspace.s(),
-              wf1_complete_succesfully.s()).delay()
+        celery_app.signature("prepare").delay(params2)
 
     @staticmethod
     def check(job_id):
@@ -91,8 +82,9 @@ class JobExecutorAtResource(ABC):
     def submit(self, workspace, params):
         pass
 
-    def job_status(self, id):
+    def job_status(self, native_id):
         pass
 
-    def cancel_job(self, id):
+    def cancel_job(self, native_id):
         pass
+
