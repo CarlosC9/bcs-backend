@@ -1,7 +1,8 @@
 from bioblend import galaxy
-import time
+import random
 import yaml
 import os
+from biobarcoding.jobs import JobExecutorAtResource
 
 
 # no tiene sentido que haga esto xq galaxy ya es este objeto
@@ -29,7 +30,7 @@ def galaxy_instance(path, name ='__default'):
 
 
 
-def login(api_key:'str', url:'str'):
+def login(api_key:'str', url:'str') -> object:
     user_key = api_key
     gi = galaxy.GalaxyInstance(url=url, key=user_key)
     return gi
@@ -127,6 +128,13 @@ def create_library(gi, library_name: 'str'):
     else:
         gi.libraries.create_library(library_name)
         return library_id(library_name)
+
+def create_history(gi, name):
+    history = gi.histories.create_history(name=name)
+    return history
+
+def delete_history(gi,history):
+    gi.histories.delete_histoy(history['id'])
 
 
 def set_params(json_wf, param_data):
@@ -331,44 +339,14 @@ def create_input(step: 'str', source:'str',id:'str'):
     return datamap
 
 
-
-def run_workflow(gi , name: 'str', input_path: 'str',input_name, *, step_index: 'str' ='0', history_name: 'str' ='Test_History', params = None)->dict:
+def params_input_creation(gi,workflow_name, inputs_data, param_data,history_id = None,history_name = None):
     '''
-    Directly run a workflow from a local file
-    #1 Create New History
-    #2 Upload Dataset
-    #3 create the new input using upload_file tool in the History just created
-    #4 Invoke the Workflow in the new History -> this Generates: id (as WorkflowInvocation), workflow_id, history_id,
-                                                and a Job id for every step executed.
+        set and chel params dictionaty and load data and set datamap
 
-    :param gi: galaxy Instance
-    :param name: Workflow Name
-    :param input_path: Input path
-    :param input_name: Name
-    :param step_index: Input step index
-    :param history_name: Name of the history where the workflow will be invoked. If this history does not exist
-    it will be created.
-    :return:an invocation dictionary
     '''
-    h_id = gi.histories.create_history(name=history_name)['id']
-    d_id = gi.tools.upload_file(input_path, h_id, filename= input_name)['outputs'][0]['id']
-    w_id = workflow_id(gi, name)
-    dataset = {'src': 'hda', 'id': d_id}
-    invocation = gi.workflows.invoke_workflow(w_id,
-                                              inputs ={step_index: dataset},
-                                              history_id= h_id,
-                                              inputs_by ='step_index',
-                                              params = params
-                                              )
-    return invocation
-
-def run_workflow_files(gi,wf_name,input_file: 'str',param_file: 'str',history_name):
-    param_data = read_yaml_file(param_file)
-    inputs_data = read_yaml_file(input_file)
-    w_id = workflow_id(gi, wf_name)
+    w_id = workflow_id(gi, workflow_name)
     wf_dict = gi.workflows.export_workflow_dict(w_id)
     show_wf = gi.workflows.show_workflow(w_id)
-    # Move any simple parameters from parameters to inputs
     params_to_move = []
     for pk, pv in param_data.items():
         if not isinstance(pv, dict):
@@ -387,24 +365,75 @@ def run_workflow_files(gi,wf_name,input_file: 'str',param_file: 'str',history_na
 
     print('Create new history to run workflow ...')
     if num_inputs > 0:
+        if history_name != None:
+            history = gi.histories.create_history(name=history_name)
+        else:
+            history = gi.histories.get_histories(history_id)[0]
+        datamap = load_input_files(gi, inputs=inputs_data,
+                                   workflow=show_wf, history=history)
+        # TODO check that input parameters are correct by form
+        print('Set parameters ...')
+        params = set_params(wf_dict, param_data)
+    return datamap, params
+
+
+
+def params_creation(gi,workflow_name,param_data): #TODO test
+    w_id = workflow_id(gi, workflow_name)
+    wf_dict = gi.workflows.export_workflow_dict(w_id)
+    params_to_move = []
+    for pk, pv in param_data.items():
+        if not isinstance(pv, dict):
+            params_to_move.append(pk)
+
+    validate_labels(wf_dict, param_data)
+    params = set_params(wf_dict, param_data)
+    return params
+
+def input_creation(gi,workflow_name,history_name, inputs_data): #TODO test
+    w_id = workflow_id(gi, workflow_name)
+    wf_dict = gi.workflows.export_workflow_dict(w_id)
+    show_wf = gi.workflows.show_workflow(w_id)
+    num_inputs = validate_input_labels(wf_json=wf_dict, inputs=inputs_data)
+    if num_inputs > 0:
+        validate_file_exists(inputs_data)
+
+    validate_dataset_id_exists(gi, inputs_data)
+
+    print('Create new history to run workflow ...')
+    if num_inputs > 0:
         history = gi.histories.create_history(name=history_name)
         datamap = load_input_files(gi, inputs=inputs_data,
                                    workflow=show_wf, history=history)
         # TODO check that input parameters are correct
-        print('Set parameters ...')
-        params = set_params(wf_dict, param_data)
+    return datamap
 
+
+
+def run_workflow_files(gi,wf_name,input_file: 'str',param_file: 'str',history_name):
+    param_data = read_yaml_file(param_file)
+    inputs_data = read_yaml_file(input_file)
+    w_id = workflow_id(gi, wf_name)
+    show_wf = gi.workflows.show_workflow(w_id)
+    datamap, parameters = params_creation(gi,wf_name,inputs_data,param_data)
     print('Running workflow {}...'.format(show_wf['name']))
-    results = gi.workflows.invoke_workflow(workflow_id=w_id,
+    invocation = gi.workflows.invoke_workflow(workflow_id=w_id,
                                            inputs=datamap,
-                                           params=params,
+                                           params=parameters,
                                            history_name=history_name)
+    return invocation
 
-    # time.sleep(100)
-    return results #invocation objectt
+def get_historyID_by_invocation(gi,h_id):
+    invocations = gi.invocations.get_invocations()
+    try:
+        inv = next(item for item in invocations if item["history_id"] == h_id)
+    except StopIteration:
+        return 'there is no invocation named{}'.format(h_id)
+    else:
+        return inv['id']
 
-
-def invocation_errors(gi,invocation)->'int':
+def invocation_errors(gi,invocation_id)->'int':
+    invocation = gi.invocations.show_invocation(invocation_id)
     status = gi.histories.get_status(invocation['history_id'])
     state = status['state']
     if state != 'ok':
@@ -511,6 +540,141 @@ def install_tools(instance,tools):
                                                    install_resolver_dependencies=True,
                                                    new_tool_panel_section_label='New'
                                                    )
+
+
+
+
+class JobExecutorAtGalaxy(JobExecutorAtResource):
+    def __init__(self):
+        self.api_key = None
+        self.url = None
+        self.galaxy_instance = None
+
+    def set_resource(self, params):
+        file_info = params['file']
+        name_instance = params['name']
+        galaxy = galaxy_instance(file_info, name=name_instance) # TODO change function to JSON parsing
+        self.api_key = galaxy['key']
+        self.url = galaxy['url']
+
+    def connect(self):
+        self.galaxy_instance = login(self.api_key, self.url)
+
+
+    def disconnect(self):
+        pass
+
+    def create_job_workspace(self, name):  # nombre del workflow????????
+        self.connect()
+        gi = self.galaxy_instance
+        history = create_history(gi, name)
+        self.disconnect()
+        return history['id']
+
+    def remove_job_workspace(self, workspace):
+        self.connect()
+        gi = self.galaxy_instance
+        gi.histories.delete_history(workspace)
+
+    def upload_file(self, workspace, local_filename, remote_location=None):
+        self.connect()
+        gi = self.galaxy_instance
+        gi.tools.upload_file(workspace,local_filename) #añadir nombre
+
+        '''{'outputs': [{'id': '0bd9d7603257dfc1', 
+                            'hda_ldda': 'hda', 
+                            'uuid': '2821b199-a458-466c-94bc-90d49eddd58f', 
+                            'hid': 1, 
+                            'file_ext': 'fasta', 
+                            'peek': None, 
+                            'model_class': 'HistoryDatasetAssociation', 
+                            'name': 'Input dataset', 
+                            'deleted': False, 
+                            'purged': False, 
+                            'visible': True, 
+                            'state': 'queued', 
+                            'history_content_type': 'dataset', 
+                            'file_size': 0, 
+                            'create_time': '2020-10-21T13:41:04.925918', 
+                            'update_time': '2020-10-21T13:41:04.986107', 
+                            'data_type': 'galaxy.datatypes.sequence.Fasta', 
+                            'genome_build': '?', 'validated_state': 'unknown', 
+                            'validated_state_message': None, 
+                            'misc_info': None, 
+                            'misc_blurb': None, 
+                            'tags': [], 
+                            'history_id': '6e7233e069aad1a7', 
+                            'metadata_dbkey': '?', 
+                            'metadata_data_lines': None, 
+                            'metadata_sequences': None, 
+                            'output_name': 'output0'}], 
+               'output_collections': [], 
+               'jobs': [{'model_class': 'Job', 
+                         'id': '1692b16061e0ddcc', 
+                         'state': 'new', 
+                         'exit_code': None, 
+                         'update_time': '2020-10-21T13:41:05.039650', 
+                         'create_time': '2020-10-21T13:41:05.006090', 
+                         'galaxy_version': '20.09', 
+                         'tool_id': 'upload1', 
+                         'history_id': '6e7233e069aad1a7'}], 
+               'implicit_collections': [], 
+               'produces_entry_points': False}
+        '''
+        # inputs_for_invoke = dict
+        # inputs_for_invoke[step] = {
+        #     'id': upload_info['outputs'][0]['id'],
+        #     'src': 'hda' # lives in a history
+        # }
+        # inputs_for_invoke = {
+        #     'id': upload_info['outputs'][0]['id'],
+        #     'src': 'hda'
+        # }
+
+        # TODO check job
+
+
+
+    def submit(self, workspace, params):
+
+        self.connect()
+        gi = self.galaxy_instance
+        input_params = params['parameters']
+        inputs = params['inputs'] # mapeo de datasets (nombres y steps)
+        workflow = params['workflow']
+        w_id = workflow_id(gi, workflow)
+        # dataset = gi.histories.show_matching_datasets(workspace) -> lista con los data set en un workspace
+        datamap, parameters = params_input_creation(gi, workflow, inputs, input_params, history_id=workspace)
+        invocation = gi.workflows.invoke_workflow(workflow_id=w_id,
+                                                  inputs=datamap,
+                                                  params=parameters,
+                                                  history_id=workspace)
+        return invocation['id']
+
+    def job_status(self, id):
+        self.connect()
+        gi = self.galaxy_instance
+        invocation_id = get_historyID_by_invocation(gi,id) # this method get a list of all invocations 
+        return invocation_errors(gi, invocation_id)
+        # job here refers to invocation so it will probably not check the upload file job
+
+    def cancel_job(self, id):
+        self.connect()
+        gi = self.galaxy_instance
+        invocation_id = get_historyID_by_invocation(gi,id)
+        gi.invocations.cancel_invocation(invocation_id)
+        # job here refers to invocation
+
+    def get_resuts(self, id):
+        self.connect()
+        gi = self.galaxy_instance
+        invocation_id = get_historyID_by_invocation(gi,id)
+        list_invocation_results(gi,invocation_id)
+        # download_result(gi,r,path)
+        pass
+
+
+
 
 
 

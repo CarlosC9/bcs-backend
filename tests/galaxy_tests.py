@@ -38,28 +38,6 @@ class MyTestCase(unittest.TestCase):
         download_result(gi,results,'data_test/')
         self.assertIsInstance(results,list,'There are no results')
 
-    def test_change_parameter(self):
-        insfile = 'data_test/parsec_creds.yaml'
-        insname = 'local'
-        ins = galaxy_instance(insfile, name = insname)
-        gi = login(ins['key'],url=ins['url'])
-        fn = 'data_test/ls_orchid.fasta'
-        workflow = "PhyML_test_labels"
-        step = '2'
-        parameter_name = 'nbSubstCat'
-        value = '3'
-        w_id = workflow_id(gi,workflow)
-        new_parameters = set_parameters(step,parameter_name,value)
-        invocation = run_workflow(gi, workflow, fn, 'marK1', params=new_parameters)
-        state = invocation['state']
-        self.assertEqual(state, 'new', 'invocation failed')
-        while invocation_errors(gi, invocation) == 0 and invocation_percent_complete(gi, invocation) < 100:
-            pass
-        errors = invocation_errors(gi, invocation)
-        step_job = get_job(gi,invocation,step)
-        self.assertEqual(errors, 0, 'There is an error in the invocation')
-        self.assertEqual(step_job['params'][parameter_name].strip('"'),new_parameters[step][parameter_name])
-
 
     def test_inputs_files(self):
         insfile = 'data_test/parsec_creds.yaml'
@@ -73,6 +51,33 @@ class MyTestCase(unittest.TestCase):
         invocation = run_workflow_files(gi,workflow,input_file_path,params_file_path,history_name)
         state = invocation_errors(gi,invocation)
         self.assertEqual(state,'ok')
+
+    def test_galaxy_interfaces(self):
+        insfile = 'data_test/parsec_creds.yaml'
+        insname = 'local'
+        fn = 'data_test/ls_orchid.fasta'
+        resource_params = {
+            'file' : insfile,
+            'name' : insname
+        }
+        job = JobExecutorAtGalaxy()
+        job.set_resource(resource_params)
+        job.connect()
+        history_id = job.create_job_workspace(name = '21-10-2020')
+        # upload_job_id = job.upload_file(history_id,'data_test/ls_orchid.fasta')
+        input_file_path = 'data_test/wf_inputs.yaml'
+        params_file_path = 'data_test/wf_parameters.yaml'
+        param_data = read_yaml_file(params_file_path)
+        inputs_data = read_yaml_file(input_file_path)
+        params = {
+            'workflow' : "MSA ClustalW",
+            'inputs': inputs_data,
+            'parameters': param_data
+        }
+        invocation_id = job.submit(history_id,params)
+        self.assertIsNotNone(invocation_id,'todo mal')
+        status = job.job_status(history_id)
+        job.remove_job_workspace(history_id)
 
     def test_wf_inst_2_inst(self):
         insfile = 'data_test/parsec_creds.yaml'
