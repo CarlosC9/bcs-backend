@@ -1,22 +1,42 @@
 from abc import ABC
+from celery import chain
+from biobarcoding.tasks.definitions import *
 
 
 class JobManagementAPI:
-    def submit(self, params):
+    @staticmethod
+    def submit(params):
         """ In the params there must be a reference to the resource.
             Also the desired job executor (a resource can have multiple -although it shouldn't-)
             Check if there is job executor for the resource.
             If there exists, use it. If not, create one
 
          """
+        # TODO Which process?
+        #
+        params2 = params
+        celery_app.signature("prepare").delay(params2)
 
-    def check(self, job_id):
+    @staticmethod
+    def check(job_id):
+        """
+        Check the status of a job
+
+        :param job_id:
+        :return:
+        """
         pass
 
-    def cancel(self, job_id):
+    @staticmethod
+    def cancel(job_id):
         pass
 
-    def list(self, filter):
+    @staticmethod
+    def list(filter):
+        pass
+
+    @staticmethod
+    def get(job_id):
         pass
 
 
@@ -62,8 +82,9 @@ class JobExecutorAtResource(ABC):
     def submit(self, workspace, params):
         pass
 
-    def job_status(self, id):
+    def job_status(self, native_id):
         pass
 
-    def cancel_job(self, id):
+    def cancel_job(self, native_id):
         pass
+
