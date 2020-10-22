@@ -11,8 +11,6 @@ class instance():
         self.name = name
         self.file = file
 
-    #en realidad está definida por su url y su key pero yo lo puedo sacar
-
     def connect(self): #esta función es la que debería crearme la instance
         gi = galaxy_instance(self.file, name=self.name)
         return gi
@@ -562,9 +560,10 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
 
 
     def disconnect(self):
+        #todo
         pass
 
-    def create_job_workspace(self, name):  # nombre del workflow????????
+    def create_job_workspace(self, name):
         self.connect()
         gi = self.galaxy_instance
         history = create_history(gi, name)
@@ -576,64 +575,6 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         gi = self.galaxy_instance
         gi.histories.delete_history(workspace)
 
-    def upload_file(self, workspace, local_filename, remote_location=None):
-        self.connect()
-        gi = self.galaxy_instance
-        gi.tools.upload_file(workspace,local_filename) #añadir nombre
-
-        '''{'outputs': [{'id': '0bd9d7603257dfc1', 
-                            'hda_ldda': 'hda', 
-                            'uuid': '2821b199-a458-466c-94bc-90d49eddd58f', 
-                            'hid': 1, 
-                            'file_ext': 'fasta', 
-                            'peek': None, 
-                            'model_class': 'HistoryDatasetAssociation', 
-                            'name': 'Input dataset', 
-                            'deleted': False, 
-                            'purged': False, 
-                            'visible': True, 
-                            'state': 'queued', 
-                            'history_content_type': 'dataset', 
-                            'file_size': 0, 
-                            'create_time': '2020-10-21T13:41:04.925918', 
-                            'update_time': '2020-10-21T13:41:04.986107', 
-                            'data_type': 'galaxy.datatypes.sequence.Fasta', 
-                            'genome_build': '?', 'validated_state': 'unknown', 
-                            'validated_state_message': None, 
-                            'misc_info': None, 
-                            'misc_blurb': None, 
-                            'tags': [], 
-                            'history_id': '6e7233e069aad1a7', 
-                            'metadata_dbkey': '?', 
-                            'metadata_data_lines': None, 
-                            'metadata_sequences': None, 
-                            'output_name': 'output0'}], 
-               'output_collections': [], 
-               'jobs': [{'model_class': 'Job', 
-                         'id': '1692b16061e0ddcc', 
-                         'state': 'new', 
-                         'exit_code': None, 
-                         'update_time': '2020-10-21T13:41:05.039650', 
-                         'create_time': '2020-10-21T13:41:05.006090', 
-                         'galaxy_version': '20.09', 
-                         'tool_id': 'upload1', 
-                         'history_id': '6e7233e069aad1a7'}], 
-               'implicit_collections': [], 
-               'produces_entry_points': False}
-        '''
-        # inputs_for_invoke = dict
-        # inputs_for_invoke[step] = {
-        #     'id': upload_info['outputs'][0]['id'],
-        #     'src': 'hda' # lives in a history
-        # }
-        # inputs_for_invoke = {
-        #     'id': upload_info['outputs'][0]['id'],
-        #     'src': 'hda'
-        # }
-
-        # TODO check job
-
-
 
     def submit(self, workspace, params):
 
@@ -644,34 +585,31 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         workflow = params['workflow']
         w_id = workflow_id(gi, workflow)
         # dataset = gi.histories.show_matching_datasets(workspace) -> lista con los data set en un workspace
-        datamap, parameters = params_input_creation(gi, workflow, inputs, input_params, history_id=workspace)
+        datamap, parameters = params_input_creation(gi, workflow, inputs, input_params, history_name=workspace)
+        history_id = gi.histories.get_histories(name = workspace)[0]['id']
         invocation = gi.workflows.invoke_workflow(workflow_id=w_id,
                                                   inputs=datamap,
                                                   params=parameters,
-                                                  history_id=workspace)
-        return invocation['id']
+                                                  history_id=history_id)
+        return history_id,invocation['id']
 
-    def job_status(self, id):
+    def job_status(self, native_id):
         self.connect()
         gi = self.galaxy_instance
-        invocation_id = get_historyID_by_invocation(gi,id) # this method get a list of all invocations 
-        return invocation_errors(gi, invocation_id)
+        return invocation_errors(gi, native_id)
         # job here refers to invocation so it will probably not check the upload file job
 
-    def cancel_job(self, id):
+    def cancel_job(self, native_id):
         self.connect()
         gi = self.galaxy_instance
-        invocation_id = get_historyID_by_invocation(gi,id)
-        gi.invocations.cancel_invocation(invocation_id)
+        gi.invocations.cancel_invocation(native_id)
         # job here refers to invocation
 
-    def get_resuts(self, id):
+    def get_resuts(self, native_id):
         self.connect()
         gi = self.galaxy_instance
-        invocation_id = get_historyID_by_invocation(gi,id)
-        list_invocation_results(gi,invocation_id)
-        # download_result(gi,r,path)
-        pass
+        r = list_invocation_results(gi, native_id)
+        # download_result(gi,r,'/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test')
 
 
 

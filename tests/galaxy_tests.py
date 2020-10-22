@@ -20,25 +20,6 @@ class MyTestCase(unittest.TestCase):
             file_type="fasta")
         self.assertNotEqual(d, None, "should be something here")
 
-    def test_run_workflow_from_file(self):
-        insfile = 'data_test/parsec_creds.yaml'
-        insname = 'local'
-        ins = galaxy_instance(insfile, name = insname)
-        gi = login(ins['key'],url=ins['url'])
-        fn = 'data_test/ls_orchid.fasta'
-        workflow = 'MSA ClustalW'
-        invocation = run_workflow(gi,workflow,fn,'marK1')
-        state = invocation['state']
-        self.assertEqual(state,'new','invocation failed')
-        while invocation_errors(gi, invocation) == 0 and invocation_percent_complete(gi, invocation) < 100:
-            pass
-        errors = invocation_errors(gi,invocation)
-        self.assertEqual(errors,0,'There is an error in the invocation')
-        results = list_invocation_results(gi,invocation_id=invocation['id'])
-        download_result(gi,results,'data_test/')
-        self.assertIsInstance(results,list,'There are no results')
-
-
     def test_inputs_files(self):
         insfile = 'data_test/parsec_creds.yaml'
         insname = 'local'
@@ -52,7 +33,7 @@ class MyTestCase(unittest.TestCase):
         state = invocation_errors(gi,invocation)
         self.assertEqual(state,'ok')
 
-    def test_galaxy_interfaces(self):
+    def test_galaxy_integration(self):
         insfile = 'data_test/parsec_creds.yaml'
         insname = 'local'
         fn = 'data_test/ls_orchid.fasta'
@@ -63,8 +44,7 @@ class MyTestCase(unittest.TestCase):
         job = JobExecutorAtGalaxy()
         job.set_resource(resource_params)
         job.connect()
-        history_id = job.create_job_workspace(name = '21-10-2020')
-        # upload_job_id = job.upload_file(history_id,'data_test/ls_orchid.fasta')
+        # history_id = job.create_job_workspace(name = '22-10-2020')
         input_file_path = 'data_test/wf_inputs.yaml'
         params_file_path = 'data_test/wf_parameters.yaml'
         param_data = read_yaml_file(params_file_path)
@@ -74,10 +54,12 @@ class MyTestCase(unittest.TestCase):
             'inputs': inputs_data,
             'parameters': param_data
         }
-        invocation_id = job.submit(history_id,params)
-        self.assertIsNotNone(invocation_id,'todo mal')
-        status = job.job_status(history_id)
+        history_id,invocation_id = job.submit('22-10-2020',params)
+        self.assertIsNotNone(invocation_id,'error_at_invoke')
+        status = job.job_status(invocation_id)
+        print(status)
         job.remove_job_workspace(history_id)
+        job.get_resuts(invocation_id)
 
     def test_wf_inst_2_inst(self):
         insfile = 'data_test/parsec_creds.yaml'
@@ -90,7 +72,7 @@ class MyTestCase(unittest.TestCase):
         list_of_tools = check_tools(wf_dic_in,wf_dic_out)
         if isinstance(list_of_tools,list):
             tools_message = install_tools(instanceOut,list_of_tools)
-        return tools_message
+            print(tools_message)
 
 if __name__ == '__main__':
     # MyTestCase.test_upload_file()
