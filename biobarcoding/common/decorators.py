@@ -1,7 +1,9 @@
 import functools
 import gzip
 import warnings
-from typing import IO
+from typing import IO, Dict
+
+from celery import Celery
 from flask import after_this_request, request
 
 # Some decorators from "https://wiki.python.org/moin/PythonDecoratorLibrary"
@@ -205,3 +207,79 @@ def gzipped(f):
         return f(*args, **kwargs)
 
     return view_func
+
+
+class celery_wf(object):
+    """
+    A decorator to ease the definition of workflows where the next task depends on an outcome and the same task may
+    repeat many times.
+    It expects: a Celery instance, a Workflow definition, a Celery task name:
+
+    @celery_wf(celery_app, wf1, "export")
+
+    The definition (wf1 in the example) is a dictionary of task names (terminal tasks do not need to appear),
+     where each entry contains a dictionary with possible jumps.
+     A jump to itself is always allowed and is implicitly defined.
+
+    Depending on returned values, the next task can be:
+    * return None (or no "return" statement) -> Next task using the same input parameter.
+      The next task is defined as "": "<next task name" in the workflow definition
+    * return <ret> -> Go to next task passing <ret> as input
+    * return None, <ret> -> Repeat the task passing <ret> as parameter
+    * return <int:countdown>, <ret> -> Repeat the task, waiting <countdown> seconds and passing <ret> as parameter
+    * return "<outcome in the workflow definition", <ret> -> Go to task matching the <outcome label> passing <ret> as input
+
+    See "definitions.py" for examples of use.
+
+    """
+    def __init__(self, cel_app: Celery, wf_def: Dict, name: str):
+        self.celery_app = cel_app
+        self.wf_def = wf_def
+        self.name = name
+
+    @staticmethod
+    def append_text(s: str):
+        pass
+        # file = "/home/rnebot/Downloads/borrame/log.txt"
+        # with open(file, "a+") as f:
+        #     f.write(f"{s}\n")
+
+    def __call__(self, f):
+        def wrapped_f(*args):
+            # Before call
+            celery_wf.append_text("DECOR - before task")
+            res = f(*args)
+            if isinstance(res, tuple):
+                celery_wf.append_text("DECOR - returned tuple")
+                if len(res) == 2:
+                    result, task_ctx = res[0], res[1]
+                else:
+                    raise Exception(f"Tuple with {len(res)} elements returned: {res}")
+            elif res is None:
+                celery_wf.append_text("DECOR - returned None")
+                result = ""
+                task_ctx = args[0]
+            else:
+                celery_wf.append_text("DECOR - returned a single result")
+                result = ""
+                task_ctx = res
+
+            # After call, program a new task
+            countdown = 0
+            if result is None or isinstance(result, int):
+                if isinstance(result, int):
+                    countdown = result
+                    celery_wf.append_text(f"DECOR - reenter applying a countdown of {countdown}")
+                next_task = self.name
+            else:
+                d = self.wf_def.get(self.name, {})
+                next_task = d.get(result, None)
+            if next_task:
+                if countdown > 0:
+                    self.celery_app.signature(next_task).apply_async(args=(task_ctx,), countdown=countdown)
+                else:
+                    self.celery_app.signature(next_task).apply_async(args=(task_ctx,))
+            else:
+                celery_wf.append_text(f"DECOR - no next task. FINISHED")
+
+        return wrapped_f
