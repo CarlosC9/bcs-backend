@@ -25,3 +25,16 @@ def generate_json(o):
                       ensure_ascii=ENSURE_ASCII,
                       separators=(',', ': ')
                       ) if o else None
+
+
+def check_pid_running(pid):
+    import psutil
+    try:
+        proc = psutil.Process(pid)
+        if proc.status() == psutil.STATUS_ZOMBIE:
+            proc.kill()
+            return False
+    except psutil.NoSuchProcess:
+        return False
+    else:
+        return True

@@ -14,7 +14,7 @@ class JobManagementAPI:
          """
         # TODO Which process?
         #
-        params2 = params
+        params2 = params.to_json()
         celery_app.signature("prepare").delay(params2)
 
     @staticmethod

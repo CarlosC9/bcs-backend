@@ -80,7 +80,7 @@ class JobAPI(MethodView):
         # }
 
         # Submit job to Celery
-        JobManagementAPI().submit(d.to_json())
+        JobManagementAPI().submit(d)
 
         # Return
         response_object = {

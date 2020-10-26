@@ -1,11 +1,13 @@
-from typing import Dict
+import json
+import os
 
-from celery import Celery
+from billiard.context import Process
 
 from . import celery_app
-from time import sleep
+from time import sleep, time
 
 from biobarcoding.common.decorators import celery_wf
+from ..common import check_pid_running
 
 """
 Celery tasks CANNOT be debugged in Celery!! (the code is run in a separate process; of course they can be debugged "off-line")
@@ -92,9 +94,20 @@ wf1 = {
 }
 
 
+def dummy_func(file, secs):
+    print(f"Dummy {file}, {secs}")
+    start = time()
+    endc = start
+    while (endc - start) < secs:
+        append_text(file, f"elapsed {endc - start} of {secs}")
+        sleep(6)
+        endc = time()
+    os.exit(0)
+
+
 @celery_app.task(name="prepare")
 @celery_wf(celery_app, wf1, "prepare")
-def wf1_prepare_workspace(job_context: str):
+def wf1_prepare_workspace(job_context):
     """
     Prepare workspace for execution of a Job
     :param job_context:
@@ -106,15 +119,25 @@ def wf1_prepare_workspace(job_context: str):
 
     # TODO Read resource type: ssh, galaxy, other
     # TODO Create resource manager instance and call
+    tmp = json.loads(job_context)
+    if "_pid" not in tmp:
+        p = Process(target=dummy_func, args=(outfile, 13))
+        p.start()
+        tmp["_pid"] = p.pid
+        append_text(outfile, f"prepare_workspace. PID: {p.pid}")
+        job_context = json.dumps(tmp)
+
     append_text(outfile, "prepare_workspace")
-    sleep(1)
-    from random import randint
-    if randint(0, 100) < 80:
+
+    # Wait for subprocess to finish
+    if check_pid_running(tmp["_pid"]):
         append_text(outfile, "retrying task ...")
-        return 3, job_context  # Return None a tuple with first element None, to repeat the task
+        return 3, job_context  # Return a tuple with first element <seconds to wait>, <context> to repeat the task
     else:
+        del tmp["_pid"]
+        job_context = json.dumps(tmp)
         append_text(outfile, "prepare_workspace FINISHED")
-        # Return nothing (None) to move to the default next task
+        return job_context  # Return nothing (None) or <context> (if context changed) to move to the default next task
 
 
 @celery_app.task(name="export")
