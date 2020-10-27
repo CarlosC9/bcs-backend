@@ -6,7 +6,11 @@ from flask import Blueprint
 from flask import request, make_response, jsonify
 from flask.views import MethodView
 import json
+
+from sqlalchemy import and_
+
 from biobarcoding.db_models import DBSession
+from biobarcoding.db_models.jobs import ProcessInComputeResource
 from biobarcoding.jobs import JobManagementAPI
 from biobarcoding.rest import bcs_api_base, register_api, Job, ComputeResource, Process
 
@@ -43,41 +47,54 @@ class JobAPI(MethodView):
         session = DBSession()
         # Start JSON for processing
         d = DottedDict()
+        req = request.get_json()
         d.endpoint_url = ""
         # Load resource and process
-        in_dict = DottedCollection.load_json("{}")
-        # resource = session.query(ComputeResource).get(in_dict.resource.id)
-        process = session.query(Process).filter(Process.name == "pd-1.0").first()
-        d.resource = DottedDict()
-        d.resource.name = ""  # resource.name
-        # Create Job database object
-        job = Job()
-        job.status = "created"
-        job.resource = None
-        job.process = process
-        session.add(job)
-        session.commit()
-        d.job_id = job.id
-        DBSession.remove()
+        in_dict = DottedCollection(req)
+        # TODO Register a resource, a process and a "process in a resource"
+        resource = session.query(ComputeResource).get(in_dict.resource_id)
+        process = session.query(Process).get(in_dict.process_id)
+        process_in_resource = session.query(ProcessInComputeResource).filter(and_(ProcessInComputeResource.process_id==in_dict.process_id, ProcessInComputeResource.resource_id==in_dict.resource_id))
+        process_params = in_dict.process_params
 
-        # Prepare JSON for Celery
+        # Prepare "job_context" for Celery tasks
+        # "job_id": ...,
+        # "endpoint_url": ...
         # "resource": {
         #     "name": "",
-        #     "proc_arch": "",
-        #     "operating_system": "",
         #     "jm_type": "",
         #     "jm_location": {
         #     },
         #     "jm_credentials": {
-        #
         #     }
         # }
-        # "workflow": {
+        # "process": {
         #     "name": "",
-        #     "id": "",
         #     "inputs": {
         #     }
         # }
+
+        # PROCESS
+        d.process = DottedDict()
+        d.process.inputs = process_params
+        d.process.name = process_in_resource.native_process_id
+        # RESOURCE
+        d.resource = DottedDict()
+        d.resource.name = resource.name
+        d.resource.jm_type = resource.jm_type.name
+        d.resource.jm_location = resource.jm_location
+        d.resource.jm_credentials = resource.jm_credentials
+
+        # Create Job database object
+        job = Job()
+        job.resource = resource
+        job.process = process
+        job.status = "created"
+        job.inputs = process_params
+        session.add(job)
+        session.commit()
+        d.job_id = job.id
+        DBSession.remove()
 
         # Submit job to Celery
         JobManagementAPI().submit(d)

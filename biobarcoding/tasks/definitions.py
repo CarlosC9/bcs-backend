@@ -1,6 +1,7 @@
 import json
 import os
 
+import requests
 from billiard.context import Process
 
 from . import celery_app
@@ -8,6 +9,7 @@ from time import sleep, time
 
 from biobarcoding.common.decorators import celery_wf
 from ..common import check_pid_running
+from ..jobs import JobExecutorAtResourceFactory
 
 """
 Celery tasks CANNOT be debugged in Celery!! (the code is run in a separate process; of course they can be debugged "off-line")
@@ -29,31 +31,6 @@ def periodic_sum(x, y):
     return x + y
 
 # ----------------------------------------------------------------
-
-"""
-
-job_context:
-{
-  "job_id": "..",
-  "endpoint_url": "<base to call>",
-  "resource": {
-    "name": "",
-    "proc_arch": "",
-    "operating_system": "",
-    "jm_type": "",
-    "jm_location": {
-    },
-    "jm_credentials": {
-        
-    }
-  }
-  "workflow": {
-    "name": "",
-    "id": "",
-    "inputs": {
-    }
-  }
-"""
 
 outfile = "/home/rnebot/Downloads/borrame/log.txt"
 
@@ -105,6 +82,25 @@ def dummy_func(file, secs):
     os.exit(0)
 
 
+# "job_context" for Celery tasks:
+#
+# "job_id": ...,
+# "endpoint_url": ...
+# "resource": {
+#     "name": "",
+#     "jm_type": "",
+#     "jm_location": {
+#     },
+#     "jm_credentials": {
+#     }
+# }
+# "process": {
+#     "name": "",
+#     "inputs": {
+#     }
+# }
+
+
 @celery_app.task(name="prepare")
 @celery_wf(celery_app, wf1, "prepare")
 def wf1_prepare_workspace(job_context):
@@ -113,13 +109,18 @@ def wf1_prepare_workspace(job_context):
     :param job_context:
     :return:
     """
-    # TODO Obtain RESTful endpoint.
-    #  Read current status and, if it is "created",
-    #  update Job status to "preparing_workspace"
-
-    # TODO Read resource type: ssh, galaxy, other
-    # TODO Create resource manager instance and call
     tmp = json.loads(job_context)
+
+    # Example access RESTful endpoint of "bcs-backend"
+    # requests.get(job_context["endpoint_url"]+f"/api/jobs/{job_context['job_id']}")
+
+    # TODO update Job status to "preparing_workspace"
+    #  requests.put(job_context["endpoint_url"] + f"/api/jobs/{job_context['job_id']}/status", "preparing_workspace")
+
+    # Get resource manager: ssh, galaxy, other
+    job_executor = JobExecutorAtResourceFactory.get(tmp["resource"]["jm_type"], tmp["process"])
+
+    # Launch subprocess if needed
     if "_pid" not in tmp:
         p = Process(target=dummy_func, args=(outfile, 13))
         p.start()
@@ -127,13 +128,14 @@ def wf1_prepare_workspace(job_context):
         append_text(outfile, f"prepare_workspace. PID: {p.pid}")
         job_context = json.dumps(tmp)
 
+    # TODO Task "work"
     append_text(outfile, "prepare_workspace")
 
-    # Wait for subprocess to finish
+    # Wait for subprocess to finish (if needed)
     if check_pid_running(tmp["_pid"]):
         append_text(outfile, "retrying task ...")
         return 3, job_context  # Return a tuple with first element <seconds to wait>, <context> to repeat the task
-    else:
+    else:  # Clear "_pid" if subprocess was launched
         del tmp["_pid"]
         job_context = json.dumps(tmp)
         append_text(outfile, "prepare_workspace FINISHED")
@@ -149,7 +151,17 @@ def wf1_export_to_supported_file_formats(job_context: str):
     :param job_context:
     :return:
     """
-    # TODO
+    tmp = json.loads(job_context)
+
+    # Example access RESTful endpoint of "bcs-backend"
+    # requests.get(job_context["endpoint_url"]+f"/api/jobs/{job_context['job_id']}")
+
+    # TODO update Job status to "preparing_workspace"
+    #  requests.put(job_context["endpoint_url"] + f"/api/jobs/{job_context['job_id']}/status", "preparing_workspace")
+
+    # Get resource manager: ssh, galaxy, other
+    job_executor = JobExecutorAtResourceFactory.get(tmp["resource"]["jm_type"], tmp["process"])
+
     append_text(outfile, "export_to_supported_file_formats")
     sleep(2)
 

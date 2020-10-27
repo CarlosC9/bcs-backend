@@ -1,21 +1,20 @@
 from abc import ABC
 from celery import chain
+from typing import Dict
+
 from biobarcoding.tasks.definitions import *
 
 
 class JobManagementAPI:
     @staticmethod
-    def submit(params):
+    def submit(job_context):
         """ In the params there must be a reference to the resource.
             Also the desired job executor (a resource can have multiple -although it shouldn't-)
             Check if there is job executor for the resource.
             If there exists, use it. If not, create one
 
          """
-        # TODO Which process?
-        #
-        params2 = params.to_json()
-        celery_app.signature("prepare").delay(params2)
+        celery_app.signature("prepare").delay(job_context)
 
     @staticmethod
     def check(job_id):
@@ -88,3 +87,22 @@ class JobExecutorAtResource(ABC):
     def cancel_job(self, native_id):
         pass
 
+
+class JobExecutorAtResourceFactory:
+    def __init__(self):
+        self.execs = dict()
+
+    def get(self, job_executor_name, resource_param: Dict):
+        k = (job_executor_name, resource_param["name"])
+        if k not in self.execs:
+            self.execs[k] = JobExecutorAtResourceFactory._create(job_executor_name, resource_param)
+
+        return self.execs[k]
+
+    @staticmethod
+    def _create(job_executor_name: str, resource_param: Dict):
+        if job_executor_name.lower() == "galaxy":
+            from biobarcoding.jobs.galaxy_resource import JobExecutorAtGalaxy
+            tmp = JobExecutorAtGalaxy()
+            tmp.set_resource(resource_param["jm_location"].update(resource_param["jm_credentials"]))
+            return tmp
