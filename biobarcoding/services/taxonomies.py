@@ -36,7 +36,7 @@ def import_taxonomies(input_file, name = None, comment = None):
         named=''
         if name:
             named = f' -n {name} '
-        cmd = f'(cd ./biobarcoding/services/taxonomy/ && perl ./load_ncbi_taxonomy.pl -H {cfg["host"]} -D {cfg["database"]} -u {cfg["user"]} -p {cfg["password"]} -d Pg -i {input_file} {named})'
+        cmd = f'(cd ./biobarcoding/services/perl_scripts/ && perl ./load_ncbi_taxonomy.pl -H {cfg["host"]} -D {cfg["database"]} -u {cfg["user"]} -p {cfg["password"]} -d Pg -i {input_file} {named})'
     import subprocess
     process = subprocess.Popen(cmd,
                          stdout=subprocess.PIPE,

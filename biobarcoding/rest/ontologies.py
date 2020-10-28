@@ -32,10 +32,11 @@ class OntologiesAPI(MethodView):
 
     def post(self):
         print(f'POST {request.path}\nCreating ontologies')
-        self._check_data(request.json)
-        if 'Content-Type' in request.headers and request.headers['Content-Type']=='text/obo':
+        if request.files:
             response, code = self._import_files()
         else:
+            self._check_data(request.json)
+            self._check_data(dict(request.values))
             from biobarcoding.services.ontologies import create_ontologies
             response, code = create_ontologies(self.name, definition = self.definition, remote_url = self.remote_url)
         return make_response(jsonify(response), code)
@@ -68,14 +69,16 @@ class OntologiesAPI(MethodView):
         for key,file in request.files.items(multi=True):
             try:
                 file_cpy = self._make_file(file)
-                response, code = import_ontologies(file_cpy, name = self.name, definition = self.definition)
+                response, code = import_ontologies(file_cpy)
                 responses.append({'status':code,'message':response})
             except Exception as e:
-                responses.append({'status':409,'message':'Could not import the file {file}.'})
+                print(e)
+                responses.append({'status':409,'message':f'Could not import the file {file.filename}.'})
         return responses, 207
 
 
     def _make_file(self, file):
+        import os
         from werkzeug.utils import secure_filename
         file_path = os.path.join('/tmp', secure_filename(file.filename))
         file.save(file_path)

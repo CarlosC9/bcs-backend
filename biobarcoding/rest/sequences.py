@@ -96,7 +96,7 @@ bp_sequences.add_url_rule(
     methods=['GET','POST','DELETE']
 )
 bp_sequences.add_url_rule(
-    bcs_api_base + '/bos/sequences/<int:id>',
+    bcs_api_base + '/bos/sequences/<string:id>',
     view_func=sequences_view,
     methods=['GET','PUT','DELETE']
 )
