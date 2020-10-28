@@ -2,6 +2,8 @@ flask==1.1.2
 Flask_Session>=0.3.1
 Flask_Cors==3.0.8
 
+pronto>=2.3.1
+
 firebase_admin>=4.3.0
 cmake>=3.16.3
 appdirs==1.4.3

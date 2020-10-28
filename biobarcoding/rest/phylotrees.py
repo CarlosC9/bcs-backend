@@ -1,8 +1,8 @@
 from flask import Blueprint
 
-bp_phylotrees = Blueprint('phylo', __name__)
+bp_phylotrees = Blueprint('bp_phylotrees', __name__)
 
-from flask import request, make_response, jsonify
+from flask import request, make_response, jsonify, send_file
 from flask.views import MethodView
 
 from biobarcoding.rest import bcs_api_base
@@ -12,44 +12,47 @@ class PhyloAPI(MethodView):
     """
     Phylo Resource
     """
+    analysis_id = None
     name = None
     comment = None
 
     def get(self, id=None):
         print(f'GET {request.path}\nGetting phylotrees {id}')
+        self._check_data(request.json)
         if 'Accept' in request.headers and request.headers['Accept']=='text/newick':
             from biobarcoding.services.phylotrees import export_phylotrees
             response, code = export_phylotrees(id)
+            return send_file(response, mimetype='text/newick'), code
         else:
             from biobarcoding.services.phylotrees import read_phylotrees
             response, code = read_phylotrees(id)
-        return make_response(response, code)
+        return make_response(jsonify(response), code)
 
 
     def post(self):
         print(f'POST {request.path}\nCreating phylotrees')
-        self._check_data(request.get_json())
+        self._check_data(request.json)
         if 'Content-Type' in request.headers and request.headers['Content-Type']=='text/newick':
             response, code = self._import_files()
         else:
             from biobarcoding.services.phylotrees import create_phylotrees
             response, code = create_phylotrees(self.name, self.comment)
-        return make_response(response, code)
+        return make_response(jsonify(response), code)
 
 
     def put(self, id):
         print(f'PUT {request.path}\nUpdating phylotrees {id}')
-        self._check_data(request.get_json())
+        self._check_data(request.json)
         from biobarcoding.services.phylotrees import update_phylotrees
         response, code = update_phylotrees(id, self.name, self.comment)
-        return make_response(response, code)
+        return make_response(jsonify(response), code)
 
 
     def delete(self, id):
         print(f'DELETE {request.path}\nDeleting phylotrees {id}')
         from biobarcoding.services.phylotrees import delete_phylotrees
         response, code = delete_phylotrees(id)
-        return make_response(response, code)
+        return make_response(jsonify(response), code)
 
 
     def _import_files(self):
@@ -58,7 +61,7 @@ class PhyloAPI(MethodView):
         for key,file in request.files.items(multi=True):
             try:
                 file_cpy = self._make_file(file)
-                response, code = import_phylotrees(file_cpy, self.name, self.comment)
+                response, code = import_phylotrees(file_cpy, analysis_id=self.analysis_id, name=self.name, comment=self.comment)
                 responses.append({'status':code,'message':response})
             except Exception as e:
                 responses.append({'status':409,'message':'Could not import the file {file}.'})
@@ -73,6 +76,8 @@ class PhyloAPI(MethodView):
 
     def _check_data(self, data):
         if data:
+            if 'analysis_id' in data:
+                self.analysis_id = data['analysis_id']
             if 'name' in data:
                 self.name = data['name']
             if 'comment' in data:
@@ -134,30 +139,30 @@ class PhyloFeatAPI(MethodView):
 
     def _check_data(self):
 
-        post_data = request.get_json()
+        post_data = request.json
         print(f'JSON data: {post_data}')
 
 
-phylo = PhyloAPI.as_view('phylo_api')
+phylotrees_view = PhyloAPI.as_view('api_phylotrees')
 bp_phylotrees.add_url_rule(
     bcs_api_base + '/bos/phylotrees/',
-    view_func=phylo,
+    view_func=phylotrees_view,
     methods=['GET','POST']
 )
 bp_phylotrees.add_url_rule(
     bcs_api_base + '/bos/phylotrees/<int:phylo_id>',
-    view_func=phylo,
+    view_func=phylotrees_view,
     methods=['GET','PUT','DELETE']
 )
 
-phylo_feat = PhyloFeatAPI.as_view('phylo_feat_api')
+phylo_feat_view = PhyloFeatAPI.as_view('api_phylo_feat')
 bp_phylotrees.add_url_rule(
     bcs_api_base + '/bos/phylotrees/<phylo_id>/features/',
-    view_func=phylo_feat,
+    view_func=phylo_feat_view,
     methods=['GET','POST']
 )
 bp_phylotrees.add_url_rule(
     bcs_api_base + '/bos/phylotrees/<int:phylo_id>/features/<int:cmt_id>',
-    view_func=phylo,
+    view_func=phylo_feat_view,
     methods=['GET','PUT','DELETE']
 )

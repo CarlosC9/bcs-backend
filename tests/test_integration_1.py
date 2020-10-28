@@ -25,17 +25,17 @@ def test_integration_1(testful):
     assert response.status == 200
     assert response.json["result"] == 'True'
     # Call "get ontologies" (returns a list)
-    response = testful.get("/api/ontologies")
+    response = testful.get("/api/ontologies/")
     assert response.status == 200
     assert type(response.json["ontologies"]) == list
     # Call "import ontologies" (import a full ontology)
     # TODO How to upload a file (the ontology will be in a <format> file)
     # TODO If the ontology exists, update it (there must be a unique identifier for ontologies)
-    response = testful.post("/api/ontologies")
+    response = testful.post("/api/ontologies/")
     # Call "get sequences" (returns a list of codes, JSON format by default)
     # TODO How many should be returned (there must be a limit; look for pagination support)
     # TODO Also, prepare to filter on Identity: each sequence has to be checked for "list" permission
-    response = testful.get("/api/bos/sequences")
+    response = testful.get("/api/bos/sequences/")
     assert response.status == 200
     assert type(response.json) == list
     # Detail of a sequence, JSON format
@@ -47,10 +47,10 @@ def test_integration_1(testful):
     # TODO For the upload mechanism, the same used in Ontology
     # TODO Optionally import them with metadata like Collection, Identity (importer)
     # TODO Update already existing sequences. This is very important to
-    response = testful.post("/api/bos/sequences")
+    response = testful.post("/api/bos/sequences/")
     assert response.status == 200
     # Call "get processes" (return a list of processes in the platform, filtered by Identity permissions)
-    response = testful.get("/api/processes")
+    response = testful.get("/api/processes/")
     assert response.status == 200
     assert type(response.json) == list
     # Call "get process 'i' input form" (return the schema)
@@ -60,7 +60,7 @@ def test_integration_1(testful):
     assert response.status == 200
     assert type(response.json) == dict
     # Call "get resources" (return resources supporting that process)
-    response = testful.get(f"/api/processes/{pid}/resources")
+    response = testful.get(f"/api/processes/{pid}/resources/")
     assert response.status == 200
     assert type(response.json) == list
     # Call "submit asynchronous process" (returns Job ID)
