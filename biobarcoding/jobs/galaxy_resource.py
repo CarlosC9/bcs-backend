@@ -430,13 +430,13 @@ def get_historyID_by_invocation(gi,h_id):
     else:
         return inv['id']
 
-def invocation_errors(gi,invocation_id)->'int':
+def invocation_errors(gi,invocation_id)->'dict':
     invocation = gi.invocations.show_invocation(invocation_id)
     status = gi.histories.get_status(invocation['history_id'])
     state = status['state']
-    if state != 'ok':
-        errors_detail = status['state_details']
-        return errors_detail
+    if state == 'error':
+        error_detail = status['state_details']
+        return error_detail
     else:
         return state
 
@@ -549,11 +549,11 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         self.galaxy_instance = None
 
     def set_resource(self, params):
-        file_info = params['file']
-        name_instance = params['name']
-        galaxy = galaxy_instance(file_info, name=name_instance) # TODO change function to JSON parsing
-        self.api_key = galaxy['key']
-        self.url = galaxy['url']
+        # file_info = params['file']
+        # name_instance = params['name']
+        # galaxy = galaxy_instance(file_info, name=name_instance) # TODO change function to JSON parsing
+        self.api_key = params['jm_credentials']
+        self.url = params['jm_location']
 
     def connect(self):
         self.galaxy_instance = login(self.api_key, self.url)
@@ -577,12 +577,31 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
 
 
     def submit(self, workspace, params):
+        # "process": {
+        #     #     "name": "",
+        #     #     "inputs": {
+        #     #     }
+        #     # }
+        params = {
+            'name' : 'workflow_id',
+            'input':{'parameters':
+                         {'ClustaW': # label establecido en galaxy
+                              {'darna': 'PROTEIN'} #param name
+                          },
+                     'data': {'Input dataset': # este es un label de galaxy
+                                    {
+                                        'path': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta',
+                                        'type': 'fasta'
+                                        }
 
+                                }
+                     }
+        }
         self.connect()
         gi = self.galaxy_instance
-        input_params = params['parameters']
-        inputs = params['inputs'] # mapeo de datasets (nombres y steps)
-        workflow = params['workflow']
+        input_params = params['input']['parameters']
+        inputs = params['input']['data'] # mapeo de datasets (nombres y steps) #estoy hay que tenerlo bien armado
+        workflow = params['name']
         w_id = workflow_id(gi, workflow)
         # dataset = gi.histories.show_matching_datasets(workspace) -> lista con los data set en un workspace
         datamap, parameters = params_input_creation(gi, workflow, inputs, input_params, history_name=workspace)
