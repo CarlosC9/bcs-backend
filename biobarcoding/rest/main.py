@@ -3,6 +3,7 @@ from flask_session import Session as FlaskSessionServerSide
 from flask_cors import CORS
 
 import biobarcoding
+from biobarcoding.authorization import initialize_authn_authr
 from biobarcoding.rest import logger, log_level, load_configuration_file, construct_session_persistence_backend, \
     initialize_database, initialize_database_chado, bcs_gui_base
 from biobarcoding.rest.auth import bp_auth
@@ -38,16 +39,31 @@ def create_app(debug, cfg_dict=None):
     app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
     load_configuration_file(app)
 
-    load_configuration_file(app)
-
     initialize_firebase(app)
 
-    FlaskSessionServerSide(app)  # Flask Session
-    CORS(app,                    # CORS
+    # Session persistence configuration
+    d = construct_session_persistence_backend(app)
+    app.config.update(d)
+
+    # Flask Session
+    FlaskSessionServerSide(app)
+
+    # CORS
+    CORS(app,
          resources={r"/api/*": {"origins": "*"}},
          supports_credentials=True
          )
 
+    # Database BCS
+    initialize_database(app)
+
+    # Database Chado
+    initialize_database_chado(app)
+
+    # Security
+    initialize_authn_authr(app)
+
+    # RESTful endpoints
     for bp in [bp_auth,
                bp_sequences,
                bp_alignments,
@@ -61,15 +77,6 @@ def create_app(debug, cfg_dict=None):
                bp_gui
                ]:
         app.register_blueprint(bp)
-
-    # Database BCS
-    initialize_database(app)
-    # Database Chado
-    initialize_database_chado(app)
-
-    # Session persistence
-    d = construct_session_persistence_backend(app)
-    app.config.update(d)
 
     # Celery
     initialize_celery(app)
