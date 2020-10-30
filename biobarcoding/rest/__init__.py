@@ -10,7 +10,7 @@ from sqlalchemy.pool import StaticPool
 
 import biobarcoding
 from biobarcoding.common import generate_json
-from biobarcoding.common.gp_helpers import create_pg_database_engine, load_table
+from biobarcoding.common.pg_helpers import create_pg_database_engine, load_table
 from biobarcoding.db_models import DBSession, ORMBase, DBSessionChado, ORMBaseChado, ObjectType
 from biobarcoding.db_models.bioinformatics import *
 from biobarcoding.db_models.sysadmin import *
@@ -114,7 +114,7 @@ def construct_session_persistence_backend(flask_app):
     d = {}
     if 'REDIS_HOST' in flask_app.config:
         r_host = flask_app.config['REDIS_HOST']
-        d["SESSION_KEY_PREFIX"] = "nis:"
+        d["SESSION_KEY_PREFIX"] = "bcs:"
         d["SESSION_PERMANENT"] = False
         rs2 = None
         if r_host == "redis_lite":
