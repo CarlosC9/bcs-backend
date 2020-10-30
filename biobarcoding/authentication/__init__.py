@@ -157,15 +157,15 @@ class bcs_session(object):
             sess = deserialize_session(flask_session.get("session"))
             if isinstance(sess, BCSSession):
                 try:
-                    g.current_session = sess
+                    g.bcs_session = sess
                     # TODO Check that identity can execute the function
                     res = f(*args)
                 except:
                     res = None
                 finally:
                     if not self.read_only:
-                        flask_session["session"] = serialize_session(g.current_session)
-                    # g.current_session = None  -- NO need for this line, "g" is reset after every request
+                        flask_session["session"] = serialize_session(g.bcs_session)
+                    # g.bcs_session = None  -- NO need for this line, "g" is reset after every request
                 return res
             else:
                 return sess
