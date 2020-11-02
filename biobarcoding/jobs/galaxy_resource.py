@@ -48,6 +48,15 @@ def library_id(gi,libname: 'str'):
     else:
         return lib['id']
 
+def history_id(gi,history_name: 'str'):
+    histories = gi.histories.get_histories()
+    try:
+        hist = next(item for item in histories if item["name"] == history_name)
+    except StopIteration:
+        return 'there is no library named{}'.format(history_name)
+    else:
+        return hist['id']
+
 
 
 def workflow_list(gi):
@@ -552,8 +561,8 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         # file_info = params['file']
         # name_instance = params['name']
         # galaxy = galaxy_instance(file_info, name=name_instance) # TODO change function to JSON parsing
-        self.api_key = params['jm_credentials']
-        self.url = params['jm_location']
+        self.api_key = params['jm_credentials']['api_key']
+        self.url = params['jm_location']['url']
 
     def connect(self):
         self.galaxy_instance = login(self.api_key, self.url)
@@ -573,34 +582,29 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
     def remove_job_workspace(self, workspace):
         self.connect()
         gi = self.galaxy_instance
-        gi.histories.delete_history(workspace)
+        gi.histories.delete_history(history_id(gi,workspace))
 
 
     def submit(self, workspace, params):
-        # "process": {
-        #     #     "name": "",
-        #     #     "inputs": {
-        #     #     }
-        #     # }
-        params = {
-            'name' : 'workflow_id',
-            'input':{'parameters':
-                         {'ClustaW': # label establecido en galaxy
-                              {'darna': 'PROTEIN'} #param name
-                          },
-                     'data': {'Input dataset': # este es un label de galaxy
-                                    {
-                                        'path': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta',
-                                        'type': 'fasta'
-                                        }
+        # "process": {"name": "MSA ClustalW",
+        #             "inputs":
+        #                 {"parameters":
+        #                      {"MSA ClustalW": {"darna": "PROTEIN"}
+        #                       },
+        #                  "data": {"Input dataset":
+        #                               {
+        #                                   "path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta",
+        #                                   "type": "fasta"
+        #                                   }
+        #                           }
+        #                  }
+        #             }
 
-                                }
-                     }
-        }
+
         self.connect()
         gi = self.galaxy_instance
-        input_params = params['input']['parameters']
-        inputs = params['input']['data'] # mapeo de datasets (nombres y steps) #estoy hay que tenerlo bien armado
+        input_params = params['inputs']['parameters']
+        inputs = params['inputs']['data'] # mapeo de datasets (nombres y steps) #estoy hay que tenerlo bien armado
         workflow = params['name']
         w_id = workflow_id(gi, workflow)
         # dataset = gi.histories.show_matching_datasets(workspace) -> lista con los data set en un workspace
@@ -610,7 +614,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
                                                   inputs=datamap,
                                                   params=parameters,
                                                   history_id=history_id)
-        return history_id,invocation['id']
+        return invocation['id']
 
     def job_status(self, native_id):
         self.connect()
@@ -624,10 +628,11 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         gi.invocations.cancel_invocation(native_id)
         # job here refers to invocation
 
-    def get_resuts(self, native_id):
+    def get_results(self, native_id):
         self.connect()
         gi = self.galaxy_instance
         r = list_invocation_results(gi, native_id)
+        return r
         # download_result(gi,r,'/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test')
 
 

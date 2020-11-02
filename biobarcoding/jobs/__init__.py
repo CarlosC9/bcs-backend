@@ -2,7 +2,8 @@ from abc import ABC
 from celery import chain
 from typing import Dict
 
-from biobarcoding.tasks.definitions import *
+# from biobarcoding.tasks.definitions import *
+from biobarcoding.tasks import celery_app
 
 
 class JobManagementAPI:
@@ -104,5 +105,5 @@ class JobExecutorAtResourceFactory:
         if job_executor_name.lower() == "galaxy":
             from biobarcoding.jobs.galaxy_resource import JobExecutorAtGalaxy
             tmp = JobExecutorAtGalaxy()
-            tmp.set_resource(resource_param["jm_location"].update(resource_param["jm_credentials"]))
+            tmp.set_resource(resource_param)
             return tmp

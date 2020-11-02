@@ -4,12 +4,14 @@ import os
 import requests
 from billiard.context import Process
 
-from . import celery_app
+# from . import celery_app #uncomment #todo uncomment
+from biobarcoding.tasks import celery_app # todo delete
 from time import sleep, time
 
 from biobarcoding.common.decorators import celery_wf
-from ..common import check_pid_running
-from ..jobs import JobExecutorAtResourceFactory
+# from ..common import check_pid_running #TODO UNCOMMENT
+# from ..jobs import JobExecutorAtResourceFactory #TODO Unconmment
+from biobarcoding.jobs import JobExecutorAtResourceFactory #todo delete
 from biobarcoding.db_models.jobs import Job
 
 """
@@ -56,12 +58,17 @@ wf1 = {
     "submit": {"": "wait_until_execution_starts"},
     "wait_until_execution_starts": {
         "": "wait_for_execution_end",
-        "cancel": "cancel"
+        "error": "error",
+        "": "cancel",
+        "" :"cleanup"
+
     },
     "wait_for_execution_end": {
         "": "transfer_data_from",
         "error": "error",
-        "cancel": "cancel"
+        "": "cancel",
+        "" : "cleanup"
+
     },
     "transfer_data_from": {"": "import"},
     "import": {"": "cleanup"},
@@ -218,9 +225,9 @@ def wf1_submit(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory.get(tmp["resource"]["jm_type"], tmp["process"])
+    job_executor = JobExecutorAtResourceFactory()
+    job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp['resource'])
     inputs = tmp["process"]
-    job_executor.connect()
     inv_id = job_executor.submit(tmp['job_id'], inputs)
     tmp['g_id'] = inv_id
     job_context = json.dumps(tmp)
@@ -236,18 +243,15 @@ def wf1_wait_until_execution_starts(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory.get(tmp["resource"]["jm_type"], tmp["process"])
-    job_executor.connect()
+    job_executor = JobExecutorAtResourceFactory()
+    job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp['resource'])
     status = job_executor.job_status(tmp["g_id"])
-    if status == 'new':
-        return 3, job_context
-    if status == 'running': # pasa siempre or running?
+    if status == 'running':  # pasa siempre or running?
         return job_context
-
-
-
-    # append_text(outfile, "wait_until_execution_starts")
-    # sleep(2)
+    if status == 'error':
+        return 'error', job_context
+    else:
+        return 3, job_context
 
 
 @celery_app.task(name="wait_for_execution_end")
@@ -261,10 +265,10 @@ def wf1_wait_for_execution_end(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory.get(tmp["resource"]["jm_type"], tmp["process"])
-    job_executor.connect()
-    status = job_executor.job_status(tmp["_pid"])
-    if isinstance(status,dict):
+    job = JobExecutorAtResourceFactory()
+    job_executor = job.get(tmp["resource"]["jm_type"], tmp["resource"])
+    status = job_executor.job_status(tmp["g_id"])
+    if isinstance(status, dict):
         return 'error', job_context
     if status == 'ok':
         return job_context
@@ -281,8 +285,9 @@ def wf1_transfer_data_from_resource(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory.get(tmp["resource"]["jm_type"], tmp["process"])
-    r = job_executor.get_results(tmp['_pid'])
+    job_executor = JobExecutorAtResourceFactory()
+    job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp["resource"])
+    r = job_executor.get_results(tmp["g_id"])
     tmp['results'] = r
     job_context = json.dumps(tmp)
     return job_context
@@ -312,9 +317,10 @@ def wf1_cleanup_workspace(job_context: str):
     """
 
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory.get(tmp["resource"]["jm_type"], tmp["process"])
-    job_executor.remove_worplace(tmp["job_id"])
-    del tmp['_pid']
+    job_executor = JobExecutorAtResourceFactory()
+    job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp["resource"])
+    job_executor.remove_job_workspace(tmp["job_id"])
+    del tmp['g_id']
     job_context = json.dumps(tmp)
     return job_context
 
@@ -344,11 +350,12 @@ def wf1_completed_error(job_context: str):
     """
 
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory.get(tmp["resource"]["jm_type"], tmp["process"])
+    job_executor = JobExecutorAtResourceFactory()
+    job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp["resource"])
     status = job_executor.job_status(job_executor["g_id"])
     tmp['error'] = status
     job_context = json.dumps(tmp)
-    return job_context
+    return  job_context
 
     # append_text(outfile, "completed_error")
     # sleep(2)
@@ -364,8 +371,138 @@ def wf1_cancelled(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory.get(tmp["resource"]["jm_type"], tmp["process"])
-    job_executor.cancel_job(tmp['_pid'])
+    job_executor = JobExecutorAtResourceFactory()
+    job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp["resource"])
+    job_executor.cancel_job(tmp['g_id'])
+    return job_context
+
+
+def main():
+    job_context_dict = {
+        "job_id": "00003",
+        "endpoint_url": "http://localhost:8080/",
+        "resource":{"name": "beauvoir3",
+                    "jm_type": "galaxy",
+                    "jm_location": {"url" : "http://localhost:8080/"},
+                    "jm_credentials": {"api_key" : "af107bf81f146b6746944b9488986822"}
+                    },
+        "process": {"name" : "MSA ClustalW",
+                    "inputs":
+                        {"parameters":
+                             {"ClustalW":{"darna": "PROTEIN"}
+                              },
+                         "data":{"Input dataset":
+                             {"path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta",
+                              "type": "fasta"
+                              }
+                                 }
+                         }
+                    }
+    }
+    
+
+    def wf1_1(job_context):
+        tmp = json.loads(job_context)
+        job_executor = JobExecutorAtResourceFactory()
+        job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp['resource'])
+        # wf1_submit
+        inputs = tmp["process"]
+        inv_id = job_executor.submit(tmp['job_id'], inputs)
+        tmp['g_id'] = inv_id
+        job_context = json.dumps(tmp)
+        return job_context
+
+    def wf1_2(job_context):
+        tmp = json.loads(job_context)
+        job = JobExecutorAtResourceFactory()
+        job_executor = job.get(tmp["resource"]["jm_type"], tmp["resource"])
+        status = job_executor.job_status(tmp["g_id"])
+        if status == 'running':  # pasa siempre or running?
+            return job_context
+        if status == 'error':
+            return 'error', job_context
+        else:
+            return 3, job_context
+
+
+    def wf1_3(job_context):
+        tmp = json.loads(job_context)
+        job = JobExecutorAtResourceFactory()
+        job_executor = job.get(tmp["resource"]["jm_type"], tmp["resource"])
+        status = job_executor.job_status(tmp["g_id"])
+        if isinstance(status, dict):
+            return 'error', job_context
+        if status == 'ok':
+            return job_context
+        else:
+            return 3, job_context
+
+    def wf1_errors(job_context):
+        tmp = json.loads(job_context)
+        job_executor = JobExecutorAtResourceFactory()
+        job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp["resource"])
+        status = job_executor.job_status(job_executor["g_id"])
+        tmp['error'] = status
+        job_context = json.dumps(tmp)
+        return job_context
+
+
+    def wf_results(job_context):
+        tmp = json.loads(job_context)
+        job_executor = JobExecutorAtResourceFactory()
+        job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp["resource"])
+        r = job_executor.get_results(tmp["g_id"])
+        tmp['results'] = r
+        print(tmp['results'])
+        job_context = json.dumps(tmp)
+        return job_context
+
+    def wf_clean(job_context):
+        tmp = json.loads(job_context)
+        job = JobExecutorAtResourceFactory()
+        job_executor = job.get(tmp["resource"]["jm_type"], tmp["resource"])
+        job_executor.remove_job_workspace(tmp["job_id"])
+        del tmp['g_id']
+        job_context = json.dumps(tmp)
+        return job_context
+    def wf_cancel(job_context):
+        tmp = json.loads(job_context)
+        job_executor = JobExecutorAtResourceFactory()
+        job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp["resource"])
+        job_executor.cancel_job(tmp['g_id'])
+        return job_context
+
+    def workflow(dict_input,cancel_job = False):
+        job_context = json.dumps(dict_input)
+        return_1 = wf1_1(job_context)
+        if isinstance(return_1, tuple):
+            print('error')
+        else:
+            return_2 = wf1_2(return_1)
+            while isinstance(return_2,tuple):
+                return_2 = wf1_2(return_1)
+            return_3 = wf1_3(return_2)
+            while isinstance(return_3,tuple):
+                error, _ = return_3
+                if error == 'error':
+                    return_3 = wf_cancel(return_2)
+                    return_4 = wf_clean(return_3)
+                    return return_4
+                return_3 = wf1_3(return_2)
+            if isinstance(return_3,str):
+                return_4 = wf_results(return_3)
+                return_5 = wf_clean(return_4)
+                return return_5
+            else:
+                return_6 = wf1_errors(job_context)
+                return return_6
+            
+    print(workflow(job_context_dict,cancel_job = True))
 
 
 
+
+
+
+if __name__ == "__main__":
+    main()
