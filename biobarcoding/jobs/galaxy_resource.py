@@ -23,7 +23,7 @@ def galaxy_instance(path, name ='__default'):
     if isinstance(gal,dict):
         return gal
     else:
-        return data[gal] #caso de que es el defaoult
+        return data[gal]
 
 
 
@@ -558,9 +558,6 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         self.galaxy_instance = None
 
     def set_resource(self, params):
-        # file_info = params['file']
-        # name_instance = params['name']
-        # galaxy = galaxy_instance(file_info, name=name_instance) # TODO change function to JSON parsing
         self.api_key = params['jm_credentials']['api_key']
         self.url = params['jm_location']['url']
 
@@ -608,7 +605,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         workflow = params['name']
         w_id = workflow_id(gi, workflow)
         # dataset = gi.histories.show_matching_datasets(workspace) -> lista con los data set en un workspace
-        datamap, parameters = params_input_creation(gi, workflow, inputs, input_params, history_name=workspace)
+        datamap, parameters = params_input_creation(gi, workflow, inputs, input_params, history_name=workspace) #catch error
         history_id = gi.histories.get_histories(name = workspace)[0]['id']
         invocation = gi.workflows.invoke_workflow(workflow_id=w_id,
                                                   inputs=datamap,
