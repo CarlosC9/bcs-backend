@@ -2,6 +2,7 @@ import collections
 
 import sqlalchemy
 from multidict import MultiDict, CIMultiDict
+from sqlalchemy import and_
 
 import biobarcoding
 from biobarcoding.db_models import ORMBase
@@ -10,6 +11,8 @@ from biobarcoding.db_models import ORMBase
 # #####################################################################################################################
 # >>>> DATABASE FUNCTIONS <<<<
 # #####################################################################################################################
+from biobarcoding.db_models.jobs import ComputeResource, JobManagementType, ProcessInComputeResource, Process
+
 
 def drop_pg_database(sa_str, database_name):
     db_connection_string = sa_str
@@ -61,6 +64,40 @@ def load_table(sf, clazz, d):
             ins.name = v
             session.add(ins)
     session.commit()
+    sf.remove()
+
+
+def load_computing_resources(sf):
+    session = sf()
+    local_uuid = "f7c2c088-5ca1-46a7-90b3-9f446b706724"
+    r = session.query(ComputeResource).filter(ComputeResource.uuid == local_uuid).first()
+    if not r:
+        r = ComputeResource()
+        r.uuid = local_uuid
+        r.name = "localhost - galaxy"
+        jm_type = session.query(JobManagementType).filter(JobManagementType.name == "galaxy").first()
+        r.jm_type = jm_type
+        r.jm_location = {"url": "http://localhost:8080/"}
+        r.jm_credentials = {"api_key": "testapikey"}
+        session.add(r)
+        session.commit()
+    sf.remove()
+
+
+def load_processes_in_computing_resources(sf):
+    session = sf()
+    local_uuid = "28615331-4c80-4387-b353-a6fd0338b475"
+    process = session.query(Process).filter(Process.uuid == "15aa399f-dd58-433f-8e94-5b2222cd06c9").first()
+    resource = session.query(ComputeResource).filter(ComputeResource.uuid == "f7c2c088-5ca1-46a7-90b3-9f446b706724").first()
+    r = session.query(ProcessInComputeResource).filter(and_(ProcessInComputeResource.process_id==process.id, ProcessInComputeResource.resource_id==resource.id)).first()
+    if not r:
+        r = ProcessInComputeResource()
+        r.uuid = local_uuid
+        r.name = "MSA Clustal Omega"
+        r.process = process
+        r.resource = resource
+        session.add(r)
+        session.commit()
     sf.remove()
 
 

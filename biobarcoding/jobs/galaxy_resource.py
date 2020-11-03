@@ -635,7 +635,8 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
 
 
 
-
+def initialize_galaxy(flask_app):
+    pass
 
 
 

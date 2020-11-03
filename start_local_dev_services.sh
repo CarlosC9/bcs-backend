@@ -18,6 +18,19 @@ if [ ! "$(docker ps -q -f name=postgres_devel)" ] ; then
   fi
 fi
 
+# Galaxy
+if [ ! "$(docker ps -q -f name=galaxy_devel)" ] ; then
+  if [ "$(whoami)" == "rnebot" ] ; then
+    docker run --name galaxy_devel -d --rm --privileged=true -p 8080:80 -p 8121:21 -p 8122:22 -e GALAXY_CONFIG_MASTER_API_KEY=testapikey -e GALAXY_DEFAULT_ADMIN_KEY=testapikey -e GALAXY_DEFAULT_ADMIN_PASSWORD=admin evolbioinfo/ngphylogeny-galaxy
+  elif [ "$(whoami)" == "acurbelo"] ; then
+    docker run --name galaxy_devel --privileged=true -d -p 8080:80 -p 8121:21 -p 8122:22 --rm -e GALAXY_CONFIG_MASTER_API_KEY=testapikey -e GALAXY_DEFAULT_ADMIN_KEY=testapikey -v ...:/export evolbioinfo/ngphylogeny-galaxy
+  elif [ "$(whoami)" == "paula" ] ; then
+    docker run --name galaxy_devel --privileged=true -d -p 8080:80 -p 8121:21 -p 8122:22 --rm -e GALAXY_CONFIG_MASTER_API_KEY=testapikey -e GALAXY_DEFAULT_ADMIN_KEY=testapikey -v ...:/export evolbioinfo/ngphylogeny-galaxy
+  elif [ "$(whoami)" == "dreyes" ] ; then
+    docker run --name galaxy_devel --privileged=true -d -p 8080:80 -p 8121:21 -p 8122:22 --rm -e GALAXY_CONFIG_MASTER_API_KEY=testapikey -e GALAXY_DEFAULT_ADMIN_KEY=testapikey -v ...:/export evolbioinfo/ngphylogeny-galaxy
+  fi
+fi
+
 # CD to BCS-BACKEND source code (needed for proper Celery execution)
 if [ "$(whoami)" == "rnebot" ] ; then
   cd ~/GoogleDrive/AA_NEXTGENDEM/bcs-backend/

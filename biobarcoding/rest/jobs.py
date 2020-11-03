@@ -17,8 +17,17 @@ from biobarcoding.rest import bcs_api_base, register_api, Job, ComputeResource, 
 bp_jobs = Blueprint('jobs', __name__)
 
 
-# Jobs REST API
+def is_integer(n):
+    """ https://note.nkmk.me/en/python-check-int-float/ """
+    try:
+        float(n)
+    except ValueError:
+        return False
+    else:
+        return float(n).is_integer()
 
+
+# Jobs REST API
 class JobAPI(MethodView):
     """
     Job Resource
@@ -39,6 +48,7 @@ class JobAPI(MethodView):
     def post(self):
         """
         curl -i -XPOST http://localhost:5000/api/jobs/ --data-urlencode "{}"
+        curl -i -XPOST http://localhost:5000/api/jobs/ -H "Content-Type: application/json" -d @"/home/rnebot/GoogleDrive/AA_NEXTGENDEM/bcs-backend/tests/data_test/test_job_req.json"
         :return:
         """
         # Submit new Job
@@ -50,13 +60,28 @@ class JobAPI(MethodView):
         req = request.get_json()
         d.endpoint_url = ""
         # Load resource and process
-        in_dict = DottedCollection(req)
-        # TODO Register a resource, a process and a "process in a resource"
-        resource = session.query(ComputeResource).get(in_dict.resource_id)
-        process = session.query(Process).get(in_dict.process_id)
-        process_in_resource = session.query(ProcessInComputeResource).filter(and_(ProcessInComputeResource.process_id==in_dict.process_id, ProcessInComputeResource.resource_id==in_dict.resource_id))
+        in_dict = DottedDict(req)
+        if is_integer(in_dict.resource_id):
+            resource = session.query(ComputeResource).get(in_dict.resource_id)
+        else:
+            resource = session.query(ComputeResource).filter(ComputeResource.uuid == in_dict.resource_id).first()
+        if is_integer(in_dict.process_id):
+            process = session.query(Process).get(in_dict.process_id)
+        else:
+            process = session.query(Process).filter(Process.uuid == in_dict.process_id).first()
+        process_in_resource = session.query(ProcessInComputeResource).filter(and_(ProcessInComputeResource.process_id==process.id, ProcessInComputeResource.resource_id==resource.id)).first()
         process_params = in_dict.process_params
 
+        """
+        Input JSON
+        {
+            "resource_id": ...
+            "process_id": ...
+            "process_params": {
+            }
+            "credentials": {
+            }
+        """
         # Prepare "job_context" for Celery tasks
         # "job_id": ...,
         # "endpoint_url": ...
@@ -83,7 +108,7 @@ class JobAPI(MethodView):
         d.resource.name = resource.name
         d.resource.jm_type = resource.jm_type.name
         d.resource.jm_location = resource.jm_location
-        d.resource.jm_credentials = resource.jm_credentials
+        d.resource.jm_credentials = resource.jm_credentials if "credentials" not in in_dict else in_dict.credentials
 
         # Create Job database object
         job = Job()
