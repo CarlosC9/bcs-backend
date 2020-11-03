@@ -41,13 +41,18 @@ def prepare_default_configuration(create_directories):
         BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
         BACKEND_URL = BROKER_URL
         return {
-            "DB_CONNECTION_STRING": f"sqlite:///{path}/bcs.db",
+            "DB_CONNECTION_STRING": f'postgres://postgres:postgres@localhost:5432/bcs',
             "CACHE_FILE_LOCATION": f"{tmp_path}/cache",
             "CELERY_BROKER_URL": BROKER_URL,
             "CELERY_BACKEND_URL": BACKEND_URL,
             "REDIS_HOST_FILESYSTEM_DIR": f"{tmp_path}/sessions",
             "GOOGLE_APPLICATION_CREDENTIALS": f"{path}/firebase-key.json",
-            "CHADO_CONF": f"{path}/chado_conf.yml"
+            "CHADO_DATABASE": "postgres",
+            "CHADO_HOST": "localhost",
+            "CHADO_PORT": "5432",
+            "CHADO_USER": "postgres",
+            "CHADO_PASSWORD": "postgres",
+            "CHADO_SCHEMA": "public"
         }
 
     from appdirs import AppDirs
@@ -370,11 +375,11 @@ def initialize_database(flask_app):
 
 
 def initialize_database_chado(flask_app):
-    if 'CHADO_CONF' in flask_app.config:
-        with open(flask_app.config["CHADO_CONF"], 'r') as chado_conf:
-            import yaml
-            cfg = yaml.load(chado_conf, Loader=yaml.FullLoader)
-        db_connection_string = f'postgres://{cfg["user"]}:{cfg["password"]}@{cfg["host"]}:{cfg["port"]}/{cfg["database"]}'
+    cfg = flask_app.config
+    if 'CHADO_CONNECTION_STRING' in flask_app.config:
+        db_connection_string = cfg["CHADO_CONNECTION_STRING"]
+    elif 'CHADO_DATABASE' in flask_app.config:
+        db_connection_string = f'postgres://{cfg["CHADO_USER"]}:{cfg["CHADO_PASSWORD"]}@{cfg["CHADO_HOST"]}:{cfg["CHADO_PORT"]}/{cfg["CHADO_DATABASE"]}'
         print("Connecting to Chado database server")
         print(db_connection_string)
         print("-----------------------------")
@@ -385,7 +390,8 @@ def initialize_database_chado(flask_app):
         ORMBaseChado.metadata.bind = biobarcoding.chado_engine
         ORMBaseChado.metadata.reflect()
     else:
-        print("No database connection defined (DB_CONNECTION_STRING), exiting now!")
+        print("No CHADO connection defined (CHADO_CONNECTION_STRING), exiting now!")
+        print(flask_app.config)
         sys.exit(1)
 
 
