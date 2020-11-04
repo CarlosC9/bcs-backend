@@ -1,5 +1,5 @@
 from bioblend import galaxy
-import random
+import json
 import yaml
 import os
 from biobarcoding.jobs import JobExecutorAtResource
@@ -511,19 +511,20 @@ def import_workflow(instance, wf_Id):
 
 
 def check_tools(wf1_dic,wf2_dic):
-    steps1 = wf1_dic['step']
-    steps2 = wf2_dic['step']
+    steps1 = wf1_dic['steps']
+    steps2 = wf2_dic['steps']
     tool_list = list()
     for step, content in steps1.items():
-        if step['errors'] == "Tool is not installed":
-            tool_list.append(steps2[step]['tool_shed_repository'])
+        if 'errors' in content:
+            if content['errors'] == "Tool is not installed": # TODO depende de la versión de galaxi esto lleva un punto al final o no xq lo que hay que buscar otra cosa
+                tool_list.append(steps2[step]['tool_shed_repository'])
     if len(tool_list) == 0:
         return 'all tools are installed'
     else:
         return tool_list
 
 
-def install_tools(instance,tools):
+def install_tools(gi,tools):
 
     '''
     tool_shed_url, name, owner,
@@ -535,10 +536,9 @@ def install_tools(instance,tools):
     new_tool_panel_section_label = Non
     '''
     if isinstance(tools, list):
-        gi = instance.connect()
         for tool in tools:
             tool_shed_url = 'https://' + tool['tool_shed']
-            gi.tooshed.install_repository_revision(tool_shed_url=tool_shed_url,
+            gi.toolshed.install_repository_revision(tool_shed_url=tool_shed_url,
                                                    name=tool['name'],
                                                    owner=tool['owner'],
                                                    changeset_revision= tool['changeset_revision'],
@@ -636,7 +636,29 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
 
 
 def initialize_galaxy(flask_app):
-    pass
+    # local variables : tet environment API_KEY, test environment URL workflows path
+    # upload workflow from forder workflows (create) if it does exist. chek if every tool exist and install it if necessary
+    api_key = 'fakekey'
+    url = 'http://127.0.0.1:8080'
+    gi = login(api_key, url)
+    workflow_path = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/workflows/Galaxy-Workflow-MSA_ClustalW.ga'
+    with open(workflow_path, 'r') as f:
+        wf_dict_in = json.load(f)
+    name = wf_dict_in['name']
+    if workflow_id(gi, name) == 'there is no workflow named{}'.format(name):
+        wf = gi.workflows.import_workflow_from_local_path(workflow_path)
+        wf_dict_out = gi.workflows.export_workflow_dict(wf['id'])
+        list_of_tools = check_tools(wf_dict_out, wf_dict_in)
+        install_tools(gi, list_of_tools)
+    else:
+        return None
+
+
+
+
+
+
+
 
 
 

@@ -9,7 +9,7 @@ if [ ! "$(docker ps -q -f name=postgres_devel)" ] ; then
   if [ "$(whoami)" == "rnebot" ] ; then
     docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA/var/lib/postgresql/data/ -v /home/rnebot/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
 #    docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -v /home/rnebot/DATOS/pg_devel:/var/lib/postgresql/data postgres
-  elif [ "$(whoami)" == "acurbelo"] ; then
+  elif [ "$(whoami)" == "acurbelo" ] ; then
     docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -v <........>:/var/lib/postgresql/data postgres
   elif [ "$(whoami)" == "paula" ] ; then
     docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA/var/lib/postgresql/data/ -v /home/paula/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
@@ -19,15 +19,16 @@ if [ ! "$(docker ps -q -f name=postgres_devel)" ] ; then
 fi
 
 # Galaxy
+# api key = fakekey; user = admin; password = password
 if [ ! "$(docker ps -q -f name=galaxy_devel)" ] ; then
   if [ "$(whoami)" == "rnebot" ] ; then
-    docker run --name galaxy_devel -d --rm --privileged=true -p 8080:80 -p 8121:21 -p 8122:22 -e GALAXY_CONFIG_MASTER_API_KEY=testapikey -e GALAXY_DEFAULT_ADMIN_KEY=testapikey -e GALAXY_DEFAULT_ADMIN_PASSWORD=admin evolbioinfo/ngphylogeny-galaxy
+    docker run -d -p 8080:80 -p 8021:21 -p 8022:22 -v ...:/export  bgruening/galaxy-stable
   elif [ "$(whoami)" == "acurbelo"] ; then
-    docker run --name galaxy_devel --privileged=true -d -p 8080:80 -p 8121:21 -p 8122:22 --rm -e GALAXY_CONFIG_MASTER_API_KEY=testapikey -e GALAXY_DEFAULT_ADMIN_KEY=testapikey -v ...:/export evolbioinfo/ngphylogeny-galaxy
+    docker run -d -p 8080:80 -p 8021:21 -p 8022:22 -v ...:/export  bgruening/galaxy-stable
   elif [ "$(whoami)" == "paula" ] ; then
-    docker run --name galaxy_devel --privileged=true -d -p 8080:80 -p 8121:21 -p 8122:22 --rm -e GALAXY_CONFIG_MASTER_API_KEY=testapikey -e GALAXY_DEFAULT_ADMIN_KEY=testapikey -v ...:/export evolbioinfo/ngphylogeny-galaxy
+    docker run -d -p 8080:80 -p 8021:21 -p 8022:22 -v /home/paula/galaxy_storage/:/export  bgruening/galaxy-stable
   elif [ "$(whoami)" == "dreyes" ] ; then
-    docker run --name galaxy_devel --privileged=true -d -p 8080:80 -p 8121:21 -p 8122:22 --rm -e GALAXY_CONFIG_MASTER_API_KEY=testapikey -e GALAXY_DEFAULT_ADMIN_KEY=testapikey -v ...:/export evolbioinfo/ngphylogeny-galaxy
+    docker run -d -p 8080:80 -p 8021:21 -p 8022:22 -v ...:/export  bgruening/galaxy-stable
   fi
 fi
 

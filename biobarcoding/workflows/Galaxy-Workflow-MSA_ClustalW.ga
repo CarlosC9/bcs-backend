@@ -1,0 +1,108 @@
+{
+    "a_galaxy_workflow": "true",
+    "annotation": "Multi alignment using ClustalW tool",
+    "format-version": "0.1",
+    "name": "MSA ClustalW",
+    "steps": {
+        "0": {
+            "annotation": "",
+            "content_id": null,
+            "errors": null,
+            "id": 0,
+            "input_connections": {},
+            "inputs": [
+                {
+                    "description": "",
+                    "name": "Input dataset"
+                }
+            ],
+            "label": "Input dataset",
+            "name": "Input dataset",
+            "outputs": [],
+            "position": {
+                "bottom": 349.8000030517578,
+                "height": 61.80000305175781,
+                "left": 542,
+                "right": 742,
+                "top": 288,
+                "width": 200,
+                "x": 542,
+                "y": 288
+            },
+            "tool_id": null,
+            "tool_state": "{\"optional\": false}",
+            "tool_version": null,
+            "type": "data_input",
+            "uuid": "b2337650-823a-4b85-ab8d-6eaf22601515",
+            "workflow_outputs": [
+                {
+                    "label": null,
+                    "output_name": "output",
+                    "uuid": "65a1861a-ddcd-4ec0-a1bc-1ca3319be2f9"
+                }
+            ]
+        },
+        "1": {
+            "annotation": "",
+            "content_id": "toolshed.g2.bx.psu.edu/repos/devteam/clustalw/clustalw/2.1",
+            "errors": null,
+            "id": 1,
+            "input_connections": {
+                "input": {
+                    "id": 0,
+                    "output_name": "output"
+                }
+            },
+            "inputs": [],
+            "label": "ClustalW",
+            "name": "ClustalW",
+            "outputs": [
+                {
+                    "name": "output",
+                    "type": "clustal"
+                },
+                {
+                    "name": "dnd",
+                    "type": "nhx"
+                }
+            ],
+            "position": {
+                "bottom": 568.8000030517578,
+                "height": 184.8000030517578,
+                "left": 925,
+                "right": 1125,
+                "top": 384,
+                "width": 200,
+                "x": 925,
+                "y": 384
+            },
+            "post_job_actions": {},
+            "tool_id": "toolshed.g2.bx.psu.edu/repos/devteam/clustalw/clustalw/2.1",
+            "tool_shed_repository": {
+                "changeset_revision": "d6694932c5e0",
+                "name": "clustalw",
+                "owner": "devteam",
+                "tool_shed": "toolshed.g2.bx.psu.edu"
+            },
+            "tool_state": "{\"dnarna\": \"DNA\", \"input\": {\"__class__\": \"ConnectedValue\"}, \"out_order\": \"ALIGNED\", \"outcontrol\": {\"outform\": \"clustal\", \"__current_case__\": 2, \"out_seqnos\": \"false\"}, \"range\": {\"mode\": \"complete\", \"__current_case__\": 0}, \"__page__\": null, \"__rerun_remap_job_id__\": null}",
+            "tool_version": "2.1",
+            "type": "tool",
+            "uuid": "7624784e-ea9f-440d-a7a5-97b1fc86c52d",
+            "workflow_outputs": [
+                {
+                    "label": null,
+                    "output_name": "output",
+                    "uuid": "f2ceb093-fa28-4fca-8dda-2396c818c6a2"
+                },
+                {
+                    "label": null,
+                    "output_name": "dnd",
+                    "uuid": "359f5505-1896-4762-8fa7-41f8bcfd1951"
+                }
+            ]
+        }
+    },
+    "tags": [],
+    "uuid": "dd5950b3-126c-4619-b793-4e0ff80e1ff7",
+    "version": 1
+}

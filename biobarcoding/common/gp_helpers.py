@@ -78,7 +78,7 @@ def load_computing_resources(sf):
         jm_type = session.query(JobManagementType).filter(JobManagementType.name == "galaxy").first()
         r.jm_type = jm_type
         r.jm_location = {"url": "http://localhost:8080/"}
-        r.jm_credentials = {"api_key": "testapikey"}
+        r.jm_credentials = {"api_key": "fakekey"}
         session.add(r)
         session.commit()
     sf.remove()

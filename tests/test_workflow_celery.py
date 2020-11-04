@@ -113,7 +113,7 @@ class MyTestCase(unittest.TestCase):
             "resource": {"name": "beauvoir3",
                          "jm_type": "galaxy",
                          "jm_location": {"url": "http://localhost:8080/"},
-                         "jm_credentials": {"api_key": "af107bf81f146b6746944b9488986822"}
+                         "jm_credentials": {"api_key": "fakekey"}
                          },
             "process": {"name": "MSA ClustalW",
                         "inputs":
