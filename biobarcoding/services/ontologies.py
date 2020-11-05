@@ -27,30 +27,28 @@ def delete_ontologies(ontology_id = None):
 
 def import_ontologies(input_file):
     from flask import current_app
-    with open(current_app.config["CHADO_CONF"], 'r') as chado_conf:
-        import yaml
-        cfg = yaml.load(chado_conf, Loader=yaml.FullLoader)
-        # f"""go2fmt.pl -p obo_text -w xml {input_file} | \
-        #     go-apply-xslt oboxml_to_chadoxml - > {input_file}.xml"""
-        # cmd = f"""go2chadoxml {input_file} > /tmp/{input_file}.chado.xml;
-        #     stag-storenode.pl -d 'dbi:Pg:dbname={cfg['database']};host={cfg['host']};port=cfg['port']'
-        #     --user {cfg['user']} --password {cfg['password']} /tmp/{input_file}.chado.xml"""
+    cfg = current_app.config
+    # f"""go2fmt.pl -p obo_text -w xml {input_file} | \
+    #     go-apply-xslt oboxml_to_chadoxml - > {input_file}.xml"""
+    # cmd = f"""go2chadoxml {input_file} > /tmp/{input_file}.chado.xml;
+    #     stag-storenode.pl -d 'dbi:Pg:dbname={cfg['database']};host={cfg['host']};port=cfg['port']'
+    #     --user {cfg['user']} --password {cfg['password']} /tmp/{input_file}.chado.xml"""
     import pronto
     onto_name = pronto.Ontology(input_file).metadata.default_namespace
     from biobarcoding.services import exec_cmds
     out, err = exec_cmds([
         f'''perl ./biobarcoding/services/perl_scripts/gmod_load_cvterms.pl\
-            -H {cfg["host"]}\
-            -D {cfg["database"]}\
-            -r {cfg["user"]}\
-            -p {cfg["password"]}\
+            -H {cfg["CHADO_HOST"]}\
+            -D {cfg["CHADO_DATABASE"]}\
+            -r {cfg["CHADO_USER"]}\
+            -p {cfg["CHADO_PASSWORD"]}\
             -d Pg -s null -u\
             {input_file}''',
         f'''perl ./biobarcoding/services/perl_scripts/gmod_make_cvtermpath.pl\
-            -H {cfg["host"]}\
-            -D {cfg["database"]}\
-            -u {cfg["user"]}\
-            -p {cfg["password"]}\
+            -H {cfg["CHADO_HOST"]}\
+            -D {cfg["CHADO_DATABASE"]}\
+            -u {cfg["CHADO_USER"]}\
+            -p {cfg["CHADO_PASSWORD"]}\
             -d Pg -c {onto_name}'''])
     if err:
         import os

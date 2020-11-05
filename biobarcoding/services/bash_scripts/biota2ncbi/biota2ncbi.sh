@@ -8,6 +8,7 @@ set -o nounset
 # WATCH_OUT: OUTPUT contains !Lineage !Show organism modifiers
 
 function init_sh() {
+  cd $(dirname $0)
   readonly input_file='biota2ncbi_input';
   readonly tmp_file='curl_response';
   readonly output_file='biota2ncbi_output';

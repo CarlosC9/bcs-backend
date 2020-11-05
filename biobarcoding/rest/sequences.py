@@ -33,7 +33,8 @@ class SequencesAPI(MethodView):
     def post(self):
         print(f'POST {request.path}\nCreating sequences')
         self._check_data(request.json)
-        if 'Content-Type' in request.headers and request.headers['Content-Type']=='text/fasta':
+        self._check_data(request.args)
+        if request.files:
             response, code = self._import_files()
         else:
             from biobarcoding.services.sequences import create_sequences
@@ -72,6 +73,7 @@ class SequencesAPI(MethodView):
 
 
     def _make_file(self, file):
+        import os
         from werkzeug.utils import secure_filename
         file_path = os.path.join('/tmp', secure_filename(file.filename))
         file.save(file_path)

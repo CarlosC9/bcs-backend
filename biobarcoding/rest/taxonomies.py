@@ -30,8 +30,9 @@ class TaxonomiesAPI(MethodView):
 
     def post(self):
         print(f'POST {request.path}\nCreating taxonomies')
+        self._check_data(request.args)
         self._check_data(request.json)
-        if 'Content-Type' in request.headers and request.headers['Content-Type']=='text/ncbi':
+        if request.files:
             response, code = self._import_files()
         else:
             from biobarcoding.services.taxonomies import create_taxonomies
@@ -63,10 +64,12 @@ class TaxonomiesAPI(MethodView):
                 response, code = import_taxonomies(file_cpy, self.name, self.comment)
                 responses.append({'status':code,'message':response})
             except Exception as e:
+                print(e)
                 responses.append({'status':409,'message':'Could not import the file {file}.'})
         return responses, 207
 
     def _make_file(self, file):
+        import os
         from werkzeug.utils import secure_filename
         file_path = os.path.join('/tmp', secure_filename(file.filename))
         file.save(file_path)

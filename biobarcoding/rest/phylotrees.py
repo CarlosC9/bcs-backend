@@ -32,7 +32,8 @@ class PhyloAPI(MethodView):
     def post(self):
         print(f'POST {request.path}\nCreating phylotrees')
         self._check_data(request.json)
-        if 'Content-Type' in request.headers and request.headers['Content-Type']=='text/newick':
+        self._check_data(request.args)
+        if request.files:
             response, code = self._import_files()
         else:
             from biobarcoding.services.phylotrees import create_phylotrees
@@ -64,10 +65,12 @@ class PhyloAPI(MethodView):
                 response, code = import_phylotrees(file_cpy, analysis_id=self.analysis_id, name=self.name, comment=self.comment)
                 responses.append({'status':code,'message':response})
             except Exception as e:
+                print(e)
                 responses.append({'status':409,'message':'Could not import the file {file}.'})
         return responses, 207
 
     def _make_file(self, file):
+        import os
         from werkzeug.utils import secure_filename
         file_path = os.path.join('/tmp', secure_filename(file.filename))
         file.save(file_path)
