@@ -1,7 +1,7 @@
 from flask import Blueprint, abort, request, make_response, jsonify, session as flask_session
 from flask.views import MethodView
 
-from biobarcoding.authentication import obtain_identity_from_request, serialize_session, BCSSession, deserialize_session
+from biobarcoding.authentication import serialize_session, BCSSession, deserialize_session, obtain_idauth_from_request
 from biobarcoding.rest import bcs_api_base, register_api
 from firebase_admin import auth
 
@@ -75,17 +75,29 @@ class AuthnAPI(MethodView):
 
     def put(self):
         """ Login """
-        identity = obtain_identity_from_request()
-        # TODO If identity does not exist, create one, and a relation with the authentication method
-        sess = BCSSession()
-        sess.identity_name = identity
-        flask_session["session"] = serialize_session(sess)
-        # Attach identity to the current session
-        response_object = {
-            'status': 'success',
-            'message': ""
-        }
-        return make_response(jsonify(response_object)), 200
+        # If identity does not exist, create one, and a relation with the authentication method
+        id_auth = obtain_idauth_from_request()
+        # If the identity is Active, continue;
+        # If not, return an error
+        if not id_auth.identity.deactivation_time:
+            sess = BCSSession()
+            sess.identity_id = id_auth.identity.id
+            sess.identity_name = id_auth.identity.name
+            flask_session["session"] = serialize_session(sess)
+            # Attach identity to the current session
+
+            response_object = {
+                'status': 'success',
+                'message': ""
+            }
+            return make_response(jsonify(response_object)), 200
+        else:
+            response_object = {
+                'status': 'error',
+                'message': 'Identity disabled'
+            }
+            return make_response(jsonify(response_object)), 401
+
 
 
 # Special behavior: "authn" is a singleton, which can be None or defined with a login

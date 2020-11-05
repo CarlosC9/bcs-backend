@@ -34,8 +34,8 @@ class Identity(ORMBase):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(GUID, unique=True)
-    name = Column(String(80))
-    email = Column(String(80))
+    name = Column(String(255))
+    email = Column(String(255))
     creation_time = Column(DateTime, default=datetime.datetime.utcnow())
     deactivation_time = Column(DateTime)
 
@@ -49,7 +49,9 @@ class IdentityAuthenticator(ORMBase):
     authenticator_id = Column(Integer, ForeignKey(Authenticator.id), nullable=False, primary_key=True)
     authenticator = relationship(Authenticator)
 
-    email = Column(String(80))
+    email = Column(String(255))
+    name = Column(String(255))
+    authenticator_info = Column(JSON)
 
 
 class Group(ORMBase):

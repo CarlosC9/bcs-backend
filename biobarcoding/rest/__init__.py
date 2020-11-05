@@ -5,7 +5,7 @@ import sys
 import redis
 import sqlalchemy
 from flask import Response, Blueprint
-from sqlalchemy import orm
+from sqlalchemy import orm, and_
 from sqlalchemy.pool import StaticPool
 
 import biobarcoding
@@ -181,10 +181,12 @@ tm_default_users = {  # Identities
 }
 
 tm_authenticators = {  # Authenticator
+    "5b7e9e40-040b-40fc-9db3-7d707fe9617f": "firebase",
     "b33193c3-63b9-49f7-b888-ceba619d2812": "firebase-google",
     "c09fa36b-62a3-4904-9600-e3bb5028d809": "firebase-facebook",
     "f510cb30-7a44-4cb1-86f5-1b112e43293a": "firebase-mail",
     "5f32a593-306f-4b69-983c-0a5680556fae": "local",
+    "15aa399f-dd58-433f-8e94-5b2222cd06c9": "local-api-key"
 }
 
 tm_job_statuses = {
@@ -219,8 +221,6 @@ tm_processes = {
     "4cfcd389-ed9e-4174-aa99-150f176e8eec": "import-msa",
     "caaca280-2290-4625-b5c0-76bcfb06e9ac": "import-phylotree"
 }
-# "15aa399f-dd58-433f-8e94-5b2222cd06c9"
-# "5b7e9e40-040b-40fc-9db3-7d707fe9617f"
 # "8fac3ce8-8796-445f-ac27-4baedadeff3b"
 # "21879d8f-1c0e-4f71-92a9-88bc6a3aa14b"
 # "83077626-cf8c-48d3-854b-a355afdb7df9"
@@ -321,9 +321,24 @@ def initialize_database_data():
     load_table(DBSession, JobStatus, tm_job_statuses)
     load_table(DBSession, JobManagementType, tm_job_mgmt_types)
     load_table(DBSession, Process, tm_processes)
+    # Load default authentication for "test_user"
+    session = DBSession()
+    test_user_id = "test_user"
+    authenticator_id = "5f32a593-306f-4b69-983c-0a5680556fae"  # "local". Just the user name is good to be authorized
+    iden = session.query(Identity).filter(Identity.name == test_user_id).first()
+    authentication = session.query(Authenticator).filter(Authenticator.uuid == authenticator_id).first()
+    iden_authentication = session.query(IdentityAuthenticator).\
+        filter(and_(IdentityAuthenticator.identity == iden, IdentityAuthenticator.authenticator == authentication)).first()
+    if not iden_authentication:
+        iden_authentication = IdentityAuthenticator()
+        iden_authentication.identity = iden
+        iden_authentication.authenticator = authentication
+        iden_authentication.name = "test_user"
+        iden_authentication.email = "test@test.org"
+        session.add(iden_authentication)
+
     # Load a ComputeResource if it does not exist
     cr_id = "f0952819-7a7e-4ed0-a33b-139267fe33f4"
-    session = DBSession()
     i = session.query(ComputeResource).filter(ComputeResource.uuid == cr_id).first()
     if not i:
         cr = ComputeResource()

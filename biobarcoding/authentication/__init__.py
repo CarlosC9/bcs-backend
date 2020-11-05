@@ -18,9 +18,12 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Any
 import numpy as np
 from multidict import MultiDict, CIMultiDict
+from sqlalchemy import and_
 
 from biobarcoding.common import generate_json
 from biobarcoding.common.helpers import serialize_from_object, deserialize_to_object
+from biobarcoding.db_models import DBSession
+from biobarcoding.db_models.sysadmin import Authenticator, Identity, IdentityAuthenticator
 
 
 def initialize_firebase(app):
@@ -90,24 +93,70 @@ NO_SESS_RESPONSE = build_json_response({"error": "No active session. Please, ope
 #     return decorated_view
 
 
-def obtain_identity_from_request() -> str:
-    auth_token = None
+def obtain_idauth_from_request() -> str:
+    def prepare_identity(tok_dict: Dict) -> IdentityAuthenticator:
+        name = None
+        email = None
+        auth_type = None
+        session = DBSession()
+        if "auth_method" in tok_dict:
+            if tok_dict["auth_method"] == "local-api-key":
+                # TODO Find user with corresponding API key (pair identity-authentication method)
+                pass
+            elif tok_dict["auth_method"] == "local":
+                # TODO Find user with USER name (pair identity-authentication method)
+                pass
+        elif "firebase" in tok_dict:
+            # Firebase token, subauthenticator
+            auth_type = session.query(Authenticator).filter(Authenticator.name == "firebase").first()
+            name = tok_dict["name"]
+            email = tok_dict["email"]
+        iden = session.query(Identity).filter(Identity.name == name).first()
+        if not iden:
+            iden = session.query(Identity).filter(Identity.email == email).first()
+        if not iden:
+            iden = Identity()
+            iden.email = email
+            iden.name = name
+            session.add(iden)
+            # session.commit()
+
+        iden_authenticator = session.query(IdentityAuthenticator).filter(and_(IdentityAuthenticator.identity == iden, IdentityAuthenticator.authenticator == auth_type)).first()
+        if not iden_authenticator:
+            iden_authenticator = IdentityAuthenticator()
+            iden_authenticator.email = email
+            iden_authenticator.name = name
+            iden_authenticator.authenticator_info = tok_dict
+            iden_authenticator.identity = iden
+            iden_authenticator.authenticator = auth_type
+            session.add(iden_authenticator)
+        session.commit()
+        return iden_authenticator
+
+    tok = None
     if 'Authorization' in request.headers:
         auth_token = request.headers['Authorization'].split(" ")[1]
+        try:
+            tok = auth.verify_id_token(auth_token)
+            print(tok)
+        except Exception as e:
+            print(e)
+            abort(401, 'The session token is not valid or has expired')
     elif 'X-API-Key' in request.headers:
         # api_key
-        abort(405, 'The X-API-Key authentication is not available.')
-    user = request.args.get("user")
-    if user:
-        return user
-    if not auth_token:
-        abort(401, 'The session token is missing')
-    try:
-        print(auth.verify_id_token(auth_token))
-        return auth_token
-    except Exception as e:
-        print(e)
-        abort(401, 'The session token is not valid or has expired')
+        tok = dict(api_key=request.headers["X-API-Key"], auth_method="local-api-key")
+
+    email = request.args.get("user")
+    if email:
+        if tok is None:
+            tok = {"email": email, "auth_method": "local"}
+
+    if len(tok) == 0:
+        abort(401, 'No authentication information provided')
+
+    iden_authenticator = prepare_identity(tok)
+
+    return iden_authenticator
 
 
 def serialize_session(state: BCSSession):
