@@ -498,8 +498,11 @@ my $coderef = sub {
 	my $phylonode_id = $phylonode{ $id }{ 'phylonode_id' };
 	my $organism_id = $phylonode{ $id }{ 'organism_id' } ;
 	my $parent_phylonode_id = $phylonode{ $phylonode{ $id }{ 'parent_taxid' } }{ 'phylonode_id' } || 'NULL';
+  if ($phylonode_id == $parent_phylonode_id) {
+    $parent_phylonode_id = 'NULL';
+  }
 	$root_id = $phylonode_id if $parent_phylonode_id eq 'NULL';
-	if ($parent_phylonode_id eq 'NULL') {
+  if ($parent_phylonode_id eq 'NULL') {
 	    message("organism $organism_id does not have a parent! (phylonode_id = $phylonode_id)\n", 1);
 	}
 	my $type_id = $phylonode{ $id }{'type_id'} || 'NULL';

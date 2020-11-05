@@ -28,11 +28,9 @@ def import_sequences(input_file, organism_id = None, analysis_id = None):
     conn = conn_chado()
     if not organism_id:
         organism_id = conn.organism.get_organisms(species='unknown')[0]['organism_id']
-    if not analysis_id:
-        analysis_id = conn.analysis.get_analyses(name='Unknown analysis')[0]['analysis_id']
     try:
         resp = conn.feature.load_fasta(input_file, organism_id, analysis_id=analysis_id, update=True)
-        return {'status':'success','message':'{resp} files were successfully imported.'}, 200
+        return {'status':'success','message':f'Sequences: {resp}'}, 200
     except Exception as e:
         return {'status':'failure','message':e}, 500
 

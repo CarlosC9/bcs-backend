@@ -26,5 +26,3 @@ def exec_cmds(cmds):
             print(f'ERROR: \n{e.decode("utf-8")}')
             err.append(e)
     return out, err
-
-# proc = subprocess.Popen('perl ./biobarcoding/services/perl_scripts/gmod_load_cvterms.pl -H localhost -D postgres -r postgres -p postgres -d Pg -s null -u /tmp/taxrank.obo',stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)

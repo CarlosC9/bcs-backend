@@ -7,6 +7,7 @@ set -o nounset
 # OUTPUT: A file with the list of all taxon IDs that make a phylotree
 
 function init_sh() {
+  cd $(dirname $0)
   readonly nodes_file='nodes.dmp';
   readonly input_file='orphan_input';
   readonly tmp='tmp';
