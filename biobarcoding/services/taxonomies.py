@@ -28,26 +28,24 @@ def delete_taxonomies(id):
 
 def import_taxonomies(input_file, name = None, comment = None):
     from flask import current_app
-    with open(current_app.config["CHADO_CONF"], 'r') as chado_conf:
-        import yaml
-        cfg = yaml.load(chado_conf, Loader=yaml.FullLoader)
-        named=''
-        if name:
-            named = f' -n {name} '
-        cmd = f'''(cd ./biobarcoding/services/perl_scripts/ &&
-            perl ./load_ncbi_taxonomy.pl -H {cfg["host"]} -D {cfg["database"]} -u {cfg["user"]} -p {cfg["password"]} -d Pg -i {input_file} {named})'''
-    import subprocess
-    process = subprocess.Popen(cmd,
-                         stdout=subprocess.PIPE,
-                         stderr=subprocess.PIPE,
-                         shell=True)
-    out, err = process.communicate()
-    print(f'OUT: {out}\n')
+    cfg = current_app.config
+    named=''
+    if name:
+        named = f' -n {name} '
+    from biobarcoding.services import exec_cmds
+    out, err = exec_cmds([f'''(cd ./biobarcoding/services/perl_scripts/ &&
+        perl ./load_ncbi_taxonomy.pl\
+            -H {cfg["CHADO_HOST"]}\
+            -D {cfg["CHADO_DATABASE"]}\
+            -u {cfg["CHADO_USER"]}\
+            -p {cfg["CHADO_PASSWORD"]}\
+            -d Pg\
+            -i {input_file}\
+            {named})'''])
     if err:
-        print(f'ERROR: {err}\n')
         import os
         return {'status':'failure','message':f'Taxonomy in {os.path.basename(input_file)} could not be imported.\n{err}'}, 500
-    return {'status':'success','message':f'Taxonomy in {input_file} imported properly.'}, 200
+    return {'status':'success','message':f'Taxonomy in {os.path.basename(input_file)} imported properly.\n{out}'}, 200
 
 
 def export_taxonomies(id = None):
