@@ -1,6 +1,6 @@
 import json
 import numpy as np
-
+from pathlib import Path
 
 def _json_serial(obj):
     """JSON serializer for objects not serializable by default json code"""
@@ -15,7 +15,7 @@ def _json_serial(obj):
 
 JSON_INDENT = 4
 ENSURE_ASCII = False
-
+ROOT = str(Path(__file__).parent.parent.parent)
 
 def generate_json(o):
     return json.dumps(o,

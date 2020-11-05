@@ -69,7 +69,7 @@ def load_table(sf, clazz, d):
 
 def load_computing_resources(sf):
     session = sf()
-    local_uuid = "f7c2c088-5ca1-46a7-90b3-9f446b706724"
+    local_uuid = "8fac3ce8-8796-445f-ac27-4baedadeff3b"
     r = session.query(ComputeResource).filter(ComputeResource.uuid == local_uuid).first()
     if not r:
         r = ComputeResource()
@@ -86,14 +86,14 @@ def load_computing_resources(sf):
 
 def load_processes_in_computing_resources(sf):
     session = sf()
-    local_uuid = "28615331-4c80-4387-b353-a6fd0338b475"
-    process = session.query(Process).filter(Process.uuid == "15aa399f-dd58-433f-8e94-5b2222cd06c9").first()
-    resource = session.query(ComputeResource).filter(ComputeResource.uuid == "f7c2c088-5ca1-46a7-90b3-9f446b706724").first()
+    local_uuid = "21879d8f-1c0e-4f71-92a9-88bc6a3aa14b"
+    process = session.query(Process).filter(Process.uuid == "5b7e9e40-040b-40fc-9db3-7d707fe9617f").first()
+    resource = session.query(ComputeResource).filter(ComputeResource.uuid == "8fac3ce8-8796-445f-ac27-4baedadeff3b").first()
     r = session.query(ProcessInComputeResource).filter(and_(ProcessInComputeResource.process_id==process.id, ProcessInComputeResource.resource_id==resource.id)).first()
     if not r:
         r = ProcessInComputeResource()
         r.uuid = local_uuid
-        r.name = "MSA Clustal Omega"
+        r.native_process_id = "MSA ClustalW"
         r.process = process
         r.resource = resource
         session.add(r)

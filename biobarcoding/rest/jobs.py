@@ -26,6 +26,15 @@ def is_integer(n):
     else:
         return float(n).is_integer()
 
+def dottedtodict(dotdict):
+    if isinstance(dotdict,DottedDict):
+        dotdict=dict(dotdict)
+        for k,v in dotdict.items():
+            if isinstance(v,DottedDict):
+                dotdict[k] = dottedtodict(v)
+        return dotdict
+
+
 
 # Jobs REST API
 class JobAPI(MethodView):
@@ -48,7 +57,7 @@ class JobAPI(MethodView):
     def post(self):
         """
         curl -i -XPOST http://localhost:5000/api/jobs/ --data-urlencode "{}"
-        curl -i -XPOST http://localhost:5000/api/jobs/ -H "Content-Type: application/json" -d @"/home/rnebot/GoogleDrive/AA_NEXTGENDEM/bcs-backend/tests/data_test/test_job_req.json"
+        curl -i -XPOST http://localhost:5000/api/jobs/ -H "Content-Type: application/json" -d @"/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/test_job_req.json"
         :return:
         """
         # Submit new Job
@@ -115,14 +124,14 @@ class JobAPI(MethodView):
         job.resource = resource
         job.process = process
         job.status = "created"
-        job.inputs = process_params
+        job.inputs = json.dumps(dottedtodict(process_params))
         session.add(job)
         session.commit()
         d.job_id = job.id
         DBSession.remove()
 
         # Submit job to Celery
-        JobManagementAPI().submit(d)
+        JobManagementAPI().submit(json.dumps(dottedtodict(d)))
 
         # Return
         response_object = {

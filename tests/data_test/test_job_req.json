@@ -1,6 +1,6 @@
 {
-  "resource_id": "f7c2c088-5ca1-46a7-90b3-9f446b706724",
-  "process_id": "15aa399f-dd58-433f-8e94-5b2222cd06c9",
+  "resource_id": "8fac3ce8-8796-445f-ac27-4baedadeff3b",
+  "process_id": "5b7e9e40-040b-40fc-9db3-7d707fe9617f",
   "process_params": {
     "parameters": {
       "ClustalW": {
@@ -9,13 +9,13 @@
     },
     "data": {
       "Input dataset": {
-        "path": "/home/rnebot/GoogleDrive/AA_NEXTGENDEM/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta",
+        "path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta",
         "type": "fasta"
       }
     }
   },
   "credentials": {
-    "api_key": ""
+    "api_key": "fakekey"
   }
 }
 

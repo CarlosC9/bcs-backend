@@ -2,33 +2,34 @@ from bioblend import galaxy
 import json
 import yaml
 import os
+
+from biobarcoding.common import ROOT
 from biobarcoding.jobs import JobExecutorAtResource
+from pathlib import Path
 
 
 # no tiene sentido que haga esto xq galaxy ya es este objeto
 class instance():
-    def __init__(self,name,file):
+    def __init__(self, name, file):
         self.name = name
         self.file = file
 
-    def connect(self): #esta función es la que debería crearme la instance
+    def connect(self):  # esta función es la que debería crearme la instance
         gi = galaxy_instance(self.file, name=self.name)
         return gi
 
 
-def galaxy_instance(path, name ='__default'):
+def galaxy_instance(path, name='__default'):
     data = read_yaml_file(path)
     assert name in data, 'unknown instance'
     gal = data[name]
-    if isinstance(gal,dict):
+    if isinstance(gal, dict):
         return gal
     else:
         return data[gal]
 
 
-
-
-def login(api_key:'str', url:'str') -> object:
+def login(api_key: 'str', url: 'str') -> object:
     user_key = api_key
     gi = galaxy.GalaxyInstance(url=url, key=user_key)
     return gi
@@ -39,7 +40,7 @@ def library_list(gi):
     return libraries
 
 
-def library_id(gi,libname: 'str'):
+def library_id(gi, libname: 'str'):
     libraries = gi.libraries.get_libraries()
     try:
         lib = next(item for item in libraries if item["name"] == libname)
@@ -48,7 +49,8 @@ def library_id(gi,libname: 'str'):
     else:
         return lib['id']
 
-def history_id(gi,history_name: 'str'):
+
+def history_id(gi, history_name: 'str'):
     histories = gi.histories.get_histories()
     try:
         hist = next(item for item in histories if item["name"] == history_name)
@@ -56,7 +58,6 @@ def history_id(gi,history_name: 'str'):
         return 'there is no library named{}'.format(history_name)
     else:
         return hist['id']
-
 
 
 def workflow_list(gi):
@@ -90,6 +91,7 @@ def get_workflow_id(wf):
         wf_id = wf_dic['id']
     return wf_id
 
+
 def read_yaml_file(yaml_path):
     """
     Reads a YAML file safely.
@@ -101,6 +103,7 @@ def read_yaml_file(yaml_path):
         stream = f.read()
     return yaml.safe_load(stream)
 
+
 def dataset_list(gi):
     datasets = gi.datasets.get_datasets()
     return datasets
@@ -111,7 +114,8 @@ def dataset_id(gi, name: 'str'):
     dat = next(item for item in datasets if item["name"] == name)
     return dat['id']
 
-def parse_input(input: 'str', ext : 'str'):
+
+def parse_input(input: 'str', ext: 'str'):
     '''
     :param gi:
     :param input:
@@ -120,6 +124,7 @@ def parse_input(input: 'str', ext : 'str'):
     str = input.split(".")
     if str[1] != ext:
         return 'wrong input file'
+
 
 def create_library(gi, library_name: 'str'):
     '''
@@ -136,11 +141,13 @@ def create_library(gi, library_name: 'str'):
         gi.libraries.create_library(library_name)
         return library_id(library_name)
 
+
 def create_history(gi, name):
     history = gi.histories.create_history(name=name)
     return history
 
-def delete_history(gi,history):
+
+def delete_history(gi, history):
     gi.histories.delete_histoy(history['id'])
 
 
@@ -161,9 +168,9 @@ def set_params(json_wf, param_data):
         for param_name in param_data[param_step_name]:
             if '|' in param_name:
                 print("Workflow using Galaxy <repeat /> "
-                                "param. type for {} / {}. "
-                                "Make sure that workflow has as many entities of that repeat "
-                                "as they are being set in the parameters file.".format(param_step_name, param_name))
+                      "param. type for {} / {}. "
+                      "Make sure that workflow has as many entities of that repeat "
+                      "as they are being set in the parameters file.".format(param_step_name, param_name))
                 break
     return params
 
@@ -204,9 +211,9 @@ def load_input_files(gi, inputs, workflow, history):
                                               file_name=step_data['label'],
                                               file_type=inputs[step_data['label']]['type'])
             inputs_for_invoke[step] = {
-                    'id': upload_res['outputs'][0]['id'],
-                    'src': 'hda'
-                }
+                'id': upload_res['outputs'][0]['id'],
+                'src': 'hda'
+            }
         elif step_data['label'] in inputs and 'dataset_id' in inputs[step_data['label']]:
             inputs_for_invoke[step] = {
                 'id': inputs[step_data['label']]['dataset_id'],
@@ -239,9 +246,9 @@ def set_params_json(json_wf, param_data):
         for param_name in param_data[param_step_name]:
             if '|' in param_name:
                 print("Workflow using Galaxy <repeat /> "
-                                "param. type for {} / {}. "
-                                "Make sure that workflow has as many entities of that repeat "
-                                "as they are being set in the parameters file.".format(param_step_name, param_name))
+                      "param. type for {} / {}. "
+                      "Make sure that workflow has as many entities of that repeat "
+                      "as they are being set in the parameters file.".format(param_step_name, param_name))
                 break
     return params
 
@@ -261,7 +268,8 @@ def validate_labels(wf_from_json, param_data, exit_on_error=True):
     step_labels_wf = []
     for step_id, step_content in wf_from_json['steps'].items():
         if step_content['label'] is None:
-            print("Step No {} in json workflow does not have a label, parameters are not mappable there.".format(step_id))
+            print(
+                "Step No {} in json workflow does not have a label, parameters are not mappable there.".format(step_id))
         step_labels_wf.append(step_content['label'])
     errors = 0
     for step_label_p, params in param_data.items():
@@ -289,7 +297,7 @@ def validate_dataset_id_exists(gi, inputs):
             ds_in_instance = gi.datasets.show_dataset(dataset_id=input_content['dataset_id'])
             if not warned:
                 print("You are using direct dataset identifiers for inputs, "
-                                "this execution is not portable accross instances.")
+                      "this execution is not portable accross instances.")
                 warned = True
             if not isinstance(ds_in_instance, dict):
                 raise ValueError("Input dataset_id {} does not exist in the Galaxy instance."
@@ -331,9 +339,7 @@ def validate_file_exists(inputs):
             raise ValueError("Input file {} does not exist for input label {}".format(input_content['path'], input_key))
 
 
-
-
-def create_input(step: 'str', source:'str',id:'str'):
+def create_input(step: 'str', source: 'str', id: 'str'):
     '''
     Create a workflow input
     :param step:  step input
@@ -346,7 +352,7 @@ def create_input(step: 'str', source:'str',id:'str'):
     return datamap
 
 
-def params_input_creation(gi,workflow_name, inputs_data, param_data,history_id = None,history_name = None):
+def params_input_creation(gi, workflow_name, inputs_data, param_data, history_id=None, history_name=None):
     '''
         set and chel params dictionaty and load data and set datamap
 
@@ -357,7 +363,7 @@ def params_input_creation(gi,workflow_name, inputs_data, param_data,history_id =
     params_to_move = []
     for pk, pv in param_data.items():
         if not isinstance(pv, dict):
-            #TODO params could be nested dictionary?
+            # TODO params could be nested dictionary?
             params_to_move.append(pk)
 
     for pk in params_to_move:
@@ -373,6 +379,7 @@ def params_input_creation(gi,workflow_name, inputs_data, param_data,history_id =
     print('Create new history to run workflow ...')
     if num_inputs > 0:
         if history_name != None:
+            print(history_name)
             history = gi.histories.create_history(name=history_name)
         else:
             history = gi.histories.get_histories(history_id)[0]
@@ -384,8 +391,7 @@ def params_input_creation(gi,workflow_name, inputs_data, param_data,history_id =
     return datamap, params
 
 
-
-def params_creation(gi,workflow_name,param_data): #TODO test
+def params_creation(gi, workflow_name, param_data):  # TODO test
     w_id = workflow_id(gi, workflow_name)
     wf_dict = gi.workflows.export_workflow_dict(w_id)
     params_to_move = []
@@ -397,7 +403,8 @@ def params_creation(gi,workflow_name,param_data): #TODO test
     params = set_params(wf_dict, param_data)
     return params
 
-def input_creation(gi,workflow_name,history_name, inputs_data): #TODO test
+
+def input_creation(gi, workflow_name, history_name, inputs_data):  # TODO test
     w_id = workflow_id(gi, workflow_name)
     wf_dict = gi.workflows.export_workflow_dict(w_id)
     show_wf = gi.workflows.show_workflow(w_id)
@@ -416,21 +423,21 @@ def input_creation(gi,workflow_name,history_name, inputs_data): #TODO test
     return datamap
 
 
-
-def run_workflow_files(gi,wf_name,input_file: 'str',param_file: 'str',history_name):
+def run_workflow_files(gi, wf_name, input_file: 'str', param_file: 'str', history_name):
     param_data = read_yaml_file(param_file)
     inputs_data = read_yaml_file(input_file)
     w_id = workflow_id(gi, wf_name)
     show_wf = gi.workflows.show_workflow(w_id)
-    datamap, parameters = params_creation(gi,wf_name,inputs_data,param_data)
+    datamap, parameters = params_creation(gi, wf_name, inputs_data, param_data)
     print('Running workflow {}...'.format(show_wf['name']))
     invocation = gi.workflows.invoke_workflow(workflow_id=w_id,
-                                           inputs=datamap,
-                                           params=parameters,
-                                           history_name=history_name)
+                                              inputs=datamap,
+                                              params=parameters,
+                                              history_name=history_name)
     return invocation
 
-def get_historyID_by_invocation(gi,h_id):
+
+def get_historyID_by_invocation(gi, h_id):
     invocations = gi.invocations.get_invocations()
     try:
         inv = next(item for item in invocations if item["history_id"] == h_id)
@@ -439,7 +446,8 @@ def get_historyID_by_invocation(gi,h_id):
     else:
         return inv['id']
 
-def invocation_errors(gi,invocation_id)->'dict':
+
+def invocation_errors(gi, invocation_id) -> 'dict':
     invocation = gi.invocations.show_invocation(invocation_id)
     status = gi.histories.get_status(invocation['history_id'])
     state = status['state']
@@ -449,7 +457,8 @@ def invocation_errors(gi,invocation_id)->'dict':
     else:
         return state
 
-def get_job(gi,invocation,step):
+
+def get_job(gi, invocation, step):
     '''
     Job information from an invocation given the step of interest. A job is the execution of a step (in a workflow)
     :param gi:
@@ -459,11 +468,11 @@ def get_job(gi,invocation,step):
     step = gi.invocations.show_invocation(invocation['id'])['steps'][int(step)]
     state = step['state']
     job_id = step['job_id']
-    job =  gi.jobs.show_job(job_id)
+    job = gi.jobs.show_job(job_id)
     return job
 
 
-def list_invocation_results(gi,invocation_id: 'str'):
+def list_invocation_results(gi, invocation_id: 'str'):
     '''
     Generates a list of results from an invocation
     :param gi: Galaxy Instance
@@ -480,9 +489,7 @@ def list_invocation_results(gi,invocation_id: 'str'):
             return gi.histories.get_status(h_id)
 
 
-
-
-def download_result(gi, results:'list', path:'str'):
+def download_result(gi, results: 'list', path: 'str'):
     '''
     Download invocation result
     :param gi:
@@ -490,7 +497,7 @@ def download_result(gi, results:'list', path:'str'):
     :param path:
     :return:
     '''
-    if isinstance(results,list):
+    if isinstance(results, list):
         for r in results:
             gi.datasets.download_dataset(r['id'], file_path=path)
     else:
@@ -500,9 +507,10 @@ def download_result(gi, results:'list', path:'str'):
 
 def export_workflow(instance, wf_name):
     gi = instance.connect()
-    wf_id = get_workflow_from_name(gi,wf_name)
+    wf_id = get_workflow_from_name(gi, wf_name)
     wf_dic = gi.workflows.import_workflow_dict(wf_id)
     return wf_dic
+
 
 def import_workflow(instance, wf_Id):
     gi = instance.connect()
@@ -510,13 +518,14 @@ def import_workflow(instance, wf_Id):
     return wf
 
 
-def check_tools(wf1_dic,wf2_dic):
+def check_tools(wf1_dic, wf2_dic):
     steps1 = wf1_dic['steps']
     steps2 = wf2_dic['steps']
     tool_list = list()
     for step, content in steps1.items():
         if 'errors' in content:
-            if content['errors'] == "Tool is not installed": # TODO depende de la versión de galaxi esto lleva un punto al final o no xq lo que hay que buscar otra cosa
+            if content[
+                'errors'] == "Tool is not installed":  # TODO depende de la versión de galaxi esto lleva un punto al final o no xq lo que hay que buscar otra cosa
                 tool_list.append(steps2[step]['tool_shed_repository'])
     if len(tool_list) == 0:
         return 'all tools are installed'
@@ -524,8 +533,7 @@ def check_tools(wf1_dic,wf2_dic):
         return tool_list
 
 
-def install_tools(gi,tools):
-
+def install_tools(gi, tools):
     '''
     tool_shed_url, name, owner,
     changeset_revision,
@@ -539,16 +547,14 @@ def install_tools(gi,tools):
         for tool in tools:
             tool_shed_url = 'https://' + tool['tool_shed']
             gi.toolshed.install_repository_revision(tool_shed_url=tool_shed_url,
-                                                   name=tool['name'],
-                                                   owner=tool['owner'],
-                                                   changeset_revision= tool['changeset_revision'],
-                                                   install_tool_dependencies=True,
-                                                   install_repository_dependencies=True,
-                                                   install_resolver_dependencies=True,
-                                                   new_tool_panel_section_label='New'
-                                                   )
-
-
+                                                    name=tool['name'],
+                                                    owner=tool['owner'],
+                                                    changeset_revision=tool['changeset_revision'],
+                                                    install_tool_dependencies=True,
+                                                    install_repository_dependencies=True,
+                                                    install_resolver_dependencies=True,
+                                                    new_tool_panel_section_label='New'
+                                                    )
 
 
 class JobExecutorAtGalaxy(JobExecutorAtResource):
@@ -564,9 +570,8 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
     def connect(self):
         self.galaxy_instance = login(self.api_key, self.url)
 
-
     def disconnect(self):
-        #todo
+        # todo
         pass
 
     def create_job_workspace(self, name):
@@ -579,8 +584,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
     def remove_job_workspace(self, workspace):
         self.connect()
         gi = self.galaxy_instance
-        gi.histories.delete_history(history_id(gi,workspace))
-
+        gi.histories.delete_history(history_id(gi, workspace))
 
     def submit(self, workspace, params):
         # "process": {"name": "MSA ClustalW",
@@ -597,16 +601,16 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         #                  }
         #             }
 
-
         self.connect()
         gi = self.galaxy_instance
         input_params = params['inputs']['parameters']
-        inputs = params['inputs']['data'] # mapeo de datasets (nombres y steps) #estoy hay que tenerlo bien armado
+        inputs = params['inputs']['data']  # mapeo de datasets (nombres y steps) #estoy hay que tenerlo bien armado
         workflow = params['name']
         w_id = workflow_id(gi, workflow)
         # dataset = gi.histories.show_matching_datasets(workspace) -> lista con los data set en un workspace
-        datamap, parameters = params_input_creation(gi, workflow, inputs, input_params, history_name=workspace) #catch error
-        history_id = gi.histories.get_histories(name = workspace)[0]['id']
+        datamap, parameters = params_input_creation(gi, workflow, inputs, input_params,
+                                                    history_name=workspace)  # catch error
+        history_id = gi.histories.get_histories(name=workspace)[0]['id']
         invocation = gi.workflows.invoke_workflow(workflow_id=w_id,
                                                   inputs=datamap,
                                                   params=parameters,
@@ -633,41 +637,22 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         # download_result(gi,r,'/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test')
 
 
-
-
 def initialize_galaxy(flask_app):
-    # local variables : tet environment API_KEY, test environment URL workflows path
-    # upload workflow from forder workflows (create) if it does exist. chek if every tool exist and install it if necessary
-    api_key = 'fakekey'
-    url = 'http://127.0.0.1:8080'
-    gi = login(api_key, url)
-    workflow_path = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/workflows/Galaxy-Workflow-MSA_ClustalW.ga'
-    with open(workflow_path, 'r') as f:
-        wf_dict_in = json.load(f)
-    name = wf_dict_in['name']
-    if workflow_id(gi, name) == 'there is no workflow named{}'.format(name):
-        wf = gi.workflows.import_workflow_from_local_path(workflow_path)
-        wf_dict_out = gi.workflows.export_workflow_dict(wf['id'])
-        list_of_tools = check_tools(wf_dict_out, wf_dict_in)
-        install_tools(gi, list_of_tools)
+    if 'GALAXY_API_KEY' and 'GALAXY_LOCATION' in flask_app.config:
+        api_key = flask_app.config['GALAXY_API_KEY']
+        url = flask_app.config['GALAXY_LOCATION']
+        gi = login(api_key, url)
+        workflow = 'Galaxy-Workflow-MSA_ClustalW.ga'
+        workflow_path = ROOT +'/biobarcoding/workflows/'+ workflow
+        with open(workflow_path, 'r') as f:
+            wf_dict_in = json.load(f)
+        name = wf_dict_in['name']
+        if workflow_id(gi, name) == 'there is no workflow named{}'.format(name):
+            wf = gi.workflows.import_workflow_from_local_path(workflow_path)
+            wf_dict_out = gi.workflows.export_workflow_dict(wf['id'])
+            list_of_tools = check_tools(wf_dict_out, wf_dict_in)
+            install_tools(gi, list_of_tools)
+        else:
+            return None
     else:
-        return None
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+        return 'No Galaxy test credentials in config faile'

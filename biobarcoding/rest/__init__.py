@@ -214,12 +214,13 @@ tm_processes = {
     "f167eac0-2a23-4e74-bb1c-abdfb5f74a92": "import-sequences",
     "4cfcd389-ed9e-4174-aa99-150f176e8eec": "import-msa",
     "caaca280-2290-4625-b5c0-76bcfb06e9ac": "import-phylotree",
-    "15aa399f-dd58-433f-8e94-5b2222cd06c9": "Clustal Omega"
+    "15aa399f-dd58-433f-8e94-5b2222cd06c9": "Clustal Omega",
+    "5b7e9e40-040b-40fc-9db3-7d707fe9617f": "MSA ClustalW"
 }
 #
-# "5b7e9e40-040b-40fc-9db3-7d707fe9617f"
-# "8fac3ce8-8796-445f-ac27-4baedadeff3b"
-# "21879d8f-1c0e-4f71-92a9-88bc6a3aa14b"
+#
+#
+#
 # "83077626-cf8c-48d3-854b-a355afdb7df9"
 # "fc1fb247-6b76-420c-9c48-f69f154cbe1d"
 # "91a5b4a7-3359-4eed-98df-497c42d0c3c1"
