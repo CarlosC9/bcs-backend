@@ -41,7 +41,7 @@ def prepare_default_configuration(create_directories):
         BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
         BACKEND_URL = BROKER_URL
         return {
-            "DB_CONNECTION_STRING": f'postgres://postgres:postgres@localhost:5432/bcs',
+            "DB_CONNECTION_STRING": f'postgres://postgres:postgres@localhost:5432/',
             "CACHE_FILE_LOCATION": f"{tmp_path}/cache",
             "CELERY_BROKER_URL": BROKER_URL,
             "CELERY_BACKEND_URL": BACKEND_URL,
