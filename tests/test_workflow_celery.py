@@ -7,11 +7,11 @@ def wf1_1(job_context):
     tmp = json.loads(job_context)
     job_executor = JobExecutorAtResourceFactory()
     job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp['resource'])
-    # wf1_submit
     inputs = tmp["process"]
-    inv_id = job_executor.submit(tmp['job_id'], inputs)
+    inv_id = job_executor.submit(str(tmp['job_id']), inputs)
     tmp['g_id'] = inv_id
     job_context = json.dumps(tmp)
+    # append_text(outfile, f"submit. workspace: {tmp['g_id']}")
     return job_context
 
 
@@ -66,7 +66,7 @@ def wf_clean(job_context):
     tmp = json.loads(job_context)
     job = JobExecutorAtResourceFactory()
     job_executor = job.get(tmp["resource"]["jm_type"], tmp["resource"])
-    job_executor.remove_job_workspace(tmp["job_id"])
+    job_executor.remove_job_workspace(str(tmp["job_id"]))
     del tmp['g_id']
     job_context = json.dumps(tmp)
     return job_context
@@ -80,8 +80,8 @@ def wf_cancel(job_context):
     return job_context
 
 
-def workflow(dict_input):
-    job_context = json.dumps(dict_input)
+def workflow(job_context):
+    # job_context = json.dumps(dict_input)
     return_1 = wf1_1(job_context)
     if isinstance(return_1, tuple):
         print('error')
@@ -107,29 +107,33 @@ def workflow(dict_input):
 
 class MyTestCase(unittest.TestCase):
     def test_celeryworkflow(self):
-        job_context_dict = {
-            "job_id": "00003",
-            "endpoint_url": "http://localhost:8080/",
-            "resource": {"name": "beauvoir3",
-                         "jm_type": "galaxy",
-                         "jm_location": {"url": "http://localhost:8080/"},
-                         "jm_credentials": {"api_key": "fakekey"}
-                         },
-            "process": {"name": "MSA ClustalW",
-                        "inputs":
-                            {"parameters":
-                                 {"ClustalW": {"darna": "PROTEIN"}
-                                  },
-                             "data": {"Input dataset":
-                                          {
-                                              "path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta",
-                                              "type": "fasta"
-                                              }
-                                      }
-                             }
-                        }
-        }
-        print(workflow(job_context_dict))
+
+        job_context = '{"endpoint_url": "", "process": {"inputs": {"parameters": {"ClustalW": {"darna": "PROTEIN"}}, "data": {"Input dataset": {"path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta", "type": "fasta"}}}, "name": "MSA ClustalW"}, "resource": {"name": "localhost - galaxy", "jm_type": "galaxy", "jm_location": {"url": "http://localhost:8080/"}, "jm_credentials": {"api_key": "fakekey"}}, "job_id": 52}'
+
+
+        # job_context_dict = {
+        #     "job_id": str(52),
+        #     "endpoint_url": "http://localhost:8080/",
+        #     "resource": {"name": "beauvoir3",
+        #                  "jm_type": "galaxy",
+        #                  "jm_location": {"url": "http://localhost:8080/"},
+        #                  "jm_credentials": {"api_key": "fakekey"}
+        #                  },
+        #     "process": {"name": "MSA ClustalW",
+        #                 "inputs":
+        #                     {"parameters":
+        #                          {"ClustalW": {"darna": "PROTEIN"}
+        #                           },
+        #                      "data": {"Input dataset":
+        #                                   {
+        #                                       "path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta",
+        #                                       "type": "fasta"
+        #                                       }
+        #                               }
+        #                      }
+        #                 }
+        # }
+        print(workflow(job_context))
 
 
 if __name__ == '__main__':
