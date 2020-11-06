@@ -101,16 +101,18 @@ def obtain_idauth_from_request() -> str:
         session = DBSession()
         if "auth_method" in tok_dict:
             if tok_dict["auth_method"] == "local-api-key":
-                # TODO Find user with corresponding API key (pair identity-authentication method)
-                pass
+                auth_type = session.query(Authenticator).filter(Authenticator.name == "local-api-key").first()
             elif tok_dict["auth_method"] == "local":
-                # TODO Find user with USER name (pair identity-authentication method)
-                pass
+                auth_type = session.query(Authenticator).filter(Authenticator.name == "local").first()
+                name = tok_dict["user"]
         elif "firebase" in tok_dict:
             # Firebase token, subauthenticator
             auth_type = session.query(Authenticator).filter(Authenticator.name == "firebase").first()
-            name = tok_dict["name"]
-            email = tok_dict["email"]
+            if tok["firebase"]["sign_in_provider"] == "anonymous":
+                name = "_anonymous"
+            else:
+                name = tok_dict["name"]
+                email = tok_dict["email"]
         iden = session.query(Identity).filter(Identity.name == name).first()
         if not iden:
             iden = session.query(Identity).filter(Identity.email == email).first()
@@ -119,10 +121,9 @@ def obtain_idauth_from_request() -> str:
             iden.email = email
             iden.name = name
             session.add(iden)
-            # session.commit()
 
         iden_authenticator = session.query(IdentityAuthenticator).filter(and_(IdentityAuthenticator.identity == iden, IdentityAuthenticator.authenticator == auth_type)).first()
-        if not iden_authenticator:
+        if not iden_authenticator and auth_type.name == "firebase":  # Create (others must exist previously)
             iden_authenticator = IdentityAuthenticator()
             iden_authenticator.email = email
             iden_authenticator.name = name
@@ -146,17 +147,15 @@ def obtain_idauth_from_request() -> str:
         # api_key
         tok = dict(api_key=request.headers["X-API-Key"], auth_method="local-api-key")
 
-    email = request.args.get("user")
-    if email:
+    user = request.args.get("user")
+    if user:
         if tok is None:
-            tok = {"email": email, "auth_method": "local"}
+            tok = {"user": user, "auth_method": "local"}
 
     if len(tok) == 0:
         abort(401, 'No authentication information provided')
 
-    iden_authenticator = prepare_identity(tok)
-
-    return iden_authenticator
+    return prepare_identity(tok)
 
 
 def serialize_session(state: BCSSession):
