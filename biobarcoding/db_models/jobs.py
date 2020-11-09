@@ -171,6 +171,7 @@ class ProcessInComputeResource(ORMBase):
     process = relationship(Process, backref=backref("resource_adaptations", cascade="all, delete-orphan"))
     resource_id = Column(Integer, ForeignKey(ComputeResource.id), nullable=False, primary_key=False)
     resource = relationship(ComputeResource, backref=backref("process_adaptations", cascade="all, delete-orphan"))
+    native_process_id = Column(String(80))
 
 
 class JobStatus(ORMBase):
@@ -200,9 +201,9 @@ class Job(ORMBase):
     process = relationship(Process)
     resource_id = Column(Integer, ForeignKey(ComputeResource.id), nullable=True, primary_key=False)
     resource = relationship(ComputeResource)
+    inputs = Column(JSON)
     status = Column(String(80))
     log = Column(Text)
-    inputs = Column(JSON)
     outputs = Column(JSON)
 
 

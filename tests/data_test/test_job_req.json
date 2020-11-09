@@ -1,0 +1,21 @@
+{
+  "resource_id": "8fac3ce8-8796-445f-ac27-4baedadeff3b",
+  "process_id": "5b7e9e40-040b-40fc-9db3-7d707fe9617f",
+  "process_params": {
+    "parameters": {
+      "ClustalW": {
+        "darna": "PROTEIN"
+      }
+    },
+    "data": {
+      "Input dataset": {
+        "path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta",
+        "type": "fasta"
+      }
+    }
+  },
+  "credentials": {
+    "api_key": "fakekey"
+  }
+}
+

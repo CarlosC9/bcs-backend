@@ -1,5 +1,6 @@
 import unittest
 from pathlib import Path
+import os
 from bioblend import galaxy
 from biobarcoding.jobs.galaxy_resource import *
 
@@ -74,8 +75,27 @@ class MyTestCase(unittest.TestCase):
             tools_message = install_tools(instanceOut,list_of_tools)
             print(tools_message)
 
+    def test_import_install(self):
+        insfile = 'data_test/parsec_creds.yaml'
+        insname = 'local'
+        ins = galaxy_instance(insfile, name=insname)
+        gi = login(ins['key'], url=ins['url'])
+        workflow_path = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/workflows/Galaxy-Workflow-MSA_ClustalW.ga'
+        # project_path = 'home/paula/Documentos/NEXTGENDEM/'
+        wf = gi.workflows.import_workflow_from_local_path(workflow_path)
+        import json
+        with open(workflow_path, 'r') as f:
+            wf_dict_in = json.load(f)
+        wf_dict_out = gi.workflows.export_workflow_dict(wf['id'])
+        list_of_tools = check_tools(wf_dict_out, wf_dict_in)
+        install_tools(gi, list_of_tools)
+        tools_message = install_tools(gi, list_of_tools)
+        print(tools_message)
+
 if __name__ == '__main__':
     # MyTestCase.test_upload_file()
-    MyTestCase.test_run_workflow_from_file()
+    # MyTestCase.test_run_workflow_from_file()
     # MyTestCase.test_change_parameter()
     # MyTestCase.test_inputs_files()
+    MyTestCase.test_import_install()
+
