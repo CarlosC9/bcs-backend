@@ -63,10 +63,10 @@ class PhyloAPI(MethodView):
             try:
                 file_cpy = self._make_file(file)
                 response, code = import_phylotrees(file_cpy, analysis_id=self.analysis_id, name=self.name, comment=self.comment)
-                responses.append({'status':code,'message':response})
+                responses.append(response)
             except Exception as e:
                 print(e)
-                responses.append({'status':409,'message':'Could not import the file {file}.'})
+                responses.append({'status':409,'message':f'Could not import the file {file}.'})
         return responses, 207
 
     def _make_file(self, file):

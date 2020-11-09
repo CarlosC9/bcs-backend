@@ -4,8 +4,10 @@ def create_taxonomies(name, comment = None):
 
 def read_taxonomies(id = None):
     from biobarcoding.db_models import DBSessionChado
-    from biobarcoding.db_models.chado import Phylotree, Cvterm
-    result = DBSessionChado().query(Phylotree)
+    from biobarcoding.db_models.chado import Phylotree, Dbxref
+    result = DBSessionChado().query(Phylotree)\
+        .join(Dbxref)\
+        .filter(Dbxref.accession=='taxonomy')
     if id:
         result = result.filter(Phylotree.phylotree_id==id)
     response = []

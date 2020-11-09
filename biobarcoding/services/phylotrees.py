@@ -4,8 +4,10 @@ def create_phylotrees(name = None, comment = None):
 
 def read_phylotrees(id = None):
     from biobarcoding.db_models import DBSessionChado
-    from biobarcoding.db_models.chado import Phylotree
-    result = DBSessionChado().query(Phylotree)
+    from biobarcoding.db_models.chado import Phylotree, Dbxref
+    result = DBSessionChado().query(Phylotree)\
+        .join(Dbxref)\
+        .filter(Dbxref.accession!='taxonomy')
     if id:
         result = result.filter(Phylotree.phylotree_id==id)
     response = []
@@ -29,14 +31,14 @@ def delete_phylotrees(phylotree_id = None):
 def import_phylotrees(input_file, name = None, comment = None, analysis_id = None):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
-    # sequence_type='polypeptide'
     try:
         if not analysis_id:
-            analysis_id = conn.analysis.get_analyses(name='Unknown analysis')[0]['analysis_id']
-        res = conn.phylogeny.load_tree(input_file, analysis_id, name=name)
-        return {'status':'success','message':f'{resp} phylotrees were successfully imported.'}, 200
+            analysis_id = conn.analysis.get_analyses()[0]['analysis_id']
+        response = conn.phylogeny.load_tree(input_file, analysis_id, name=name)
+        return {'status':'success','message':f'{response} phylotrees were successfully imported.'}, 200
     except Exception as e:
-        return {'status':'failure','message':f'The analyses could not be imported.'}, 500
+        print(e)
+        return {'status':'failure','message':f'The phylotree could not be imported.'}, 500
 
 
 def export_phylotrees(phylotree_id = None):
