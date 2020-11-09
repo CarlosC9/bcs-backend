@@ -111,7 +111,7 @@ def wf1_prepare_workspace(job_context):
     :param job_context:
     :return:
     """
-    tmp = json.loads(job_context)
+    # tmp = json.loads(job_context)
 
     # Example access RESTful endpoint of "bcs-backend"
     # requests.get(job_context["endpoint_url"]+f"/api/jobs/{job_context['job_id']}")
@@ -120,28 +120,30 @@ def wf1_prepare_workspace(job_context):
     #  requests.put(job_context["endpoint_url"] + f"/api/jobs/{job_context['job_id']}/status", "preparing_workspace")
 
     # Get resource manager: ssh, galaxy, other
-    job_executor = JobExecutorAtResourceFactory.get(tmp["resource"]["jm_type"], tmp["process"])
+    # job_executor = JobExecutorAtResourceFactory()
+    # job_executor = JobExecutorAtResourceFactory.get(tmp["resource"]["jm_type"], tmp["process"])
 
     # Launch subprocess if needed
-    if "_pid" not in tmp:
-        p = Process(target=dummy_func, args=(outfile, 13))
-        p.start()
-        tmp["_pid"] = p.pid
-        append_text(outfile, f"prepare_workspace. PID: {p.pid}")
-        job_context = json.dumps(tmp)
-
-    # TODO Task "work"
-    append_text(outfile, "prepare_workspace")
-
-    # Wait for subprocess to finish (if needed)
-    if check_pid_running(tmp["_pid"]):
-        append_text(outfile, "retrying task ...")
-        return 3, job_context  # Return a tuple with first element <seconds to wait>, <context> to repeat the task
-    else:  # Clear "_pid" if subprocess was launched
-        del tmp["_pid"]
-        job_context = json.dumps(tmp)
-        append_text(outfile, "prepare_workspace FINISHED")
-        return job_context  # Return nothing (None) or <context> (if context changed) to move to the default next task
+    # if "_pid" not in tmp:
+    #     p = Process(target=dummy_func, args=(outfile, 13))
+    #     p.start()
+    #     tmp["_pid"] = p.pid
+    #     append_text(outfile, f"prepare_workspace. PID: {p.pid}")
+    #     job_context = json.dumps(tmp)
+    #
+    # # TODO Task "work"
+    # append_text(outfile, "prepare_workspace")
+    #
+    # # Wait for subprocess to finish (if needed)
+    # if check_pid_running(tmp["_pid"]):
+    #     append_text(outfile, "retrying task ...")
+    #     return 3, job_context  # Return a tuple with first element <seconds to wait>, <context> to repeat the task
+    # else:  # Clear "_pid" if subprocess was launched
+    #     del tmp["_pid"]
+    #     job_context = json.dumps(tmp)
+    #     append_text(outfile, "prepare_workspace FINISHED")
+    #     return job_context  # Return nothing (None) or <context> (if context changed) to move to the default next task
+    pass
 
 
 @celery_app.task(name="export")
@@ -153,7 +155,7 @@ def wf1_export_to_supported_file_formats(job_context: str):
     :param job_context:
     :return:
     """
-    tmp = json.loads(job_context)
+    # tmp = json.loads(job_context)
 
     # Example access RESTful endpoint of "bcs-backend"
     # requests.get(job_context["endpoint_url"]+f"/api/jobs/{job_context['job_id']}")
@@ -290,7 +292,7 @@ def wf1_cleanup_workspace(job_context: str):
     tmp = json.loads(job_context)
     job_executor = JobExecutorAtResourceFactory()
     job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp["resource"])
-    # job_executor.remove_job_workspace(str(tmp["job_id"]))
+    job_executor.remove_job_workspace(str(tmp["job_id"]))
     del tmp['g_id']
     job_context = json.dumps(tmp)
     append_text(outfile, f"cleanup:")
