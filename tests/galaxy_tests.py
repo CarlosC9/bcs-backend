@@ -4,6 +4,7 @@ import os
 from bioblend import galaxy
 from biobarcoding.jobs.galaxy_resource import *
 
+
 class MyTestCase(unittest.TestCase):
     def test_upload_file(self):
         insfile = 'data_test/parsec_creds.yaml'
@@ -92,10 +93,23 @@ class MyTestCase(unittest.TestCase):
         tools_message = install_tools(gi, list_of_tools)
         print(tools_message)
 
+    def test_convert(self):
+        input_path = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/clustalw.json'
+        with open(input_path, 'r') as f:
+            galaxy_dict_in = json.load(f)
+        formlyselect = list()
+        inputs = galaxy_dict_in['inputs']
+        for i in inputs:
+            formlyselect.append(converters.choose_converter(i))
+        print(formlyselect)
+        for f in formlyselect:
+            self.assertIsInstance(f,dict)
+
+
 if __name__ == '__main__':
     # MyTestCase.test_upload_file()
     # MyTestCase.test_run_workflow_from_file()
     # MyTestCase.test_change_parameter()
     # MyTestCase.test_inputs_files()
-    MyTestCase.test_import_install()
-
+    # MyTestCase.test_import_install()
+    MyTestCase.test_convert()

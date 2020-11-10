@@ -524,7 +524,8 @@ def check_tools(wf1_dic, wf2_dic):
     tool_list = list()
     for step, content in steps1.items():
         if 'errors' in content:
-            if content['errors'] == "Tool is not installed":  # TODO depende de la versión de galaxi esto lleva un punto al final o no xq lo que hay que buscar otra cosa
+            if content[
+                'errors'] == "Tool is not installed":  # TODO depende de la versión de galaxi esto lleva un punto al final o no xq lo que hay que buscar otra cosa
                 tool_list.append(steps2[step]['tool_shed_repository'])
     if len(tool_list) == 0:
         return 'all tools are installed'
@@ -642,7 +643,7 @@ def initialize_galaxy(flask_app):
         url = flask_app.config['GALAXY_LOCATION']
         gi = login(api_key, url)
         workflow = 'Galaxy-Workflow-MSA_ClustalW.ga'
-        workflow_path = ROOT +'/biobarcoding/workflows/'+ workflow
+        workflow_path = ROOT + '/biobarcoding/workflows/' + workflow
         with open(workflow_path, 'r') as f:
             wf_dict_in = json.load(f)
         name = wf_dict_in['name']
@@ -655,3 +656,133 @@ def initialize_galaxy(flask_app):
             return None
     else:
         return 'No Galaxy test credentials in config file'
+
+    '''
+    Formy select:
+      key: 'product_type',
+      type: 'select',
+      templateOptions: {
+        label: 'Product type',
+        placeholder: 'Product type',
+        description: 'Select the product type',
+        required: true,
+        options: [
+          { value: 'single', label: 'Single product'  },
+          { value: 'bulk', label: 'Bulk product'  },
+        ],
+      },
+    },
+
+    {'model_class': 'SelectToolParameter',
+    'name': 'dnarna',
+    'argument': None,
+    'type': 'select',
+    'label': 'Data type',
+    'help': '',
+    'refresh_on_change': False,
+    'optional': False,
+    'hidden': False,
+    'is_dynamic': False,
+    'value': 'DNA',
+    'options':
+        [['DNA nucleotide sequences', 'DNA', True],
+        ['Protein sequences', 'PROTEIN', False]],
+    'display': None,
+    'multiple': False,
+    'textable': False,
+    'default_value': 'DNA',
+    'text_value': 'DNA nucleotide sequences'}
+
+    # Original : Formly
+    '''
+
+
+class converters:
+    def __init__(self):
+        self.field = {
+            # 'original' : 'formly'
+            'name': 'key',
+            'type': 'type'
+        }
+        self.templateoptionsfields = {
+            # 'original' : 'formly'
+            'label': 'label',
+            'optional': 'required'
+        }
+
+    @staticmethod
+    def rename_keys(d, keys):
+        return dict([(keys.get(k), v) for k, v in d.items() if k in keys.keys()])
+
+    @staticmethod
+    def options(g_input):
+        return [{'value': o[1], 'label': o[0]} for o in g_input['options']]
+
+    @staticmethod
+    def choose_converter(g_input):
+        if g_input['model_class'] == 'SelectToolParameter':
+            converter = convertSelectToolParameter()
+        elif g_input['model_class'] == 'BooleanToolParameter':
+            converter = convertBooleanToolParameter()
+        elif g_input['model_class'] == 'Conditional':
+            converter = converterConditional()
+        else:
+            return 'no converter for this model class {}'.format(g_input['model_class'])
+        return converter.convert(g_input)
+
+    def conversion(self, g_input):
+        form = self.rename_keys(g_input, self.field)
+        form['templateOptions'] = self.rename_keys(g_input, self.templateoptionsfields)
+        form['templateOptions']['placeholder'] = form['templateOptions']['label']
+        form['templateOptions']['required'] = not form['templateOptions']['required']  # switch from optional to required
+        return form
+
+
+class convertBooleanToolParameter(converters):
+    def __init__(self):
+        super().__init__()
+
+    def convert(self, g_input):
+        form = self.conversion(g_input)
+        form['type'] = 'radio'
+        form['options'] = [
+            {'value': g_input['truevalue'], 'label': 'Yes'},
+            {'value': g_input['falsevalue'], 'label': 'No'} #check is needed
+        ]
+        form['templateOptions']['placeholder'] = 'placeholder'
+        return form
+
+
+class convertSelectToolParameter(converters):
+    def __init__(self):
+        super().__init__()
+
+    def convert(self, g_input):
+        form = self.conversion(g_input)
+        form['templateOptions']['options'] = self.options(g_input)
+        return form
+
+
+class converterConditional(converters):
+    def __init__(self):
+        super().__init__()
+        self.selector = None
+        self.cases = None
+
+    def convert(self, g_inputs):
+        self.selector = g_inputs['test_param']
+        self.cases = g_inputs['cases']
+        form = list()
+        selector_form = self.choose_converter(self.selector)
+        form.append(selector_form)
+        for i in self.cases:
+            if len(i['inputs'])>0:
+                for j in i['inputs']:
+                    case_form = self.choose_converter(j)
+                    if isinstance(case_form,dict):
+                        case_form['hideExpression'] = 'model.' + selector_form['key']+ '!=' + i['value']
+                    else:
+                        print('no converter for ',j['model_class'])
+                    form.append(case_form)
+        return form
+
