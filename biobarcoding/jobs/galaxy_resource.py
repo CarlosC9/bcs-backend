@@ -1,7 +1,10 @@
+from typing import List, Any
+
 from bioblend import galaxy
 import json
 import yaml
 import os
+import re
 
 from biobarcoding.common import ROOT
 from biobarcoding.jobs import JobExecutorAtResource
@@ -657,58 +660,20 @@ def initialize_galaxy(flask_app):
     else:
         return 'No Galaxy test credentials in config file'
 
-    '''
-    Formy select:
-      key: 'product_type',
-      type: 'select',
-      templateOptions: {
-        label: 'Product type',
-        placeholder: 'Product type',
-        description: 'Select the product type',
-        required: true,
-        options: [
-          { value: 'single', label: 'Single product'  },
-          { value: 'bulk', label: 'Bulk product'  },
-        ],
-      },
-    },
 
-    {'model_class': 'SelectToolParameter',
-    'name': 'dnarna',
-    'argument': None,
-    'type': 'select',
-    'label': 'Data type',
-    'help': '',
-    'refresh_on_change': False,
-    'optional': False,
-    'hidden': False,
-    'is_dynamic': False,
-    'value': 'DNA',
-    'options':
-        [['DNA nucleotide sequences', 'DNA', True],
-        ['Protein sequences', 'PROTEIN', False]],
-    'display': None,
-    'multiple': False,
-    'textable': False,
-    'default_value': 'DNA',
-    'text_value': 'DNA nucleotide sequences'}
-
-    # Original : Formly
-    '''
 
 
 class converters:
-    def __init__(self):
-        self.field = {
-            # 'original' : 'formly'
-            'name': 'key',
-            'type': 'type'
-        }
-        self.templateoptionsfields = {
-            # 'original' : 'formly'
-            'label': 'label',
-            'optional': 'required'
-        }
+    field = {
+        # 'original' : 'formly'
+        'name': 'key',
+        'type': 'type'
+    }
+    templateoptionsfields = {
+        # 'original' : 'formly'
+        'label': 'label',
+        'optional': 'required'
+    }
 
     @staticmethod
     def rename_keys(d, keys):
@@ -718,14 +683,15 @@ class converters:
     def options(g_input):
         return [{'value': o[1], 'label': o[0]} for o in g_input['options']]
 
-    @staticmethod
-    def choose_converter(g_input):
+    def choose_converter(self,g_input):
         if g_input['model_class'] == 'SelectToolParameter':
             converter = convertSelectToolParameter()
         elif g_input['model_class'] == 'BooleanToolParameter':
             converter = convertBooleanToolParameter()
         elif g_input['model_class'] == 'Conditional':
             converter = converterConditional()
+        elif g_input['model_class'] == 'IntegerToolParameter':
+            converter = converterIntegerToolParameter()
         else:
             return 'no converter for this model class {}'.format(g_input['model_class'])
         return converter.convert(g_input)
@@ -733,9 +699,18 @@ class converters:
     def conversion(self, g_input):
         form = self.rename_keys(g_input, self.field)
         form['templateOptions'] = self.rename_keys(g_input, self.templateoptionsfields)
-        form['templateOptions']['placeholder'] = form['templateOptions']['label']
-        form['templateOptions']['required'] = not form['templateOptions']['required']  # switch from optional to required
+        if 'value' in g_input:
+            form['defaultValue'] = g_input['value']
+        form['templateOptions']['required'] = not form['templateOptions']['required']
         return form
+
+    def get_formly_json(self, g_input):
+        l=[]
+        for i in g_input:
+            l.append(self.choose_converter(i))
+        regex = r'(?<!: )"(\S*?)"'
+        tmp = json.dumps(l, indent=3)
+        return re.sub(regex, '\\1', tmp)
 
 
 class convertBooleanToolParameter(converters):
@@ -745,11 +720,10 @@ class convertBooleanToolParameter(converters):
     def convert(self, g_input):
         form = self.conversion(g_input)
         form['type'] = 'radio'
-        form['options'] = [
+        form['templateOptions']['options'] = [
             {'value': g_input['truevalue'], 'label': 'Yes'},
             {'value': g_input['falsevalue'], 'label': 'No'} #check is needed
         ]
-        form['templateOptions']['placeholder'] = 'placeholder'
         return form
 
 
@@ -760,6 +734,20 @@ class convertSelectToolParameter(converters):
     def convert(self, g_input):
         form = self.conversion(g_input)
         form['templateOptions']['options'] = self.options(g_input)
+        return form
+
+class converterIntegerToolParameter(converters):
+    def __init__(self):
+        super().__init__()
+
+    def convert(self, g_input):
+        form = self.conversion(g_input)
+        form['type'] = 'input'
+        form['templateOptions']['type'] = 'number'
+        if g_input['min'] != None:
+            form['templateOptions']['min'] = int(g_input['min'])
+        if g_input['max'] != None:
+            form['templateOptions']['max'] = int(g_input['max'])
         return form
 
 

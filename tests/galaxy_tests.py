@@ -1,6 +1,7 @@
 import unittest
 from pathlib import Path
 import os
+
 from bioblend import galaxy
 from biobarcoding.jobs.galaxy_resource import *
 
@@ -94,16 +95,18 @@ class MyTestCase(unittest.TestCase):
         print(tools_message)
 
     def test_convert(self):
+        import json
         input_path = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/clustalw.json'
         with open(input_path, 'r') as f:
             galaxy_dict_in = json.load(f)
-        formlyselect = list()
         inputs = galaxy_dict_in['inputs']
-        for i in inputs:
-            formlyselect.append(converters.choose_converter(i))
-        print(formlyselect)
-        for f in formlyselect:
-            self.assertIsInstance(f,dict)
+        convert = converters()
+        formly_json = convert.get_formly_json(inputs)
+        json = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/json2.json'
+        with open(json, 'w') as file:
+            file.write(formly_json)
+
+
 
 
 if __name__ == '__main__':
