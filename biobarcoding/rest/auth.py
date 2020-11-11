@@ -45,7 +45,9 @@ class AuthnAPI(MethodView):
             # TODO Return current identity
             response_object = {
                 'status': 'success',
-                'message': f"Identity: {sess.identity_name}"
+                'message': f"Identity: {sess.identity_name}",
+                'identity': sess.identity_name,
+                'identity_id': sess.identity_id
             }
         else:
             # TODO Return "not logged in"
@@ -79,25 +81,31 @@ class AuthnAPI(MethodView):
         id_auth = obtain_idauth_from_request()
         # If the identity is Active, continue;
         # If not, return an error
-        if not id_auth.identity.deactivation_time:
-            sess = BCSSession()
-            sess.identity_id = id_auth.identity.id
-            sess.identity_name = id_auth.identity.name
-            flask_session["session"] = serialize_session(sess)
-            # Attach identity to the current session
+        if id_auth:
+            if not id_auth.identity.deactivation_time:
+                sess = BCSSession()
+                sess.identity_id = id_auth.identity.id
+                sess.identity_name = id_auth.identity.name
+                flask_session["session"] = serialize_session(sess)
+                # Attach identity to the current session
 
-            response_object = {
-                'status': 'success',
-                'message': ""
-            }
-            return make_response(jsonify(response_object)), 200
+                response_object = {
+                    'status': 'success',
+                    'message': ""
+                }
+                return make_response(jsonify(response_object)), 200
+            else:
+                response_object = {
+                    'status': 'error',
+                    'message': 'Identity disabled'
+                }
+                return make_response(jsonify(response_object)), 401
         else:
             response_object = {
                 'status': 'error',
-                'message': 'Identity disabled'
+                'message': 'Identity not authorized'
             }
             return make_response(jsonify(response_object)), 401
-
 
 
 # Special behavior: "authn" is a singleton, which can be None or defined with a login

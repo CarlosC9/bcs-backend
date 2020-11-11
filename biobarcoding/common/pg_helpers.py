@@ -2,6 +2,9 @@ import collections
 
 import sqlalchemy
 from multidict import MultiDict, CIMultiDict
+from typing import List, Tuple
+
+from sqlalchemy import and_
 
 import biobarcoding
 from biobarcoding.db_models import ORMBase
@@ -59,6 +62,58 @@ def load_table(sf, clazz, d):
             ins = clazz()
             ins.uuid = k
             ins.name = v
+            session.add(ins)
+    session.commit()
+    sf.remove()
+
+
+def load_table_extended(sf, clazz, attributes: List[str], values: List[Tuple]):
+    """
+    Insert records into a relational table
+    Loads records in "values" using "attributes" names, into a relational table associated to the class "clazz",
+    using the session factory "sf".
+
+    NOTE: "uuid" MUST be the first value in all tuples
+
+    :param sf:
+    :param clazz:
+    :param attributes: a list of attribute names
+    :return:
+    """
+    session = sf()
+    for t in values:
+        i = session.query(clazz).filter(clazz.uuid == t[0]).first()
+        if not i:
+            ins = clazz()
+            for i, f in enumerate(t):
+                setattr(ins, attributes[i], f)
+            session.add(ins)
+    session.commit()
+    sf.remove()
+
+
+def load_many_to_many_table(sf, clazz, lclazz, rclazz, attributes: List[str], values: List[Tuple]):
+    """
+    load_many_to_many_table(sf, RoleIdentity, Role, Identity, ["role_id", "identity_id"], [["admins", "test_user"]])
+
+    :param sf:
+    :param clazz:
+    :param lclazz:
+    :param rclazz:
+    :param attributes:
+    :param values:
+    :return:
+    """
+    session = sf()
+    for t in values:
+        # Find id of left and right sides
+        left = session.query(lclazz).filter(lclazz.name == t[0]).first()
+        right = session.query(rclazz).filter(rclazz.name == t[1]).first()
+        i = session.query(clazz).filter(and_(getattr(clazz, attributes[0]) == left.id, getattr(clazz, attributes[1]) == right.id)).first()
+        if not i:
+            ins = clazz()
+            setattr(ins, attributes[0], left.id)
+            setattr(ins, attributes[1], right.id)
             session.add(ins)
     session.commit()
     sf.remove()
