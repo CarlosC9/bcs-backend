@@ -10,7 +10,7 @@ from sqlalchemy.pool import StaticPool
 
 import biobarcoding
 from biobarcoding.common import generate_json
-from biobarcoding.common.pg_helpers import create_pg_database_engine, load_table
+from biobarcoding.common.pg_helpers import create_pg_database_engine, load_table, load_many_to_many_table
 from biobarcoding.db_models import DBSession, ORMBase, DBSessionChado, ORMBaseChado, ObjectType
 from biobarcoding.db_models.bioinformatics import *
 from biobarcoding.db_models.sysadmin import *
@@ -158,12 +158,17 @@ def construct_session_persistence_backend(flask_app):
     return d
 
 
+# Initialization of tables
+
 tm_object_types = {  # ObjectType
     "22bc2577-883a-4408-bba9-fcace20c0fc8": "sequence",
     "e80a7d27-3ec8-4aa1-b49c-5498e0f85bee": "multiple-sequence-alignment",
     "d30120f0-28df-4bca-90e4-4f0676d1c874": "phylogenetic-tree",
     "83084df6-7ad0-45d7-b3f1-6de594c78611": "geographic-layer",
-    "7e23991b-24a0-4da1-8251-c3c3434dfb87": "sequence-alignment"
+    "7e23991b-24a0-4da1-8251-c3c3434dfb87": "sequence-alignment",
+    "8fac3ce8-8796-445f-ac27-4baedadeff3b": "sys-functions",  # Not bio algorithms, but BCS functions (both backend and frontend), like "export sequence", "browse alignments", "launch bioalgorithm", etc.
+    "21879d8f-1c0e-4f71-92a9-88bc6a3aa14b": "compute-resource",
+    "83077626-cf8c-48d3-854b-a355afdb7df9": "process"  # Bioinformatic algorithms
 }
 
 tm_permissions = {  # PermissionType
@@ -171,6 +176,7 @@ tm_permissions = {  # PermissionType
     "04cac7ca-a90b-4d12-a966-d8b0c77fca70": "annotate",
     "d0924822-32fa-4456-8143-0fd48da33fd7": "contribute",
     "83d837ab-01b2-4260-821b-8c4a3c52e9ab": "share",
+    "91a5b4a7-3359-4eed-98df-497c42d0c3c1": "execute",
     "d3137471-84a0-4bcf-8dd8-16387ea46a30": "delete"
 }
 
@@ -178,6 +184,21 @@ tm_default_users = {  # Identities
     "f3848599-4aa3-4964-b7e1-415d478560be": "admin",
     "2a512320-cef7-41c6-a141-8380d900761b": "_anonymous",
     "27c6a285-dd80-44d3-9493-3e390092d301": "test_user",
+}
+
+tm_default_groups = {
+    "f74ea2b7-8c19-4ad2-b557-138d5dd4a048": "all-identified",  # All except anonymous
+    "1a17a8c1-2755-4bfb-b42e-c65aa53800e6": "sequence-lab",
+    "3e7dab12-dd92-49cc-83eb-d4f1c0e4a62d": "endemisms",
+    "86a940ec-3327-4c62-8ca3-f4fbf47a62ce": "land-planning"
+}
+
+tm_default_roles = {
+    "6ba7c06b-c164-4049-8259-f713920284a2": "sysadmin",
+    "7d26e0fe-501e-4568-92a9-6c250eceb705": "data-curator",
+    "98da9069-5c62-44c3-8f69-985e439d106d": "data-importer",
+    "a2aef599-a34d-4290-bde5-14899b70eff1": "bioinformatic-job-executor",
+    "0b827be9-99c4-42d5-ad9a-8e7f3a4ebc39": "basic-user"
 }
 
 tm_authenticators = {  # Authenticator
@@ -208,10 +229,11 @@ tm_job_statuses = {
 
 tm_job_mgmt_types = {
     "38fb34f7-a952-4036-9b0b-4d6c59e8f8d4": "galaxy",
-    "0292821a-dd33-450a-bdd8-813b2b95c456": "ssh"
+    "0292821a-dd33-450a-bdd8-813b2b95c456": "ssh",
+    "fc1fb247-6b76-420c-9c48-f69f154cbe1d": "ebi"
 }
 
-tm_processes = {
+tm_processes = {  # Preloaded processes
     "02f44e54-f139-4ea0-a1bf-fe27054c0d6c": "klustal-1",
     "903a73a9-5a4e-4cec-b8fa-4fc9bd5ffab5": "blast",
     "5c4ba6db-e7f2-4d5c-a89a-76059ac116b1": "mrbayes",
@@ -221,24 +243,23 @@ tm_processes = {
     "4cfcd389-ed9e-4174-aa99-150f176e8eec": "import-msa",
     "caaca280-2290-4625-b5c0-76bcfb06e9ac": "import-phylotree"
 }
-# "8fac3ce8-8796-445f-ac27-4baedadeff3b"
-# "21879d8f-1c0e-4f71-92a9-88bc6a3aa14b"
-# "83077626-cf8c-48d3-854b-a355afdb7df9"
-# "fc1fb247-6b76-420c-9c48-f69f154cbe1d"
-# "91a5b4a7-3359-4eed-98df-497c42d0c3c1"
-# "6ba7c06b-c164-4049-8259-f713920284a2"
-# "7d26e0fe-501e-4568-92a9-6c250eceb705"
-# "98da9069-5c62-44c3-8f69-985e439d106d"
-# "a2aef599-a34d-4290-bde5-14899b70eff1"
-# "1a17a8c1-2755-4bfb-b42e-c65aa53800e6"
-# "3e7dab12-dd92-49cc-83eb-d4f1c0e4a62d"
-# "86a940ec-3327-4c62-8ca3-f4fbf47a62ce"
-# "0b827be9-99c4-42d5-ad9a-8e7f3a4ebc39"
-# "dc0ae8e7-b05c-4630-95d5-fd823ca3091a"
-# "1882a009-a285-45a4-bcd3-bb8e23bab2b6"
-# "7b5e6398-3a35-400c-92cc-551687058cd0"
-# "ab579882-0060-45ed-b747-5a43b39c8d25"
-# "f74ea2b7-8c19-4ad2-b557-138d5dd4a048"
+
+tm_system_functions = {
+    "6ba7c06b-c164-4049-8259-f713920284a2": "get sequence",
+    "7d26e0fe-501e-4568-92a9-6c250eceb705": "post sequence",
+    "98da9069-5c62-44c3-8f69-985e439d106d": "put sequence",
+    "a2aef599-a34d-4290-bde5-14899b70eff1": "delete sequence",
+    "1a17a8c1-2755-4bfb-b42e-c65aa53800e6": "get sequences",
+    "3e7dab12-dd92-49cc-83eb-d4f1c0e4a62d": "post sequences",
+    "86a940ec-3327-4c62-8ca3-f4fbf47a62ce": "put sequences",
+    "0b827be9-99c4-42d5-ad9a-8e7f3a4ebc39": "delete sequences",
+    "dc0ae8e7-b05c-4630-95d5-fd823ca3091a": "get jobs",
+    "1882a009-a285-45a4-bcd3-bb8e23bab2b6": "get job",
+    "7b5e6398-3a35-400c-92cc-551687058cd0": "post job",
+    "ab579882-0060-45ed-b747-5a43b39c8d25": "delete job"
+}
+
+
 # "c8df0c20-9cd5-499b-92d4-5fb35b5a369a"
 # "16159c67-9325-4f0d-b0c5-2f01588612ea"
 # "fcaa3b92-7ba8-4068-8e26-9321a341b53f"
@@ -317,10 +338,13 @@ def initialize_database_data():
     load_table(DBSession, Identity, tm_default_users)
     load_table(DBSession, Authenticator, tm_authenticators)
     load_table(DBSession, ObjectType, tm_object_types)
+    load_table(DBSession, SystemFunction, tm_system_functions)
     load_table(DBSession, PermissionType, tm_permissions)
     load_table(DBSession, JobStatus, tm_job_statuses)
     load_table(DBSession, JobManagementType, tm_job_mgmt_types)
     load_table(DBSession, Process, tm_processes)
+    load_table(DBSession, Group, tm_default_groups)
+    load_table(DBSession, Role, tm_default_roles)
     # Load default authentication for "test_user"
     session = DBSession()
     test_user_id = "test_user"
@@ -336,6 +360,10 @@ def initialize_database_data():
         iden_authentication.name = "test_user"
         iden_authentication.email = "test@test.org"
         session.add(iden_authentication)
+
+    # Set test_user roles and groups
+    load_many_to_many_table(DBSession, RoleIdentity, Role, Identity, ["role_id", "identity_id"], [["sysadmin", "test_user"]])
+    load_many_to_many_table(DBSession, GroupIdentity, Group, Identity, ["group_id", "identity_id"], [["all-identified", "test_user"]])
 
     # Load a ComputeResource if it does not exist
     cr_id = "f0952819-7a7e-4ed0-a33b-139267fe33f4"
