@@ -34,7 +34,12 @@ def import_ontologies(input_file):
     #     stag-storenode.pl -d 'dbi:Pg:dbname={cfg['database']};host={cfg['host']};port=cfg['port']'
     #     --user {cfg['user']} --password {cfg['password']} /tmp/{input_file}.chado.xml"""
     import pronto
-    onto_name = pronto.Ontology(input_file).metadata.default_namespace
+    import os
+    namespace = pronto.Ontology(input_file).metadata.default_namespace
+    if namespace:
+        onto_name = f'-c {namespace}'
+    else:
+        onto_name = f'-c {os.path.basename(input_file)}'
     from biobarcoding.services import exec_cmds
     out, err = exec_cmds([
         f'''perl ./biobarcoding/services/perl_scripts/gmod_load_cvterms.pl\
@@ -49,9 +54,8 @@ def import_ontologies(input_file):
             -D {cfg["CHADO_DATABASE"]}\
             -u {cfg["CHADO_USER"]}\
             -p {cfg["CHADO_PASSWORD"]}\
-            -d Pg -c {onto_name}'''])
+            -d Pg {onto_name}'''])
     if err:
-        import os
         return {'status':'failure','message':f'Ontology in {os.path.basename(input_file)} could not be imported.\n{err}'}, 500
     return {'status':'success','message':f'Ontology in {os.path.basename(input_file)} imported properly.\n{out}'}, 200
 
