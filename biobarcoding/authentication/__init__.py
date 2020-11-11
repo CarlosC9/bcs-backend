@@ -4,9 +4,11 @@ to NGINX so it can filter ALL requests. An example seemingly interesting project
 https://github.com/mbreese/subauth
 """
 import collections
+import inspect
 import json
 import sys
 import traceback
+from datetime import datetime
 
 import blosc
 import jsonpickle
@@ -18,12 +20,15 @@ from dataclasses import dataclass, field
 from typing import List, Dict, Any
 import numpy as np
 from multidict import MultiDict, CIMultiDict
-from sqlalchemy import and_
+from sqlalchemy import and_, or_
+from sqlalchemy.orm import Session
 
+from biobarcoding.authorization import ast_evaluator, authr_expression, string_to_ast
 from biobarcoding.common import generate_json
 from biobarcoding.common.helpers import serialize_from_object, deserialize_to_object
-from biobarcoding.db_models import DBSession
-from biobarcoding.db_models.sysadmin import Authenticator, Identity, IdentityAuthenticator
+from biobarcoding.db_models import DBSession, ObjectType
+from biobarcoding.db_models.sysadmin import Authenticator, Identity, IdentityAuthenticator, ACLExpression, ACL, \
+    SystemFunction
 
 
 def initialize_firebase(app):
@@ -74,6 +79,9 @@ class BCSSession:
     login_time: str = ""
     token_type: str = None
     token: str = None
+    # Not persisted
+    identity: Identity = None
+    db_session: Session = None
 
 
 EXEMPT_METHODS = set(['OPTIONS'])
@@ -98,17 +106,19 @@ def obtain_idauth_from_request() -> str:
         name = None
         email = None
         auth_type = None
+        autocreate = True
         session = DBSession()
         if "auth_method" in tok_dict:
             if tok_dict["auth_method"] == "local-api-key":
                 # TODO Find user with corresponding API key (pair identity-authentication method)
-                pass
+                autocreate = False
             elif tok_dict["auth_method"] == "local":
-                # TODO Find user with USER name (pair identity-authentication method)
-                pass
+                name = tok_dict["name"]
+                auth_type = tok_dict["auth_method"]
+                autocreate = False
         elif "firebase" in tok_dict:
             # Firebase token, subauthenticator
-            auth_type = session.query(Authenticator).filter(Authenticator.name == "firebase").first()
+            auth_type = session.query(IdentityAuthenticator).filter(Authenticator.name == "firebase").first()
             name = tok_dict["name"]
             email = tok_dict["email"]
         iden = session.query(Identity).filter(Identity.name == name).first()
@@ -120,9 +130,10 @@ def obtain_idauth_from_request() -> str:
             iden.name = name
             session.add(iden)
             # session.commit()
+        auth = session.query(Authenticator).filter(Authenticator.name == auth_type).first()
 
-        iden_authenticator = session.query(IdentityAuthenticator).filter(and_(IdentityAuthenticator.identity == iden, IdentityAuthenticator.authenticator == auth_type)).first()
-        if not iden_authenticator:
+        iden_authenticator = session.query(IdentityAuthenticator).filter(and_(IdentityAuthenticator.identity == iden, IdentityAuthenticator.authenticator == auth)).first()
+        if not iden_authenticator and autocreate:
             iden_authenticator = IdentityAuthenticator()
             iden_authenticator.email = email
             iden_authenticator.name = name
@@ -146,10 +157,10 @@ def obtain_idauth_from_request() -> str:
         # api_key
         tok = dict(api_key=request.headers["X-API-Key"], auth_method="local-api-key")
 
-    email = request.args.get("user")
-    if email:
+    name = request.args.get("user")
+    if name:
         if tok is None:
-            tok = {"email": email, "auth_method": "local"}
+            tok = {"name": name, "auth_method": "local"}
 
     if len(tok) == 0:
         abort(401, 'No authentication information provided')
@@ -196,10 +207,22 @@ class bcs_session(object):
     Decorator for methods requiring: Session, and Authentication/Authorization
     @bcs_session(read_only=False)
     """
-    def __init__(self, read_only=False, allowed_roles=None, disallowed_roles=[]):
+    def __init__(self, read_only=False, authr=None):
         self.read_only = read_only
-        self.allowed_roles = allowed_roles
-        self.disallowed_roles = disallowed_roles
+        self.authr = authr
+
+    @staticmethod
+    def is_function_name(s: str):
+        t = s.split(" ")
+        if len(t) < 4:
+            valid = True
+            for p in t:
+                if not p.isidentifier():
+                    valid = False
+        else:
+            valid = False
+
+        return valid
 
     def __call__(self, f):
         def wrapped_f(*args):
@@ -207,12 +230,45 @@ class bcs_session(object):
             if isinstance(sess, BCSSession):
                 try:
                     g.bcs_session = sess
-                    # TODO Check that identity can execute the function
-                    res = f(*args)
+                    db_session = DBSession()
+                    g.bcs_session.db_session = db_session
+                    ident = db_session.query(Identity).get(g.bcs_session.identity_id)
+                    g.bcs_session.identity = ident
+                    try:  # Protect "db_session"
+                        # Get execution rule
+                        if self.authr is None or bcs_session.is_function_name(self.authr):
+                            if self.authr is None:
+                                f_code_name = f"{inspect.getmodule(f).__name}{f.__name__}"
+                            else:
+                                f_code_name = self.authr
+                            # Search authorization database using full function name (be careful of refactorizations)
+                            ahora = datetime.now()
+                            function = db_session.query(SystemFunction).filter(SystemFunction.name == f_code_name).first()
+                            obj_type = db_session.query(ObjectType).filter(ObjectType.name == "sys-functions").first()
+                            rule = db_session.query(ACLExpression.expression).\
+                                filter(and_(or_(ACLExpression.validity_start is None, ACLExpression.validity_start<=ahora), or_(ACLExpression.validity_end is None, ACLExpression.validity_end>ahora))).\
+                                join(ACLExpression.acl).filter(and_(ACL.object_type == obj_type.id, ACL.object_id == function.uuid)).first()
+                        else:
+                            rule = self.authr  # Rule specified literally
+                        # Check execution permission
+                        ast = string_to_ast(authr_expression, rule)
+                        can_execute = ast_evaluator(ast, ident)
+                        if can_execute:
+                            res = f(*args)
+                            db_session.commit()
+                        else:
+                            raise Exception(f"Current user ({sess.identity_name}) cannot execute function {f_code_name}")
+                    except:
+                        db_session.rollback()
+                        raise
+                    finally:
+                        DBSession.remove()
                 except:
                     res = None
                 finally:
                     if not self.read_only:
+                        g.bcs_session.identity = None
+                        g.bcs_session.db_session = None
                         flask_session["session"] = serialize_session(g.bcs_session)
                     # g.bcs_session = None  -- NO need for this line, "g" is reset after every request
                 return res
