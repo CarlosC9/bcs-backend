@@ -637,7 +637,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
 
 
 def initialize_galaxy(flask_app):
-    if 'GALAXY_API_KEY' and 'GALAXY_LOCATION' in flask_app.config:
+    if {'GALAXY_API_KEY', 'GALAXY_LOCATION'} <= flask_app.config.keys():
         api_key = flask_app.config['GALAXY_API_KEY']
         url = flask_app.config['GALAXY_LOCATION']
         gi = login(api_key, url)

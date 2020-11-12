@@ -10,9 +10,8 @@ from sqlalchemy.pool import StaticPool
 
 import biobarcoding
 from biobarcoding.common import generate_json
-from biobarcoding.common.gp_helpers import create_pg_database_engine, load_table, load_computing_resources, \
-    load_processes_in_computing_resources
-from biobarcoding.common.pg_helpers import create_pg_database_engine, load_table, load_many_to_many_table
+from biobarcoding.common.pg_helpers import create_pg_database_engine, load_table, load_many_to_many_table, \
+    load_computing_resources, load_processes_in_computing_resources
 from biobarcoding.db_models import DBSession, ORMBase, DBSessionChado, ORMBaseChado, ObjectType
 from biobarcoding.db_models.bioinformatics import *
 from biobarcoding.db_models.sysadmin import *
@@ -54,7 +53,9 @@ def prepare_default_configuration(create_directories):
             "CHADO_PORT": "5432",
             "CHADO_USER": "postgres",
             "CHADO_PASSWORD": "postgres",
-            "CHADO_SCHEMA": "public"
+            "CHADO_SCHEMA": "public",
+            "GALAXY_API_KEY": "fakekey",
+            "GALAXY_LOCATION": "http://localhost:8080"
         }
 
     from appdirs import AppDirs
@@ -345,11 +346,11 @@ def initialize_database_data():
     load_table(DBSession, JobStatus, tm_job_statuses)
     load_table(DBSession, JobManagementType, tm_job_mgmt_types)
     load_table(DBSession, Process, tm_processes)
+    load_table(DBSession, Group, tm_default_groups)
+    load_table(DBSession, Role, tm_default_roles)
     load_computing_resources(DBSession)
     load_processes_in_computing_resources(DBSession)
 
-    load_table(DBSession, Group, tm_default_groups)
-    load_table(DBSession, Role, tm_default_roles)
     # Load default authentication for "test_user"
     session = DBSession()
     test_user_id = "test_user"
@@ -369,21 +370,6 @@ def initialize_database_data():
     # Set test_user roles and groups
     load_many_to_many_table(DBSession, RoleIdentity, Role, Identity, ["role_id", "identity_id"], [["sysadmin", "test_user"]])
     load_many_to_many_table(DBSession, GroupIdentity, Group, Identity, ["group_id", "identity_id"], [["all-identified", "test_user"]])
-
-    # Load a ComputeResource if it does not exist
-    cr_id = "f0952819-7a7e-4ed0-a33b-139267fe33f4"
-    i = session.query(ComputeResource).filter(ComputeResource.uuid == cr_id).first()
-    if not i:
-        cr = ComputeResource()
-        cr.uuid = cr_id
-        cr.name = "balder - ITC"
-        jm = session.query(JobManagementType).filter(JobManagementType.name == "galaxy").first()
-        cr.jm_type = jm
-        cr.jm_location = {"url": "http://balder"}
-        cr.jm_credentials = {"user": "", "password": ""}
-        session.add(cr)
-        session.commit()
-    DBSession.remove()
 
 
 def initialize_database(flask_app):
