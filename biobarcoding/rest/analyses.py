@@ -1,6 +1,6 @@
 from flask import Blueprint
 
-bp_analyses = Blueprint('analyses', __name__)
+bp_analyses = Blueprint('bp_analyses', __name__)
 
 from flask import request, make_response, jsonify
 from flask.views import MethodView
@@ -24,10 +24,19 @@ class AnalysesAPI(MethodView):
 
     def get(self, id=None):
         print(f'GET {request.path}\nGetting analyses {id}')
-        self._check_data(request.args.to_dict())
+        self._check_data(request.args)
         from biobarcoding.services.analyses import read_analyses
-        response, code = read_analyses(id)
-        return make_response(response, code)
+        response, code = read_analyses(
+            analysis_id=id,
+            name=self.name,
+            program=self.program,
+            programversion=self.programversion,
+            algorithm=self.algorithm,
+            sourcename=self.sourcename,
+            sourceversion=self.sourceversion,
+            sourceuri=self.sourceuri,
+            description=self.description)
+        return make_response(jsonify(response), code)
 
 
     def post(self):
@@ -44,7 +53,7 @@ class AnalysesAPI(MethodView):
             sourceversion=self.sourceversion,
             sourceuri=self.sourceuri,
             date_executed=self.date_executed)
-        return make_response(response, code)
+        return make_response(jsonify(response), code)
 
 
     def put(self, id):
@@ -61,15 +70,23 @@ class AnalysesAPI(MethodView):
             sourceversion=self.sourceversion,
             sourceuri=self.sourceuri,
             date_executed=self.date_executed)
-        return make_response(response, code)
+        return make_response(jsonify(response), code)
 
 
     def delete(self, id):
         print(f'DELETE {request.path}\nDeleting analyses {id}')
-        self._check_data(request.args.to_dict())
+        self._check_data(request.args)
         from biobarcoding.services.analyses import delete_analyses
-        response, code = delete_analyses(id)
-        return make_response(response, code)
+        response, code = delete_analyses(id,
+            name=self.name,
+            program=self.program,
+            programversion=self.programversion,
+            algorithm=self.algorithm,
+            sourcename=self.sourcename,
+            sourceversion=self.sourceversion,
+            sourceuri=self.sourceuri,
+            description=self.description)
+        return make_response(jsonify(response), code)
 
 
     def _check_data(self, data):
@@ -95,14 +112,14 @@ class AnalysesAPI(MethodView):
         print(f'DATA: {data}')
 
 
-analyses = AnalysesAPI.as_view('ansis_api')
+analyses_view = AnalysesAPI.as_view('api_analyses')
 bp_analyses.add_url_rule(
-    bcs_api_base + '/bos/analyses/',
-    view_func=analyses,
+    bcs_api_base + '/analyses/',
+    view_func=analyses_view,
     methods=['GET','POST']
 )
 bp_analyses.add_url_rule(
-    bcs_api_base + '/bos/analyses/<int:id>',
-    view_func=analyses,
+    bcs_api_base + '/analyses/<int:id>',
+    view_func=analyses_view,
     methods=['GET','PUT','DELETE']
 )

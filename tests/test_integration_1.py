@@ -14,28 +14,23 @@ def test_integration_1(testful):
     :return:
     """
     # "login" (returns an identity)
-    # TODO Include a Firebase Token, how? Maybe just allow specified with a master password
-    # TODO If a token is provided, manage the automatic creation of an Identity: extract email
-    response = testful.post("/api/login", json=dict(user='user@internet', password=''))
+    response = testful.put("/api/authn?user='test_user'")
     # Check if the response is as expected result
     assert response.status == 200
-    assert response.json["identity"] == 'user@internet'
+    assert response.json["status"] == 'success'
     # Call "am i logged" (pass headers; returns a boolean)
-    response = testful.get("/api/login")
+    response = testful.get("/api/authn")
     assert response.status == 200
     assert response.json["result"] == 'True'
     # Call "get ontologies" (returns a list)
-    response = testful.get("/api/ontologies")
+    response = testful.get("/api/ontologies/")
     assert response.status == 200
-    assert type(response.json["ontologies"]) == list
-    # Call "import ontologies" (import a full ontology)
-    # TODO How to upload a file (the ontology will be in a <format> file)
-    # TODO If the ontology exists, update it (there must be a unique identifier for ontologies)
-    response = testful.post("/api/ontologies")
+    assert type(response.json) == list
+    # NOTE: Call "import ontologies" not published as an API. It is directly performed with scripts, at deploy
     # Call "get sequences" (returns a list of codes, JSON format by default)
     # TODO How many should be returned (there must be a limit; look for pagination support)
     # TODO Also, prepare to filter on Identity: each sequence has to be checked for "list" permission
-    response = testful.get("/api/bos/sequences")
+    response = testful.get("/api/bos/sequences/")
     assert response.status == 200
     assert type(response.json) == list
     # Detail of a sequence, JSON format
@@ -47,10 +42,10 @@ def test_integration_1(testful):
     # TODO For the upload mechanism, the same used in Ontology
     # TODO Optionally import them with metadata like Collection, Identity (importer)
     # TODO Update already existing sequences. This is very important to
-    response = testful.post("/api/bos/sequences")
+    response = testful.post("/api/bos/sequences/")
     assert response.status == 200
     # Call "get processes" (return a list of processes in the platform, filtered by Identity permissions)
-    response = testful.get("/api/processes")
+    response = testful.get("/api/processes/")
     assert response.status == 200
     assert type(response.json) == list
     # Call "get process 'i' input form" (return the schema)
@@ -60,7 +55,7 @@ def test_integration_1(testful):
     assert response.status == 200
     assert type(response.json) == dict
     # Call "get resources" (return resources supporting that process)
-    response = testful.get(f"/api/processes/{pid}/resources")
+    response = testful.get(f"/api/processes/{pid}/resources/")
     assert response.status == 200
     assert type(response.json) == list
     # Call "submit asynchronous process" (returns Job ID)
@@ -97,7 +92,7 @@ def test_integration_1(testful):
     assert response.status == 200
     assert type(response.json) == dict
     # Call "logout" (returns a boolean)
-    response = testful.delete("/api/login")
+    response = testful.delete("/api/authn")
     # Check if the response is as expected result
     assert response.status == 200
     assert response.json["result"] == 'True'
