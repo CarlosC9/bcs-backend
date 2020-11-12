@@ -89,7 +89,7 @@ ORMBaseChado = declarative_base(cls=BaseMixin)
 
 
 class ObjectType(ORMBase):  # CODES
-    """ Sequence, Alignment, Phylogenetic Tree, ... """
+    """ Sequence, Alignment, Phylogenetic Tree, ... but also "Functions of the system" (like import, export, etc.) """
     __tablename__ = "object_types"
 
     id = Column(Integer, primary_key=True, autoincrement=True)

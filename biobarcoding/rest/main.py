@@ -39,16 +39,31 @@ def create_app(debug, cfg_dict=None):
     app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
     load_configuration_file(app)
 
-    load_configuration_file(app)
-
     initialize_firebase(app)
 
-    FlaskSessionServerSide(app)  # Flask Session
-    CORS(app,                    # CORS
+    # Session persistence configuration
+    d = construct_session_persistence_backend(app)
+    app.config.update(d)
+
+    # Flask Session
+    FlaskSessionServerSide(app)
+
+    # CORS
+    CORS(app,
          resources={r"/api/*": {"origins": "*"}},
          supports_credentials=True
          )
 
+    # Database BCS
+    initialize_database(app)
+
+    # Database Chado
+    initialize_database_chado(app)
+
+    # Security
+    # initialize_authn_authr(app)
+
+    # RESTful endpoints
     for bp in [bp_auth,
                bp_sequences,
                bp_alignments,
@@ -62,15 +77,6 @@ def create_app(debug, cfg_dict=None):
                bp_gui
                ]:
         app.register_blueprint(bp)
-
-    # Database BCS
-    initialize_database(app)
-    # Database Chado
-    initialize_database_chado(app)
-
-    # Session persistence
-    d = construct_session_persistence_backend(app)
-    app.config.update(d)
 
     # Celery
     initialize_celery(app)

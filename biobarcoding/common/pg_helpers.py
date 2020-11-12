@@ -2,6 +2,8 @@ import collections
 
 import sqlalchemy
 from multidict import MultiDict, CIMultiDict
+from typing import List, Tuple
+
 from sqlalchemy import and_
 
 import biobarcoding
@@ -11,8 +13,6 @@ from biobarcoding.db_models import ORMBase
 # #####################################################################################################################
 # >>>> DATABASE FUNCTIONS <<<<
 # #####################################################################################################################
-from biobarcoding.db_models.jobs import ComputeResource, JobManagementType, ProcessInComputeResource, Process
-
 
 def drop_pg_database(sa_str, database_name):
     db_connection_string = sa_str
@@ -67,37 +67,55 @@ def load_table(sf, clazz, d):
     sf.remove()
 
 
-def load_computing_resources(sf):
+def load_table_extended(sf, clazz, attributes: List[str], values: List[Tuple]):
+    """
+    Insert records into a relational table
+    Loads records in "values" using "attributes" names, into a relational table associated to the class "clazz",
+    using the session factory "sf".
+
+    NOTE: "uuid" MUST be the first value in all tuples
+
+    :param sf:
+    :param clazz:
+    :param attributes: a list of attribute names
+    :return:
+    """
     session = sf()
-    local_uuid = "8fac3ce8-8796-445f-ac27-4baedadeff3b"
-    r = session.query(ComputeResource).filter(ComputeResource.uuid == local_uuid).first()
-    if not r:
-        r = ComputeResource()
-        r.uuid = local_uuid
-        r.name = "localhost - galaxy"
-        jm_type = session.query(JobManagementType).filter(JobManagementType.name == "galaxy").first()
-        r.jm_type = jm_type
-        r.jm_location = {"url": "http://localhost:8080/"}
-        r.jm_credentials = {"api_key": "fakekey"}
-        session.add(r)
-        session.commit()
+    for t in values:
+        i = session.query(clazz).filter(clazz.uuid == t[0]).first()
+        if not i:
+            ins = clazz()
+            for i, f in enumerate(t):
+                setattr(ins, attributes[i], f)
+            session.add(ins)
+    session.commit()
     sf.remove()
 
 
-def load_processes_in_computing_resources(sf):
+def load_many_to_many_table(sf, clazz, lclazz, rclazz, attributes: List[str], values: List[Tuple]):
+    """
+    load_many_to_many_table(sf, RoleIdentity, Role, Identity, ["role_id", "identity_id"], [["admins", "test_user"]])
+
+    :param sf:
+    :param clazz:
+    :param lclazz:
+    :param rclazz:
+    :param attributes:
+    :param values:
+    :return:
+    """
     session = sf()
-    local_uuid = "21879d8f-1c0e-4f71-92a9-88bc6a3aa14b"
-    process = session.query(Process).filter(Process.uuid == "5b7e9e40-040b-40fc-9db3-7d707fe9617f").first()
-    resource = session.query(ComputeResource).filter(ComputeResource.uuid == "8fac3ce8-8796-445f-ac27-4baedadeff3b").first()
-    r = session.query(ProcessInComputeResource).filter(and_(ProcessInComputeResource.process_id==process.id, ProcessInComputeResource.resource_id==resource.id)).first()
-    if not r:
-        r = ProcessInComputeResource()
-        r.uuid = local_uuid
-        r.native_process_id = "MSA ClustalW"
-        r.process = process
-        r.resource = resource
-        session.add(r)
-        session.commit()
+    for t in values:
+        # Find id of left and right sides
+        left = session.query(lclazz).filter(lclazz.name == t[0]).first()
+        right = session.query(rclazz).filter(rclazz.name == t[1]).first()
+        i = session.query(clazz).filter(and_(getattr(clazz, attributes[0]) == left.id, getattr(clazz, attributes[1]) == right.id)).first()
+        if not i:
+            ins = clazz()
+            setattr(ins, attributes[0], left.id)
+            setattr(ins, attributes[1], right.id)
+            session.add(ins)
+    session.commit()
     sf.remove()
 
 
