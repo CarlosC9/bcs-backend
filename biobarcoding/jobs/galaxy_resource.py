@@ -663,7 +663,7 @@ def initialize_galaxy(flask_app):
 
 
 
-class converters:
+class ToFormlyConverter:
     field = {
         # 'original' : 'formly'
         'name': 'key',
@@ -693,7 +693,7 @@ class converters:
         elif g_input['model_class'] == 'IntegerToolParameter':
             converter = converterIntegerToolParameter()
         else:
-            return 'no converter for this model class {}'.format(g_input['model_class'])
+            return 'no converter for model class {}'.format(g_input['model_class'])
         return converter.convert(g_input)
 
     def conversion(self, g_input):
@@ -705,15 +705,21 @@ class converters:
         return form
 
     def get_formly_json(self, g_input):
-        l=[]
+        l = []
         for i in g_input:
-            l.append(self.choose_converter(i))
+            forms = self.choose_converter(i)
+            if isinstance(forms,list) and len(forms)>1:
+                for f in forms:
+                    if isinstance(f, dict):
+                        l.append(f)
+            else:
+                l.append(forms)
         regex = r'(?<!: )"(\S*?)"'
         tmp = json.dumps(l, indent=3)
         return re.sub(regex, '\\1', tmp)
 
 
-class convertBooleanToolParameter(converters):
+class convertBooleanToolParameter(ToFormlyConverter):
     def __init__(self):
         super().__init__()
 
@@ -727,7 +733,7 @@ class convertBooleanToolParameter(converters):
         return form
 
 
-class convertSelectToolParameter(converters):
+class convertSelectToolParameter(ToFormlyConverter):
     def __init__(self):
         super().__init__()
 
@@ -736,7 +742,7 @@ class convertSelectToolParameter(converters):
         form['templateOptions']['options'] = self.options(g_input)
         return form
 
-class converterIntegerToolParameter(converters):
+class converterIntegerToolParameter(ToFormlyConverter):
     def __init__(self):
         super().__init__()
 
@@ -751,7 +757,7 @@ class converterIntegerToolParameter(converters):
         return form
 
 
-class converterConditional(converters):
+class converterConditional(ToFormlyConverter):
     def __init__(self):
         super().__init__()
         self.selector = None
@@ -768,7 +774,7 @@ class converterConditional(converters):
                 for j in i['inputs']:
                     case_form = self.choose_converter(j)
                     if isinstance(case_form,dict):
-                        case_form['hideExpression'] = 'model.' + selector_form['key']+ '!=' + i['value']
+                        case_form['hideExpression'] = 'model.' + selector_form['key']+ '!=\'' + i['value']+'\''
                     else:
                         print('no converter for ',j['model_class'])
                     form.append(case_form)

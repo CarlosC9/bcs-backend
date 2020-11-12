@@ -100,7 +100,7 @@ class MyTestCase(unittest.TestCase):
         with open(input_path, 'r') as f:
             galaxy_dict_in = json.load(f)
         inputs = galaxy_dict_in['inputs']
-        convert = converters()
+        convert = ToFormlyConverter()
         formly_json = convert.get_formly_json(inputs)
         json = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/json2.json'
         with open(json, 'w') as file:

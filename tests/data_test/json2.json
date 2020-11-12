@@ -1,5 +1,5 @@
 [
-   "no converter for this model class DataToolParameter",
+   ": // no converter for this model class DataToolParameter ",
    {
       key: "dnarna",
       type: "select",
@@ -19,51 +19,49 @@
       },
       defaultValue: "DNA"
    },
-   [
-      {
-         key: "outform",
-         type: "select",
-         templateOptions: {
-            label: "Output alignment format",
-            required: true,
-            options: [
-               {
-                  value: "clustal",
-                  label: "Native Clustal output format"
-               },
-               {
-                  value: "phylip",
-                  label: "PHYLIP format"
-               },
-               {
-                  value: "fasta",
-                  label: "FASTA format"
-               }
-            ]
-         },
-         defaultValue: "clustal"
+   {
+      key: "outform",
+      type: "select",
+      templateOptions: {
+         label: "Output alignment format",
+         required: true,
+         options: [
+            {
+               value: "clustal",
+               label: "Native Clustal output format"
+            },
+            {
+               value: "phylip",
+               label: "PHYLIP format"
+            },
+            {
+               value: "fasta",
+               label: "FASTA format"
+            }
+         ]
       },
-      {
-         key: "out_seqnos",
-         type: "radio",
-         templateOptions: {
-            label: "Show residue numbers in clustal format output",
-            required: true,
-            options: [
-               {
-                  value: "ON",
-                  label: "Yes"
-               },
-               {
-                  value: "OFF",
-                  label: "No"
-               }
-            ]
-         },
-         defaultValue: "false",
-         hideExpression: "model.outform!=clustal"
-      }
-   ],
+      defaultValue: "clustal"
+   },
+   {
+      key: "out_seqnos",
+      type: "radio",
+      templateOptions: {
+         label: "Show residue numbers in clustal format output",
+         required: true,
+         options: [
+            {
+               value: "ON",
+               label: "Yes"
+            },
+            {
+               value: "OFF",
+               label: "No"
+            }
+         ]
+      },
+      defaultValue: "false",
+      hideExpression: "model.outform!='clustal'"
+   },
    {
       key: "out_order",
       type: "select",
@@ -83,47 +81,45 @@
       },
       defaultValue: "ALIGNED"
    },
-   [
-      {
-         key: "mode",
-         type: "select",
-         templateOptions: {
-            label: "Output complete alignment (or specify part to output)",
-            required: true,
-            options: [
-               {
-                  value: "complete",
-                  label: "Complete alignment"
-               },
-               {
-                  value: "part",
-                  label: "Only part of the alignment"
-               }
-            ]
-         },
-         defaultValue: "complete"
+   {
+      key: "mode",
+      type: "select",
+      templateOptions: {
+         label: "Output complete alignment (or specify part to output)",
+         required: true,
+         options: [
+            {
+               value: "complete",
+               label: "Complete alignment"
+            },
+            {
+               value: "part",
+               label: "Only part of the alignment"
+            }
+         ]
       },
-      {
-         key: "seq_range_start",
-         type: "input",
-         templateOptions: {
-            label: "Start point",
-            required: true,
-            type: "number"
-         },
-         defaultValue: "1",
-         hideExpression: "model.mode!=part"
+      defaultValue: "complete"
+   },
+   {
+      key: "seq_range_start",
+      type: "input",
+      templateOptions: {
+         label: "Start point",
+         required: true,
+         type: "number"
       },
-      {
-         key: "seq_range_end",
-         type: "input",
-         templateOptions: {
-            label: "End point",
-            required: true,
-            type: "number"
-         },
-         defaultValue: "99999",
-         hideExpression: "model.mode!=part"
-      }
-   ]
+      defaultValue: "1",
+      hideExpression: "model.mode!='part'"
+   },
+   {
+      key: "seq_range_end",
+      type: "input",
+      templateOptions: {
+         label: "End point",
+         required: true,
+         type: "number"
+      },
+      defaultValue: "99999",
+      hideExpression: "model.mode!='part'"
+   }
 ]
