@@ -4,6 +4,8 @@ import yaml
 import os
 
 from biobarcoding.common import ROOT
+from biobarcoding.db_models import DBSession
+from biobarcoding.db_models.jobs import ComputeResource
 from biobarcoding.jobs import JobExecutorAtResource
 from pathlib import Path
 
@@ -640,6 +642,18 @@ def initialize_galaxy(flask_app):
     if {'GALAXY_API_KEY', 'GALAXY_LOCATION'} <= flask_app.config.keys():
         api_key = flask_app.config['GALAXY_API_KEY']
         url = flask_app.config['GALAXY_LOCATION']
+
+        # Update resource location
+        session = DBSession()
+        local_uuid = "8fac3ce8-8796-445f-ac27-4baedadeff3b"
+        r = session.query(ComputeResource).filter(ComputeResource.uuid == local_uuid).first()
+        if r:
+            r.jm_location = {"url": url}
+            r.jm_credentials = {"api_key": api_key}
+            session.commit()
+        DBSession.remove()
+
+        # Install basic workflow if it is not installed
         gi = login(api_key, url)
         workflow = 'Galaxy-Workflow-MSA_ClustalW.ga'
         workflow_path = ROOT +'/biobarcoding/workflows/'+ workflow
