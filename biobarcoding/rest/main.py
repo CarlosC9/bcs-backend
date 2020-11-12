@@ -3,7 +3,7 @@ from flask_session import Session as FlaskSessionServerSide
 from flask_cors import CORS
 
 import biobarcoding
-# from biobarcoding.authorization import initialize_authn_authr
+from biobarcoding.jobs.galaxy_resource import initialize_galaxy
 from biobarcoding.rest import logger, log_level, load_configuration_file, construct_session_persistence_backend, \
     initialize_database, initialize_database_chado, bcs_gui_base
 from biobarcoding.rest.auth import bp_auth
@@ -80,6 +80,9 @@ def create_app(debug, cfg_dict=None):
 
     # Celery
     initialize_celery(app)
+
+    # Galaxy
+    initialize_galaxy(app)
 
     # Logger
     app.logger.setLevel(log_level)

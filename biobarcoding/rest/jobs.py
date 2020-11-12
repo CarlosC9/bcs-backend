@@ -6,15 +6,37 @@ from flask import Blueprint
 from flask import request, make_response, jsonify
 from flask.views import MethodView
 import json
+
+from sqlalchemy import and_
+
 from biobarcoding.db_models import DBSession
+from biobarcoding.db_models.jobs import ProcessInComputeResource
 from biobarcoding.jobs import JobManagementAPI
 from biobarcoding.rest import bcs_api_base, register_api, Job, ComputeResource, Process
 
 bp_jobs = Blueprint('jobs', __name__)
 
 
-# Jobs REST API
+def is_integer(n):
+    """ https://note.nkmk.me/en/python-check-int-float/ """
+    try:
+        float(n)
+    except ValueError:
+        return False
+    else:
+        return float(n).is_integer()
 
+def dottedtodict(dotdict):
+    if isinstance(dotdict,DottedDict):
+        dotdict=dict(dotdict)
+        for k,v in dotdict.items():
+            if isinstance(v,DottedDict):
+                dotdict[k] = dottedtodict(v)
+        return dotdict
+
+
+
+# Jobs REST API
 class JobAPI(MethodView):
     """
     Job Resource
@@ -35,6 +57,7 @@ class JobAPI(MethodView):
     def post(self):
         """
         curl -i -XPOST http://localhost:5000/api/jobs/ --data-urlencode "{}"
+        curl -i -XPOST http://localhost:5000/api/jobs/ -H "Content-Type: application/json" -d @"/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/test_job_req.json"
         :return:
         """
         # Submit new Job
@@ -43,44 +66,72 @@ class JobAPI(MethodView):
         session = DBSession()
         # Start JSON for processing
         d = DottedDict()
+        req = request.get_json()
         d.endpoint_url = ""
         # Load resource and process
-        in_dict = DottedCollection.load_json("{}")
-        # resource = session.query(ComputeResource).get(in_dict.resource.id)
-        process = session.query(Process).filter(Process.name == "pd-1.0").first()
+        in_dict = DottedDict(req)
+        if is_integer(in_dict.resource_id):
+            resource = session.query(ComputeResource).get(in_dict.resource_id)
+        else:
+            resource = session.query(ComputeResource).filter(ComputeResource.uuid == in_dict.resource_id).first()
+        if is_integer(in_dict.process_id):
+            process = session.query(Process).get(in_dict.process_id)
+        else:
+            process = session.query(Process).filter(Process.uuid == in_dict.process_id).first()
+        process_in_resource = session.query(ProcessInComputeResource).filter(and_(ProcessInComputeResource.process_id==process.id, ProcessInComputeResource.resource_id==resource.id)).first()
+        process_params = in_dict.process_params
+
+        """
+        Input JSON
+        {
+            "resource_id": ...
+            "process_id": ...
+            "process_params": {
+            }
+            "credentials": {
+            }
+        """
+        # Prepare "job_context" for Celery tasks
+        # "job_id": ...,
+        # "endpoint_url": ...
+        # "resource": {
+        #     "name": "",
+        #     "jm_type": "",
+        #     "jm_location": {
+        #     },
+        #     "jm_credentials": {
+        #     }
+        # }
+        # "process": {
+        #     "name": "",
+        #     "inputs": {
+        #     }
+        # }
+
+        # PROCESS
+        d.process = DottedDict()
+        d.process.inputs = process_params
+        d.process.name = process_in_resource.native_process_id
+        # RESOURCE
         d.resource = DottedDict()
-        d.resource.name = ""  # resource.name
+        d.resource.name = resource.name
+        d.resource.jm_type = resource.jm_type.name
+        d.resource.jm_location = resource.jm_location
+        d.resource.jm_credentials = resource.jm_credentials if "credentials" not in in_dict else in_dict.credentials
+
         # Create Job database object
         job = Job()
-        job.status = "created"
-        job.resource = None
+        job.resource = resource
         job.process = process
+        job.status = "created"
+        job.inputs = json.dumps(dottedtodict(process_params))
         session.add(job)
         session.commit()
         d.job_id = job.id
         DBSession.remove()
 
-        # Prepare JSON for Celery
-        # "resource": {
-        #     "name": "",
-        #     "proc_arch": "",
-        #     "operating_system": "",
-        #     "jm_type": "",
-        #     "jm_location": {
-        #     },
-        #     "jm_credentials": {
-        #
-        #     }
-        # }
-        # "workflow": {
-        #     "name": "",
-        #     "id": "",
-        #     "inputs": {
-        #     }
-        # }
-
         # Submit job to Celery
-        JobManagementAPI().submit(d)
+        JobManagementAPI().submit(json.dumps(dottedtodict(d)))
 
         # Return
         response_object = {

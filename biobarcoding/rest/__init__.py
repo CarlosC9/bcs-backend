@@ -10,7 +10,8 @@ from sqlalchemy.pool import StaticPool
 
 import biobarcoding
 from biobarcoding.common import generate_json
-from biobarcoding.common.pg_helpers import create_pg_database_engine, load_table, load_many_to_many_table
+from biobarcoding.common.pg_helpers import create_pg_database_engine, load_table, load_many_to_many_table, \
+    load_computing_resources, load_processes_in_computing_resources
 from biobarcoding.db_models import DBSession, ORMBase, DBSessionChado, ORMBaseChado, ObjectType
 from biobarcoding.db_models.bioinformatics import *
 from biobarcoding.db_models.sysadmin import *
@@ -52,7 +53,9 @@ def prepare_default_configuration(create_directories):
             "CHADO_PORT": "5432",
             "CHADO_USER": "postgres",
             "CHADO_PASSWORD": "postgres",
-            "CHADO_SCHEMA": "public"
+            "CHADO_SCHEMA": "public",
+            "GALAXY_API_KEY": "fakekey",
+            "GALAXY_LOCATION": "http://localhost:8080"
         }
 
     from appdirs import AppDirs
@@ -241,7 +244,9 @@ tm_processes = {  # Preloaded processes
     "985c01ca-d9d2-4df5-a8b9-8a6da251d7d4": "migrate-3.7.2",
     "f167eac0-2a23-4e74-bb1c-abdfb5f74a92": "import-sequences",
     "4cfcd389-ed9e-4174-aa99-150f176e8eec": "import-msa",
-    "caaca280-2290-4625-b5c0-76bcfb06e9ac": "import-phylotree"
+    "caaca280-2290-4625-b5c0-76bcfb06e9ac": "import-phylotree",
+    "15aa399f-dd58-433f-8e94-5b2222cd06c9": "Clustal Omega",
+    "5b7e9e40-040b-40fc-9db3-7d707fe9617f": "MSA ClustalW"
 }
 
 tm_system_functions = {
@@ -329,8 +334,6 @@ tm_system_functions = {
 # 087341a7-a371-4b7b-b3b9-92f91825e880
 # 25932546-d26c-4367-8c81-0c682094d117
 # ec40143f-ae32-4dac-9cfb-caa047e1adb1
-# 28615331-4c80-4387-b353-a6fd0338b475
-# f7c2c088-5ca1-46a7-90b3-9f446b706724
 
 
 def initialize_database_data():
@@ -345,6 +348,9 @@ def initialize_database_data():
     load_table(DBSession, Process, tm_processes)
     load_table(DBSession, Group, tm_default_groups)
     load_table(DBSession, Role, tm_default_roles)
+    load_computing_resources(DBSession)
+    load_processes_in_computing_resources(DBSession)
+
     # Load default authentication for "test_user"
     session = DBSession()
     test_user_id = "test_user"
@@ -364,21 +370,6 @@ def initialize_database_data():
     # Set test_user roles and groups
     load_many_to_many_table(DBSession, RoleIdentity, Role, Identity, ["role_id", "identity_id"], [["sysadmin", "test_user"]])
     load_many_to_many_table(DBSession, GroupIdentity, Group, Identity, ["group_id", "identity_id"], [["all-identified", "test_user"]])
-
-    # Load a ComputeResource if it does not exist
-    cr_id = "f0952819-7a7e-4ed0-a33b-139267fe33f4"
-    i = session.query(ComputeResource).filter(ComputeResource.uuid == cr_id).first()
-    if not i:
-        cr = ComputeResource()
-        cr.uuid = cr_id
-        cr.name = "balder - ITC"
-        jm = session.query(JobManagementType).filter(JobManagementType.name == "galaxy").first()
-        cr.jm_type = jm
-        cr.jm_location = {"url": "http://balder"}
-        cr.jm_credentials = {"user": "", "password": ""}
-        session.add(cr)
-        session.commit()
-    DBSession.remove()
 
 
 def initialize_database(flask_app):
