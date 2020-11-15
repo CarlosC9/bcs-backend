@@ -1,8 +1,10 @@
 import unittest
 from pathlib import Path
 import os
+
 from bioblend import galaxy
 from biobarcoding.jobs.galaxy_resource import *
+
 
 class MyTestCase(unittest.TestCase):
     def test_upload_file(self):
@@ -92,10 +94,25 @@ class MyTestCase(unittest.TestCase):
         tools_message = install_tools(gi, list_of_tools)
         print(tools_message)
 
+    def test_convert(self):
+        import json
+        input_path = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/mrbayes_galaxy.json'
+        with open(input_path, 'r') as f:
+            galaxy_dict_in = json.load(f)
+        inputs = galaxy_dict_in['inputs']
+        convert = ToFormlyConverter()
+        formly_json = convert.get_formly_json(inputs)
+        json = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/mrbayes_formly.json'
+        with open(json, 'w') as file:
+            file.write(formly_json)
+
+
+
+
 if __name__ == '__main__':
     # MyTestCase.test_upload_file()
     # MyTestCase.test_run_workflow_from_file()
     # MyTestCase.test_change_parameter()
     # MyTestCase.test_inputs_files()
-    MyTestCase.test_import_install()
-
+    # MyTestCase.test_import_install()
+    MyTestCase.test_convert()

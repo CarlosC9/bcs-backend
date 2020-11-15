@@ -1,7 +1,10 @@
+from typing import List, Any
+
 from bioblend import galaxy
 import json
 import yaml
 import os
+import re
 
 from biobarcoding.common import ROOT
 from biobarcoding.db_models import DBSession
@@ -526,7 +529,8 @@ def check_tools(wf1_dic, wf2_dic):
     tool_list = list()
     for step, content in steps1.items():
         if 'errors' in content:
-            if content['errors'] == "Tool is not installed":  # TODO depende de la versión de galaxi esto lleva un punto al final o no xq lo que hay que buscar otra cosa
+            if content[
+                'errors'] == "Tool is not installed":  # TODO depende de la versión de galaxi esto lleva un punto al final o no xq lo que hay que buscar otra cosa
                 tool_list.append(steps2[step]['tool_shed_repository'])
     if len(tool_list) == 0:
         return 'all tools are installed'
@@ -656,7 +660,7 @@ def initialize_galaxy(flask_app):
         # Install basic workflow if it is not installed
         gi = login(api_key, url)
         workflow = 'Galaxy-Workflow-MSA_ClustalW.ga'
-        workflow_path = ROOT +'/biobarcoding/workflows/'+ workflow
+        workflow_path = ROOT + '/biobarcoding/workflows/' + workflow
         with open(workflow_path, 'r') as f:
             wf_dict_in = json.load(f)
         name = wf_dict_in['name']
@@ -669,3 +673,138 @@ def initialize_galaxy(flask_app):
             return None
     else:
         return 'No Galaxy test credentials in config file'
+
+
+
+
+class ToFormlyConverter:
+    field = {
+        # 'original' : 'formly'
+        'name': 'key',
+        'type': 'type'
+    }
+    templateoptionsfields = {
+        # 'original' : 'formly'
+        'label': 'label',
+        'optional': 'required'
+    }
+
+    @staticmethod
+    def rename_keys(d, keys):
+        return dict([(keys.get(k), v) for k, v in d.items() if k in keys.keys()])
+
+    @staticmethod
+    def options(g_input):
+        return [{'value': o[1], 'label': o[0]} for o in g_input['options']]
+
+    def choose_converter(self,g_input):
+        input_type = g_input['model_class']
+        if input_type == 'SelectToolParameter':
+            converter = convertSelectToolParameter()
+        elif input_type == 'BooleanToolParameter':
+            converter = convertBooleanToolParameter()
+        elif input_type == 'Conditional':
+            converter = converterConditional()
+        elif input_type == 'IntegerToolParameter':
+            converter = converterIntegerToolParameter()
+        elif input_type == 'FloatToolParameter':
+            converter = converterIntegerToolParameter()
+        elif input_type == 'TextToolParameter':
+            converter = converterTextToolParameter()
+        else:
+            return 'no converter for model class {}'.format(g_input['model_class'])
+        return converter.convert(g_input)
+
+    def conversion(self, g_input):
+        form = self.rename_keys(g_input, self.field)
+        form['templateOptions'] = self.rename_keys(g_input, self.templateoptionsfields)
+        if 'value' in g_input:
+            form['defaultValue'] = g_input['value']
+        form['templateOptions']['required'] = not form['templateOptions']['required']
+        form['templateOptions']['description'] = g_input['help']
+        return form
+
+    def get_formly_json(self, g_input):
+        l = []
+        for i in g_input:
+            forms = self.choose_converter(i)
+            if isinstance(forms,list) and len(forms)>1:
+                for f in forms:
+                    if isinstance(f, dict):
+                        l.append(f)
+            else:
+                l.append(forms)
+        regex = r'(?<!: )"(\S*?)"'
+        tmp = json.dumps(l, indent=3)
+        return re.sub(regex, '\\1', tmp)
+
+
+class convertBooleanToolParameter(ToFormlyConverter):
+    def __init__(self):
+        super().__init__()
+
+    def convert(self, g_input):
+        form = self.conversion(g_input)
+        form['type'] = 'radio'
+        form['templateOptions']['options'] = [
+            {'value': g_input['truevalue'], 'label': 'Yes'},
+            {'value': g_input['falsevalue'], 'label': 'No'} #check is needed
+        ]
+        return form
+
+
+class convertSelectToolParameter(ToFormlyConverter):
+    def __init__(self):
+        super().__init__()
+
+    def convert(self, g_input):
+        form = self.conversion(g_input)
+        form['templateOptions']['options'] = self.options(g_input)
+        return form
+
+class converterIntegerToolParameter(ToFormlyConverter):
+    def __init__(self):
+        super().__init__()
+
+    def convert(self, g_input):
+        form = self.conversion(g_input)
+        form['type'] = 'input'
+        form['templateOptions']['type'] = 'number'
+        if g_input['min'] != None:
+            form['templateOptions']['min'] = int(g_input['min'])
+        if g_input['max'] != None:
+            form['templateOptions']['max'] = int(g_input['max'])
+        return form
+
+
+class converterTextToolParameter(ToFormlyConverter):
+    def convert(self,input):
+        form = self.conversion(input)
+        form['type'] = 'textarea'
+        return form
+
+
+
+class converterConditional(ToFormlyConverter):
+    def __init__(self):
+        super().__init__()
+        self.selector = None
+        self.cases = None
+
+    def convert(self, g_inputs):
+        self.selector = g_inputs['test_param']
+        self.cases = g_inputs['cases']
+        form = list()
+        selector_form = self.choose_converter(self.selector)
+        form.append(selector_form)
+        for i in self.cases:
+            if len(i['inputs'])>0:
+                for j in i['inputs']:
+                    case_form = self.choose_converter(j)
+                    if isinstance(case_form,dict):
+                        case_form['hideExpression'] = 'model.' + selector_form['key']+ '!=\'' + i['value']+'\''
+                    else:
+                        print('no converter for ',j['model_class'])
+                    form.append(case_form)
+        return form
+
