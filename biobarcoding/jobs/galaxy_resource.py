@@ -684,14 +684,19 @@ class ToFormlyConverter:
         return [{'value': o[1], 'label': o[0]} for o in g_input['options']]
 
     def choose_converter(self,g_input):
-        if g_input['model_class'] == 'SelectToolParameter':
+        input_type = g_input['model_class']
+        if input_type == 'SelectToolParameter':
             converter = convertSelectToolParameter()
-        elif g_input['model_class'] == 'BooleanToolParameter':
+        elif input_type == 'BooleanToolParameter':
             converter = convertBooleanToolParameter()
-        elif g_input['model_class'] == 'Conditional':
+        elif input_type == 'Conditional':
             converter = converterConditional()
-        elif g_input['model_class'] == 'IntegerToolParameter':
+        elif input_type == 'IntegerToolParameter':
             converter = converterIntegerToolParameter()
+        elif input_type == 'FloatToolParameter':
+            converter = converterIntegerToolParameter()
+        elif input_type == 'TextToolParameter':
+            converter = converterTextToolParameter()
         else:
             return 'no converter for model class {}'.format(g_input['model_class'])
         return converter.convert(g_input)
@@ -702,6 +707,7 @@ class ToFormlyConverter:
         if 'value' in g_input:
             form['defaultValue'] = g_input['value']
         form['templateOptions']['required'] = not form['templateOptions']['required']
+        form['templateOptions']['description'] = g_input['help']
         return form
 
     def get_formly_json(self, g_input):
@@ -755,6 +761,14 @@ class converterIntegerToolParameter(ToFormlyConverter):
         if g_input['max'] != None:
             form['templateOptions']['max'] = int(g_input['max'])
         return form
+
+
+class converterTextToolParameter(ToFormlyConverter):
+    def convert(self,input):
+        form = self.conversion(input)
+        form['type'] = 'textarea'
+        return form
+
 
 
 class converterConditional(ToFormlyConverter):

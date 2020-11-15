@@ -96,13 +96,13 @@ class MyTestCase(unittest.TestCase):
 
     def test_convert(self):
         import json
-        input_path = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/clustalw.json'
+        input_path = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/mrbayes_galaxy.json'
         with open(input_path, 'r') as f:
             galaxy_dict_in = json.load(f)
         inputs = galaxy_dict_in['inputs']
         convert = ToFormlyConverter()
         formly_json = convert.get_formly_json(inputs)
-        json = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/json2.json'
+        json = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/mrbayes_formly.json'
         with open(json, 'w') as file:
             file.write(formly_json)
 

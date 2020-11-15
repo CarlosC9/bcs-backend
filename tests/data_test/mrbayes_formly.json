@@ -1,0 +1,294 @@
+[
+   "no converter for model class DataToolParameter",
+   {
+      key: "filename",
+      type: "textarea",
+      templateOptions: {
+         label: "Output filename",
+         required: true,
+         description: "Output files will be named this with .p, .t, .mcmc extensions. Use to avoid overwriting files when running repeated analyses on the same dataset."
+      },
+      defaultValue: ""
+   },
+   {
+      key: "ngen",
+      type: "input",
+      templateOptions: {
+         label: "Number of generations",
+         required: true,
+         description: "",
+         type: "number"
+      },
+      defaultValue: "10000"
+   },
+   {
+      key: "nchain",
+      type: "input",
+      templateOptions: {
+         label: "Number of chains",
+         required: true,
+         description: "",
+         type: "number"
+      },
+      defaultValue: "2"
+   },
+   {
+      key: "nrun",
+      type: "input",
+      templateOptions: {
+         label: "Number of runs",
+         required: true,
+         description: "",
+         type: "number"
+      },
+      defaultValue: "2"
+   },
+   {
+      key: "outgroup",
+      type: "textarea",
+      templateOptions: {
+         label: "Outgroup",
+         required: true,
+         description: "The name or number identifying one taxon from the data."
+      },
+      defaultValue: "1"
+   },
+   {
+      key: "model",
+      type: "select",
+      templateOptions: {
+         label: "Choose model",
+         required: true,
+         description: "Models are defined below and are only valid for nucleotide data.",
+         options: [
+            {
+               value: "lset nst=6",
+               label: "GTR"
+            },
+            {
+               value: "lset nst=6; prset statefreqpr=fixed(equal)",
+               label: "SYM"
+            },
+            {
+               value: "lset nst=2",
+               label: "HKY85"
+            },
+            {
+               value: "lset nst=2; prset statefreqpr=fixed(equal)",
+               label: "K2P"
+            },
+            {
+               value: "lset nst=1",
+               label: "F81"
+            },
+            {
+               value: "lset nst=1; prset statefreqpr=fixed(equal)",
+               label: "JC69"
+            },
+            {
+               value: "lset nst=mixed",
+               label: "Mixed"
+            }
+         ]
+      },
+      defaultValue: "lset nst=6"
+   },
+   {
+      key: "rates",
+      type: "select",
+      templateOptions: {
+         label: "Choose rates",
+         required: true,
+         description: "",
+         options: [
+            {
+               value: "equal",
+               label: "(equal) No rate variation across sites"
+            },
+            {
+               value: "gamma",
+               label: "(gamma) Gamma-distributed rates across sites"
+            },
+            {
+               value: "propinv",
+               label: "(propinv) A proportion of the sites are invariable"
+            },
+            {
+               value: "invgamma",
+               label: "(invgamma) A proportion of the sites are invariable and the remaining sites are Gamma-distributed"
+            },
+            {
+               value: "adgamma",
+               label: "(adgamma) Autocorrelated rates across sites"
+            }
+         ]
+      },
+      defaultValue: "equal"
+   },
+   {
+      key: "samplefreq",
+      type: "input",
+      templateOptions: {
+         label: "Sample frequency",
+         required: true,
+         description: "Frequency with which output it written to files.",
+         type: "number"
+      },
+      defaultValue: "500"
+   },
+   {
+      key: "printfreq",
+      type: "input",
+      templateOptions: {
+         label: "Print frequency",
+         required: true,
+         description: "Frequency with which output is printed to the screen.",
+         type: "number"
+      },
+      defaultValue: "500"
+   },
+   {
+      key: "burninfrac",
+      type: "input",
+      templateOptions: {
+         label: "Burn-in fraction",
+         required: true,
+         description: "Fraction of samples to discard when summarizing.",
+         type: "number"
+      },
+      defaultValue: "0.25"
+   },
+   {
+      key: "stoprule",
+      type: "select",
+      templateOptions: {
+         label: "Stop rule?",
+         required: true,
+         description: "",
+         options: [
+            {
+               value: "no",
+               label: "No"
+            },
+            {
+               value: "yes",
+               label: "Yes"
+            }
+         ]
+      },
+      defaultValue: "no"
+   },
+   {
+      key: "sump",
+      type: "radio",
+      templateOptions: {
+         label: "Include sump?",
+         required: true,
+         description: "Summarizes sampled parameter value.",
+         options: [
+            {
+               value: "sump;",
+               label: "Yes"
+            },
+            {
+               value: "",
+               label: "No"
+            }
+         ]
+      },
+      defaultValue: "false"
+   },
+   {
+      key: "sumt",
+      type: "radio",
+      templateOptions: {
+         label: "Include sumt?",
+         required: true,
+         description: "Summarizes the trees.",
+         options: [
+            {
+               value: "sumt;",
+               label: "Yes"
+            },
+            {
+               value: "",
+               label: "No"
+            }
+         ]
+      },
+      defaultValue: "false"
+   },
+   {
+      key: "plot",
+      type: "radio",
+      templateOptions: {
+         label: "Include plot?",
+         required: true,
+         description: "Creates an x-y graph of the parameter over the course of the chain.",
+         options: [
+            {
+               value: "plot",
+               label: "Yes"
+            },
+            {
+               value: "",
+               label: "No"
+            }
+         ]
+      },
+      defaultValue: "false"
+   },
+   {
+      key: "checkfreq",
+      type: "input",
+      templateOptions: {
+         label: "Checkpoint frequency",
+         required: true,
+         description: "Frequency with which checkpoints are written. Used for continuing analysis with append.",
+         type: "number"
+      },
+      defaultValue: "100000"
+   },
+   {
+      key: "append",
+      type: "radio",
+      templateOptions: {
+         label: "Append to last checkpoint?",
+         required: true,
+         description: "Requires .ckp file (i.e. that number of generations > checkpoint frequency for previous analysis).",
+         options: [
+            {
+               value: "mcmcp append=yes",
+               label: "Yes"
+            },
+            {
+               value: "mcmcp append=no",
+               label: "No"
+            }
+         ]
+      },
+      defaultValue: "false"
+   },
+   {
+      key: "seed",
+      type: "input",
+      templateOptions: {
+         label: "Seed",
+         required: true,
+         description: "Specify a seed with which to run the job.",
+         type: "number"
+      },
+      defaultValue: "5"
+   },
+   {
+      key: "swapseed",
+      type: "input",
+      templateOptions: {
+         label: "Swap Seed",
+         required: true,
+         description: "Specify a swap seed with which to run the job.",
+         type: "number"
+      },
+      defaultValue: "5"
+   }
+]
