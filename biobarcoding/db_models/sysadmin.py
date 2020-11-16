@@ -36,6 +36,7 @@ class Identity(ORMBase):
     uuid = Column(GUID, unique=True)
     name = Column(String(255))
     email = Column(String(255))
+    configuration = Column(JSON)  # To store personal preferences, from language to other visualization features
     creation_time = Column(DateTime, default=datetime.datetime.utcnow())
     deactivation_time = Column(DateTime)
 
