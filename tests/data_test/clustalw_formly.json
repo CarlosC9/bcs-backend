@@ -1,125 +1,131 @@
 [
-   ": // no converter for this model class DataToolParameter ",
    {
-      key: "dnarna",
-      type: "select",
-      templateOptions: {
-         label: "Data type",
-         required: true,
-         options: [
+      "key": "dnarna",
+      "type": "select",
+      "templateOptions": {
+         "label": "Data type",
+         "required": true,
+         "description": "",
+         "options": [
             {
-               value: "DNA",
-               label: "DNA nucleotide sequences"
+               "value": "DNA",
+               "label": "DNA nucleotide sequences"
             },
             {
-               value: "PROTEIN",
-               label: "Protein sequences"
+               "value": "PROTEIN",
+               "label": "Protein sequences"
             }
          ]
       },
-      defaultValue: "DNA"
+      "defaultValue": "DNA"
    },
    {
-      key: "outform",
-      type: "select",
-      templateOptions: {
-         label: "Output alignment format",
-         required: true,
-         options: [
+      "key": "outform",
+      "type": "select",
+      "templateOptions": {
+         "label": "Output alignment format",
+         "required": true,
+         "description": "",
+         "options": [
             {
-               value: "clustal",
-               label: "Native Clustal output format"
+               "value": "clustal",
+               "label": "Native Clustal output format"
             },
             {
-               value: "phylip",
-               label: "PHYLIP format"
+               "value": "phylip",
+               "label": "PHYLIP format"
             },
             {
-               value: "fasta",
-               label: "FASTA format"
+               "value": "fasta",
+               "label": "FASTA format"
             }
          ]
       },
-      defaultValue: "clustal"
+      "defaultValue": "clustal"
    },
    {
-      key: "out_seqnos",
-      type: "radio",
-      templateOptions: {
-         label: "Show residue numbers in clustal format output",
-         required: true,
-         options: [
+      "key": "out_seqnos",
+      "type": "radio",
+      "templateOptions": {
+         "label": "Show residue numbers in clustal format output",
+         "required": true,
+         "description": "",
+         "options": [
             {
-               value: "ON",
-               label: "Yes"
+               "value": "ON",
+               "label": "Yes"
             },
             {
-               value: "OFF",
-               label: "No"
+               "value": "OFF",
+               "label": "No"
             }
          ]
       },
-      defaultValue: "false",
-      hideExpression: "model.outform!='clustal'"
+      "defaultValue": "false",
+      "hideExpression": "model.outform!='clustal'"
    },
    {
-      key: "out_order",
-      type: "select",
-      templateOptions: {
-         label: "Output order",
-         required: true,
-         options: [
+      "key": "out_order",
+      "type": "select",
+      "templateOptions": {
+         "label": "Output order",
+         "required": true,
+         "description": "",
+         "options": [
             {
-               value: "ALIGNED",
-               label: "Aligned"
+               "value": "ALIGNED",
+               "label": "Aligned"
             },
             {
-               value: "INPUT",
-               label: "Same order as input file"
+               "value": "INPUT",
+               "label": "Same order as input file"
             }
          ]
       },
-      defaultValue: "ALIGNED"
+      "defaultValue": "ALIGNED"
    },
    {
-      key: "mode",
-      type: "select",
-      templateOptions: {
-         label: "Output complete alignment (or specify part to output)",
-         required: true,
-         options: [
+      "key": "mode",
+      "type": "select",
+      "templateOptions": {
+         "label": "Output complete alignment (or specify part to output)",
+         "required": true,
+         "description": "",
+         "options": [
             {
-               value: "complete",
-               label: "Complete alignment"
+               "value": "complete",
+               "label": "Complete alignment"
             },
             {
-               value: "part",
-               label: "Only part of the alignment"
+               "value": "part",
+               "label": "Only part of the alignment"
             }
          ]
       },
-      defaultValue: "complete"
+      "defaultValue": "complete"
    },
    {
-      key: "seq_range_start",
-      type: "input",
-      templateOptions: {
-         label: "Start point",
-         required: true,
-         type: "number"
+      "key": "seq_range_start",
+      "type": "input",
+      "templateOptions": {
+         "label": "Start point",
+         "required": true,
+         "description": "Sequence range to write",
+         "type": "number"
       },
-      defaultValue: "1",
-      hideExpression: "model.mode!='part'"
+      "defaultValue": "1",
+      "hideExpression": "model.mode!='part'"
    },
    {
-      key: "seq_range_end",
-      type: "input",
-      templateOptions: {
-         label: "End point",
-         required: true,
-         type: "number"
+      "key": "seq_range_end",
+      "type": "input",
+      "templateOptions": {
+         "label": "End point",
+         "required": true,
+         "description": "",
+         "type": "number"
       },
-      defaultValue: "99999",
-      hideExpression: "model.mode!='part'"
+      "defaultValue": "99999",
+      "hideExpression": "model.mode!='part'"
    }
 ]

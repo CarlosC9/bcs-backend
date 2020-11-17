@@ -529,8 +529,7 @@ def check_tools(wf1_dic, wf2_dic):
     tool_list = list()
     for step, content in steps1.items():
         if 'errors' in content:
-            if content[
-                'errors'] == "Tool is not installed":  # TODO depende de la versión de galaxi esto lleva un punto al final o no xq lo que hay que buscar otra cosa
+            if content['errors'] == "Tool is not installed":  # TODO depende de la versión de galaxi esto lleva un punto al final o no xq lo que hay que buscar otra cosa
                 tool_list.append(steps2[step]['tool_shed_repository'])
     if len(tool_list) == 0:
         return 'all tools are installed'
@@ -659,18 +658,17 @@ def initialize_galaxy(flask_app):
 
         # Install basic workflow if it is not installed
         gi = login(api_key, url)
-        workflow = 'Galaxy-Workflow-MSA_ClustalW.ga'
-        workflow_path = ROOT + '/biobarcoding/workflows/' + workflow
-        with open(workflow_path, 'r') as f:
-            wf_dict_in = json.load(f)
-        name = wf_dict_in['name']
-        if workflow_id(gi, name) == 'there is no workflow named{}'.format(name):
-            wf = gi.workflows.import_workflow_from_local_path(workflow_path)
-            wf_dict_out = gi.workflows.export_workflow_dict(wf['id'])
-            list_of_tools = check_tools(wf_dict_out, wf_dict_in)
-            install_tools(gi, list_of_tools)
-        else:
-            return None
+        path = ROOT + '/biobarcoding/workflows/'
+        for workflow in os.listdir(path):
+            workflow_path = path + workflow
+            with open(workflow_path, 'r') as f:
+                wf_dict_in = json.load(f)
+            name = wf_dict_in['name']
+            if workflow_id(gi, name) == 'there is no workflow named{}'.format(name):
+                wf = gi.workflows.import_workflow_from_local_path(workflow_path)
+                wf_dict_out = gi.workflows.export_workflow_dict(wf['id'])
+                list_of_tools = check_tools(wf_dict_out, wf_dict_in)
+                install_tools(gi, list_of_tools)
     else:
         return 'No Galaxy test credentials in config file'
 
@@ -733,10 +731,12 @@ class ToFormlyConverter:
                     if isinstance(f, dict):
                         l.append(f)
             else:
-                l.append(forms)
-        regex = r'(?<!: )"(\S*?)"'
-        tmp = json.dumps(l, indent=3)
-        return re.sub(regex, '\\1', tmp)
+                if isinstance(forms, dict):
+                    l.append(forms)
+        # regex = r'(?<!: )"(\S*?)"'
+        # tmp = json.dumps(l, indent=3)
+        # return re.sub(regex, '\\1', tmp)
+        return json.dumps(l, indent=3)
 
 
 class convertBooleanToolParameter(ToFormlyConverter):
