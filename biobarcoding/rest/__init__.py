@@ -504,15 +504,23 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
     :return: the blueprint (to register it) and the class (if needed)
     """
     class CrudAPI(MethodView):
+
+        page: int = None
+        page_size: int = None
+
         @bcs_session(read_only=True, authr=execution_rules.get("r"))
         def get(self, _id=None):  # List or Read
             db = g.bcs_session.db_session
             r = ResponseObject()
             if _id is None:
                 # List of all
+                query = db.query(entity)
                 # TODO Pagination
+                self.__check_data(request.args)
+                if self.page and self.page_size:
+                    query = query.offset((self.page-1)*self.page_size).limit(self.page_size)
                 # TODO Detail of fields
-                r.content = db.query(entity).all()
+                r.content = query.all()
             else:
                 # Detail
                 # TODO Detail of fields
@@ -547,8 +555,11 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
             db.delete(s)
             return r.get_response()
 
+        def __check_data(self, data):
+            self.page = int(data.get(page))
+            self.page_size = int(data.get(page_size))
+
     bp_entity = Blueprint(f'bp_{entity_name}', __name__)
     register_api(bp_entity, CrudAPI, entity_name, f"{bcs_api_base}/{entity_name}/", "_id")
 
     return bp_entity, CrudAPI
-
