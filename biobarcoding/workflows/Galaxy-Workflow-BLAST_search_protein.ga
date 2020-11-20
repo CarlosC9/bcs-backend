@@ -1,0 +1,132 @@
+{
+    "a_galaxy_workflow": "true",
+    "annotation": "",
+    "format-version": "0.1",
+    "name": "BLAST search protein",
+    "steps": {
+        "0": {
+            "annotation": "",
+            "content_id": null,
+            "errors": null,
+            "id": 0,
+            "input_connections": {},
+            "inputs": [
+                {
+                    "description": "",
+                    "name": "Input protein"
+                }
+            ],
+            "label": "Input protein",
+            "name": "Input dataset",
+            "outputs": [],
+            "position": {
+                "left": 220,
+                "top": 123
+            },
+            "tool_id": null,
+            "tool_state": "{\"optional\": false}",
+            "tool_version": null,
+            "type": "data_input",
+            "uuid": "203ce05d-41f0-4ddf-89e8-b9bffeaf540f",
+            "workflow_outputs": [
+                {
+                    "label": null,
+                    "output_name": "output",
+                    "uuid": "67e7933e-7499-43bd-b935-d84265e504ca"
+                }
+            ]
+        },
+        "1": {
+            "annotation": "",
+            "content_id": null,
+            "errors": null,
+            "id": 1,
+            "input_connections": {},
+            "inputs": [
+                {
+                    "description": "",
+                    "name": "Input FASTA as db"
+                }
+            ],
+            "label": "Input FASTA as db",
+            "name": "Input dataset",
+            "outputs": [],
+            "position": {
+                "left": 219,
+                "top": 308
+            },
+            "tool_id": null,
+            "tool_state": "{\"optional\": false}",
+            "tool_version": null,
+            "type": "data_input",
+            "uuid": "d7d796a2-8130-46bd-839a-8ab617559be4",
+            "workflow_outputs": [
+                {
+                    "label": null,
+                    "output_name": "output",
+                    "uuid": "f5ff01ff-af68-4b3a-94a4-df612a11803b"
+                }
+            ]
+        },
+        "2": {
+            "annotation": "",
+            "content_id": "toolshed.g2.bx.psu.edu/repos/devteam/ncbi_blast_plus/ncbi_blastp_wrapper/2.10.1+galaxy0",
+            "errors": null,
+            "id": 2,
+            "input_connections": {
+                "db_opts|subject": {
+                    "id": 1,
+                    "output_name": "output"
+                },
+                "query": {
+                    "id": 0,
+                    "output_name": "output"
+                }
+            },
+            "inputs": [
+                {
+                    "description": "runtime parameter for tool NCBI BLAST+ blastp",
+                    "name": "db_opts"
+                },
+                {
+                    "description": "runtime parameter for tool NCBI BLAST+ blastp",
+                    "name": "query"
+                }
+            ],
+            "label": null,
+            "name": "NCBI BLAST+ blastp",
+            "outputs": [
+                {
+                    "name": "output1",
+                    "type": "tabular"
+                }
+            ],
+            "position": {
+                "left": 592,
+                "top": 186
+            },
+            "post_job_actions": {},
+            "tool_id": "toolshed.g2.bx.psu.edu/repos/devteam/ncbi_blast_plus/ncbi_blastp_wrapper/2.10.1+galaxy0",
+            "tool_shed_repository": {
+                "changeset_revision": "5edc472ec434",
+                "name": "ncbi_blast_plus",
+                "owner": "devteam",
+                "tool_shed": "toolshed.g2.bx.psu.edu"
+            },
+            "tool_state": "{\"adv_opts\": {\"adv_opts_selector\": \"basic\", \"__current_case__\": 0}, \"blast_type\": \"blastp\", \"db_opts\": {\"db_opts_selector\": \"file\", \"__current_case__\": 2, \"database\": \"\", \"histdb\": \"\", \"subject\": {\"__class__\": \"RuntimeValue\"}}, \"evalue_cutoff\": \"0.001\", \"output\": {\"out_format\": \"ext\", \"__current_case__\": 1}, \"query\": {\"__class__\": \"RuntimeValue\"}, \"__page__\": null, \"__rerun_remap_job_id__\": null}",
+            "tool_version": "2.10.1+galaxy0",
+            "type": "tool",
+            "uuid": "3cbb2feb-1789-4a32-9c2c-4fa3cd8ad78e",
+            "workflow_outputs": [
+                {
+                    "label": null,
+                    "output_name": "output1",
+                    "uuid": "146f9982-c052-4bb0-85a8-d83bbfd6aa54"
+                }
+            ]
+        }
+    },
+    "tags": [],
+    "uuid": "90adcf14-59de-4223-bc07-3d4b652584d5",
+    "version": 1
+}
