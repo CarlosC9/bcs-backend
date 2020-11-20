@@ -61,3 +61,21 @@ def import_ontologies(input_file):
 
 def export_ontologies(id):
     return {'status':'success','message':'EXPORT: ontology dummy completed'}, 200
+
+
+def read_cvterms(cv_id, cvterm_id = None):
+    from biobarcoding.db_models import DBSessionChado
+    from biobarcoding.db_models.chado import Cv, Cvterm
+    result = DBSessionChado().query(Cvterm)
+    if cvterm_id:
+        result = result.filter(Cvterm.cvterm_id==cvterm_id)
+    if cv_id:
+        result = result.filter(Cvterm.cv_id==cv_id)
+    response = []
+    for value in result.all():
+        tmp = value.__dict__
+        tmp.pop('_sa_instance_state', None)
+        response.append(tmp)
+    if cvterm_id:
+        return response[0], 200
+    return response, 200
