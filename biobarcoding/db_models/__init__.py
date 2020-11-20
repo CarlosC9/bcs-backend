@@ -1,13 +1,16 @@
 import uuid
 from copy import deepcopy
 
-from sqlalchemy import TypeDecorator, CHAR, Column, Integer, String
+from marshmallow_sqlalchemy import ModelConversionError, ModelSchema
+from sqlalchemy import event, TypeDecorator, CHAR, Column, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import scoped_session, sessionmaker, class_mapper, ColumnProperty, RelationshipProperty
+from sqlalchemy.orm import scoped_session, sessionmaker, class_mapper, ColumnProperty, RelationshipProperty, mapper
 from sqlalchemy_continuum import make_versioned
 
-make_versioned(user_cls=None, options={'native_versioning': True})
+# make_versioned(user_cls=None, options={'native_versioning': True})
+make_versioned(user_cls=None)
+
 
 DBSession = scoped_session(sessionmaker())
 DBSessionChado = scoped_session(sessionmaker())
@@ -93,5 +96,32 @@ class ObjectType(ORMBase):  # CODES
     __tablename__ = "object_types"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(80), nullable=False)
+
+
+def setup_schema(Base, session):
+    # Create a function which incorporates the Base and session information
+    def setup_schema_fn():
+        for class_ in Base._decl_class_registry.values():
+            if hasattr(class_, "__tablename__"):
+                if class_.__name__.endswith("Schema"):
+                    raise ModelConversionError(
+                        "For safety, setup_schema can not be used when a"
+                        "Model class ends with 'Schema'"
+                    )
+
+                class Meta(object):
+                    model = class_
+                    sqla_session = session
+
+                schema_class_name = "%sSchema" % class_.__name__
+
+                schema_class = type(schema_class_name, (ModelSchema,), {"Meta": Meta})
+
+                setattr(class_, "Schema", schema_class)
+
+    return setup_schema_fn
+
+
+event.listen(mapper, "after_configured", setup_schema(ORMBase, DBSession))

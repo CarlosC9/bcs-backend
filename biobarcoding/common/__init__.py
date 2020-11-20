@@ -1,7 +1,6 @@
 import collections
 import json
 from typing import Any, Dict
-
 import numpy as np
 from pathlib import Path
 from multidict import MultiDict, CIMultiDict
@@ -145,12 +144,16 @@ def _json_serial(obj):
         return str(obj)
     elif isinstance(obj, np.int64):
         return int(obj)
+    elif getattr(obj, "Schema"):
+        # Use "marshmallow"
+        return getattr(obj, "Schema")().dump(obj)
     raise TypeError(f"Type {type(obj)} not serializable")
 
 
 JSON_INDENT = 4
 ENSURE_ASCII = False
 ROOT = str(Path(__file__).parent.parent.parent)
+
 
 def generate_json(o):
     return json.dumps(o,
