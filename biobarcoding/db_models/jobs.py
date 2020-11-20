@@ -42,6 +42,21 @@ class Algorithm(ORMBase):
     algorithm_type = relationship(AlgorithmType)
 
 
+class AlgorithmConfiguration(ORMBase):
+    """ Default parameters for algorithms """
+    # TODO Owner of configuration: user, group or algorithm
+
+    __tablename__ = f"{prefix}algorithm_configurations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(GUID, unique=True)
+    name = Column(String(80))
+    description = Column(Text)
+    params = Column(JSON)
+    algorithm_id = Column(Integer, ForeignKey(Algorithm.id), nullable=False, primary_key=False)
+    algorithm = relationship(Algorithm)
+
+
 class ProcessBrokerTemplate(ORMBase):
     """
     A template used to ensure the process is carried out.
