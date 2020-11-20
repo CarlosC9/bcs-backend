@@ -13,6 +13,7 @@ from sqlalchemy import Integer, Column, String, Text, ForeignKey, JSON, DateTime
 from sqlalchemy.orm import relationship, backref
 
 from biobarcoding.db_models import ORMBase, GUID
+import uuid
 
 prefix = "jobs_"
 
@@ -22,16 +23,19 @@ class AlgorithmType(ORMBase):
     __tablename__ = f"{prefix}algorithm_types"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(80))
 
 
 class Algorithm(ORMBase):
-    """ Description of a specific algorithm"""
+    """ Description of a specific algorithm
+        A process (the subject of Job execution) can call one or more algorithms
+
+    """
     __tablename__ = f"{prefix}algorithms"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(80))
     description = Column(Text)
     algorithm_type_id = Column(Integer, ForeignKey(AlgorithmType.id), nullable=False, primary_key=False)
@@ -41,12 +45,12 @@ class Algorithm(ORMBase):
 class ProcessBrokerTemplate(ORMBase):
     """
     A template used to ensure the process is carried out.
-    Steps of the template adapt to the process being executed. For instance,
+    Steps of the template adapt to the process being executed.
     """
     __tablename__ = f"{prefix}process_broker_templates"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(80))
 
 
@@ -71,7 +75,7 @@ class Process(ORMBase):
     __tablename__ = f"{prefix}processes"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(80))
     description = Column(Text)
     schema_inputs = Column(JSON)  # How to specify inputs for the Process
@@ -84,7 +88,7 @@ class ProcessAlgorithm(ORMBase):
     __tablename__ = f"{prefix}process_algorithms"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     process_id = Column(Integer, ForeignKey(Process.id), nullable=False, primary_key=False)
     process = relationship(Process, backref=backref("algorithms", cascade="all, delete-orphan"))
     algorithm_id = Column(Integer, ForeignKey(Algorithm.id), nullable=False, primary_key=False)
@@ -96,7 +100,7 @@ class ProcessStep(ORMBase):
     __tablename__ = f"{prefix}process_steps"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(80))
     process_id = Column(Integer, ForeignKey(Process.id), nullable=False, primary_key=False)
     process = relationship(Process, backref=backref("steps", cascade="all, delete-orphan"))
@@ -107,7 +111,7 @@ class ProcessorArchitecture(ORMBase):
     __tablename__ = f"{prefix}processor_architectures"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(80))
 
 
@@ -116,16 +120,16 @@ class OperatingSystem(ORMBase):
     __tablename__ = f"{prefix}operating_systems"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(80))
 
 
 class ComputingType(ORMBase):
-    """ Computing types: sequencial, MPI, OpenMP, GPU, ... """
+    """ Computing types: sequential, MPI, OpenMP, GPU, ... """
     __tablename__ = f"{prefix}computing_types"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(80))
 
 
@@ -134,8 +138,24 @@ class JobManagementType(ORMBase):
     __tablename__ = f"{prefix}job_mgmt_types"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(80))
+
+
+class ProcessInJobManagementType(ORMBase):
+    """
+    Adaptations of a process needed to submit it to a job manager type
+    """
+    __tablename__ = f"{prefix}wfs_job_mgmt_types"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
+    process_id = Column(Integer, ForeignKey(Process.id), nullable=False, primary_key=False)
+    process = relationship(Process, backref=backref("resource_jm_adaptations", cascade="all, delete-orphan"))
+    jm_type_id = Column(Integer, ForeignKey(JobManagementType.id), nullable=False, primary_key=False)
+    jm_type = relationship(JobManagementType, backref=backref("process_adaptations", cascade="all, delete-orphan"))
+    input_mapper = Column(JSON)
+    output_mapper = Column(JSON)
 
 
 class ComputeResource(ORMBase):
@@ -144,7 +164,7 @@ class ComputeResource(ORMBase):
     __tablename__ = f"{prefix}compute_resources"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(80))
     proc_arch_id = Column(Integer, ForeignKey(ProcessorArchitecture.id), nullable=True, primary_key=False)
     proc_arch = relationship(ProcessorArchitecture)
@@ -166,7 +186,7 @@ class ProcessInComputeResource(ORMBase):
     __tablename__ = f"{prefix}wfs_compute_resources"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     process_id = Column(Integer, ForeignKey(Process.id), nullable=False, primary_key=False)
     process = relationship(Process, backref=backref("resource_adaptations", cascade="all, delete-orphan"))
     resource_id = Column(Integer, ForeignKey(ComputeResource.id), nullable=False, primary_key=False)
@@ -181,7 +201,7 @@ class JobStatus(ORMBase):
     __tablename__ = f"{prefix}job_statuses"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(80))
 
 
@@ -195,7 +215,7 @@ class Job(ORMBase):
     __tablename__ = f"{prefix}jobs"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
 
     process_id = Column(Integer, ForeignKey(Process.id), nullable=False, primary_key=False)
     process = relationship(Process)
@@ -211,7 +231,7 @@ class JobStatusLog(ORMBase):
     __tablename__ = f"{prefix}jobs_status_log"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
 
     job_id = Column(Integer, ForeignKey(Job.id), nullable=False, primary_key=False)
     job = relationship(Job)

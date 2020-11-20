@@ -222,7 +222,7 @@ class bcs_session(object):
         return valid
 
     def __call__(self, f):
-        def wrapped_f(*args):
+        def wrapped_f(*args, **kwargs):
             sess = deserialize_session(flask_session.get("session"))
             if isinstance(sess, BCSSession):
                 try:
@@ -235,27 +235,39 @@ class bcs_session(object):
                         # Get execution rule
                         if self.authr is None or bcs_session.is_function_name(self.authr):
                             if self.authr is None:
-                                f_code_name = f"{inspect.getmodule(f).__name}{f.__name__}"
+                                f_code_name = f"{inspect.getmodule(f).__name__}.{f.__name__}"
                             else:
                                 f_code_name = self.authr
                             # Search authorization database using full function name (be careful of refactorizations)
                             ahora = datetime.now()
                             function = db_session.query(SystemFunction).filter(SystemFunction.name == f_code_name).first()
-                            obj_type = db_session.query(ObjectType).filter(ObjectType.name == "sys-functions").first()
-                            rule = db_session.query(ACLExpression.expression).\
-                                filter(and_(or_(ACLExpression.validity_start is None, ACLExpression.validity_start<=ahora), or_(ACLExpression.validity_end is None, ACLExpression.validity_end>ahora))).\
-                                join(ACLExpression.acl).filter(and_(ACL.object_type == obj_type.id, ACL.object_id == function.uuid)).first()
+                            if function:
+                                obj_type = db_session.query(ObjectType).filter(
+                                    ObjectType.name == "sys-functions").first()
+                                rule = db_session.query(ACLExpression.expression). \
+                                    filter(and_(
+                                    or_(ACLExpression.validity_start is None, ACLExpression.validity_start <= ahora),
+                                    or_(ACLExpression.validity_end is None, ACLExpression.validity_end > ahora))). \
+                                    join(ACLExpression.acl).filter(
+                                    and_(ACL.object_type == obj_type.id, ACL.object_id == function.uuid)).first()
+                            else:
+                                rule = None
                         else:
                             rule = self.authr  # Rule specified literally
                         # Check execution permission
-                        ast = string_to_ast(authr_expression, rule)
-                        can_execute = ast_evaluator(ast, ident)
+                        if rule:
+                            ast = string_to_ast(authr_expression, rule)
+                            can_execute = ast_evaluator(ast, ident)
+                        else:
+                            can_execute = True  # If no rule is found, allow execution for everybody!
+                        # Execute
                         if can_execute:
-                            res = f(*args)
+                            res = f(*args, **kwargs)
                             db_session.commit()
                         else:
                             raise Exception(f"Current user ({sess.identity_name}) cannot execute function {f_code_name}")
                     except:
+                        traceback.print_exc()
                         db_session.rollback()
                         raise
                     finally:
