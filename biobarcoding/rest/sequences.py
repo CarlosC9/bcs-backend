@@ -16,14 +16,14 @@ class SequencesAPI(MethodView):
     organism_id = None
     analysis_id = None
 
-    def get(self, id=None):
+    def get(self, id=None, format=None):
         print(f'GET {request.path}\nGetting sequences {id}')
         self._check_data(request.json)
         self._check_data(request.args)
-        if 'Accept' in request.headers and request.headers['Accept']=='text/fasta':
+        if format:
             from biobarcoding.services.sequences import export_sequences
             response, code = export_sequences(id, self.organism_id, self.analysis_id)
-            return send_file(response, mimetype='text/fasta'), code
+            return send_file(response, mimetype=f'text/{format}'), code
         else:
             from biobarcoding.services.sequences import read_sequences
             response, code = read_sequences(id, self.organism_id, self.analysis_id)
@@ -101,6 +101,11 @@ bp_sequences.add_url_rule(
     bcs_api_base + '/bos/sequences/<string:id>',
     view_func=sequences_view,
     methods=['GET','PUT','DELETE']
+)
+bp_sequences.add_url_rule(
+    bcs_api_base + '/bos/sequences/<string:id>.<string:format>',
+    view_func=sequences_view,
+    methods=['GET']
 )
 
 
