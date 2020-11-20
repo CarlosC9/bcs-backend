@@ -13,6 +13,8 @@ class BioinformaticObject(ORMBase):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     uuid = Column(GUID, unique=True, default=uuid.uuid4)
     bo_type_id = Column(Integer, ForeignKey(ObjectType.id))
+    chado_table = Column(String(80))
+    chado_id = Column(BigInteger)
     name = Column(String(80))
     content = Column(UnicodeText)
 
