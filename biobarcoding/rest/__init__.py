@@ -1,14 +1,19 @@
 import logging
 import os
 import sys
+from enum import Enum
 
 import redis
 import sqlalchemy
-from flask import Response, Blueprint
+from attr import attrs, attrib
+from flask import Response, Blueprint, g, request
+from flask.views import MethodView
 from sqlalchemy import orm, and_
 from sqlalchemy.pool import StaticPool
+from typing import Dict
 
 import biobarcoding
+from biobarcoding.authentication import bcs_session
 from biobarcoding.common import generate_json
 from biobarcoding.common.pg_helpers import create_pg_database_engine, load_table, load_many_to_many_table, \
     load_computing_resources, load_processes_in_computing_resources
@@ -33,6 +38,59 @@ def build_json_response(obj, status=200):
     return Response(generate_json(obj),
                     mimetype="text/json",
                     status=status)
+
+
+class IType(Enum):
+    INFO = 1
+    WARNING = 2
+    ERROR = 3
+
+
+@attrs
+class IssueLocation:
+    def __str__(self):
+        return f"Put your Ad here :)"
+
+
+@attrs
+class Issue:
+    itype = attrib()
+    message = attrib()
+    location = attrib(default=None)
+
+    def as_dict(self):
+        return {"type": self.itype.name, "message": self.message, "location": self.location}
+
+    def __str__(self):
+        return f'(type="{self.itype.name}", message="{self.message}", location="{self.location}")'
+
+
+@attrs
+class ResponseObject:
+    content = attrib(default=None)  # type: object
+    issues = attrib(default=[])  # type: List[Issue]
+    # Mimetype.
+    content_type = attrib(default="text/json")  # type: str
+    # HTTTP response status code
+    status = attrib(default=200)  # type: int
+
+    def get_response(self) -> Response:
+        """
+        status == 200. ctype not JSON -> content, ctype, 200
+                       ctype     JSON -> dict(issues=issues, content=content), ctype, 200
+        status != 200. ctype not JSON -> dict(issues=issues), "text/json", status
+                       ctype     JSON -> dict(issues=issues)
+        :return:
+        """
+        if self.status == 200:
+            if self.content_type in ("text/json", "application/json"):
+                obj = generate_json(dict(issues=[s.as_dict() for s in self.issues], content=self.content))
+            else:
+                obj = self.content
+        else:
+            obj = generate_json(dict(issues=[s.as_dict() for s in self.issues]))
+
+        return Response(obj, mimetype=self.content_type, status=self.status)
 
 
 def prepare_default_configuration(create_directories):
@@ -434,3 +492,63 @@ def register_api(bp: Blueprint, view, endpoint: str, url: str, pk='id', pk_type=
     bp.add_url_rule(url, defaults={pk: None}, view_func=view_func, methods=['GET'])
     bp.add_url_rule(url, view_func=view_func, methods=['POST'])
     bp.add_url_rule(f'{url}<{pk_type}:{pk}>', view_func=view_func, methods=['GET', 'PUT', 'DELETE'])
+
+
+def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, str] = {}):
+    """
+    Create a CRUD RESTful endpoint
+
+    :param entity: the entity class to manage
+    :param entity_name: the name of the entity, in plural
+    :param execution_rules: a dictionary of execution rules (according to the decorator "bcs_session") by CRUD method
+    :return: the blueprint (to register it) and the class (if needed)
+    """
+    class CrudAPI(MethodView):
+        @bcs_session(read_only=True, authr=execution_rules.get("r"))
+        def get(self, _id=None):  # List or Read
+            db = g.bcs_session.db_session
+            r = ResponseObject()
+            if _id is None:
+                # List of all
+                # TODO Pagination
+                # TODO Detail of fields
+                r.content = db.query(entity).all()
+            else:
+                # Detail
+                # TODO Detail of fields
+                r.content = db.query(entity).filter(entity.id == _id).first()
+
+            return r.get_response()
+
+        @bcs_session(authr=execution_rules.get("c"))
+        def post(self):  # Create
+            db = g.bcs_session.db_session
+            r = ResponseObject()
+            t = request.json
+            s = entity.Schema().load(t, instance=entity())
+            db.add(s)
+            return r.get_response()
+
+        @bcs_session(authr=execution_rules.get("u"))
+        def put(self, _id):  # Update (total or partial)
+            db = g.bcs_session.db_session
+            r = ResponseObject()
+            t = request.json
+            s = db.query(entity).filter(entity.id == _id).first()
+            s = entity.Schema().load(t, instance=s)
+            db.add(s)
+            return r.get_response()
+
+        @bcs_session(authr=execution_rules.get("d"))
+        def delete(self, _id):  # Delete
+            db = g.bcs_session.db_session
+            r = ResponseObject()
+            s = db.query(Identity).filter(Identity.id == _id).first()
+            db.delete(s)
+            return r.get_response()
+
+    bp_entity = Blueprint(f'bp_{entity_name}', __name__)
+    register_api(bp_entity, CrudAPI, entity_name, f"{bcs_api_base}/{entity_name}/", "_id")
+
+    return bp_entity, CrudAPI
+
