@@ -16,7 +16,7 @@ import biobarcoding
 from biobarcoding.authentication import bcs_session
 from biobarcoding.common import generate_json
 from biobarcoding.common.pg_helpers import create_pg_database_engine, load_table, load_many_to_many_table, \
-    load_computing_resources, load_processes_in_computing_resources
+    load_computing_resources, load_processes_in_computing_resources, load_process_input_schema
 from biobarcoding.db_models import DBSession, ORMBase, DBSessionChado, ORMBaseChado, ObjectType
 from biobarcoding.db_models.bioinformatics import *
 from biobarcoding.db_models.sysadmin import *
@@ -304,7 +304,7 @@ tm_processes = {  # Preloaded processes
     "4cfcd389-ed9e-4174-aa99-150f176e8eec": "import-msa",
     "caaca280-2290-4625-b5c0-76bcfb06e9ac": "import-phylotree",
     "15aa399f-dd58-433f-8e94-5b2222cd06c9": "Clustal Omega",
-    "5b7e9e40-040b-40fc-9db3-7d707fe9617f": "MSA ClustalW"
+    "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": "MSA ClustalW"
 }
 
 tm_system_functions = {
@@ -323,7 +323,7 @@ tm_system_functions = {
 }
 
 
-# "c8df0c20-9cd5-499b-92d4-5fb35b5a369a"
+
 # "16159c67-9325-4f0d-b0c5-2f01588612ea"
 # "fcaa3b92-7ba8-4068-8e26-9321a341b53f"
 # "b25db3a5-9bb0-4838-b9cc-98f0176876af"
@@ -408,6 +408,7 @@ def initialize_database_data():
     load_table(DBSession, Role, tm_default_roles)
     load_computing_resources(DBSession)
     load_processes_in_computing_resources(DBSession)
+    load_process_input_schema(DBSession)
 
     # Load default authentication for "test_user"
     session = DBSession()
