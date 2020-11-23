@@ -22,7 +22,7 @@ class SequencesAPI(MethodView):
         self._check_data(request.args)
         if format:
             from biobarcoding.services.sequences import export_sequences
-            response, code = export_sequences(id, self.organism_id, self.analysis_id)
+            response, code = export_sequences(id, self.organism_id, self.analysis_id, self.ids)
             return send_file(response, mimetype=f'text/{format}'), code
         else:
             from biobarcoding.services.sequences import read_sequences
@@ -83,7 +83,7 @@ class SequencesAPI(MethodView):
     def _check_data(self, data):
         if data:
             if 'id' in data and data['id']:
-                self.ids = data['id']
+                self.ids = data.getlist('id')
             if 'organism_id' in data and data['organism_id']:
                 self.organism_id = data['organism_id']
             if 'analysis_id' in data and data['analysis_id']:
@@ -101,6 +101,11 @@ bp_sequences.add_url_rule(
     bcs_api_base + '/bos/sequences/<string:id>',
     view_func=sequences_view,
     methods=['GET','PUT','DELETE']
+)
+bp_sequences.add_url_rule(
+    bcs_api_base + '/bos/sequences.<string:format>',
+    view_func=sequences_view,
+    methods=['GET']
 )
 bp_sequences.add_url_rule(
     bcs_api_base + '/bos/sequences/<string:id>.<string:format>',

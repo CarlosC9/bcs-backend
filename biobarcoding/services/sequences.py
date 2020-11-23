@@ -35,16 +35,24 @@ def import_sequences(input_file, organism_id = None, analysis_id = None):
         return {'status':'failure','message':e}, 500
 
 
-def export_sequences(sequence_id = None, organism_id = None, analysis_id = None, output_file = None):
+def export_sequences(sequence_id = None, organism_id = None, analysis_id = None, ids = None, output_file = None):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
     if not output_file:
         output_file = "output_seqs.fas"
-    if not organism_id:
-        organism_id = conn.organism.get_organisms(species='unknown')[0]['organism_id']
+    from biobarcoding.db_models import DBSessionChado
+    from biobarcoding.db_models.chado import Feature
+    query = DBSessionChado().query(Feature)
+    if sequence_id:
+        query = query.filter(Feature.feature_id==sequence_id)
+    if organism_id:
+        query = query.filter(Feature.organism_id==organism_id)
+    if analysis_id:
+        query = query.filter(Feature.analysis_id==analysis_id)
+    if ids:
+        query = query.filter(Feature.feature_id.in_(ids))
     import sys
-    stdout = sys.stdout
-    with open('/tmp/' + output_file, "w") as sys.stdout:
-        conn.export.export_fasta(organism_id)
-    sys.stdout = stdout
+    with open('/tmp/' + output_file, "w") as file:
+        for seq in query.all():
+            file.write(f'>{seq.uniquename}\n{seq.residues}\n')
     return '/tmp/' + output_file, 200
