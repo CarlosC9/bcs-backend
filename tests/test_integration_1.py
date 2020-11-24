@@ -14,24 +14,24 @@ def test_integration_1(testful):
     :return:
     """
     # "login" (returns an identity)
-    response = testful.put("/api/authn?user='test_user'")
+    response = testful.put("/api/authn?user=test_user")
     # Check if the response is as expected result
-    assert response.status == 200
+    assert response.status_code == 200
     assert response.json["status"] == 'success'
     # Call "am i logged" (pass headers; returns a boolean)
     response = testful.get("/api/authn")
-    assert response.status == 200
+    assert response.status_code == 200
     assert response.json["result"] == 'True'
     # Call "get ontologies" (returns a list)
     response = testful.get("/api/ontologies/")
-    assert response.status == 200
+    assert response.status_code == 200
     assert type(response.json) == list
     # NOTE: Call "import ontologies" not published as an API. It is directly performed with scripts, at deploy
     # Call "get sequences" (returns a list of codes, JSON format by default)
     # TODO How many should be returned (there must be a limit; look for pagination support)
     # TODO Also, prepare to filter on Identity: each sequence has to be checked for "list" permission
     response = testful.get("/api/bos/sequences/")
-    assert response.status == 200
+    assert response.status_code == 200
     assert type(response.json) == list
     # Detail of a sequence, JSON format
     sid = None
@@ -46,17 +46,17 @@ def test_integration_1(testful):
     assert response.status == 200
     # Call "get processes" (return a list of processes in the platform, filtered by Identity permissions)
     response = testful.get("/api/processes/")
-    assert response.status == 200
+    assert response.status_code == 200
     assert type(response.json) == list
     # Call "get process 'i' input form" (return the schema)
     # TODO The input form should be in JSONSchema format or similar
-    pid = None
+    pid = 10
     response = testful.get(f"/api/processes/{pid}")
-    assert response.status == 200
+    assert response.status_code == 200
     assert type(response.json) == dict
     # Call "get resources" (return resources supporting that process)
     response = testful.get(f"/api/processes/{pid}/resources/")
-    assert response.status == 200
+    assert response.status_code == 200
     assert type(response.json) == list
     # Call "submit asynchronous process" (returns Job ID)
     rid = None

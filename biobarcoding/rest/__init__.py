@@ -557,8 +557,8 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
             return r.get_response()
 
         def __check_data(self, data):
-            self.page = int(data.get(page))
-            self.page_size = int(data.get(page_size))
+            self.page = int(data.get(self.page))
+            self.page_size = int(data.get(self.page_size))
 
     bp_entity = Blueprint(f'bp_{entity_name}', __name__)
     register_api(bp_entity, CrudAPI, entity_name, f"{bcs_api_base}/{entity_name}/", "_id")
