@@ -107,3 +107,26 @@ bp_ontologies.add_url_rule(
     view_func=ontologies_view,
     methods=['GET','PUT','DELETE']
 )
+
+
+class CvtermsAPI(MethodView):
+    """
+    Cvterms Resource
+    """
+    def get(self, cv_id, cvterm_id=None):
+        print(f'GET {request.path}\nGetting ontology terms {id}')
+        from biobarcoding.services.ontologies import read_cvterms
+        response, code = read_cvterms(cv_id, cvterm_id)
+        return make_response(jsonify(response), code)
+
+cvterms_view = CvtermsAPI.as_view('api_cvterms')
+bp_ontologies.add_url_rule(
+    bcs_api_base + '/ontologies/<int:cv_id>/terms/',
+    view_func=cvterms_view,
+    methods=['GET']
+)
+bp_ontologies.add_url_rule(
+    bcs_api_base + '/ontologies/<int:cv_id>/terms/<int:cvterm_id>',
+    view_func=cvterms_view,
+    methods=['GET']
+)

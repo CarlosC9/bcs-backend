@@ -1,13 +1,9 @@
 import datetime
-
+import uuid
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, JSON, Boolean
 from sqlalchemy.orm import relationship, backref
 
 from biobarcoding.db_models import ORMBase, GUID, ObjectType
-
-
-class Format:
-    pass
 
 
 # AUTHENTICATION / AUTHORIZATION
@@ -20,7 +16,7 @@ class Authenticator(ORMBase):  # CODES
     __tablename__ = f"{prefix}authenticators"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(80))
     validation_endpoint = Column(String(1024))
 
@@ -33,10 +29,10 @@ class Identity(ORMBase):
     __tablename__ = f"{prefix}identities"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(255))
     email = Column(String(255))
-    configuration = Column(JSON)  # To store personal preferences, from language to other visualization features
+    # configuration = Column(JSON)  # To store personal preferences, from language to other visualization features
     creation_time = Column(DateTime, default=datetime.datetime.utcnow())
     deactivation_time = Column(DateTime)
 
@@ -59,7 +55,7 @@ class Organization(ORMBase):
     __tablename__ = f"{prefix}organizations"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(80))
 
 
@@ -75,7 +71,7 @@ class Group(ORMBase):
     __tablename__ = f"{prefix}groups"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(80))
 
 
@@ -91,7 +87,7 @@ class Role(ORMBase):
     __tablename__ = f"{prefix}roles"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(80))
 
 
@@ -115,7 +111,7 @@ class SystemFunction(ORMBase):
     __tablename__ = f"{prefix}functions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(512))
 
 
@@ -123,7 +119,7 @@ class PermissionType(ORMBase):  # CODES
     __tablename__ = f"{prefix}permission_types"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, nullable=False)  # Object ID (ACL are on objects with UUID)
+    uuid = Column(GUID, nullable=False, default=uuid.uuid4)  # Object ID (ACL are on objects with UUID)
     name = Column(String(80))
 
 
@@ -132,7 +128,7 @@ class ACL(ORMBase):
     __tablename__ = f"{prefix}permissions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, nullable=False)  # Object ID (ACL are on objects with UUID)
+    uuid = Column(GUID, nullable=False, default=uuid.uuid4)  # Object ID (ACL are on objects with UUID)
     object_type = Column(Integer, ForeignKey(ObjectType.id), nullable=False)
     object_id = Column(GUID, nullable=False)
 
@@ -184,7 +180,7 @@ class TaskStatus(ORMBase):
     __tablename__ = f"{prefix}statuses"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, nullable=False)  # Object ID
+    uuid = Column(GUID, nullable=False, default=uuid.uuid4)  # Object ID
     name = Column(String(80))
 
 
@@ -195,7 +191,7 @@ class Task(ORMBase):  # Celery task
     __tablename__ = f"{prefix}instances"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, nullable=False)  # Object ID (ACL are on objects with UUID)
+    uuid = Column(GUID, nullable=False, default=uuid.uuid4)  # Object ID (ACL are on objects with UUID)
     description = Column(String(80))
     params = Column(JSON)
     creation_time = Column(DateTime, default=datetime.datetime.utcnow())

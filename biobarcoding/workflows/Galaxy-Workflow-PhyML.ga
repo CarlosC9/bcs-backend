@@ -1,0 +1,110 @@
+{
+    "a_galaxy_workflow": "true",
+    "annotation": "",
+    "format-version": "0.1",
+    "name": "PhyML",
+    "steps": {
+        "0": {
+            "annotation": "",
+            "content_id": null,
+            "errors": null,
+            "id": 0,
+            "input_connections": {},
+            "inputs": [
+                {
+                    "description": "",
+                    "name": "Input dataset"
+                }
+            ],
+            "label": "Input dataset",
+            "name": "Input dataset",
+            "outputs": [],
+            "position": {
+                "left": 297,
+                "top": 132
+            },
+            "tool_id": null,
+            "tool_state": "{\"optional\": false}",
+            "tool_version": null,
+            "type": "data_input",
+            "uuid": "fd50e028-2755-4b82-9b9e-469c630accaa",
+            "workflow_outputs": [
+                {
+                    "label": null,
+                    "output_name": "output",
+                    "uuid": "4660b841-e72f-46a2-8571-e6ef60c054c8"
+                }
+            ]
+        },
+        "1": {
+            "annotation": "",
+            "content_id": "toolshed.g2.bx.psu.edu/repos/vlefort/phyml/phyml/3.1",
+            "errors": null,
+            "id": 1,
+            "input_connections": {
+                "input": {
+                    "id": 0,
+                    "output_name": "output"
+                }
+            },
+            "inputs": [
+                {
+                    "description": "runtime parameter for tool PhyML",
+                    "name": "input"
+                }
+            ],
+            "label": "PhyML",
+            "name": "PhyML",
+            "outputs": [
+                {
+                    "name": "output_tree",
+                    "type": "txt"
+                },
+                {
+                    "name": "output_stats",
+                    "type": "txt"
+                },
+                {
+                    "name": "output_stdout",
+                    "type": "txt"
+                }
+            ],
+            "position": {
+                "left": 680,
+                "top": 203
+            },
+            "post_job_actions": {},
+            "tool_id": "toolshed.g2.bx.psu.edu/repos/vlefort/phyml/phyml/3.1",
+            "tool_shed_repository": {
+                "changeset_revision": "6dd988b4b760",
+                "name": "phyml",
+                "owner": "vlefort",
+                "tool_shed": "toolshed.g2.bx.psu.edu"
+            },
+            "tool_state": "{\"equi_freq\": \"m\", \"gamma\": \"e\", \"input\": {\"__class__\": \"RuntimeValue\"}, \"move\": \"NNI\", \"nbSubstCat\": \"4\", \"nb_data_set\": \"1\", \"numStartSeed\": \"0\", \"optimisationTopology\": \"tlr\", \"phylip_format\": \"\", \"prop_invar\": \"e\", \"seq\": {\"type_of_seq\": \"nt\", \"__current_case__\": 0, \"tstv\": \"e\", \"model\": \"HKY85\"}, \"support_condition\": {\"branchSupport\": \"-4\", \"__current_case__\": 3}, \"usetree\": {\"inputTree\": \"false\", \"__current_case__\": 1}, \"__page__\": null, \"__rerun_remap_job_id__\": null}",
+            "tool_version": "3.1",
+            "type": "tool",
+            "uuid": "396c1117-a1b1-41e4-a40c-a8d8dddf6440",
+            "workflow_outputs": [
+                {
+                    "label": null,
+                    "output_name": "output_tree",
+                    "uuid": "5ae72cec-4560-4b82-9b5f-52cdb562396c"
+                },
+                {
+                    "label": null,
+                    "output_name": "output_stats",
+                    "uuid": "d2cfa564-abb5-41fc-891a-50eb05f629f6"
+                },
+                {
+                    "label": null,
+                    "output_name": "output_stdout",
+                    "uuid": "1b59b8cb-f0e2-438a-be17-65d99c989502"
+                }
+            ]
+        }
+    },
+    "tags": [],
+    "uuid": "5ba0b6f0-6639-4277-b32b-cae02c646107",
+    "version": 7
+}

@@ -7,6 +7,8 @@ from biobarcoding.jobs.galaxy_resource import initialize_galaxy
 from biobarcoding.rest import logger, log_level, load_configuration_file, construct_session_persistence_backend, \
     initialize_database, initialize_database_chado, bcs_gui_base
 from biobarcoding.rest.auth import bp_auth
+from biobarcoding.rest.identities_and_company import bp_identities, bp_sys_functions, bp_roles, bp_identities_roles, \
+    bp_groups, bp_organizations, bp_acl
 from biobarcoding.rest.sequences import bp_sequences
 from biobarcoding.rest.alignments import bp_alignments
 from biobarcoding.rest.phylotrees import bp_phylotrees
@@ -74,7 +76,14 @@ def create_app(debug, cfg_dict=None):
                bp_ontologies,
                bp_jobs,
                bp_tasks,
-               bp_gui
+               bp_gui,
+               bp_identities,
+               bp_sys_functions,
+               bp_roles,
+               bp_identities_roles,
+               bp_groups,
+               bp_organizations,
+               bp_acl
                ]:
         app.register_blueprint(bp)
 
@@ -82,7 +91,9 @@ def create_app(debug, cfg_dict=None):
     initialize_celery(app)
 
     # Galaxy
+    print("Initializing base Galaxy instance")
     initialize_galaxy(app)
+    print("Initializing base Galaxy instance - DONE")
 
     # Logger
     app.logger.setLevel(log_level)
