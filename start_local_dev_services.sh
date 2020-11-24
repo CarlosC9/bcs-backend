@@ -17,8 +17,13 @@ if [ ! "$(docker ps -q -f name=postgres_devel)" ] ; then
     docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA/var/lib/postgresql/data/ -v /home/paula/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
   elif [ "$(whoami)" == "daniel" ] ; then
     docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v /home/daniel/Documentos/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
+    timeout 30 ping 8.8.8.8 > NUL #we need to wait 30s until the database is created
+    cd ~/Documentos/GIT/bcs-backend/docker_init
+    ./init.sh
   fi
 fi
+
+
 
 # Galaxy
 # api key = fakekey; user = admin; password = password
@@ -30,7 +35,7 @@ elif [ "$(whoami)" == "acurbelo" ] ; then
 elif [ "$(whoami)" == "paula" ] ; then
   galaxy_started=$(docker ps -q -f name=galaxy_devel)
 elif [ "$(whoami)" == "daniel" ] ; then
-  galaxy_started=$(docker ps -q -f name=galaxy_devel)
+  galaxy_started=$(ssh dreyes@balder docker ps -q -f name=galaxy_devel_dreyes)
 fi
 
 if [ ! $galaxy_started ] ; then
@@ -42,7 +47,8 @@ if [ ! $galaxy_started ] ; then
   elif [ "$(whoami)" == "paula" ] ; then
     docker run --name galaxy_devel -d -p 8080:80 -p 8021:21 -p 8022:22 --rm -v /home/paula/galaxy_storage/:/export  bgruening/galaxy-stable
   elif [ "$(whoami)" == "daniel" ] ; then
-    docker run --name galaxy_devel -d -p 8080:80 -p 8021:21 -p 8022:22 --rm -v ...:/export  bgruening/galaxy-stable
+    ssh dreyes@balder docker run --name galaxy_devel_dreyes -d -p 8480:80 -p 8421:21 -p 8422:22 --rm -v /home/daniel/Documentos/DATOS/galaxy_storage/:/export bgruening/galaxy-stable
+    #echo El galaxy no funciona
   fi
 fi
 
@@ -54,8 +60,7 @@ elif [ "$(whoami)" == "acurbelo" ] ; then
 elif [ "$(whoami)" == "paula" ] ; then
   cd ~/Documentos/NEXTGENDEM/bcs/bcs-backend/
 elif [ "$(whoami)" == "daniel" ] ; then
-  cd /home/daniel/Documentos/GIT/bcs-backend/
-  ./venv/bin/activate
+  cd ~/Documentos/GIT/bcs-backend/
 fi
 
 # CELERY

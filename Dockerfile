@@ -67,6 +67,11 @@ RUN apt-get update && \
 	libxml2-dev \
 	libxslt-dev \
 	zlib1g-dev \
+    perl \
+    libdbi-perl \
+    libgo-perl \
+    libpq-dev \
+    cpanminus \
 	&& apt-get clean
 
 
@@ -86,6 +91,7 @@ RUN pip3 install --no-cache-dir -r requirements.txt
 COPY supervisord.conf /etc/supervisord.conf
 
 RUN mkdir -p /srv
+RUN mkdir -p /chado_setup
 
 EXPOSE 80
 VOLUME /srv
@@ -93,10 +99,20 @@ VOLUME /srv
 # needs to be set else Celery gives an error (because docker runs commands inside container as root)
 ENV C_FORCE_ROOT=1
 
+#Docker initialization configuration
+
+#Install perl dependencies
+RUN cpanm GO::Utils \
+          DBIx::DBStag \
+          DBIx::DBSchema \
+          DBD::Pg
+
+#Execute insertion
+COPY docker_assets/ /docker_assets/
+
 # gunicorn --workers=1 --log-level=debug --timeout=2000 --bind 0.0.0.0:80 biobarcoding.rest.main:app
 #CMD ["/usr/local/bin/gunicorn", "--workers=3", "--log-level=debug", "--timeout=2000", "--bind", "0.0.0.0:80", "biobarcoding.rest.main:app"]
 # Run supervisord
 CMD ["supervisord", "-c", "/etc/supervisord.conf"]
 
 COPY biobarcoding /app/biobarcoding
-
