@@ -3,7 +3,7 @@
 .mypy_cache
 /venv/
 sqlite:
-*.json
+
 build/
 dist/
 dump\.rdb
