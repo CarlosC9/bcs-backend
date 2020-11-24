@@ -34,10 +34,11 @@ def periodic_sum(x, y):
 # ----------------------------------------------------------------
 
 outfile = "/home/rnebot/Downloads/borrame/log.txt"
+outfile_dreyes = "/home/dreyes/Documentos/borrame/log.txt"
 
 
 def append_text(file: str, s: str):
-    file = "/home/paula/Documentos/borrame/log.txt"
+    file = outfile_dreyes
     with open(file, "a+") as f:
         f.write(f"{s}\n")
 
