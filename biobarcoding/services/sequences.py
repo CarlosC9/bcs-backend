@@ -16,11 +16,11 @@ def update_sequences(sequence_id, organism_id = None, analysis_id = None, residu
     return {'status':'success','message':'UPDATE: sequences dummy completed'}, 200
 
 
-def delete_sequences(sequence_id = None, organism_id = None, analysis_id = None):
-    from biobarcoding.services import conn_chado
-    conn = conn_chado()
-    resp = conn.feature.delete_features(uniquename = sequence_id, organism_id = organism_id, analysis_id = analysis_id)
-    return {'status':'success','message':'The sequences were successfully removed.'}, 200
+def delete_sequences(sequence_id = None, organism_id = None, analysis_id = None, ids = None):
+    resp = __get_query(sequence_id, organism_id, analysis_id, ids).delete(synchronize_session='fetch')
+    from biobarcoding.db_models import DBSessionChado
+    DBSessionChado.commit()
+    return {'status':'success','message':f'{resp} sequences were successfully removed.'}, 200
 
 
 def import_sequences(input_file, organism_id = None, analysis_id = None):
@@ -36,13 +36,19 @@ def import_sequences(input_file, organism_id = None, analysis_id = None):
 
 
 def export_sequences(sequence_id = None, organism_id = None, analysis_id = None, ids = None, output_file = None):
-    from biobarcoding.services import conn_chado
-    conn = conn_chado()
     if not output_file:
         output_file = "output_seqs.fas"
+    query = __get_query(sequence_id, organism_id, analysis_id, ids)
+    import sys
+    with open('/tmp/' + output_file, "w") as file:
+        for seq in query.all():
+            file.write(f'>{seq.uniquename}\n{seq.residues}\n')
+    return '/tmp/' + output_file, 200
+
+def __get_query(sequence_id = None, organism_id = None, analysis_id = None, ids = None):
     from biobarcoding.db_models import DBSessionChado
     from biobarcoding.db_models.chado import Feature
-    query = DBSessionChado().query(Feature)
+    query = DBSessionChado.query(Feature)
     if sequence_id:
         query = query.filter(Feature.feature_id==sequence_id)
     if organism_id:
@@ -51,8 +57,4 @@ def export_sequences(sequence_id = None, organism_id = None, analysis_id = None,
         query = query.filter(Feature.analysis_id==analysis_id)
     if ids:
         query = query.filter(Feature.feature_id.in_(ids))
-    import sys
-    with open('/tmp/' + output_file, "w") as file:
-        for seq in query.all():
-            file.write(f'>{seq.uniquename}\n{seq.residues}\n')
-    return '/tmp/' + output_file, 200
+    return query

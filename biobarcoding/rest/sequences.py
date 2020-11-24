@@ -15,6 +15,7 @@ class SequencesAPI(MethodView):
     ids = None
     organism_id = None
     analysis_id = None
+    ids = None
 
     def get(self, id=None, format=None):
         print(f'GET {request.path}\nGetting sequences {id}')
@@ -55,7 +56,7 @@ class SequencesAPI(MethodView):
         self._check_data(request.json)
         self._check_data(request.args)
         from biobarcoding.services.sequences import delete_sequences
-        response, code = delete_sequences(id, self.organism_id, self.analysis_id)
+        response, code = delete_sequences(id, self.organism_id, self.analysis_id, self.ids)
         return make_response(jsonify(response), code)
 
 
