@@ -5,6 +5,7 @@ from enum import Enum
 
 import redis
 import sqlalchemy
+from alchemyjsonschema import SchemaFactory, StructuralWalker
 from attr import attrs, attrib
 from flask import Response, Blueprint, g, request
 from flask.views import MethodView
@@ -88,6 +89,7 @@ class ResponseObject:
             else:
                 obj = self.content
         else:
+            self.content_type = "application/json"
             obj = generate_json(dict(issues=[s.as_dict() for s in self.issues]))
 
         return Response(obj, mimetype=self.content_type, status=self.status)
@@ -557,10 +559,30 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
             return r.get_response()
 
         def __check_data(self, data):
-            self.page = int(data.get(self.page))
-            self.page_size = int(data.get(self.page_size))
+            self.page = int(data.get(self.page, 1))
+            self.page_size = int(data.get(self.page_size, 1000000))
+
+    # If the following line is uncommented, it complains on "overwriting an existing endpoint function". This function is public, because it is just the schema, so, no problem.
+    # @bcs_session()
+    def get_entities_json_schema():
+        r = ResponseObject()
+        factory = SchemaFactory(StructuralWalker)
+        r.content = factory(entity)
+
+        return r.get_response()
+
+    @bcs_session()
+    def get_entity_json_schema(_id):
+        db = g.bcs_session.db_session
+        r = ResponseObject()
+        factory = SchemaFactory(StructuralWalker)
+        ent = db.query(entity).filter(entity.id == _id).first()
+        r.content = dict(schema=factory(entity), data=ent)
+        return r.get_response()
 
     bp_entity = Blueprint(f'bp_{entity_name}', __name__)
     register_api(bp_entity, CrudAPI, entity_name, f"{bcs_api_base}/{entity_name}/", "_id")
+    bp_entity.add_url_rule(f"{bcs_api_base}/{entity_name}.schema.json", view_func=get_entities_json_schema, methods=['GET'])
+    bp_entity.add_url_rule(f"{bcs_api_base}/{entity_name}/<int:_id>.schema.json", view_func=get_entity_json_schema, methods=['GET'])
 
     return bp_entity, CrudAPI

@@ -150,13 +150,14 @@ def load_processes_in_computing_resources(sf):
     r = session.query(ProcessInComputeResource).filter(and_(ProcessInComputeResource.process_id==process.id, ProcessInComputeResource.resource_id==resource.id)).first()
     if not r:
         r = ProcessInComputeResource()
-        r.uuid = local_uuid
+        # r.uuid = local_uuid
         r.native_process_id = "MSA ClustalW"
         r.process = process
         r.resource = resource
         session.add(r)
         session.commit()
     sf.remove()
+
 
 def load_process_input_schema(sf):
     session = sf()
