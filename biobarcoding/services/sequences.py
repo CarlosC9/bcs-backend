@@ -29,7 +29,8 @@ def import_sequences(input_file, organism_id = None, analysis_id = None):
     if not organism_id:
         organism_id = conn.organism.get_organisms(species='unknown')[0]['organism_id']
     try:
-        resp = conn.feature.load_fasta(input_file, organism_id, analysis_id=analysis_id, sequence_type='polypeptide', update=True)
+        # resp = conn.feature.load_fasta(input_file, organism_id, analysis_id=analysis_id, sequence_type='polypeptide', update=True)
+        resp = conn.feature.load_fasta(input_file, organism_id, analysis_id=analysis_id, update=True)
         return {'status':'success','message':f'Sequences: {resp}'}, 200
     except Exception as e:
         return {'status':'failure','message':e}, 500
