@@ -1,11 +1,13 @@
+import os, time
+from biobarcoding.db_models import DBSessionChado
+session = DBSessionChado()
+
 def create_phylotrees(name = None, comment = None):
     return {'status':'success','message':'CREATE: phylotrees dummy completed'}, 200
 
-
 def read_phylotrees(id = None):
-    from biobarcoding.db_models import DBSessionChado
     from biobarcoding.db_models.chado import Phylotree, Dbxref
-    result = DBSessionChado().query(Phylotree)\
+    result = session.query(Phylotree)\
         .join(Dbxref)\
         .filter(Dbxref.accession!='taxonomy')
     if id:
@@ -19,7 +21,6 @@ def read_phylotrees(id = None):
         return response[0], 200
     return response, 200
 
-
 def update_phylotrees(phylotree_id, name = None, comment = None, analysis_id = None):
     return {'status':'success','message':'UPDATE: phylotrees dummy completed'}, 200
 
@@ -27,8 +28,8 @@ def update_phylotrees(phylotree_id, name = None, comment = None, analysis_id = N
 def delete_phylotrees(phylotree_id = None):
     return {'status':'success','message':'DELETE: phylotrees dummy completed'}, 200
 
-
-def import_phylotrees(input_file, name = None, comment = None, analysis_id = None):
+# Legacy import with python-chado
+def __import_phylotrees(input_file, name = None, comment = None, analysis_id = None):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
     try:
@@ -43,3 +44,81 @@ def import_phylotrees(input_file, name = None, comment = None, analysis_id = Non
 
 def export_phylotrees(phylotree_id = None):
     return {'status':'success','message':'UPDATE: phylotrees dummy completed'}, 200
+
+"""
+# NGD newick phylotree import
+__TODO__
+phylotree:
+ - type_id ? cvterm['phylogeny'].cvterms_id
+ - for each selected cvterms: new phylotreeprop
+ - store the input_file content into a phylotreeprop EDAM_newick
+phylonode:
+ - type_id ? (root,leaf,internal)
+"""
+def import_phylotrees(input_file, name = None, comment = None, analysis_id = None):
+    # Check newick format
+    from Bio import Phylo
+    try:
+        tree = Phylo.read(input_file, 'newick')
+    except Exception as e:
+        return f'The file could not be loaded correctly. Check that it is the newick format.\n{e}', 500
+    # Create the not null dbxref for this phylotree
+    if not name:
+        name = os.path.basename(input_file)
+    dbxref = __new_phylotree_dbxref(name)
+    # Create the new phylotree
+    phylotree = __new_phylotree(name, dbxref.dbxref_id, comment, analysis_id)
+    # Get phylonodes insertion
+    phylonodes = __tree2phylonodes(phylotree.phylotree_id, tree.root, None, [0])
+    try:
+        session.commit()
+    except Exception as e:
+        session.rollback()
+        print(e)
+        return f'The phylotree could not be inserted correctly.\n{e}', 500
+    return 'The phylotree was imported correctly.', 200
+
+def __new_phylotree_dbxref(name):
+    from biobarcoding.db_models.chado import Db, Dbxref
+    dbxref = Dbxref(
+        db_id=session.query(Db).filter(Db.name=='null').first().db_id,
+        accession=f'phylotree:{name}',
+        version=time.strftime("%Y %b %d %H:%M:%S"))
+    session.add(dbxref)
+    session.flush()
+    return dbxref
+
+def __new_phylotree(name, dbxref_id, comment = None, analysis_id = None):
+    from biobarcoding.db_models.chado import Phylotree, Analysis
+    phylotree = Phylotree(dbxref_id=dbxref_id, name=name)
+    if comment:
+        phylotree.comment = comment
+    if analysis_id:
+        phylotree.analysis_id = session.query(Analysis).filter(Analysis.analysis_id==analysis_id).first().analysis_id
+    session.add(phylotree)
+    session.flush()
+    return phylotree
+
+def __tree2phylonodes(phylotree_id, node, parent_id=None, index=[0]):
+    from biobarcoding.db_models.chado import Phylonode, Feature
+    phylonodes = []
+    feature_id = session.query(Feature.feature_id).filter(Feature.uniquename==node.name).first()
+    phylonode = Phylonode(
+        phylotree_id=phylotree_id,
+        parent_phylonode_id=parent_id,
+        feature_id=feature_id,
+        label=node.name,
+        distance=node.branch_length,
+        left_idx=index[0],
+        right_idx=index[0]+1)
+    index[0]+=1
+    session.add(phylonode)
+    session.flush()
+    if len(node.clades)>0:
+        for clade in node.clades:
+            phylonodes += __tree2phylonodes(phylotree_id, clade, phylonode.phylonode_id, index)
+        phylonode.right_idx = index[0]
+        session.add(phylonode)
+        session.flush()
+    index[0]+=1
+    return phylonodes + [phylonode]
