@@ -65,4 +65,4 @@ fi
 
 # CELERY
 # Worker AND Beat (only for development; NOT for production -use Supervisor and two separate processes-)
-celery -A biobarcoding.tasks.definitions worker --beat --loglevel=info
+celery -A biobarcoding.tasks worker --beat --loglevel=info
