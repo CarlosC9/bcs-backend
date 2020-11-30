@@ -1,7 +1,7 @@
 """
 REST interface to manage JOBS API
 """
-from dotted.collection import DottedDict, DottedCollection
+from dotted.collection import DottedDict
 from flask import Blueprint
 from flask import request, make_response, jsonify
 from flask.views import MethodView
@@ -9,6 +9,7 @@ import json
 
 from sqlalchemy import and_
 
+from biobarcoding.common.helpers import is_integer
 from biobarcoding.db_models import DBSession
 from biobarcoding.db_models.jobs import ProcessInComputeResource
 from biobarcoding.jobs import JobManagementAPI
@@ -17,15 +18,6 @@ from biobarcoding.rest import bcs_api_base, register_api, Job, ComputeResource, 
 bp_jobs = Blueprint('jobs', __name__)
 
 
-def is_integer(n):
-    """ https://note.nkmk.me/en/python-check-int-float/ """
-    try:
-        float(n)
-    except ValueError:
-        return False
-    else:
-        return float(n).is_integer()
-
 def dottedtodict(dotdict):
     if isinstance(dotdict,DottedDict):
         dotdict=dict(dotdict)
@@ -33,7 +25,6 @@ def dottedtodict(dotdict):
             if isinstance(v,DottedDict):
                 dotdict[k] = dottedtodict(v)
         return dotdict
-
 
 
 # Jobs REST API
