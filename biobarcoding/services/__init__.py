@@ -26,3 +26,12 @@ def exec_cmds(cmds):
             print(f'ERROR: \n{e.decode("utf-8")}')
             err.append(e)
     return out, err
+
+
+def chado2json(query):
+    response = []
+    for value in query.all():
+        tmp = value.__dict__
+        tmp.pop('_sa_instance_state', None)
+        response.append(tmp)
+    return response

@@ -3,6 +3,7 @@ def create_taxonomies(name, comment = None):
 
 
 def read_taxonomies(id = None):
+    from biobarcoding.services import chado2json
     from biobarcoding.db_models import DBSessionChado
     from biobarcoding.db_models.chado import Phylotree, Dbxref
     result = DBSessionChado().query(Phylotree)\
@@ -10,14 +11,8 @@ def read_taxonomies(id = None):
         .filter(Dbxref.accession=='taxonomy')
     if id:
         result = result.filter(Phylotree.phylotree_id==id)
-    response = []
-    for value in result.all():
-        tmp = value.__dict__
-        tmp.pop('_sa_instance_state', None)
-        response.append(tmp)
-    if id:
-        return response[0], 200
-    return response, 200
+        return chado2json(result)[0], 200
+    return chado2json(result), 200
 
 
 def update_taxonomies(id, name = None, comment = None):

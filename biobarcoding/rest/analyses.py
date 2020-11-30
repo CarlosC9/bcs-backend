@@ -12,6 +12,7 @@ class AnalysesAPI(MethodView):
     """
     Analyses Resource
     """
+    ids=None
     program=None
     programversion=None
     name = None
@@ -28,6 +29,7 @@ class AnalysesAPI(MethodView):
         from biobarcoding.services.analyses import read_analyses
         response, code = read_analyses(
             analysis_id=id,
+            ids=self.ids,
             name=self.name,
             program=self.program,
             programversion=self.programversion,
@@ -73,11 +75,12 @@ class AnalysesAPI(MethodView):
         return make_response(jsonify(response), code)
 
 
-    def delete(self, id):
+    def delete(self, id=None):
         print(f'DELETE {request.path}\nDeleting analyses {id}')
         self._check_data(request.args)
         from biobarcoding.services.analyses import delete_analyses
         response, code = delete_analyses(id,
+            ids=self.ids,
             name=self.name,
             program=self.program,
             programversion=self.programversion,
@@ -91,6 +94,8 @@ class AnalysesAPI(MethodView):
 
     def _check_data(self, data):
         if data:
+            if 'id' in data and data['id']:
+                self.ids = data.getlist('id')
             if 'program' in data and data['program']:
                 self.program = data['program']
             if 'programversion' in data and data['programversion']:
@@ -116,7 +121,7 @@ analyses_view = AnalysesAPI.as_view('api_analyses')
 bp_analyses.add_url_rule(
     bcs_api_base + '/analyses/',
     view_func=analyses_view,
-    methods=['GET','POST']
+    methods=['GET','POST','DELETE']
 )
 bp_analyses.add_url_rule(
     bcs_api_base + '/analyses/<int:id>',

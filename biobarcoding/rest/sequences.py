@@ -15,7 +15,6 @@ class SequencesAPI(MethodView):
     ids = None
     organism_id = None
     analysis_id = None
-    ids = None
 
     def get(self, id=None, format=None):
         print(f'GET {request.path}\nGetting sequences {id}')
@@ -23,11 +22,11 @@ class SequencesAPI(MethodView):
         self._check_data(request.args)
         if format:
             from biobarcoding.services.sequences import export_sequences
-            response, code = export_sequences(id, self.organism_id, self.analysis_id, self.ids)
+            response, code = export_sequences(id, self.ids, self.organism_id, self.analysis_id)
             return send_file(response, mimetype=f'text/{format}'), code
         else:
             from biobarcoding.services.sequences import read_sequences
-            response, code = read_sequences(id, self.organism_id, self.analysis_id)
+            response, code = read_sequences(id, self.ids, self.organism_id, self.analysis_id)
             return make_response(jsonify(response), code)
 
 
@@ -56,7 +55,7 @@ class SequencesAPI(MethodView):
         self._check_data(request.json)
         self._check_data(request.args)
         from biobarcoding.services.sequences import delete_sequences
-        response, code = delete_sequences(id, self.organism_id, self.analysis_id, self.ids)
+        response, code = delete_sequences(id, self.ids, self.organism_id, self.analysis_id)
         return make_response(jsonify(response), code)
 
 
@@ -69,7 +68,8 @@ class SequencesAPI(MethodView):
                 response, code = import_sequences(file_cpy, self.organism_id, self.analysis_id)
                 responses.append(response)
             except Exception as e:
-                responses.append({'status':failure,'message':f'Could not import the file {file}.'})
+                print(e)
+                responses.append({'status':'failure','message':f'Could not import the file {file}.'})
         return responses, 207
 
 
