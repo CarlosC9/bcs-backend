@@ -18,7 +18,7 @@ from biobarcoding.rest.analyses import bp_analyses
 from biobarcoding.rest.ontologies import bp_ontologies
 from biobarcoding.rest.jobs import bp_jobs
 from biobarcoding.rest.tasks import bp_tasks
-from biobarcoding.rest.processes import  bp_processes
+from biobarcoding.rest.processes import  bp_processes, bp_resources
 from biobarcoding.rest.gui_static import bp_gui
 from biobarcoding.tasks import initialize_celery
 from biobarcoding.authentication import initialize_firebase
@@ -85,7 +85,8 @@ def create_app(debug, cfg_dict=None):
                bp_groups,
                bp_organizations,
                bp_acl,
-               bp_processes
+               bp_processes,
+               bp_resources
                ]:
         app.register_blueprint(bp)
 

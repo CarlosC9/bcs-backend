@@ -21,7 +21,7 @@ def test_integration_1(testful):
     # Call "am i logged" (pass headers; returns a boolean)
     response = testful.get("/api/authn")
     assert response.status_code == 200
-    assert response.json["result"] == 'True'
+    assert response.json["result"] == 'success'
     # Call "get ontologies" (returns a list)
     response = testful.get("/api/ontologies/")
     assert response.status_code == 200

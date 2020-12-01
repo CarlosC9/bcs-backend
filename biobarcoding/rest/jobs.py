@@ -27,7 +27,7 @@ def is_integer(n):
         return float(n).is_integer()
 
 def dottedtodict(dotdict):
-    if isinstance(dotdict,DottedDict):
+    if isinstance(dotdict, DottedDict):
         dotdict=dict(dotdict)
         for k,v in dotdict.items():
             if isinstance(v,DottedDict):
@@ -69,7 +69,7 @@ class JobAPI(MethodView):
         req = request.get_json()
         d.endpoint_url = ""
         # Load resource and process
-        in_dict = DottedDict(req)
+        in_dict = DottedDict(req['params'])
         if is_integer(in_dict.resource_id):
             resource = session.query(ComputeResource).get(in_dict.resource_id)
         else:
