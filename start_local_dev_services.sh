@@ -5,6 +5,18 @@ if [ ! "$(docker ps -q -f name=redis)" ] ; then
   docker run --name redis --rm -d -p 6379:6379 redis
 fi
 
+# Initialize EDAM ontology, NCBI taxonomy, ...
+function init_chado {
+  pg_isready -d postgres -h localhost -p 5432 -U postgres
+  while [ $? -ne 0 ]
+  do
+    echo "$(dirname $0)"
+    pg_isready -d postgres -h localhost -p 5432 -U postgres
+  done
+  cd $1/docker_init
+  ./init.sh
+}
+
 # PostgreSQL
 if [ ! "$(docker ps -q -f name=postgres_devel)" ] ; then
   echo Starting PostgreSQL-Chado
@@ -13,17 +25,14 @@ if [ ! "$(docker ps -q -f name=postgres_devel)" ] ; then
 #    docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -v /home/rnebot/DATOS/pg_devel:/var/lib/postgresql/data postgres
   elif [ "$(whoami)" == "acurbelo" ] ; then
     docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v /var/lib/nextgendem/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
+    init_chado "$(dirname $0)"
   elif [ "$(whoami)" == "paula" ] ; then
     docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA/var/lib/postgresql/data/ -v /home/paula/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
   elif [ "$(whoami)" == "daniel" ] ; then
     docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v /home/daniel/Documentos/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
-    timeout 30 ping 8.8.8.8 > NUL #we need to wait 30s until the database is created
-    cd ~/Documentos/GIT/bcs-backend/docker_init
-    ./init.sh
+    init_chado "$(dirname $0)"
   fi
 fi
-
-
 
 # Galaxy
 # api key = fakekey; user = admin; password = password
@@ -53,15 +62,7 @@ if [ ! $galaxy_started ] ; then
 fi
 
 # CD to BCS-BACKEND source code (needed for proper Celery execution)
-if [ "$(whoami)" == "rnebot" ] ; then
-  cd ~/GoogleDrive/AA_NEXTGENDEM/bcs-backend/
-elif [ "$(whoami)" == "acurbelo" ] ; then
-  cd ~/Proyectos/NEXTGENDEM/bcs-backend/
-elif [ "$(whoami)" == "paula" ] ; then
-  cd ~/Documentos/NEXTGENDEM/bcs/bcs-backend/
-elif [ "$(whoami)" == "daniel" ] ; then
-  cd ~/Documentos/GIT/bcs-backend/
-fi
+cd "$(dirname $0)"
 
 # CELERY
 # Worker AND Beat (only for development; NOT for production -use Supervisor and two separate processes-)
