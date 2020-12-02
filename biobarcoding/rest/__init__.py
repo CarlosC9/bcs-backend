@@ -146,30 +146,29 @@ SELF_SCHEMA=""
 
 def load_configuration_file(flask_app):
     # Initialize configuration
-    config_file_var = "BCS_CONFIG_FILE"
     try:
         _, file_name = prepare_default_configuration(False)
-        if not os.environ.get(config_file_var):
+        if not os.environ.get(biobarcoding.config_file_var):
             found = False
             for f in [file_name]:
                 if os.path.isfile(f):
                     print(f"Assuming {f} as configuration file")
                     found = True
-                    os.environ[config_file_var] = f
+                    os.environ[biobarcoding.config_file_var] = f
                     break
             if not found:
                 cfg, file_name = prepare_default_configuration(True)
                 print(f"Generating {file_name} as configuration file:\n{cfg}")
                 with open(file_name, "wt") as f:
                     f.write(cfg)
-                os.environ[config_file_var] = file_name
+                os.environ[biobarcoding.config_file_var] = file_name
 
         print("-----------------------------------------------")
-        print(f'Configuration file at: {os.environ[config_file_var]}')
+        print(f'Configuration file at: {os.environ[biobarcoding.config_file_var]}')
         print("-----------------------------------------------")
-        flask_app.config.from_envvar(config_file_var)
+        flask_app.config.from_envvar(biobarcoding.config_file_var)
     except Exception as e:
-        print(f"{config_file_var} environment variable not defined!")
+        print(f"{biobarcoding.config_file_var} environment variable not defined!")
         print(e)
 
 
