@@ -1,7 +1,7 @@
 """
 REST interface to manage JOBS API
 """
-from dotted.collection import DottedDict, DottedCollection
+from dotted.collection import DottedDict, DottedList, DottedJSONEncoder, DottedCollection
 from flask import Blueprint
 from flask import request, make_response, jsonify
 from flask.views import MethodView
@@ -25,14 +25,6 @@ def is_integer(n):
         return False
     else:
         return float(n).is_integer()
-
-def dottedtodict(dotdict):
-    if isinstance(dotdict, DottedDict):
-        dotdict=dict(dotdict)
-        for k,v in dotdict.items():
-            if isinstance(v,DottedDict):
-                dotdict[k] = dottedtodict(v)
-        return dotdict
 
 
 
@@ -124,14 +116,14 @@ class JobAPI(MethodView):
         job.resource = resource
         job.process = process
         job.status = "created"
-        job.inputs = json.dumps(dottedtodict(process_params))
+        job.inputs = json.dumps(process_params.to_json())
         session.add(job)
         session.commit()
         d.job_id = job.id
         DBSession.remove()
 
         # Submit job to Celery
-        JobManagementAPI().submit(json.dumps(dottedtodict(d)))
+        JobManagementAPI().submit(d.to_json())
 
         # Return
         response_object = {
