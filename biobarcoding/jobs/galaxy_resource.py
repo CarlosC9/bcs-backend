@@ -722,7 +722,7 @@ class ToFormlyConverter:
         form['templateOptions']['description'] = g_input['help']
         return form
 
-    def get_formly_json(self, g_input):
+    def get_formly_json(self, g_input,step_label):
         l = []
         for i in g_input:
             forms = self.choose_converter(i)
@@ -736,7 +736,9 @@ class ToFormlyConverter:
         # regex = r'(?<!: )"(\S*?)"'
         # tmp = json.dumps(l, indent=3)
         # return re.sub(regex, '\\1', tmp)
-        return json.dumps(l, indent=3)
+        form = dict()
+        form[step_label] = l
+        return json.dumps(form, indent=3)
 
 
 class convertBooleanToolParameter(ToFormlyConverter):
@@ -807,4 +809,24 @@ class converterConditional(ToFormlyConverter):
                         print('no converter for ',j['model_class'])
                     form.append(case_form)
         return form
+
+
+def convertToFormly(wf_steps,newpath):
+    '''
+    dicctionary step_label: form_path
+    '''
+    for k, v in wf_steps.items():
+        input_path = v
+        with open(input_path, 'r') as f:
+            galaxy_dict_in = json.load(f)
+        inputs = galaxy_dict_in['inputs']
+        convert = ToFormlyConverter()
+        formly_json = convert.get_formly_json(inputs,k)
+        path = newpath
+        with open(path, 'w') as file:
+            file.write(formly_json)
+
+
+
+
 

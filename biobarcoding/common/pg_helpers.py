@@ -163,7 +163,7 @@ def load_process_input_schema(sf):
     session = sf()
     process = session.query(Process).filter(Process.uuid == "c8df0c20-9cd5-499b-92d4-5fb35b5a369a").first()
     if not process.schema_inputs:
-        path = ROOT + '/biobarcoding/inputs_schema/clustalw_formly.json'
+        path = ROOT + '/biobarcoding/inputs_schema/clustalw_wf_formly.json'
         with open(path, 'r') as f:
             inputs = json.load(f)
             # json_inputs = json.dumps(inputs)

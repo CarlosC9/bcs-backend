@@ -106,6 +106,15 @@ class MyTestCase(unittest.TestCase):
         with open(json, 'w') as file:
             file.write(formly_json)
 
+    def test_convert_workflows(self):
+        wfdict = {'clustalw': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/clustalw_galaxy.json'}
+        new_form_path = '/biobarcoding/inputs_schema/clustalw_wf_formly.json'
+        convertToFormly(wfdict,new_form_path)
+        path = '/biobarcoding/inputs_schema/clustalw_wf_formly.json'
+        with open(path, 'w') as file:
+            file.write(json)
+
+
 
 
 
