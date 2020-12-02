@@ -14,6 +14,7 @@ class OrganismsAPI(MethodView):
     """
     Organisms Resource
     """
+    ids = None
     genus = None
     species = None
     common_name = None
@@ -49,25 +50,27 @@ class OrganismsAPI(MethodView):
         return make_response(jsonify(response), code)
 
 
-    def delete(self, id):
+    def delete(self, id=None):
         print(f'DELETE {request.path}\nDeleting organisms {id}')
         self._check_data(request.args)
         from biobarcoding.services.organisms import delete_organisms
-        response, code = delete_organisms(id, self.genus, self.species, self.common_name, self.abbreviation, self.comment)
+        response, code = delete_organisms(id, self.ids, self.genus, self.species, self.common_name, self.abbreviation, self.comment)
         return make_response(jsonify(response), code)
 
 
     def _check_data(self, data):
         if data:
-            if 'genus' in data:
+            if 'id' in data and data['id']:
+                self.ids = data.getlist('id')
+            if 'genus' in data and data['genus']:
                 self.genus = data['genus']
-            if 'species' in data:
+            if 'species' in data and data['species']:
                 self.species = data['species']
-            if 'common_name' in data:
+            if 'common_name' in data and data['common_name']:
                 self.common_name = data['common_name']
-            if 'abbreviation' in data:
+            if 'abbreviation' in data and data['abbreviation']:
                 self.abbreviation = data['abbreviation']
-            if 'comment' in data:
+            if 'comment' in data and data['comment']:
                 self.comment = data['comment']
         print(f'DATA: {data}')
 

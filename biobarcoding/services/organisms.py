@@ -26,14 +26,18 @@ def update_organisms(organism_id, genus = None, species = None, common = None, a
     return {'status':'success','message':'UPDATE: organisms dummy completed'}, 200
 
 
-def delete_organisms(organism_id = None, genus = None, species = None, common = None, abbr = None, comment = None):
+def delete_organisms(organism_id = None, ids = None, genus = None, species = None, common = None, abbr = None, comment = None):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
+    resp = 0
     try:
         resp = conn.organism.delete_organisms(organism_id, genus, species, common, abbr, comment)
+        for id in ids:
+            resp += conn.organism.delete_organisms(id, genus, species, common, abbr, comment)
         return {'status':'success','message':f'{resp} organisms were successfully removed.'}, 200
     except Exception as e:
-        return {'status':'failure','message':f'The analyses could not be removed.'}, 500
+        return {'status':'success','message':f'{resp} organisms were removed.'}, 207
+        # return {'status':'failure','message':f'The organisms could not be removed.'}, 500
 
 
 def export_organisms(organism_id = None):
