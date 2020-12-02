@@ -18,11 +18,10 @@ class FileSystemObject(ORMBase):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     uuid = Column(GUID, unique=True, default=uuid.uuid4)
+    fso_type = Column(String(6), nullable=False)
     name = Column(String(1024))
     full_name = Column(String(2048))
-
-    parent_id = Column(BigInteger, ForeignKey(f"{prefix}folders.id"), nullable=True, primary_key=False)
-    parent = relationship("Folder", foreign_keys=[parent_id], backref=backref("children", cascade="all, delete-orphan"))
+    __mapper_args__ = {'polymorphic_on': fso_type}
 
 
 class File(FileSystemObject):
@@ -34,7 +33,7 @@ class File(FileSystemObject):
     content_size = Column(Integer)
     content_location = Column(JSON)  # Location and maybe credentials
     __mapper_args__ = {
-        'polymorphic_identity': 'file', 'inherit_condition': id == FileSystemObject.id
+        'polymorphic_identity': 'file'
     }
 
 
@@ -43,8 +42,13 @@ class Folder(FileSystemObject):
     __tablename__ = f"{prefix}folders"
     id = Column(BigInteger, ForeignKey(FileSystemObject.id), primary_key=True)
     __mapper_args__ = {
-        'polymorphic_identity': 'folder', 'inherit_condition': id == FileSystemObject.id
+        'polymorphic_identity': 'folder'
     }
+
+
+FileSystemObject.parent_id = Column(BigInteger, ForeignKey(Folder.id), nullable=True, primary_key=False)
+FileSystemObject.parent = relationship(Folder, foreign_keys=[FileSystemObject.parent_id],
+                                       backref=backref("children", cascade="all, delete-orphan"))
 
 
 class BioinformaticObjectInFile(ORMBase):

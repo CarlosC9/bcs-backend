@@ -17,6 +17,27 @@ bp_files = Blueprint('files', __name__)
 class FilesAPI(MethodView):
     """
     Files management Resource
+
+    Examples (using "curl"):
+export TEST_FILES_PATH=/home/rnebot/GoogleDrive/AA_NEXTGENDEM/bcs-backend/tests/data_test/
+export API_BASE_URL=http://localhost:5000/api
+
+##### PUT Folder (Create folder "/f1/f2/")
+curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt -H "Content-Type: application/json" -XPUT -d '{}' "$API_BASE_URL/files/f1/f2/"
+
+##### PUT File (Create or Overwrite file CONTENTS of "/f1/f2/file.fasta")
+curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt -H "Content-Type: application/x-fasta" -XPUT --data-binary @"$TEST_FILES_PATH/ls_orchid.fasta" "$API_BASE_URL/files/f1/f2/file.fasta.content"
+
+NOT IMPLEMENTED (when "Import API" available)
+##### PUT File (Create or Overwrite file "List of Bioinformatic Objects")
+curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt -H "Content-Type: application/json" -XPUT --data-binary @"$TEST_FILES_PATH/ls_orchid_bos.json" "$API_BASE_URL/files/f1/f2/file.fasta"
+
+##### GET Folder (List folder contents)
+curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/files/f1/"
+
+##### GET File (Get file contents)
+curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/files/f1/f2/file.fasta.content"
+
     """
 
     decorators = []  # Add decorators: identity, function execution permissions, logging, etc.
@@ -28,7 +49,7 @@ class FilesAPI(MethodView):
         # "Left/Right single quote" character is replaced by single quote (')
         # "€"                       character is replaced by "eur"
         # "$"                       character is replaced by "usd"
-        return path.replace(' ', '_'). \
+        return path.strip().replace(' ', '_'). \
             replace(u'\u201d', '').replace(u'\u201c', ''). \
             replace(u'\u2018', "").replace(u'\u2019', ""). \
             replace('€', 'eur'). \
@@ -98,7 +119,7 @@ class FilesAPI(MethodView):
         #     if not register:
         #         register = False
 
-        return content_type, buffer
+        return content_type, buffer, len(buffer)
 
     @bcs_session()
     def put(self, fso_path):
@@ -120,14 +141,21 @@ class FilesAPI(MethodView):
             file_name = None
         else:
             file_name = parts[-1]
-            parts = parts[:-1]
+        parts = parts[:-1]
 
         # Process Folder
         accum_name = "/"
-        parent = None
+        parent = session.query(Folder).filter(Folder.full_name == accum_name).first()
+        if not parent:
+            parent = Folder()
+            parent.name = ""
+            parent.full_name = accum_name
+            parent.parent = None
+            session.add(parent)
+
         for part in parts:
             accum_name += part + "/"
-            fso = session.query(FileSystemObject).filter(FileSystemObject.full_name == accum_name).first()
+            fso = session.query(Folder).filter(Folder.full_name == accum_name).first()
             if not fso:
                 fso = Folder()
                 fso.name = part
@@ -137,6 +165,12 @@ class FilesAPI(MethodView):
             parent = fso
         # Process File
         if file_name:
+            if file_name.endswith(".content"):
+                put_content = True
+                file_name = file_name[:-len(".content")]
+            else:
+                put_content = False
+
             accum_name += file_name
             file = session.query(File).filter(File.full_name == accum_name).first()
             if not file:
@@ -146,9 +180,12 @@ class FilesAPI(MethodView):
                 file.full_name = accum_name
                 session.add(file)
             # TODO Common to Update or Create
-            file.content_type, file.embedded_content = FilesAPI._receive_file_submission(request)
-            file.content_type = None
-            file.embedded_content = None
+            file.parent = parent
+            if put_content:
+                file.content_type, file.embedded_content, file.content_size = FilesAPI._receive_file_submission(request)
+            else:
+                # Other properties
+                pass
 
         return r.get_response()
 
@@ -166,13 +203,14 @@ class FilesAPI(MethodView):
             # If nothing is passed after "/files/", return <empty>
             return r.get_response()
 
+        fso_path = "/" + FilesAPI._clean_path(fso_path)
         if fso_path.endswith(".content"):
             get_content = True
             fso_path = fso_path[:-len(".content")]
         else:
             get_content = False
         if is_integer(fso_path):
-            fso = session.query(FileSystemObject).get(int(fso_path))
+            fso = session.query(FileSystemObject).get(int(fso_path[1:]))
         else:
             fso = session.query(FileSystemObject).filter(FileSystemObject.full_name == fso_path).first()
         if fso:
@@ -186,9 +224,9 @@ class FilesAPI(MethodView):
                 d = FilesAPI._get_fso_dict(fso)
                 ls = []
                 for ch in fso.children:
-                    if isinstance(ch, File):
-                        ls.append(FilesAPI._get_fso_dict(fso))
+                    ls.append(FilesAPI._get_fso_dict(ch))
                 d["children"] = ls
+                r.content = d
 
         return r.get_response()
 
@@ -215,4 +253,4 @@ class FilesAPI(MethodView):
         return r.get_response()
 
 
-register_api(bp_files, FilesAPI, "files", f"{bcs_api_base}/files/", "fso_path", "string")
+register_api(bp_files, FilesAPI, "files", f"{bcs_api_base}/files/", "fso_path", "path")
