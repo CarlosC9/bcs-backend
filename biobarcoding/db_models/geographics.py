@@ -2,8 +2,10 @@
 from sqlalchemy import Column, Integer, String
 
 from biobarcoding.db_models import ORMBase, GUID
+from biobarcoding.db_models.bioinformatics import BioinformaticObject
 
 prefix = "geo_"
+
 
 class GeographicRegion(ORMBase):
     __tablename__ = f"{prefix}regions"
@@ -13,8 +15,11 @@ class GeographicRegion(ORMBase):
     name = Column(String(80))
 
 
-class GeographicLayer(ORMBase):
+class GeographicLayer(BioinformaticObject):
     __tablename__ = f"{prefix}layers"
+    __mapper_args__ = {
+        'polymorphic_identity': 'geolayer',
+    }
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(GUID, unique=True)

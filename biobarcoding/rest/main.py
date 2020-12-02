@@ -5,7 +5,7 @@ from flask_cors import CORS
 import biobarcoding
 from biobarcoding.jobs.galaxy_resource import initialize_galaxy
 from biobarcoding.rest import logger, log_level, load_configuration_file, construct_session_persistence_backend, \
-    initialize_database, initialize_database_chado, bcs_gui_base
+    initialize_database, initialize_database_chado, bcs_gui_base, ResponseObject
 from biobarcoding.rest.auth import bp_auth
 from biobarcoding.rest.file_manager import bp_files
 from biobarcoding.rest.identities_and_company import bp_identities, bp_sys_functions, bp_roles, bp_identities_roles, \
@@ -117,9 +117,9 @@ def index():
 
 @biobarcoding.flask_app.route("/test")
 def test_rest_open():
-    from biobarcoding.tasks.definitions import add
-    # add.delay(2, 3)
-    return f"<h1 style='color:blue'>{biobarcoding.flask_app.config['DB_CONNECTION_STRING']}!<br>{current_app.config['DB_CONNECTION_STRING']}</h1>"
+    r = ResponseObject()
+    r.content = dict(it_works="yes!", other_info={biobarcoding.flask_app.config['DB_CONNECTION_STRING']})
+    return r.get_response()
 
 
 @biobarcoding.flask_app.after_request
