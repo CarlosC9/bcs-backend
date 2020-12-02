@@ -1,12 +1,14 @@
+from biobarcoding.db_models import DBSessionChado as session
+
+
 def create_taxonomies(name, comment = None):
     return {'status':'success','message':'CREATE: taxonomies dummy completed'}, 200
 
 
 def read_taxonomies(id = None):
     from biobarcoding.services import chado2json
-    from biobarcoding.db_models import DBSessionChado
     from biobarcoding.db_models.chado import Phylotree, Dbxref
-    result = DBSessionChado().query(Phylotree)\
+    result = session.query(Phylotree)\
         .join(Dbxref)\
         .filter(Dbxref.accession=='taxonomy')
     if id:
@@ -19,8 +21,22 @@ def update_taxonomies(id, name = None, comment = None):
     return {'status':'success','message':'UPDATE: taxonomies dummy completed'}, 200
 
 
-def delete_taxonomies(id):
-    return {'status':'success','message':'DELETE: taxonomies dummy completed'}, 200
+def delete_taxonomies(id=None, ids=None):
+    from biobarcoding.db_models.chado import Phylotree, Dbxref
+    result = session.query(Phylotree)\
+        .filter(Phylotree.dbxref_id==session.query(Dbxref.dbxref_id)\
+                .filter(Dbxref.accession=='taxonomy').first())
+    msg='[ '
+    if id:
+        result.filter(Phylotree.phylotree_id==id)
+        msg+=f'{id} '
+    if ids:
+        result.filter(Phylotree.phylotree_id.in_(ids))
+        msg+=f'{ids} '
+    msg+=']'
+    result.delete()
+    session.commit()
+    return {'status':'success','message':f'Taxonomies deleted: {msg}'}, 200
 
 
 def import_taxonomies(input_file, name = None, comment = None):
@@ -45,5 +61,5 @@ def import_taxonomies(input_file, name = None, comment = None):
     return {'status':'success','message':f'Taxonomy in {os.path.basename(input_file)} imported properly.\n{out}'}, 200
 
 
-def export_taxonomies(id = None):
+def export_taxonomies(id = None, ids = None):
     return {'status':'success','message':'EXPORT: taxonomies dummy completed'}, 200

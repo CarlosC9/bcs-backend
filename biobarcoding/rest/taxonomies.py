@@ -12,6 +12,7 @@ class TaxonomiesAPI(MethodView):
     """
     Taxonomies Resource
     """
+    ids = None
     name = None
     comment = None
 
@@ -20,7 +21,7 @@ class TaxonomiesAPI(MethodView):
         self._check_data(request.args)
         if 'Accept' in request.headers and request.headers['Accept']=='text/ncbi':
             from biobarcoding.services.taxonomies import export_taxonomies
-            response, code = export_taxonomies(id)
+            response, code = export_taxonomies(id, self.ids)
             return send_file(response, mimetype='text/ncbi'), code
         else:
             from biobarcoding.services.taxonomies import read_taxonomies
@@ -48,10 +49,11 @@ class TaxonomiesAPI(MethodView):
         return make_response(jsonify(response), code)
 
 
-    def delete(self, id):
+    def delete(self, id=None):
         print(f'DELETE {request.path}\nDeleting taxonomies {id}')
+        self._check_data(request.args)
         from biobarcoding.services.taxonomies import delete_taxonomies
-        response, code = delete_taxonomies(id)
+        response, code = delete_taxonomies(id, self.ids)
         return make_response(jsonify(response), code)
 
 
@@ -78,9 +80,11 @@ class TaxonomiesAPI(MethodView):
 
     def _check_data(self, data):
         if data:
-            if 'name' in data:
+            if 'id' in data and data['id']:
+                self.ids = data.getlist('id')
+            if 'name' in data and data['name']:
                 self.name = data['name']
-            if 'comment' in data:
+            if 'comment' in data and data['comment']:
                 self.comment = data['comment']
         print(f'DATA: {data}')
 
@@ -89,7 +93,7 @@ taxonomies_view = TaxonomiesAPI.as_view('api_taxonomies')
 bp_taxonomies.add_url_rule(
     bcs_api_base + '/taxonomies/',
     view_func=taxonomies_view,
-    methods=['GET','POST']
+    methods=['GET','POST','DELETE']
 )
 bp_taxonomies.add_url_rule(
     bcs_api_base + '/taxonomies/<int:id>',
