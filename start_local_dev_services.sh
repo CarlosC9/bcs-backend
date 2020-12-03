@@ -7,12 +7,15 @@ fi
 
 # Initialize EDAM ontology, NCBI taxonomy, ...
 function init_chado {
+  echo Waiting for PostgreSQL-Chado
   pg_isready -d postgres -h localhost -p 5432 -U postgres
   while [ $? -ne 0 ]
   do
-    echo "$(dirname $0)"
+    echo PostgreSQL-Chado is not ready yet.
+    sleep 3
     pg_isready -d postgres -h localhost -p 5432 -U postgres
   done
+  echo Initializing Chado
   cd $1/docker_init
   ./init.sh
 }
