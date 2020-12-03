@@ -28,7 +28,11 @@ def import_sequences(input_file, organism_id = None, analysis_id = None):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
     if not organism_id:
-        organism_id = conn.organism.get_organisms(species='unknown')[0]['organism_id']
+        try:
+            organism_id = conn.organism.add_organism(genus='organism',
+                species='undefined', common='', abbr='')['organism_id']
+        except Exception as e:
+            organism_id = conn.organism.get_organisms(species='undefined')[0]['organism_id']
     try:
         # resp = conn.feature.load_fasta(input_file, organism_id, analysis_id=analysis_id, sequence_type='polypeptide', update=True)
         resp = conn.feature.load_fasta(input_file, organism_id, analysis_id=analysis_id, update=True)
