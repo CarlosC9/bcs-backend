@@ -1,5 +1,5 @@
 # GEOGRAPHIC data
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, BigInteger, ForeignKey
 
 from biobarcoding.db_models import ORMBase, GUID
 from biobarcoding.db_models.bioinformatics import BioinformaticObject
@@ -20,7 +20,6 @@ class GeographicLayer(BioinformaticObject):
     __mapper_args__ = {
         'polymorphic_identity': 'geolayer',
     }
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
     uuid = Column(GUID, unique=True)
     name = Column(String(80))
