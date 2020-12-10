@@ -24,9 +24,8 @@ class BioinformaticObject(ORMBase):
     uuid = Column(GUID, unique=True, default=uuid.uuid4)
     bo_type_id = Column(Integer, ForeignKey(ObjectType.id))
     chado_table = Column(String(80))
-    chado_id = Column(BigInteger)
     name = Column(String(80))
-    content = Column(UnicodeText)
+    # content = Column(UnicodeText)
 
     __mapper_args__ = {
         'polymorphic_identity': 'bioinformatic_obj',
@@ -71,6 +70,7 @@ class MultipleSequenceAlignment(BioinformaticObject):
     }
 
     id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
+    chado_analysis_id = Column(BigInteger, primary_key=False)  # Foreign key (not enforceable by the DB)
 
 
 class PhylogeneticTree(BioinformaticObject):
@@ -81,6 +81,7 @@ class PhylogeneticTree(BioinformaticObject):
     }
 
     id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
+    chado_phylotree_id = Column(BigInteger, primary_key=False)  # Foreign key (not enforceable by the DB)
 
 
 class SequenceSimilarity(BioinformaticObject):
@@ -91,3 +92,4 @@ class SequenceSimilarity(BioinformaticObject):
     }
 
     id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
+    chado_analysis_id = Column(BigInteger, primary_key=False)  # Foreign key (not enforceable by the DB)
