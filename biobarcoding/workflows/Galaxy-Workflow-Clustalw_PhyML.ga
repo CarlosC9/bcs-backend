@@ -1,0 +1,168 @@
+{
+    "a_galaxy_workflow": "true",
+    "annotation": "",
+    "format-version": "0.1",
+    "name": "Clustalw_PhyML",
+    "steps": {
+        "0": {
+            "annotation": "",
+            "content_id": null,
+            "errors": null,
+            "id": 0,
+            "input_connections": {},
+            "inputs": [
+                {
+                    "description": "",
+                    "name": "Input dataset"
+                }
+            ],
+            "label": "Input dataset",
+            "name": "Input dataset",
+            "outputs": [],
+            "position": {
+                "left": 283,
+                "top": 200
+            },
+            "tool_id": null,
+            "tool_state": "{\"optional\": false}",
+            "tool_version": null,
+            "type": "data_input",
+            "uuid": "2ad8208a-e45c-4c9b-803e-b24b432dd8a0",
+            "workflow_outputs": [
+                {
+                    "label": null,
+                    "output_name": "output",
+                    "uuid": "4541019a-720c-4f8e-85ae-4293139349a1"
+                }
+            ]
+        },
+        "1": {
+            "annotation": "",
+            "content_id": "toolshed.g2.bx.psu.edu/repos/devteam/clustalw/clustalw/2.1",
+            "errors": null,
+            "id": 1,
+            "input_connections": {
+                "input": {
+                    "id": 0,
+                    "output_name": "output"
+                }
+            },
+            "inputs": [
+                {
+                    "description": "runtime parameter for tool ClustalW",
+                    "name": "input"
+                }
+            ],
+            "label": "clustalw",
+            "name": "ClustalW",
+            "outputs": [
+                {
+                    "name": "output",
+                    "type": "clustal"
+                },
+                {
+                    "name": "dnd",
+                    "type": "nhx"
+                }
+            ],
+            "position": {
+                "left": 534,
+                "top": 321
+            },
+            "post_job_actions": {},
+            "tool_id": "toolshed.g2.bx.psu.edu/repos/devteam/clustalw/clustalw/2.1",
+            "tool_shed_repository": {
+                "changeset_revision": "d6694932c5e0",
+                "name": "clustalw",
+                "owner": "devteam",
+                "tool_shed": "toolshed.g2.bx.psu.edu"
+            },
+            "tool_state": "{\"dnarna\": \"DNA\", \"input\": {\"__class__\": \"RuntimeValue\"}, \"out_order\": \"ALIGNED\", \"outcontrol\": {\"outform\": \"phylip\", \"__current_case__\": 1}, \"range\": {\"mode\": \"complete\", \"__current_case__\": 0}, \"__page__\": null, \"__rerun_remap_job_id__\": null}",
+            "tool_version": "2.1",
+            "type": "tool",
+            "uuid": "a9569679-f823-4f21-82cd-e7fe9ddfc963",
+            "workflow_outputs": [
+                {
+                    "label": null,
+                    "output_name": "output",
+                    "uuid": "42831899-4305-41c7-bd6f-bafcad0416d8"
+                },
+                {
+                    "label": null,
+                    "output_name": "dnd",
+                    "uuid": "9343b0e2-d399-4cfe-85aa-a57c8f218187"
+                }
+            ]
+        },
+        "2": {
+            "annotation": "",
+            "content_id": "toolshed.g2.bx.psu.edu/repos/vlefort/phyml/phyml/3.1",
+            "errors": null,
+            "id": 2,
+            "input_connections": {
+                "input": {
+                    "id": 1,
+                    "output_name": "output"
+                }
+            },
+            "inputs": [
+                {
+                    "description": "runtime parameter for tool PhyML",
+                    "name": "input"
+                }
+            ],
+            "label": "phyml",
+            "name": "PhyML",
+            "outputs": [
+                {
+                    "name": "output_tree",
+                    "type": "txt"
+                },
+                {
+                    "name": "output_stats",
+                    "type": "txt"
+                },
+                {
+                    "name": "output_stdout",
+                    "type": "txt"
+                }
+            ],
+            "position": {
+                "left": 990,
+                "top": 531
+            },
+            "post_job_actions": {},
+            "tool_id": "toolshed.g2.bx.psu.edu/repos/vlefort/phyml/phyml/3.1",
+            "tool_shed_repository": {
+                "changeset_revision": "6dd988b4b760",
+                "name": "phyml",
+                "owner": "vlefort",
+                "tool_shed": "toolshed.g2.bx.psu.edu"
+            },
+            "tool_state": "{\"equi_freq\": \"m\", \"gamma\": \"e\", \"input\": {\"__class__\": \"RuntimeValue\"}, \"move\": \"NNI\", \"nbSubstCat\": \"4\", \"nb_data_set\": \"1\", \"numStartSeed\": \"0\", \"optimisationTopology\": \"tlr\", \"phylip_format\": \"\", \"prop_invar\": \"e\", \"seq\": {\"type_of_seq\": \"nt\", \"__current_case__\": 0, \"tstv\": \"e\", \"model\": \"HKY85\"}, \"support_condition\": {\"branchSupport\": \"-4\", \"__current_case__\": 3}, \"usetree\": {\"inputTree\": \"false\", \"__current_case__\": 1}, \"__page__\": null, \"__rerun_remap_job_id__\": null}",
+            "tool_version": "3.1",
+            "type": "tool",
+            "uuid": "ed6a4700-ea08-42ce-887e-d1d83a3493ff",
+            "workflow_outputs": [
+                {
+                    "label": null,
+                    "output_name": "output_tree",
+                    "uuid": "d827460c-3c6f-4082-a0f9-d574d2cee5c7"
+                },
+                {
+                    "label": null,
+                    "output_name": "output_stats",
+                    "uuid": "4321e0ce-e342-4398-8c52-52607a7d3627"
+                },
+                {
+                    "label": null,
+                    "output_name": "output_stdout",
+                    "uuid": "f594cb36-a514-437b-8411-d85e18b6d285"
+                }
+            ]
+        }
+    },
+    "tags": [],
+    "uuid": "d5c12eb8-1a4f-4d57-a5ac-b7d7c26dd397",
+    "version": 2
+}

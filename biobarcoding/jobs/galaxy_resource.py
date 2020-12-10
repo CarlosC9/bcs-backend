@@ -722,7 +722,7 @@ class ToFormlyConverter:
         form['templateOptions']['description'] = g_input['help']
         return form
 
-    def get_formly_json(self, g_input,step_label):
+    def get_formly_dict(self, g_input,step_label):
         l = []
         for i in g_input:
             forms = self.choose_converter(i)
@@ -733,12 +733,7 @@ class ToFormlyConverter:
             else:
                 if isinstance(forms, dict):
                     l.append(forms)
-        # regex = r'(?<!: )"(\S*?)"'
-        # tmp = json.dumps(l, indent=3)
-        # return re.sub(regex, '\\1', tmp)
-        form = dict()
-        form[step_label] = l
-        return json.dumps(form, indent=3)
+        return l
 
 
 class convertBooleanToolParameter(ToFormlyConverter):
@@ -815,16 +810,23 @@ def convertToFormly(wf_steps,newpath):
     '''
     dicctionary step_label: form_path
     '''
+    fieldGroup = list()
+    formly =dict()
+    formly['type'] = 'stepper'
     for k, v in wf_steps.items():
         input_path = v
         with open(input_path, 'r') as f:
             galaxy_dict_in = json.load(f)
         inputs = galaxy_dict_in['inputs']
         convert = ToFormlyConverter()
-        formly_json = convert.get_formly_json(inputs,k)
-        path = newpath
-        with open(path, 'w') as file:
-            file.write(formly_json)
+        form = dict()
+        form['templateOptions'] = {'label': k}
+        form['fieldGroup'] = convert.get_formly_dict(inputs, k)
+        fieldGroup.append(form)
+    formly['fieldGroup'] = fieldGroup
+    formly_json = json.dumps([formly], indent=3)
+    with open(newpath, 'w') as file:
+        file.write(formly_json)
 
 
 

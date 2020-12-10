@@ -1,0 +1,511 @@
+[
+   {
+      "type": "stepper",
+      "fieldGroup": [
+         {
+            "templateOptions": {
+               "label": "clustalw"
+            },
+            "fieldGroup": [
+               {
+                  "key": "dnarna",
+                  "type": "select",
+                  "templateOptions": {
+                     "label": "Data type",
+                     "required": true,
+                     "description": "",
+                     "options": [
+                        {
+                           "value": "DNA",
+                           "label": "DNA nucleotide sequences"
+                        },
+                        {
+                           "value": "PROTEIN",
+                           "label": "Protein sequences"
+                        }
+                     ]
+                  },
+                  "defaultValue": "DNA"
+               },
+               {
+                  "key": "outform",
+                  "type": "select",
+                  "templateOptions": {
+                     "label": "Output alignment format",
+                     "required": true,
+                     "description": "",
+                     "options": [
+                        {
+                           "value": "clustal",
+                           "label": "Native Clustal output format"
+                        },
+                        {
+                           "value": "phylip",
+                           "label": "PHYLIP format"
+                        },
+                        {
+                           "value": "fasta",
+                           "label": "FASTA format"
+                        }
+                     ]
+                  },
+                  "defaultValue": "clustal"
+               },
+               {
+                  "key": "out_seqnos",
+                  "type": "radio",
+                  "templateOptions": {
+                     "label": "Show residue numbers in clustal format output",
+                     "required": true,
+                     "description": "",
+                     "options": [
+                        {
+                           "value": "ON",
+                           "label": "Yes"
+                        },
+                        {
+                           "value": "OFF",
+                           "label": "No"
+                        }
+                     ]
+                  },
+                  "defaultValue": "false",
+                  "hideExpression": "model.outform!='clustal'"
+               },
+               {
+                  "key": "out_order",
+                  "type": "select",
+                  "templateOptions": {
+                     "label": "Output order",
+                     "required": true,
+                     "description": "",
+                     "options": [
+                        {
+                           "value": "ALIGNED",
+                           "label": "Aligned"
+                        },
+                        {
+                           "value": "INPUT",
+                           "label": "Same order as input file"
+                        }
+                     ]
+                  },
+                  "defaultValue": "ALIGNED"
+               },
+               {
+                  "key": "mode",
+                  "type": "select",
+                  "templateOptions": {
+                     "label": "Output complete alignment (or specify part to output)",
+                     "required": true,
+                     "description": "",
+                     "options": [
+                        {
+                           "value": "complete",
+                           "label": "Complete alignment"
+                        },
+                        {
+                           "value": "part",
+                           "label": "Only part of the alignment"
+                        }
+                     ]
+                  },
+                  "defaultValue": "complete"
+               },
+               {
+                  "key": "seq_range_start",
+                  "type": "input",
+                  "templateOptions": {
+                     "label": "Start point",
+                     "required": true,
+                     "description": "Sequence range to write",
+                     "type": "number"
+                  },
+                  "defaultValue": "1",
+                  "hideExpression": "model.mode!='part'"
+               },
+               {
+                  "key": "seq_range_end",
+                  "type": "input",
+                  "templateOptions": {
+                     "label": "End point",
+                     "required": true,
+                     "description": "",
+                     "type": "number"
+                  },
+                  "defaultValue": "99999",
+                  "hideExpression": "model.mode!='part'"
+               }
+            ]
+         },
+         {
+            "templateOptions": {
+               "label": "phyml"
+            },
+            "fieldGroup": [
+               {
+                  "key": "phylip_format",
+                  "type": "select",
+                  "templateOptions": {
+                     "label": "Changes interleaved format",
+                     "required": true,
+                     "description": "",
+                     "options": [
+                        {
+                           "value": "",
+                           "label": "Interleaved"
+                        },
+                        {
+                           "value": "--sequential",
+                           "label": "Sequential"
+                        }
+                     ]
+                  },
+                  "defaultValue": ""
+               },
+               {
+                  "key": "nb_data_set",
+                  "type": "input",
+                  "templateOptions": {
+                     "label": "Number of data sets",
+                     "required": true,
+                     "description": "",
+                     "type": "number",
+                     "min": 1
+                  },
+                  "defaultValue": "1"
+               },
+               {
+                  "key": "type_of_seq",
+                  "type": "select",
+                  "templateOptions": {
+                     "label": "Data type",
+                     "required": true,
+                     "description": "",
+                     "options": [
+                        {
+                           "value": "nt",
+                           "label": "Nucleic acids"
+                        },
+                        {
+                           "value": "aa",
+                           "label": "Amino acids"
+                        }
+                     ]
+                  },
+                  "defaultValue": "nt"
+               },
+               {
+                  "key": "tstv",
+                  "type": "textarea",
+                  "templateOptions": {
+                     "label": "Transition/transversion ratio",
+                     "required": true,
+                     "description": "Must be a positive integer, 'e' if you want PhyML to estimate it"
+                  },
+                  "defaultValue": "e",
+                  "hideExpression": "model.type_of_seq!='nt'"
+               },
+               {
+                  "key": "model",
+                  "type": "select",
+                  "templateOptions": {
+                     "label": "Substitution model",
+                     "required": true,
+                     "description": "",
+                     "options": [
+                        {
+                           "value": "HKY85",
+                           "label": "HKY85"
+                        },
+                        {
+                           "value": "JC69",
+                           "label": "JC69"
+                        },
+                        {
+                           "value": "K80",
+                           "label": "K80"
+                        },
+                        {
+                           "value": "F81",
+                           "label": "F81"
+                        },
+                        {
+                           "value": "F84",
+                           "label": "F84"
+                        },
+                        {
+                           "value": "TN93",
+                           "label": "TN93"
+                        },
+                        {
+                           "value": "GTR",
+                           "label": "GTR"
+                        }
+                     ]
+                  },
+                  "defaultValue": "HKY85",
+                  "hideExpression": "model.type_of_seq!='nt'"
+               },
+               {
+                  "key": "model",
+                  "type": "select",
+                  "templateOptions": {
+                     "label": "Evolution model",
+                     "required": true,
+                     "description": "",
+                     "options": [
+                        {
+                           "value": "LG",
+                           "label": "LG"
+                        },
+                        {
+                           "value": "WAG",
+                           "label": "WAG"
+                        },
+                        {
+                           "value": "JTT",
+                           "label": "JTT"
+                        },
+                        {
+                           "value": "MtREV",
+                           "label": "MtREV"
+                        },
+                        {
+                           "value": "Dayhoff",
+                           "label": "Dayhoff"
+                        },
+                        {
+                           "value": "DCMut",
+                           "label": "DCMut"
+                        },
+                        {
+                           "value": "RtREV",
+                           "label": "RtREV"
+                        },
+                        {
+                           "value": "CpREV",
+                           "label": "CpREV"
+                        },
+                        {
+                           "value": "VT",
+                           "label": "VT"
+                        },
+                        {
+                           "value": "Blosum62",
+                           "label": "Blosum62"
+                        },
+                        {
+                           "value": "MtMam",
+                           "label": "MtMam"
+                        },
+                        {
+                           "value": "MtArt",
+                           "label": "MtArt"
+                        },
+                        {
+                           "value": "HIVw",
+                           "label": "HIVw"
+                        },
+                        {
+                           "value": "HIVb",
+                           "label": "HIVb"
+                        }
+                     ]
+                  },
+                  "defaultValue": "LG",
+                  "hideExpression": "model.type_of_seq!='aa'"
+               },
+               {
+                  "key": "prop_invar",
+                  "type": "textarea",
+                  "templateOptions": {
+                     "label": "Proportion of invariant sites",
+                     "required": true,
+                     "description": "Can be a fixed value in the [0,1] range or 'e' to get the maximum likelihood estimate, 0 to ignore this parameter"
+                  },
+                  "defaultValue": "e"
+               },
+               {
+                  "key": "equi_freq",
+                  "type": "select",
+                  "templateOptions": {
+                     "label": "Equilibrium frequencies",
+                     "required": true,
+                     "description": "Empirical: frequencies are estimated by counting the occurences in the alignment. ML/Model: frequencies are estimated using ML for nucleotides or defined by the proteic substitution model.",
+                     "options": [
+                        {
+                           "value": "m",
+                           "label": "ML/Model"
+                        },
+                        {
+                           "value": "e",
+                           "label": "Empirical"
+                        }
+                     ]
+                  },
+                  "defaultValue": "m"
+               },
+               {
+                  "key": "nbSubstCat",
+                  "type": "input",
+                  "templateOptions": {
+                     "label": "Number of categories for the discrete gamma model",
+                     "required": true,
+                     "description": "1 means no gamma model",
+                     "type": "number",
+                     "min": 1
+                  },
+                  "defaultValue": "4"
+               },
+               {
+                  "key": "gamma",
+                  "type": "textarea",
+                  "templateOptions": {
+                     "label": "Parameter of the gamma model",
+                     "required": true,
+                     "description": "'e' if you want PhyML to estimate it"
+                  },
+                  "defaultValue": "e"
+               },
+               {
+                  "key": "move",
+                  "type": "select",
+                  "templateOptions": {
+                     "label": "Tree topology search",
+                     "required": true,
+                     "description": "",
+                     "options": [
+                        {
+                           "value": "NNI",
+                           "label": "NNI (Nearest Neighbor Interchange)"
+                        },
+                        {
+                           "value": "SPR",
+                           "label": "SPR (Subtree Pruning and Regraphing)"
+                        },
+                        {
+                           "value": "BEST",
+                           "label": "Best of NNI and SPR"
+                        }
+                     ]
+                  },
+                  "defaultValue": "NNI"
+               },
+               {
+                  "key": "optimisationTopology",
+                  "type": "select",
+                  "templateOptions": {
+                     "label": "Optimise topology",
+                     "required": true,
+                     "description": "",
+                     "options": [
+                        {
+                           "value": "tlr",
+                           "label": "Tree topology, Branch length, Rate parameter"
+                        },
+                        {
+                           "value": "tl",
+                           "label": "Tree topology, Branch length"
+                        },
+                        {
+                           "value": "l",
+                           "label": "Branch length"
+                        },
+                        {
+                           "value": "r",
+                           "label": "Rate parameter"
+                        },
+                        {
+                           "value": "n",
+                           "label": "No parameter is optimized"
+                        }
+                     ]
+                  },
+                  "defaultValue": "tlr"
+               },
+               {
+                  "key": "branchSupport",
+                  "type": "select",
+                  "templateOptions": {
+                     "label": "Statistical tests for branch support",
+                     "required": true,
+                     "description": "Use aLRT or aBayes to save computing time",
+                     "options": [
+                        {
+                           "value": "0",
+                           "label": "No bootstrap"
+                        },
+                        {
+                           "value": "1",
+                           "label": "Bootstrap"
+                        },
+                        {
+                           "value": "-1",
+                           "label": "likelihood aLRT statistics"
+                        },
+                        {
+                           "value": "-2",
+                           "label": "likelihood Chi2-based"
+                        },
+                        {
+                           "value": "-4",
+                           "label": "SH-like"
+                        },
+                        {
+                           "value": "-5",
+                           "label": "Approximate Bayes branch supports"
+                        }
+                     ]
+                  },
+                  "defaultValue": "-4"
+               },
+               {
+                  "key": "replicate",
+                  "type": "input",
+                  "templateOptions": {
+                     "label": "Number of bootstrap replicates",
+                     "required": true,
+                     "description": "Must be a positive integer",
+                     "type": "number",
+                     "min": 1
+                  },
+                  "defaultValue": "100",
+                  "hideExpression": "model.branchSupport!='1'"
+               },
+               {
+                  "key": "numStartSeed",
+                  "type": "input",
+                  "templateOptions": {
+                     "label": "Number of seed used to initiate the random number generator",
+                     "required": true,
+                     "description": "0 to random seed",
+                     "type": "number"
+                  },
+                  "defaultValue": "0"
+               },
+               {
+                  "key": "inputTree",
+                  "type": "radio",
+                  "templateOptions": {
+                     "label": "Use input tree guide",
+                     "required": true,
+                     "description": "",
+                     "options": [
+                        {
+                           "value": "true",
+                           "label": "Yes"
+                        },
+                        {
+                           "value": "false",
+                           "label": "No"
+                        }
+                     ]
+                  },
+                  "defaultValue": "false"
+               }
+            ]
+         }
+      ]
+   }
+]
