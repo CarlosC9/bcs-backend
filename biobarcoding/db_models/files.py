@@ -54,6 +54,6 @@ FileSystemObject.parent = relationship(Folder, foreign_keys=[FileSystemObject.pa
 class BioinformaticObjectInFile(ORMBase):
     __tablename__ = f"{prefix}bos_in_files"
     file_id = Column(BigInteger, ForeignKey(File.id), nullable=False, primary_key=True)
-    file = relationship(File)
+    file = relationship(File, backref=backref("bos", cascade="all, delete-orphan"))
     bos_id = Column(BigInteger, ForeignKey(BioinformaticObject.id), nullable=False, primary_key=True)
     bos = relationship(BioinformaticObject, backref=backref("files", cascade="all, delete-orphan"))

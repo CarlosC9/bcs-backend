@@ -1,5 +1,6 @@
 import binascii
 import io
+import json
 import urllib
 
 from flask import Blueprint, request, g
@@ -7,7 +8,7 @@ from flask.views import MethodView
 
 from biobarcoding.authentication import bcs_session
 from biobarcoding.common.helpers import is_integer, download_file
-from biobarcoding.db_models.files import FileSystemObject, Folder, File
+from biobarcoding.db_models.files import FileSystemObject, Folder, File, BioinformaticObjectInFile
 from biobarcoding.rest import register_api, bcs_api_base, ResponseObject
 
 bp_files = Blueprint('files', __name__)
@@ -22,21 +23,27 @@ class FilesAPI(MethodView):
 export TEST_FILES_PATH=/home/rnebot/GoogleDrive/AA_NEXTGENDEM/bcs-backend/tests/data_test/
 export API_BASE_URL=http://localhost:5000/api
 
+##### Login
+curl --cookie-jar bcs-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user"
+
 ##### PUT Folder (Create folder "/f1/f2/")
 curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt -H "Content-Type: application/json" -XPUT -d '{}' "$API_BASE_URL/files/f1/f2/"
 
 ##### PUT File (Create or Overwrite file CONTENTS of "/f1/f2/file.fasta")
 curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt -H "Content-Type: application/x-fasta" -XPUT --data-binary @"$TEST_FILES_PATH/ls_orchid.fasta" "$API_BASE_URL/files/f1/f2/file.fasta.content"
 
-NOT IMPLEMENTED (when "Import API" available)
-##### PUT File (Create or Overwrite file "List of Bioinformatic Objects")
-curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt -H "Content-Type: application/json" -XPUT --data-binary @"$TEST_FILES_PATH/ls_orchid_bos.json" "$API_BASE_URL/files/f1/f2/file.fasta"
+##### PUT File (Create or Overwrite file "List of Bioinformatic Objects" of "/f1/f2/file.fasta")
+##### NOTE: Update the JSON file to a list of "id" (not UUID) of existing BOS objects
+curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt -H "Content-Type: application/json" -XPUT --data-binary @"$TEST_FILES_PATH/ls_orchid_bos.json" "$API_BASE_URL/files/f1/f2/file.fasta.bos"
 
 ##### GET Folder (List folder contents)
 curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/files/f1/"
 
 ##### GET File (Get file contents)
 curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/files/f1/f2/file.fasta.content"
+
+##### GET File (Get related BOS objects)
+curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/files/f1/f2/file.fasta.bos"
 
     """
 
@@ -168,8 +175,13 @@ curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/files/
             if file_name.endswith(".content"):
                 put_content = True
                 file_name = file_name[:-len(".content")]
+            elif file_name.endswith(".bos"):
+                put_content = False
+                file_name = file_name[:-len(".bos")]
+                put_bos = True
             else:
                 put_content = False
+                put_bos = False
 
             accum_name += file_name
             file = session.query(File).filter(File.full_name == accum_name).first()
@@ -179,13 +191,24 @@ curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/files/
                 file.name = file_name
                 file.full_name = accum_name
                 session.add(file)
-            # TODO Common to Update or Create
+            # Common to Update or Create
             file.parent = parent
             if put_content:
                 file.content_type, file.embedded_content, file.content_size = FilesAPI._receive_file_submission(request)
             else:
                 # Other properties
-                pass
+                if put_bos:
+                    content_type, lst, size = FilesAPI._receive_file_submission(request)
+                    if content_type in ("application/json", "text/json"):
+                        lst = lst.decode("utf-8")
+                        lst = json.loads(lst)
+                    # Delete all BOS of file
+                    session.query(BioinformaticObjectInFile).filter(BioinformaticObjectInFile.file==file).delete()
+                    for i in lst:
+                        bos_file = BioinformaticObjectInFile()
+                        bos_file.file = file
+                        bos_file.bos_id = i
+                        session.add(bos_file)
 
         return r.get_response()
 
@@ -207,8 +230,13 @@ curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/files/
         if fso_path.endswith(".content"):
             get_content = True
             fso_path = fso_path[:-len(".content")]
+        elif fso_path.endswith(".bos"):
+            get_content = False
+            get_bos = True
+            fso_path = fso_path[:-len(".bos")]
         else:
             get_content = False
+            get_bos = False
         if is_integer(fso_path):
             fso = session.query(FileSystemObject).get(int(fso_path[1:]))
         else:
@@ -219,7 +247,10 @@ curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/files/
                     r.content_type = fso.content_type
                     r.content = fso.embedded_content
                 else:
-                    r.content = FilesAPI._get_fso_dict(fso)
+                    if get_bos:
+                        r.content = [bos_file.bos_id for bos_file in session.query(BioinformaticObjectInFile).filter(BioinformaticObjectInFile.file==fso)]
+                    else:
+                        r.content = FilesAPI._get_fso_dict(fso)
             elif isinstance(fso, Folder):
                 d = FilesAPI._get_fso_dict(fso)
                 ls = []
