@@ -79,7 +79,7 @@ def load_table_extended(sf, clazz, attributes: List[str], values: List[Tuple]):
     Loads records in "values" using "attributes" names, into a relational table associated to the class "clazz",
     using the session factory "sf".
 
-    NOTE: "uuid" MUST be the first value in all tuples
+    NOTE: "uuid" field MUST be present in "attributes"
 
     :param sf:
     :param clazz:
@@ -87,8 +87,9 @@ def load_table_extended(sf, clazz, attributes: List[str], values: List[Tuple]):
     :return:
     """
     session = sf()
+    uuid_idx = attributes.index("uuid")
     for t in values:
-        i = session.query(clazz).filter(clazz.uuid == t[0]).first()
+        i = session.query(clazz).filter(clazz.uuid == t[uuid_idx]).first()
         if not i:
             ins = clazz()
             for i, f in enumerate(t):

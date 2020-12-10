@@ -7,6 +7,15 @@ import uuid
 
 prefix = "bo_"
 
+bio_object_type_id = {
+    "sequence": 1,
+    "multiple-sequence-alignment": 2,
+    "phylogenetic-tree": 3,
+    "geographic-layer": 4,
+    "sequence-similarity": 5,  # BLAST
+    "dataframe": 6
+}
+
 
 class BioinformaticObject(ORMBase):
     __versioned__ = {}
@@ -45,7 +54,7 @@ class Sequence(BioinformaticObject):
     __versioned__ = {}
     __tablename__ = f"{prefix}sequences"
     __mapper_args__ = {
-        'polymorphic_identity': 'sequence',
+        'polymorphic_identity': bio_object_type_id['sequence'],
     }
 
     id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
@@ -58,7 +67,7 @@ class MultipleSequenceAlignment(BioinformaticObject):
     __versioned__ = {}
     __tablename__ = f"{prefix}msas"
     __mapper_args__ = {
-        'polymorphic_identity': 'msa',
+        'polymorphic_identity': bio_object_type_id['multiple-sequence-alignment'],
     }
 
     id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
@@ -68,7 +77,17 @@ class PhylogeneticTree(BioinformaticObject):
     __versioned__ = {}
     __tablename__ = f"{prefix}phylo_trees"
     __mapper_args__ = {
-        'polymorphic_identity': 'phylo-tree',
+        'polymorphic_identity': bio_object_type_id['phylogenetic-tree'],
+    }
+
+    id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
+
+
+class SequenceSimilarity(BioinformaticObject):
+    __versioned__ = {}
+    __tablename__ = f"{prefix}seq_sims"
+    __mapper_args__ = {
+        'polymorphic_identity': bio_object_type_id['sequence-similarity'],
     }
 
     id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
