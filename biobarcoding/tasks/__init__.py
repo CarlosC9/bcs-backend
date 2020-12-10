@@ -73,4 +73,5 @@ celery_app = biobarcoding.celery
 if not celery_app:
     host = get_redis_host()
     celery_app = Celery('__main__', broker=f'redis://{host}:6379/', backend=f'redis://{host}:6379/')
+    celery_app.autodiscover_tasks(["biobarcoding.tasks.definitions"])
     celery_app.conf.update(celery_config)

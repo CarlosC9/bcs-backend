@@ -9,23 +9,13 @@ import json
 
 from sqlalchemy import and_
 
+from biobarcoding.common.helpers import is_integer
 from biobarcoding.db_models import DBSession
 from biobarcoding.db_models.jobs import ProcessInComputeResource
 from biobarcoding.jobs import JobManagementAPI
 from biobarcoding.rest import bcs_api_base, register_api, Job, ComputeResource, Process
 
 bp_jobs = Blueprint('jobs', __name__)
-
-
-def is_integer(n):
-    """ https://note.nkmk.me/en/python-check-int-float/ """
-    try:
-        float(n)
-    except ValueError:
-        return False
-    else:
-        return float(n).is_integer()
-
 
 
 # Jobs REST API

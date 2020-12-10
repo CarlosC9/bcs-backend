@@ -42,6 +42,7 @@ class Algorithm(ORMBase):
     algorithm_type = relationship(AlgorithmType)
 
 
+# Not used
 class AlgorithmConfiguration(ORMBase):
     """ Default parameters for algorithms """
     # TODO Owner of configuration: user, group or algorithm
@@ -57,6 +58,7 @@ class AlgorithmConfiguration(ORMBase):
     algorithm = relationship(Algorithm)
 
 
+# Not used
 class ProcessBrokerTemplate(ORMBase):
     """
     A template used to ensure the process is carried out.
@@ -98,6 +100,20 @@ class Process(ORMBase):
     execution = Column(JSON)  # How to call the Process in a resource independent ("generic") way
 
 
+class ProcessConfiguration(ORMBase):
+    """ Default parameters for processes """
+
+    __tablename__ = f"{prefix}process_configurations"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(GUID, unique=True)
+    name = Column(String(80))
+    description = Column(Text)
+    process_id = Column(Integer, ForeignKey(Process.id), nullable=False, primary_key=False)
+    process = relationship(Process)
+    params = Column(JSON)
+
+
 class ProcessAlgorithm(ORMBase):
     """ To register which algorithms are used in a Process """
     __tablename__ = f"{prefix}process_algorithms"
@@ -110,6 +126,7 @@ class ProcessAlgorithm(ORMBase):
     algorithm = relationship(Algorithm)
 
 
+# Not used
 class ProcessStep(ORMBase):
     """ To enumerate the steps in a process """
     __tablename__ = f"{prefix}process_steps"
@@ -121,6 +138,7 @@ class ProcessStep(ORMBase):
     process = relationship(Process, backref=backref("steps", cascade="all, delete-orphan"))
 
 
+# Not used
 class ProcessorArchitecture(ORMBase):
     """ Processor and architecture """
     __tablename__ = f"{prefix}processor_architectures"
@@ -130,6 +148,7 @@ class ProcessorArchitecture(ORMBase):
     name = Column(String(80))
 
 
+# Not used
 class OperatingSystem(ORMBase):
     """ Operating system code """
     __tablename__ = f"{prefix}operating_systems"
@@ -139,6 +158,7 @@ class OperatingSystem(ORMBase):
     name = Column(String(80))
 
 
+# Not used
 class ComputingType(ORMBase):
     """ Computing types: sequential, MPI, OpenMP, GPU, ... """
     __tablename__ = f"{prefix}computing_types"
@@ -242,6 +262,7 @@ class Job(ORMBase):
     outputs = Column(JSON)
 
 
+# Not used
 class JobStatusLog(ORMBase):
     __tablename__ = f"{prefix}jobs_status_log"
 

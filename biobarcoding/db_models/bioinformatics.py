@@ -1,5 +1,6 @@
 # BIOINFORMATIC data
 from sqlalchemy import Column, Integer, ForeignKey, UnicodeText, Unicode, String, BigInteger
+from sqlalchemy.orm import relationship
 
 from biobarcoding.db_models import ORMBase, GUID, ObjectType
 import uuid
@@ -32,6 +33,14 @@ class BarCodingRegions(ORMBase):
     description = Column(UnicodeText)
 
 
+class Specimen(ORMBase):
+    __tablename__ = f"{prefix}specimens"
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
+    name = Column(String(80))
+    description = Column(UnicodeText)
+
+
 class Sequence(BioinformaticObject):
     __versioned__ = {}
     __tablename__ = f"{prefix}sequences"
@@ -40,6 +49,9 @@ class Sequence(BioinformaticObject):
     }
 
     id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
+    chado_feature_id = Column(BigInteger, primary_key=False)  # Foreign key (not enforceable by the DB)
+    specimen_id = Column(Integer, ForeignKey(Specimen.id), nullable=True, primary_key=False)
+    specimen = relationship(Specimen)
 
 
 class MultipleSequenceAlignment(BioinformaticObject):
