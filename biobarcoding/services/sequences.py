@@ -1,3 +1,6 @@
+from biobarcoding.db_models import DBSession as bcs_session
+from biobarcoding.db_models import DBSessionChado as chado_session
+
 def create_sequences(organism_id = None, analysis_id = None, residues = None):
     return {'status':'success','message':'CREATE: sequences dummy completed'}, 200
 
@@ -19,12 +22,11 @@ def update_sequences(sequence_id, organism_id = None, analysis_id = None, residu
 
 def delete_sequences(sequence_id = None, ids = None, organism_id = None, analysis_id = None):
     resp = __get_query(sequence_id, ids, organism_id, analysis_id).delete(synchronize_session='fetch')
-    from biobarcoding.db_models import DBSessionChado
-    DBSessionChado.commit()
+    chado_session.commit()
     return {'status':'success','message':f'{resp} sequences were successfully removed.'}, 200
 
 
-def import_sequences(input_file, organism_id = None, analysis_id = None):
+def import_sequences(input_file, organism_id = None, analysis_id = None, format = 'fasta'):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
     if not organism_id:
@@ -36,10 +38,32 @@ def import_sequences(input_file, organism_id = None, analysis_id = None):
     try:
         # resp = conn.feature.load_fasta(input_file, organism_id, analysis_id=analysis_id, sequence_type='polypeptide', update=True)
         resp = conn.feature.load_fasta(input_file, organism_id, analysis_id=analysis_id, update=True)
+        from Bio import SeqIO
+        __ids2bcs([ seq.id for seq in SeqIO.parse(input_file, format) ])
         return {'status':'success','message':f'Sequences: {resp}'}, 200
     except Exception as e:
         print(e)
         return {'status':'failure','message':e}, 500
+
+def __ids2bcs(names):
+    from biobarcoding.db_models.chado import Feature
+    from biobarcoding.db_models import DBSession as bcs_session
+    for seq in chado_session.query(Feature).filter(Feature.uniquename.in_(names)).all():
+        bcs_session.merge(__feature2bcs(seq))
+    bcs_session.commit()
+
+def __feature2bcs(seq):
+    from biobarcoding.services import get_or_create
+    from biobarcoding.db_models.bioinformatics import Specimen, Sequence
+    bcs_specimen = get_or_create(bcs_session, Specimen, {'name':seq.uniquename})
+    bcs_session.merge(bcs_specimen)
+    bcs_session.flush()
+    bcs_sequence = get_or_create(bcs_session, Sequence, {
+        'chado_feature_id':seq.feature_id,
+        'chado_table':'feature',
+        'name':seq.uniquename,
+        'specimen_id':bcs_specimen.id})
+    return bcs_sequence
 
 
 def export_sequences(sequence_id = None, ids = None, organism_id = None, analysis_id = None, output_file = None):
@@ -53,9 +77,8 @@ def export_sequences(sequence_id = None, ids = None, organism_id = None, analysi
     return '/tmp/' + output_file, 200
 
 def __get_query(sequence_id = None, ids = None, organism_id = None, analysis_id = None):
-    from biobarcoding.db_models import DBSessionChado
     from biobarcoding.db_models.chado import Feature
-    query = DBSessionChado.query(Feature)
+    query = chado_session.query(Feature)
     if sequence_id:
         query = query.filter(Feature.feature_id==sequence_id)
     if ids:
