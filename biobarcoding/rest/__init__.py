@@ -305,7 +305,8 @@ tm_processes = {  # Preloaded processes
     "4cfcd389-ed9e-4174-aa99-150f176e8eec": "import-msa",
     "caaca280-2290-4625-b5c0-76bcfb06e9ac": "import-phylotree",
     "15aa399f-dd58-433f-8e94-5b2222cd06c9": "Clustal Omega",
-    "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": "MSA ClustalW"
+    "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": "MSA ClustalW",
+    "16159c67-9325-4f0d-b0c5-2f01588612ea": "ClustalW-PhyMl"
 }
 
 tm_system_functions = {
@@ -325,7 +326,7 @@ tm_system_functions = {
 
 
 
-# "16159c67-9325-4f0d-b0c5-2f01588612ea"
+
 # "fcaa3b92-7ba8-4068-8e26-9321a341b53f"
 # "b25db3a5-9bb0-4838-b9cc-98f0176876af"
 # "9957c469-5a6b-496a-b7c5-184d7eb84688"
