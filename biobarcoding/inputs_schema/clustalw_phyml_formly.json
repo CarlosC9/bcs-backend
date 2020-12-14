@@ -8,7 +8,7 @@
             },
             "fieldGroup": [
                {
-                  "key": "dnarna",
+                  "key": "clustalw.dnarna",
                   "type": "select",
                   "templateOptions": {
                      "label": "Data type",
@@ -28,7 +28,7 @@
                   "defaultValue": "DNA"
                },
                {
-                  "key": "outform",
+                  "key": "clustalw.outform",
                   "type": "select",
                   "templateOptions": {
                      "label": "Output alignment format",
@@ -52,7 +52,7 @@
                   "defaultValue": "clustal"
                },
                {
-                  "key": "out_seqnos",
+                  "key": "clustalw.out_seqnos",
                   "type": "radio",
                   "templateOptions": {
                      "label": "Show residue numbers in clustal format output",
@@ -70,10 +70,10 @@
                      ]
                   },
                   "defaultValue": "false",
-                  "hideExpression": "model.outform!='clustal'"
+                  "hideExpression": "model.clustalw.outform!='clustal'"
                },
                {
-                  "key": "out_order",
+                  "key": "clustalw.out_order",
                   "type": "select",
                   "templateOptions": {
                      "label": "Output order",
@@ -93,7 +93,7 @@
                   "defaultValue": "ALIGNED"
                },
                {
-                  "key": "mode",
+                  "key": "clustalw.mode",
                   "type": "select",
                   "templateOptions": {
                      "label": "Output complete alignment (or specify part to output)",
@@ -113,7 +113,7 @@
                   "defaultValue": "complete"
                },
                {
-                  "key": "seq_range_start",
+                  "key": "clustalw.seq_range_start",
                   "type": "input",
                   "templateOptions": {
                      "label": "Start point",
@@ -122,10 +122,10 @@
                      "type": "number"
                   },
                   "defaultValue": "1",
-                  "hideExpression": "model.mode!='part'"
+                  "hideExpression": "model.clustalw.mode!='part'"
                },
                {
-                  "key": "seq_range_end",
+                  "key": "clustalw.seq_range_end",
                   "type": "input",
                   "templateOptions": {
                      "label": "End point",
@@ -134,7 +134,7 @@
                      "type": "number"
                   },
                   "defaultValue": "99999",
-                  "hideExpression": "model.mode!='part'"
+                  "hideExpression": "model.clustalw.mode!='part'"
                }
             ]
          },
@@ -144,7 +144,7 @@
             },
             "fieldGroup": [
                {
-                  "key": "phylip_format",
+                  "key": "phyml.phylip_format",
                   "type": "select",
                   "templateOptions": {
                      "label": "Changes interleaved format",
@@ -164,7 +164,7 @@
                   "defaultValue": ""
                },
                {
-                  "key": "nb_data_set",
+                  "key": "phyml.nb_data_set",
                   "type": "input",
                   "templateOptions": {
                      "label": "Number of data sets",
@@ -176,7 +176,7 @@
                   "defaultValue": "1"
                },
                {
-                  "key": "type_of_seq",
+                  "key": "phyml.type_of_seq",
                   "type": "select",
                   "templateOptions": {
                      "label": "Data type",
@@ -196,7 +196,7 @@
                   "defaultValue": "nt"
                },
                {
-                  "key": "tstv",
+                  "key": "phyml.tstv",
                   "type": "textarea",
                   "templateOptions": {
                      "label": "Transition/transversion ratio",
@@ -204,10 +204,10 @@
                      "description": "Must be a positive integer, 'e' if you want PhyML to estimate it"
                   },
                   "defaultValue": "e",
-                  "hideExpression": "model.type_of_seq!='nt'"
+                  "hideExpression": "model.phyml.type_of_seq!='nt'"
                },
                {
-                  "key": "model",
+                  "key": "phyml.model",
                   "type": "select",
                   "templateOptions": {
                      "label": "Substitution model",
@@ -245,10 +245,10 @@
                      ]
                   },
                   "defaultValue": "HKY85",
-                  "hideExpression": "model.type_of_seq!='nt'"
+                  "hideExpression": "model.phyml.type_of_seq!='nt'"
                },
                {
-                  "key": "model",
+                  "key": "phyml.model",
                   "type": "select",
                   "templateOptions": {
                      "label": "Evolution model",
@@ -314,10 +314,10 @@
                      ]
                   },
                   "defaultValue": "LG",
-                  "hideExpression": "model.type_of_seq!='aa'"
+                  "hideExpression": "model.phyml.type_of_seq!='aa'"
                },
                {
-                  "key": "prop_invar",
+                  "key": "phyml.prop_invar",
                   "type": "textarea",
                   "templateOptions": {
                      "label": "Proportion of invariant sites",
@@ -327,7 +327,7 @@
                   "defaultValue": "e"
                },
                {
-                  "key": "equi_freq",
+                  "key": "phyml.equi_freq",
                   "type": "select",
                   "templateOptions": {
                      "label": "Equilibrium frequencies",
@@ -347,7 +347,7 @@
                   "defaultValue": "m"
                },
                {
-                  "key": "nbSubstCat",
+                  "key": "phyml.nbSubstCat",
                   "type": "input",
                   "templateOptions": {
                      "label": "Number of categories for the discrete gamma model",
@@ -359,7 +359,7 @@
                   "defaultValue": "4"
                },
                {
-                  "key": "gamma",
+                  "key": "phyml.gamma",
                   "type": "textarea",
                   "templateOptions": {
                      "label": "Parameter of the gamma model",
@@ -369,7 +369,7 @@
                   "defaultValue": "e"
                },
                {
-                  "key": "move",
+                  "key": "phyml.move",
                   "type": "select",
                   "templateOptions": {
                      "label": "Tree topology search",
@@ -393,7 +393,7 @@
                   "defaultValue": "NNI"
                },
                {
-                  "key": "optimisationTopology",
+                  "key": "phyml.optimisationTopology",
                   "type": "select",
                   "templateOptions": {
                      "label": "Optimise topology",
@@ -425,7 +425,7 @@
                   "defaultValue": "tlr"
                },
                {
-                  "key": "branchSupport",
+                  "key": "phyml.branchSupport",
                   "type": "select",
                   "templateOptions": {
                      "label": "Statistical tests for branch support",
@@ -461,7 +461,7 @@
                   "defaultValue": "-4"
                },
                {
-                  "key": "replicate",
+                  "key": "phyml.replicate",
                   "type": "input",
                   "templateOptions": {
                      "label": "Number of bootstrap replicates",
@@ -471,10 +471,10 @@
                      "min": 1
                   },
                   "defaultValue": "100",
-                  "hideExpression": "model.branchSupport!='1'"
+                  "hideExpression": "model.phyml.branchSupport!='1'"
                },
                {
-                  "key": "numStartSeed",
+                  "key": "phyml.numStartSeed",
                   "type": "input",
                   "templateOptions": {
                      "label": "Number of seed used to initiate the random number generator",
@@ -485,7 +485,7 @@
                   "defaultValue": "0"
                },
                {
-                  "key": "inputTree",
+                  "key": "phyml.inputTree",
                   "type": "radio",
                   "templateOptions": {
                      "label": "Use input tree guide",

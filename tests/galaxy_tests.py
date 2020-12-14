@@ -108,7 +108,8 @@ class MyTestCase(unittest.TestCase):
 
     def test_convert_workflows(self):
         wfdict = {'clustalw': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/clustalw_galaxy.json',
-                  'phyml': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/phyml_galaxy.json' }
+                  'phyml': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/phyml_galaxy.json'
+                  }
         new_form_path = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/inputs_schema/clustalw_phyml_formly.json'
         convertToFormly(wfdict,new_form_path)
 
