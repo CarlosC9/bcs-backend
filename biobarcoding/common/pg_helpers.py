@@ -144,7 +144,7 @@ def load_computing_resources(sf):
 
 def load_processes_in_computing_resources(sf):
     processes = {
-        "16159c67-9325-4f0d-b0c5-2f01588612ea" : "ClustalW-PhyMl",
+        "ec40143f-ae32-4dac-9cfb-caa047e1adb1" : "ClustalW-PhyMl",
         "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": "MSA ClustalW"
     }
     for k,v in processes.items():
@@ -166,7 +166,7 @@ def load_processes_in_computing_resources(sf):
 
 def load_process_input_schema(sf):
     processes_inputs = {
-        "16159c67-9325-4f0d-b0c5-2f01588612ea": '/biobarcoding/inputs_schema/clustalw_phyml_formly.json',
+        "ec40143f-ae32-4dac-9cfb-caa047e1adb1": '/biobarcoding/inputs_schema/clustalw_phyml_formly.json',
         "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": '/biobarcoding/inputs_schema/clustalw_formly.json'
     }
     for k,v in processes_inputs.items():
