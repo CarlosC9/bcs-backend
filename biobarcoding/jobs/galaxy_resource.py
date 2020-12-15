@@ -641,8 +641,23 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         return r
         # download_result(gi,r,'/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test')
 
+def convert_workflows_to_formly():
+    wfdict1 = {'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json',
+               'phyml': ROOT + '/biobarcoding/inputs_schema/phyml_galaxy.json',
+               'fname' : 'clustalw_phyml_formly.json'
+               }
+    wfdict2 = {'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json',
+               'fname' : 'clustalw_formly.json'}
+    path = ROOT + '/biobarcoding/inputs_schema/'
+    lwdict = [wfdict1, wfdict2]
+    for wfdict in lwdict:
+        if wfdict['fname'] not in os.listdir(path):
+            newpath = path + wfdict['fname']
+            del wfdict['fname']
+            convertToFormly(wfdict,newpath)
 
 def initialize_galaxy(flask_app):
+    convert_workflows_to_formly()
     if {'GALAXY_API_KEY', 'GALAXY_LOCATION'} <= flask_app.config.keys():
         api_key = flask_app.config['GALAXY_API_KEY']
         url = flask_app.config['GALAXY_LOCATION']
@@ -670,6 +685,8 @@ def initialize_galaxy(flask_app):
                 wf_dict_out = gi.workflows.export_workflow_dict(wf['id'])
                 list_of_tools = check_tools(wf_dict_out, wf_dict_in)
                 install_tools(gi, list_of_tools)
+        # conversion of workflows galaxy into workflows formly
+        convert_workflows_to_formly()
     else:
         return 'No Galaxy test credentials in config file'
 
@@ -739,7 +756,7 @@ class ToFormlyConverter:
         return l
 
 
-class convertBooleanToolParameter(ToFormlyConverter):
+class convertBooleanToolParameter(ToFormlyConverter): #TODO hay algún fallo al poner el valor por defecto!
     def __init__(self,step_label):
         super(convertBooleanToolParameter, self).__init__(step_label)
 
@@ -750,6 +767,14 @@ class convertBooleanToolParameter(ToFormlyConverter):
             {'value': g_input['truevalue'], 'label': 'Yes'},
             {'value': g_input['falsevalue'], 'label': 'No'}  # check is needed
         ]
+        if form['defaultValue']:
+            if form['defaultValue'] == 'false':
+                form['defaultValue'] = 'OFF'
+            elif form['defaultValue'] == 'true':
+                form['defaultValue'] = 'YES'
+            else:
+                form['defaultValue'] = form['defaultValue']
+
         return form
 
 

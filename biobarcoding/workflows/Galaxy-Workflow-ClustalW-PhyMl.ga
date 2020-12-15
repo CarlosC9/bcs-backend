@@ -2,7 +2,7 @@
     "a_galaxy_workflow": "true",
     "annotation": "",
     "format-version": "0.1",
-    "name": "Clustalw_PhyML",
+    "name": "ClustalW-PhyMl",
     "steps": {
         "0": {
             "annotation": "",
@@ -20,19 +20,19 @@
             "name": "Input dataset",
             "outputs": [],
             "position": {
-                "left": 283,
-                "top": 200
+                "left": 200,
+                "top": 131
             },
             "tool_id": null,
             "tool_state": "{\"optional\": false}",
             "tool_version": null,
             "type": "data_input",
-            "uuid": "2ad8208a-e45c-4c9b-803e-b24b432dd8a0",
+            "uuid": "9331fdfb-1538-4c7e-8a0e-0e1e07455f6d",
             "workflow_outputs": [
                 {
                     "label": null,
                     "output_name": "output",
-                    "uuid": "4541019a-720c-4f8e-85ae-4293139349a1"
+                    "uuid": "038f3e86-2043-46b2-a275-048c735e80a3"
                 }
             ]
         },
@@ -47,12 +47,7 @@
                     "output_name": "output"
                 }
             },
-            "inputs": [
-                {
-                    "description": "runtime parameter for tool ClustalW",
-                    "name": "input"
-                }
-            ],
+            "inputs": [],
             "label": "clustalw",
             "name": "ClustalW",
             "outputs": [
@@ -66,7 +61,7 @@
                 }
             ],
             "position": {
-                "left": 534,
+                "left": 664,
                 "top": 321
             },
             "post_job_actions": {},
@@ -77,20 +72,20 @@
                 "owner": "devteam",
                 "tool_shed": "toolshed.g2.bx.psu.edu"
             },
-            "tool_state": "{\"dnarna\": \"DNA\", \"input\": {\"__class__\": \"RuntimeValue\"}, \"out_order\": \"ALIGNED\", \"outcontrol\": {\"outform\": \"phylip\", \"__current_case__\": 1}, \"range\": {\"mode\": \"complete\", \"__current_case__\": 0}, \"__page__\": null, \"__rerun_remap_job_id__\": null}",
+            "tool_state": "{\"dnarna\": \"DNA\", \"input\": {\"__class__\": \"ConnectedValue\"}, \"out_order\": \"ALIGNED\", \"outcontrol\": {\"outform\": \"phylip\", \"__current_case__\": 1}, \"range\": {\"mode\": \"complete\", \"__current_case__\": 0}, \"__page__\": null, \"__rerun_remap_job_id__\": null}",
             "tool_version": "2.1",
             "type": "tool",
-            "uuid": "a9569679-f823-4f21-82cd-e7fe9ddfc963",
+            "uuid": "e8c6457d-26d9-417d-a4a3-0e6e18757ce4",
             "workflow_outputs": [
                 {
                     "label": null,
                     "output_name": "output",
-                    "uuid": "42831899-4305-41c7-bd6f-bafcad0416d8"
+                    "uuid": "bea42ae8-1f16-44a5-8c57-01e2bb665ae9"
                 },
                 {
                     "label": null,
                     "output_name": "dnd",
-                    "uuid": "9343b0e2-d399-4cfe-85aa-a57c8f218187"
+                    "uuid": "86e69809-ca0e-4508-b9a2-2108fa86f4d4"
                 }
             ]
         },
@@ -105,12 +100,7 @@
                     "output_name": "output"
                 }
             },
-            "inputs": [
-                {
-                    "description": "runtime parameter for tool PhyML",
-                    "name": "input"
-                }
-            ],
+            "inputs": [],
             "label": "phyml",
             "name": "PhyML",
             "outputs": [
@@ -128,7 +118,7 @@
                 }
             ],
             "position": {
-                "left": 990,
+                "left": 1118,
                 "top": 531
             },
             "post_job_actions": {},
@@ -139,30 +129,30 @@
                 "owner": "vlefort",
                 "tool_shed": "toolshed.g2.bx.psu.edu"
             },
-            "tool_state": "{\"equi_freq\": \"m\", \"gamma\": \"e\", \"input\": {\"__class__\": \"RuntimeValue\"}, \"move\": \"NNI\", \"nbSubstCat\": \"4\", \"nb_data_set\": \"1\", \"numStartSeed\": \"0\", \"optimisationTopology\": \"tlr\", \"phylip_format\": \"\", \"prop_invar\": \"e\", \"seq\": {\"type_of_seq\": \"nt\", \"__current_case__\": 0, \"tstv\": \"e\", \"model\": \"HKY85\"}, \"support_condition\": {\"branchSupport\": \"-4\", \"__current_case__\": 3}, \"usetree\": {\"inputTree\": \"false\", \"__current_case__\": 1}, \"__page__\": null, \"__rerun_remap_job_id__\": null}",
+            "tool_state": "{\"equi_freq\": \"m\", \"gamma\": \"e\", \"input\": {\"__class__\": \"ConnectedValue\"}, \"move\": \"NNI\", \"nbSubstCat\": \"4\", \"nb_data_set\": \"1\", \"numStartSeed\": \"0\", \"optimisationTopology\": \"tlr\", \"phylip_format\": \"\", \"prop_invar\": \"e\", \"seq\": {\"type_of_seq\": \"nt\", \"__current_case__\": 0, \"tstv\": \"e\", \"model\": \"HKY85\"}, \"support_condition\": {\"branchSupport\": \"-4\", \"__current_case__\": 3}, \"usetree\": {\"inputTree\": \"false\", \"__current_case__\": 1}, \"__page__\": null, \"__rerun_remap_job_id__\": null}",
             "tool_version": "3.1",
             "type": "tool",
-            "uuid": "ed6a4700-ea08-42ce-887e-d1d83a3493ff",
+            "uuid": "071af7b2-a87f-4e41-8a92-3ac5ff8c752c",
             "workflow_outputs": [
                 {
                     "label": null,
                     "output_name": "output_tree",
-                    "uuid": "d827460c-3c6f-4082-a0f9-d574d2cee5c7"
+                    "uuid": "c8beab5b-189c-4f4b-8724-2958d00cd85d"
                 },
                 {
                     "label": null,
                     "output_name": "output_stats",
-                    "uuid": "4321e0ce-e342-4398-8c52-52607a7d3627"
+                    "uuid": "07c02bac-35fa-4230-844c-b8855a6f8174"
                 },
                 {
                     "label": null,
                     "output_name": "output_stdout",
-                    "uuid": "f594cb36-a514-437b-8411-d85e18b6d285"
+                    "uuid": "e34f81db-f46c-4f50-8132-9a7555732608"
                 }
             ]
         }
     },
     "tags": [],
-    "uuid": "d5c12eb8-1a4f-4d57-a5ac-b7d7c26dd397",
-    "version": 2
+    "uuid": "543c26df-dd89-4932-b565-0ed960231d98",
+    "version": 7
 }

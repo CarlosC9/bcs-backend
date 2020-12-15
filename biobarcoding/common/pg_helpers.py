@@ -143,33 +143,42 @@ def load_computing_resources(sf):
 
 
 def load_processes_in_computing_resources(sf):
-    session = sf()
-    local_uuid = "21879d8f-1c0e-4f71-92a9-88bc6a3aa14b"
-    process = session.query(Process).filter(Process.uuid == "16159c67-9325-4f0d-b0c5-2f01588612ea").first()
-    resource = session.query(ComputeResource).filter(ComputeResource.uuid == "8fac3ce8-8796-445f-ac27-4baedadeff3b").first()
-    r = session.query(ProcessInComputeResource).filter(and_(ProcessInComputeResource.process_id==process.id, ProcessInComputeResource.resource_id==resource.id)).first()
-    if not r:
-        r = ProcessInComputeResource()
-        # r.uuid = local_uuid
-        r.native_process_id = "ClustalW-PhyMl"
-        r.process = process
-        r.resource = resource
-        session.add(r)
-        session.commit()
-    sf.remove()
+    processes = {
+        "16159c67-9325-4f0d-b0c5-2f01588612ea" : "ClustalW-PhyMl",
+        "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": "MSA ClustalW"
+    }
+    for k,v in processes.items():
+        session = sf()
+        # local_uuid = "21879d8f-1c0e-4f71-92a9-88bc6a3aa14b"
+        process = session.query(Process).filter(Process.uuid == k).first()
+        resource = session.query(ComputeResource).filter(ComputeResource.uuid == "8fac3ce8-8796-445f-ac27-4baedadeff3b").first()
+        r = session.query(ProcessInComputeResource).filter(and_(ProcessInComputeResource.process_id==process.id, ProcessInComputeResource.resource_id==resource.id)).first()
+        if not r:
+            r = ProcessInComputeResource()
+            # r.uuid = local_uuid
+            r.native_process_id = v
+            r.process = process
+            r.resource = resource
+            session.add(r)
+            session.commit()
+        sf.remove()
 
 
 def load_process_input_schema(sf):
-    session = sf()
-    process = session.query(Process).filter(Process.uuid == "16159c67-9325-4f0d-b0c5-2f01588612ea").first()
-    if not process.schema_inputs:
-        path = ROOT + '/biobarcoding/inputs_schema/clustalw_phyml_formly.json'
-        with open(path, 'r') as f:
-            inputs = json.load(f)
-            # json_inputs = json.dumps(inputs)
-            process.schema_inputs = inputs
-        session.commit()
-    sf.remove()
+    processes_inputs = {
+        "16159c67-9325-4f0d-b0c5-2f01588612ea": '/biobarcoding/inputs_schema/clustalw_phyml_formly.json',
+        "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": '/biobarcoding/inputs_schema/clustalw_formly.json'
+    }
+    for k,v in processes_inputs.items():
+        session = sf()
+        process = session.query(Process).filter(Process.uuid == k).first()
+        if not process.schema_inputs:
+            path = ROOT + v
+            with open(path, 'r') as f:
+                inputs = json.load(f)
+                process.schema_inputs = inputs
+            session.commit()
+        sf.remove()
 
 
 def is_testing_enabled(flask_app):

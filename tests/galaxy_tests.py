@@ -107,11 +107,15 @@ class MyTestCase(unittest.TestCase):
             file.write(formly_json)
 
     def test_convert_workflows(self):
-        wfdict = {'clustalw': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/clustalw_galaxy.json',
-                  'phyml': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/phyml_galaxy.json'
+        wfdict1 = {'clustalw': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/inputs_schema/clustalw_galaxy.json',
+                  'phyml': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/inputs_schema/phyml_galaxy.json'
                   }
+        wfdict2 = {'clustalW': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/clustalw_galaxy.json'}
         new_form_path = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/inputs_schema/clustalw_phyml_formly.json'
-        convertToFormly(wfdict,new_form_path)
+        lwdict = [wfdict1,wfdict2]
+        lwdict = [wfdict1]
+        for wfdict in lwdict:
+            convertToFormly(wfdict,new_form_path)
 
 
 

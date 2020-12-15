@@ -69,7 +69,7 @@
                         }
                      ]
                   },
-                  "defaultValue": "false",
+                  "defaultValue": "OFF",
                   "hideExpression": "model.clustalw.outform!='clustal'"
                },
                {
@@ -502,7 +502,7 @@
                         }
                      ]
                   },
-                  "defaultValue": "false"
+                  "defaultValue": "OFF"
                }
             ]
          }

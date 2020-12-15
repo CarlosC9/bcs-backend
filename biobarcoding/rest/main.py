@@ -58,6 +58,11 @@ def create_app(debug, cfg_dict=None):
          supports_credentials=True
          )
 
+    # Galaxy
+    print("Initializing base Galaxy instance")
+    initialize_galaxy(app)
+    print("Initializing base Galaxy instance - DONE")
+
     # Database BCS
     initialize_database(app)
 
@@ -95,10 +100,6 @@ def create_app(debug, cfg_dict=None):
     # Celery
     initialize_celery(app)
 
-    # Galaxy
-    print("Initializing base Galaxy instance")
-    initialize_galaxy(app)
-    print("Initializing base Galaxy instance - DONE")
 
     # Logger
     app.logger.setLevel(log_level)
