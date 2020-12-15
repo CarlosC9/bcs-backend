@@ -11,6 +11,7 @@ from biobarcoding.common.decorators import celery_wf
 from biobarcoding.common import check_pid_running
 from biobarcoding.jobs import JobExecutorAtResourceFactory
 from biobarcoding.db_models.jobs import Job
+from biobarcoding.common import ROOT
 
 """
 Celery tasks CANNOT be debugged in Celery!! (the code is run in a separate process; of course they can be debugged "off-line")
@@ -33,12 +34,8 @@ def periodic_sum(x, y):
 
 # ----------------------------------------------------------------
 
-outfile = "/home/rnebot/Downloads/borrame/log.txt"
-outfile_dreyes = "/home/dreyes/Documentos/borrame/log.txt"
-
-
 def append_text(file: str, s: str):
-    file = outfile_dreyes
+    file = ROOT + "tests/data_test/borrame/log.txt"
     with open(file, "a+") as f:
         f.write(f"{s}\n")
 
