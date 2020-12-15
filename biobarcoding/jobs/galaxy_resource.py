@@ -657,7 +657,6 @@ def convert_workflows_to_formly():
             convertToFormly(wfdict,newpath)
 
 def initialize_galaxy(flask_app):
-    convert_workflows_to_formly()
     if {'GALAXY_API_KEY', 'GALAXY_LOCATION'} <= flask_app.config.keys():
         api_key = flask_app.config['GALAXY_API_KEY']
         url = flask_app.config['GALAXY_LOCATION']
