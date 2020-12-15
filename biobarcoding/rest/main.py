@@ -1,6 +1,7 @@
 from flask import (Flask, request, session as flask_session, redirect, current_app)
 from flask_session import Session as FlaskSessionServerSide
 from flask_cors import CORS
+from NamedAtomicLock import NamedAtomicLock
 
 import biobarcoding
 from biobarcoding.jobs.galaxy_resource import initialize_galaxy
@@ -63,11 +64,16 @@ def create_app(debug, cfg_dict=None):
     initialize_galaxy(app)
     print("Initializing base Galaxy instance - DONE")
 
-    # Database BCS
-    initialize_database(app)
+    lock = NamedAtomicLock("bcs-backend-lock")
+    lock.acquire()
+    try:
+        # Database BCS
+        initialize_database(app)
 
-    # Database Chado
-    initialize_database_chado(app)
+        # Database Chado
+        initialize_database_chado(app)
+    finally:
+        lock.release()
 
     # Security
     # initialize_authn_authr(app)

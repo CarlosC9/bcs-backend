@@ -7,6 +7,15 @@ import uuid
 
 prefix = "bo_"
 
+bio_object_type_id = {
+    "sequence": 1,
+    "multiple-sequence-alignment": 2,
+    "phylogenetic-tree": 3,
+    "geographic-layer": 4,
+    "sequence-similarity": 5,  # BLAST
+    "dataframe": 6
+}
+
 
 class BioinformaticObject(ORMBase):
     __versioned__ = {}
@@ -15,9 +24,8 @@ class BioinformaticObject(ORMBase):
     uuid = Column(GUID, unique=True, default=uuid.uuid4)
     bo_type_id = Column(Integer, ForeignKey(ObjectType.id))
     chado_table = Column(String(80))
-    chado_id = Column(BigInteger)
     name = Column(String(80))
-    content = Column(UnicodeText)
+    # content = Column(UnicodeText)
 
     __mapper_args__ = {
         'polymorphic_identity': 'bioinformatic_obj',
@@ -45,7 +53,7 @@ class Sequence(BioinformaticObject):
     __versioned__ = {}
     __tablename__ = f"{prefix}sequences"
     __mapper_args__ = {
-        'polymorphic_identity': 'sequence',
+        'polymorphic_identity': bio_object_type_id['sequence'],
     }
 
     id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
@@ -58,17 +66,30 @@ class MultipleSequenceAlignment(BioinformaticObject):
     __versioned__ = {}
     __tablename__ = f"{prefix}msas"
     __mapper_args__ = {
-        'polymorphic_identity': 'msa',
+        'polymorphic_identity': bio_object_type_id['multiple-sequence-alignment'],
     }
 
     id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
+    chado_analysis_id = Column(BigInteger, primary_key=False)  # Foreign key (not enforceable by the DB)
 
 
 class PhylogeneticTree(BioinformaticObject):
     __versioned__ = {}
     __tablename__ = f"{prefix}phylo_trees"
     __mapper_args__ = {
-        'polymorphic_identity': 'phylo-tree',
+        'polymorphic_identity': bio_object_type_id['phylogenetic-tree'],
     }
 
     id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
+    chado_phylotree_id = Column(BigInteger, primary_key=False)  # Foreign key (not enforceable by the DB)
+
+
+class SequenceSimilarity(BioinformaticObject):
+    __versioned__ = {}
+    __tablename__ = f"{prefix}seq_sims"
+    __mapper_args__ = {
+        'polymorphic_identity': bio_object_type_id['sequence-similarity'],
+    }
+
+    id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
+    chado_analysis_id = Column(BigInteger, primary_key=False)  # Foreign key (not enforceable by the DB)

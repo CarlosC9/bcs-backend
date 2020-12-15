@@ -17,7 +17,7 @@ import biobarcoding
 from biobarcoding.authentication import bcs_session
 from biobarcoding.common import generate_json
 from biobarcoding.common.pg_helpers import create_pg_database_engine, load_table, load_many_to_many_table, \
-    load_computing_resources, load_processes_in_computing_resources, load_process_input_schema
+    load_computing_resources, load_processes_in_computing_resources, load_process_input_schema, load_table_extended
 from biobarcoding.db_models import DBSession, ORMBase, DBSessionChado, ORMBaseChado, ObjectType
 from biobarcoding.db_models.bioinformatics import *
 from biobarcoding.db_models.sysadmin import *
@@ -222,16 +222,18 @@ def construct_session_persistence_backend(flask_app):
 
 # Initialization of tables
 
-tm_object_types = {  # ObjectType
-    "22bc2577-883a-4408-bba9-fcace20c0fc8": "sequence",
-    "e80a7d27-3ec8-4aa1-b49c-5498e0f85bee": "multiple-sequence-alignment",
-    "d30120f0-28df-4bca-90e4-4f0676d1c874": "phylogenetic-tree",
-    "83084df6-7ad0-45d7-b3f1-6de594c78611": "geographic-layer",
-    "7e23991b-24a0-4da1-8251-c3c3434dfb87": "sequence-alignment",
-    "8fac3ce8-8796-445f-ac27-4baedadeff3b": "sys-functions",  # Not bio algorithms, but BCS functions (both backend and frontend), like "export sequence", "browse alignments", "launch bioalgorithm", etc.
-    "21879d8f-1c0e-4f71-92a9-88bc6a3aa14b": "compute-resource",
-    "83077626-cf8c-48d3-854b-a355afdb7df9": "process"  # Bioinformatic algorithms
-}
+tm_object_type_fields = ["id", "uuid", "name"]
+tm_object_types = [  # ObjectType
+    (bio_object_type_id["sequence"], "22bc2577-883a-4408-bba9-fcace20c0fc8", "sequence"),
+    (bio_object_type_id["multiple-sequence-alignment"], "e80a7d27-3ec8-4aa1-b49c-5498e0f85bee", "multiple-sequence-alignment"),
+    (bio_object_type_id["phylogenetic-tree"], "d30120f0-28df-4bca-90e4-4f0676d1c874", "phylogenetic-tree"),
+    (bio_object_type_id["geographic-layer"], "83084df6-7ad0-45d7-b3f1-6de594c78611", "geographic-layer"),
+    (bio_object_type_id["sequence-similarity"], "7e23991b-24a0-4da1-8251-c3c3434dfb87", "sequence-similarity"),
+    (bio_object_type_id["dataframe"], "5e5a1bfa-85e8-4ff8-9b1d-8180dc908933", "dataframe"),
+    (1000, "8fac3ce8-8796-445f-ac27-4baedadeff3b", "sys-functions"),  # Not bio algorithms, but BCS functions (both backend and frontend), like "export sequence", "browse alignments", "launch bioalgorithm", etc.
+    (1001, "21879d8f-1c0e-4f71-92a9-88bc6a3aa14b", "compute-resource"),
+    (1002, "83077626-cf8c-48d3-854b-a355afdb7df9", "process")  # Bioinformatic algorithms
+]
 
 tm_permissions = {  # PermissionType
     "f19ad19f-0a74-44e8-bd4e-4762404a35aa": "read",
@@ -325,24 +327,6 @@ tm_system_functions = {
 }
 
 
-
-
-# "fcaa3b92-7ba8-4068-8e26-9321a341b53f"
-# "b25db3a5-9bb0-4838-b9cc-98f0176876af"
-# "9957c469-5a6b-496a-b7c5-184d7eb84688"
-# "35b66586-60b2-4764-83fc-d4af276b0636"
-# "a80cd569-584d-4f3f-8721-dcb25032476b"
-# "fa15b3d0-3cb3-4d34-8005-c90fbde78ac6"
-# "49e206a0-e5ac-4848-b47d-8340a728a2e2"
-# "c8b62e30-7ec5-462a-903e-83ea1485e995"
-# "1f648f74-4b91-4a8d-84d1-c2e3d5c3b5a4"
-# "671eb4fa-eeca-4ba6-a88e-ddc8d2ec2b47"
-# "b6b76a00-6da8-4c65-99c1-620b806c9dbf"
-# "41fa0d02-cc02-4562-b657-994172d1919d"
-# "f505261b-d6a1-4024-aa98-7819b0f701e5"
-# "54d5633e-9f84-4feb-84b5-ec99de74b668
-# "5cd9b251-68de-4aec-9677-faf9724113a8
-# 5e5a1bfa-85e8-4ff8-9b1d-8180dc908933
 # 75f3373b-ee0e-4e13-85da-2045010f3939
 # 6bb4cbbe-d6cd-4c2e-bb59-782e3c9e9f6c
 # 44363784-d304-4e7e-a507-8bae48598e50
@@ -394,13 +378,11 @@ tm_system_functions = {
 # 087341a7-a371-4b7b-b3b9-92f91825e880
 # 25932546-d26c-4367-8c81-0c682094d117
 
-
-
 def initialize_database_data():
     # Load base tables
     load_table(DBSession, Identity, tm_default_users)
     load_table(DBSession, Authenticator, tm_authenticators)
-    load_table(DBSession, ObjectType, tm_object_types)
+    load_table_extended(DBSession, ObjectType, tm_object_type_fields, tm_object_types)
     load_table(DBSession, SystemFunction, tm_system_functions)
     load_table(DBSession, PermissionType, tm_permissions)
     load_table(DBSession, JobStatus, tm_job_statuses)
@@ -427,10 +409,31 @@ def initialize_database_data():
         iden_authentication.name = "test_user"
         iden_authentication.email = "test@test.org"
         session.add(iden_authentication)
+    session.commit()
 
     # Set test_user roles and groups
     load_many_to_many_table(DBSession, RoleIdentity, Role, Identity, ["role_id", "identity_id"], [["sysadmin", "test_user"]])
     load_many_to_many_table(DBSession, GroupIdentity, Group, Identity, ["group_id", "identity_id"], [["all-identified", "test_user"]])
+
+    # Insert a test BOS
+    # session = DBSession()
+    # seq = Sequence()
+    # seq.name = "test seq"
+    # session.add(seq)
+    # msa = MultipleSequenceAlignment()
+    # msa.name = "test msa"
+    # session.add(msa)
+    # phyt = PhylogeneticTree()
+    # phyt.name = "test phylo tree"
+    # session.add(phyt)
+    # seq_sim = SequenceSimilarity()
+    # seq_sim.name = "test seq simil"
+    # session.add(seq_sim)
+    # geo_layer = GeographicLayer()
+    # geo_layer.name = "test geo layer"
+    # session.add(geo_layer)
+    # session.commit()
+    # DBSession.remove()
 
 
 def initialize_database(flask_app):

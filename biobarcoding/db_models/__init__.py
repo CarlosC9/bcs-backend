@@ -95,7 +95,7 @@ class ObjectType(ORMBase):  # CODES
     """ Sequence, Alignment, Phylogenetic Tree, ... but also "Functions of the system" (like import, export, etc.) """
     __tablename__ = "object_types"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id = Column(Integer, primary_key=True)
     uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(80), nullable=False)
 
