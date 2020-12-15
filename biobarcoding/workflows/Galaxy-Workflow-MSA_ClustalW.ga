@@ -20,14 +20,8 @@
             "name": "Input dataset",
             "outputs": [],
             "position": {
-                "bottom": 349.8000030517578,
-                "height": 61.80000305175781,
                 "left": 542,
-                "right": 742,
-                "top": 288,
-                "width": 200,
-                "x": 542,
-                "y": 288
+                "top": 288
             },
             "tool_id": null,
             "tool_state": "{\"optional\": false}",
@@ -38,7 +32,7 @@
                 {
                     "label": null,
                     "output_name": "output",
-                    "uuid": "65a1861a-ddcd-4ec0-a1bc-1ca3319be2f9"
+                    "uuid": "eb7f0818-117d-45b6-a1b1-5204f233f949"
                 }
             ]
         },
@@ -53,8 +47,13 @@
                     "output_name": "output"
                 }
             },
-            "inputs": [],
-            "label": "ClustalW",
+            "inputs": [
+                {
+                    "description": "runtime parameter for tool ClustalW",
+                    "name": "input"
+                }
+            ],
+            "label": "clustalW",
             "name": "ClustalW",
             "outputs": [
                 {
@@ -67,14 +66,8 @@
                 }
             ],
             "position": {
-                "bottom": 568.8000030517578,
-                "height": 184.8000030517578,
                 "left": 925,
-                "right": 1125,
-                "top": 384,
-                "width": 200,
-                "x": 925,
-                "y": 384
+                "top": 384
             },
             "post_job_actions": {},
             "tool_id": "toolshed.g2.bx.psu.edu/repos/devteam/clustalw/clustalw/2.1",
@@ -84,7 +77,7 @@
                 "owner": "devteam",
                 "tool_shed": "toolshed.g2.bx.psu.edu"
             },
-            "tool_state": "{\"dnarna\": \"DNA\", \"input\": {\"__class__\": \"ConnectedValue\"}, \"out_order\": \"ALIGNED\", \"outcontrol\": {\"outform\": \"clustal\", \"__current_case__\": 2, \"out_seqnos\": \"false\"}, \"range\": {\"mode\": \"complete\", \"__current_case__\": 0}, \"__page__\": null, \"__rerun_remap_job_id__\": null}",
+            "tool_state": "{\"dnarna\": \"DNA\", \"input\": {\"__class__\": \"RuntimeValue\"}, \"out_order\": \"ALIGNED\", \"outcontrol\": {\"outform\": \"clustal\", \"__current_case__\": 2, \"out_seqnos\": \"false\"}, \"range\": {\"mode\": \"complete\", \"__current_case__\": 0}, \"__page__\": null, \"__rerun_remap_job_id__\": null}",
             "tool_version": "2.1",
             "type": "tool",
             "uuid": "7624784e-ea9f-440d-a7a5-97b1fc86c52d",
@@ -103,6 +96,6 @@
         }
     },
     "tags": [],
-    "uuid": "dd5950b3-126c-4619-b793-4e0ff80e1ff7",
+    "uuid": "7051fb24-072f-4aca-800e-97e5b312a493",
     "version": 1
 }

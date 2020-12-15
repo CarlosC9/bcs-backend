@@ -78,7 +78,7 @@
                 "tool_shed": "toolshed.g2.bx.psu.edu"
             },
             "tool_state": "{\"dbtype\": \"prot\", \"hash_index\": \"true\", \"input_file\": {\"__class__\": \"RuntimeValue\"}, \"mask_data_file\": {\"__class__\": \"RuntimeValue\"}, \"parse_seqids\": \"false\", \"tax\": {\"taxselect\": \"\", \"__current_case__\": 0}, \"title\": \"\", \"__page__\": null, \"__rerun_remap_job_id__\": null}",
-            "tool_version": null,
+            "tool_version": "2.10.1+galaxy0",
             "type": "tool",
             "uuid": "68bc43ee-3b51-47fe-a4af-f76ac535b067",
             "workflow_outputs": [
@@ -92,5 +92,5 @@
     },
     "tags": [],
     "uuid": "89b6d399-8ef0-4b4a-9cb8-6738def8e349",
-    "version": 2
+    "version": 0
 }

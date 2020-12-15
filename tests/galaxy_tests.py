@@ -101,10 +101,22 @@ class MyTestCase(unittest.TestCase):
             galaxy_dict_in = json.load(f)
         inputs = galaxy_dict_in['inputs']
         convert = ToFormlyConverter()
-        formly_json = convert.get_formly_json(inputs)
+        formly_json = convert.get_formly_dict(inputs, )
         json = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/mrbayes_formly.json'
         with open(json, 'w') as file:
             file.write(formly_json)
+
+    def test_convert_workflows(self):
+        wfdict1 = {'clustalw': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/inputs_schema/clustalw_galaxy.json',
+                  'phyml': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/inputs_schema/phyml_galaxy.json'
+                  }
+        wfdict2 = {'clustalW': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/clustalw_galaxy.json'}
+        new_form_path = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/inputs_schema/clustalw_phyml_formly.json'
+        lwdict = [wfdict1,wfdict2]
+        lwdict = [wfdict1]
+        for wfdict in lwdict:
+            convertToFormly(wfdict,new_form_path)
+
 
 
 
