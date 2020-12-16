@@ -10,3 +10,4 @@ dump\.rdb
 biobarcoding/rest/*.conf
 celerybeat*
 jc_tests.py
+/tests/data_test/celery_log.txt
