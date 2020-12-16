@@ -67,7 +67,7 @@ def import_phylotrees(input_file, name = None, comment = None, analysis_id = Non
         name = os.path.basename(input_file)
     # Create the new phylotree
     phylotree = __new_phylotree(name, comment, analysis_id)
-    __phylotree2bcs(phylotree)
+    bcs_phylotree = __phylotree2bcs(phylotree)
     # Get phylonodes insertion
     phylonodes = __tree2phylonodes(phylotree.phylotree_id, tree.root, None, [0])
     try:
@@ -103,7 +103,10 @@ def __new_phylotree_dbxref(name):
 def __phylotree2bcs(phylotree):
     from biobarcoding.services import get_or_create
     from biobarcoding.db_models.bioinformatics import PhylogeneticTree
-    bcs_phylotree = get_or_create(bcs_session, PhylogeneticTree, {'chado_phylotree_id':phylotree.phylotree_id})
+    bcs_phylotree = get_or_create(bcs_session, PhylogeneticTree,
+        chado_phylotree_id = phylotree.phylotree_id,
+        chado_table = 'phylotree',
+        bcs_phylotree.name = phylotree.name)
     bcs_session.merge(bcs_phylotree)
     bcs_session.commit()
     return bcs_phylotree

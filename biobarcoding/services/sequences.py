@@ -55,14 +55,14 @@ def __ids2bcs(names):
 def __feature2bcs(seq):
     from biobarcoding.services import get_or_create
     from biobarcoding.db_models.bioinformatics import Specimen, Sequence
-    bcs_specimen = get_or_create(bcs_session, Specimen, {'name':seq.uniquename})
+    bcs_specimen = get_or_create(bcs_session, Specimen, name = seq.uniquename)
     bcs_session.merge(bcs_specimen)
     bcs_session.flush()
-    bcs_sequence = get_or_create(bcs_session, Sequence, {
-        'chado_feature_id':seq.feature_id,
-        'chado_table':'feature',
-        'name':seq.uniquename,
-        'specimen_id':bcs_specimen.id})
+    bcs_sequence = get_or_create(bcs_session, Sequence,
+        chado_feature_id = seq.feature_id,
+        chado_table = 'feature',
+        name = seq.uniquename,
+        specimen_id = bcs_specimen.id)
     return bcs_sequence
 
 
