@@ -15,6 +15,7 @@ class SequencesAPI(MethodView):
     ids = None
     organism_id = None
     analysis_id = None
+    format = 'fasta'
 
     def get(self, id=None, format=None):
         print(f'GET {request.path}\nGetting sequences {id}')
@@ -65,8 +66,7 @@ class SequencesAPI(MethodView):
         for key,file in request.files.items(multi=True):
             try:
                 file_cpy = self._make_file(file)
-                response, code = import_sequences(file_cpy, self.organism_id, self.analysis_id)
-                responses.append(response)
+                response, code = import_sequences(file_cpy, self.organism_id, self.analysis_id, self.format)
             except Exception as e:
                 print(e)
                 responses.append({'status':'failure','message':f'Could not import the file {file}.'})
@@ -89,6 +89,8 @@ class SequencesAPI(MethodView):
                 self.organism_id = data['organism_id']
             if 'analysis_id' in data and data['analysis_id']:
                 self.analysis_id = data['analysis_id']
+            if 'format' in data and data['format']:
+                self.format = data['format']
         print(f'DATA: {data}')
 
 
