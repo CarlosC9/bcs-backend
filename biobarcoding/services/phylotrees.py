@@ -5,13 +5,8 @@ from biobarcoding.db_models import DBSessionChado as chado_session
 def create_phylotrees(name = None, comment = None):
     return {'status':'success','message':'CREATE: phylotrees dummy completed'}, 200
 
-def read_phylotrees(id = None):
-    from biobarcoding.db_models.chado import Phylotree, Dbxref
-    result = chado_session.query(Phylotree)\
-        .join(Dbxref)\
-        .filter(Dbxref.accession!='taxonomy')
-    if id:
-        result = result.filter(Phylotree.phylotree_id==id)
+def read_phylotrees(id = None, analysis_id = None, name = None, comment = None, feature_id = None):
+    result = __get_query(id, analysis_id, name, comment, feature_id)
     response = []
     for value in result.all():
         tmp = value.__dict__
@@ -106,7 +101,7 @@ def __phylotree2bcs(phylotree):
     bcs_phylotree = get_or_create(bcs_session, PhylogeneticTree,
         chado_phylotree_id = phylotree.phylotree_id,
         chado_table = 'phylotree',
-        bcs_phylotree.name = phylotree.name)
+        name = phylotree.name)
     bcs_session.merge(bcs_phylotree)
     bcs_session.commit()
     return bcs_phylotree
@@ -134,3 +129,23 @@ def __tree2phylonodes(phylotree_id, node, parent_id=None, index=[0]):
         chado_session.flush()
     index[0]+=1
     return phylonodes + [phylonode]
+
+
+def __get_query(phylotree_id = None, analysis_id = None, name = None, comment = None, feature_id = None):
+    from biobarcoding.db_models.chado import Phylotree, Dbxref
+    query = chado_session.query(Phylotree)\
+        .join(Dbxref)\
+        .filter(Dbxref.accession!='taxonomy')
+    if phylotree_id:
+        query = query.filter(Phylotree.phylotree_id==phylotree_id)
+    if analysis_id:
+        query = query.filter(Phylotree.analysis_id==analysis_id)
+    if name:
+        query = query.filter(Phylotree.name==name)
+    if comment:
+        query = query.filter(Phylotree.comment==comment)
+    if feature_id:
+        from biobarcoding.db_models.chado import Phylonode
+        query = query.join(Phylonode)\
+            .filter(Phylonode.feature_id==feature_id)
+    return query

@@ -22,6 +22,7 @@ class AnalysesAPI(MethodView):
     sourceversion = None
     sourceuri = None
     date_executed = None
+    feature_id = None
 
     def get(self, id=None):
         print(f'GET {request.path}\nGetting analyses {id}')
@@ -37,7 +38,8 @@ class AnalysesAPI(MethodView):
             sourcename=self.sourcename,
             sourceversion=self.sourceversion,
             sourceuri=self.sourceuri,
-            description=self.description)
+            description=self.description,
+            feature_id=self.feature_id)
         return make_response(jsonify(response), code)
 
 
@@ -114,6 +116,8 @@ class AnalysesAPI(MethodView):
                 self.sourceuri = data['sourceuri']
             if 'date_executed' in data and data['date_executed']:
                 self.date_executed = data['date_executed']
+            if 'feature_id' in data and data['feature_id']:
+                self.feature_id = data['feature_id']
         print(f'DATA: {data}')
 
 

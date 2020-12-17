@@ -15,6 +15,7 @@ class PhyloAPI(MethodView):
     analysis_id = None
     name = None
     comment = None
+    feature_id = None
 
     def get(self, id=None):
         print(f'GET {request.path}\nGetting phylotrees {id}')
@@ -25,7 +26,7 @@ class PhyloAPI(MethodView):
             return send_file(response, mimetype='text/newick'), code
         else:
             from biobarcoding.services.phylotrees import read_phylotrees
-            response, code = read_phylotrees(id)
+            response, code = read_phylotrees(id, self.analysis_id, self.name, self.comment, self.feature_id)
         return make_response(jsonify(response), code)
 
 
@@ -85,6 +86,8 @@ class PhyloAPI(MethodView):
                 self.name = data['name']
             if 'comment' in data:
                 self.comment = data['comment']
+            if 'feature_id' in data:
+                self.feature_id = data['feature_id']
         print(f'DATA: {data}')
 
 
