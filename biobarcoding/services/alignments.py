@@ -28,6 +28,13 @@ def update_alignments(alignment_id, program, programversion, name=None, descript
     return {'status': 'success', 'message': 'UPDATE: alignments dummy completed'}, 200
 
 
+def __delete_from_bcs(analysis_id):
+    from biobarcoding.db_models.bioinformatics import MultipleSequenceAlignment
+    bcs_session.query(MultipleSequenceAlignment).filter(MultipleSequenceAlignment.chado_analysis_id == analysis_id) \
+        .delete(synchronize_session='fetch')
+    bcs_session.commit()
+
+
 def delete_alignments(alignment_id=None, ids=None, name=None, program=None, programversion=None, algorithm=None,
                       sourcename=None, sourceversion=None, sourceuri=None, description=None):
     try:
@@ -38,6 +45,7 @@ def delete_alignments(alignment_id=None, ids=None, name=None, program=None, prog
         from biobarcoding.services.sequences import delete_sequences
         for msa in res.all():
             delete_sequences(analysis_id=msa.analysis_id)
+            __delete_from_bcs(msa.analysis_id)
         res.delete(synchronize_session='fetch')
         chado_session.commit()
         return {'status': 'success', 'message': f'{res} alignments were successfully removed.'}, 201
@@ -62,6 +70,15 @@ def __seq_cvterm(name):
     return cvterm
 
 
+def __bind2src(feature, srcname):
+    from biobarcoding.services.sequences import __get_query as get_sequences
+    src = get_sequences(uniquename=srcname).first()
+    if src:
+        from biobarcoding.db_models.chado import Featureloc
+        relationship = Featureloc(feature_id=feature.feature_id, srcfeature_id=src.feature_id)
+        chado_session.add(relationship)
+
+
 def __msa2chado(input_file, msa, format):
     from Bio import AlignIO
     seqs = AlignIO.read(input_file, format or 'fasta')
@@ -71,6 +88,7 @@ def __msa2chado(input_file, msa, format):
                           type_id=__seq_cvterm(seq.name).cvterm_id)
         chado_session.add(feature)
         chado_session.flush()
+        __bind2src(feature, seq.name)
         chado_session.add(AnalysisFeature(analysis_id=msa.analysis_id, feature_id=feature.feature_id))
     return msa
 

@@ -80,7 +80,7 @@ def export_sequences(sequence_id=None, ids=None, organism_id=None, analysis_id=N
     return '/tmp/' + output_file, 200
 
 
-def __get_query(sequence_id=None, ids=None, organism_id=None, analysis_id=None):
+def __get_query(sequence_id=None, ids=None, organism_id=None, analysis_id=None, uniquename=None):
     from biobarcoding.db_models.chado import Feature
     query = chado_session.query(Feature)
     if sequence_id:
@@ -89,6 +89,8 @@ def __get_query(sequence_id=None, ids=None, organism_id=None, analysis_id=None):
         query = query.filter(Feature.feature_id.in_(ids))
     if organism_id:
         query = query.filter(Feature.organism_id == organism_id)
+    if uniquename:
+        query = query.filter(Feature.uniquename == uniquename)
     if analysis_id:
         from biobarcoding.db_models.chado import AnalysisFeature
         analysis_ids = chado_session.query(AnalysisFeature.feature_id).filter(AnalysisFeature.analysis_id==analysis_id).all()
