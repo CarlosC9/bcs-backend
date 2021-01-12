@@ -8,15 +8,13 @@ from flask import Response, Blueprint, g, request
 from flask import request, make_response, jsonify, send_file
 
 bp_processes, ProcessesAPI = make_simple_rest_crud(Process, "processes")
-# bp_resources, ResourcesAPI = make_simple_rest_crud(ComputeResource, "resources")
-# bp_resourcesinprocess,ResourcesInProcessAPI = make_simple_rest_crud(ProcessInComputeResource,"process/{id}/resource")
+bp_resources, ResourcesAPI = make_simple_rest_crud(ComputeResource, "resources")
 
 bcs_api_base = "/api"  # Base for all RESTful calls
 bcs_gui_base = "/gui"  # Base for the Angular2 GUI
 bcs_external_gui_base = "/gui_external"  # Base for the Angular2 GUI when loaded from URL
 
 
-# TODO  no funciona
 class ResourcesInProcessAPI(MethodView):
     page: int = None
     page_size: int = None
@@ -26,8 +24,7 @@ class ResourcesInProcessAPI(MethodView):
         db = g.bcs_session.db_session
         r = ResponseObject()
         if _id is None:
-            # TODO corregir
-            query = db.query(ComputeResource).join(ProcessInComputeResource).filter(Process.id == pid)
+            query = db.query(ComputeResource).join(ProcessInComputeResource).filter(ProcessInComputeResource.process_id == pid)
             self.__check_data(request.args)
             if self.page and self.page_size:
                 query = query.offset((self.page - 1) * self.page_size).limit(self.page_size)
@@ -35,7 +32,7 @@ class ResourcesInProcessAPI(MethodView):
         else:
             # Detail
             r.content = db.query(ComputeResource).join(ProcessInComputeResource).filter(
-                Process.id == pid).filter(ComputeResource.id == _id).first()
+                ProcessInComputeResource.process_id == pid).filter(ComputeResource.id == _id).first()
 
         return r.get_response()
 
