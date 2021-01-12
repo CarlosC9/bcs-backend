@@ -12,6 +12,7 @@ class PhyloAPI(MethodView):
     """
     Phylo Resource
     """
+    ids = None
     analysis_id = None
     name = None
     comment = None
@@ -50,10 +51,11 @@ class PhyloAPI(MethodView):
         return make_response(jsonify(response), code)
 
 
-    def delete(self, id):
+    def delete(self, id=None):
         print(f'DELETE {request.path}\nDeleting phylotrees {id}')
+        self._check_data(request.args)
         from biobarcoding.services.phylotrees import delete_phylotrees
-        response, code = delete_phylotrees(id)
+        response, code = delete_phylotrees(id, self.ids)
         return make_response(jsonify(response), code)
 
 
@@ -80,6 +82,8 @@ class PhyloAPI(MethodView):
 
     def _check_data(self, data):
         if data:
+            if 'id' in data and data['id']:
+                self.ids = data.getlist('id')
             if 'analysis_id' in data:
                 self.analysis_id = data['analysis_id']
             if 'name' in data:
@@ -95,7 +99,7 @@ class PhyloFeatAPI(MethodView):
     """
     Phylogenetic Tree Feature Resource
     """
-    def get(self, id=None):
+    def get(self, phylo_id, cmt_id=None):
         msg = f'GET {request.path}\nGetting comment {id}'
         print(msg)
         self._check_data()
@@ -107,7 +111,7 @@ class PhyloFeatAPI(MethodView):
         return make_response(jsonify(responseObject)), 200
 
 
-    def post(self):
+    def post(self, phylo_id):
         msg = f'POST {request.path}\nCreating comment'
         print(msg)
         self._check_data()
@@ -119,7 +123,7 @@ class PhyloFeatAPI(MethodView):
         return make_response(jsonify(responseObject)), 200
 
 
-    def put(self, id):
+    def put(self, phylo_id, cmt_id):
         msg = f'PUT {request.path}\nCreating comment {id}'
         print(msg)
         self._check_data()
@@ -131,7 +135,7 @@ class PhyloFeatAPI(MethodView):
         return make_response(jsonify(responseObject)), 200
 
 
-    def delete(self, id):
+    def delete(self, phylo_id, cmt_id=None):
         msg = f'DELETE {request.path}\nDeleting comment {id}'
         print(msg)
         self._check_data()
@@ -153,10 +157,10 @@ phylotrees_view = PhyloAPI.as_view('api_phylotrees')
 bp_phylotrees.add_url_rule(
     bcs_api_base + '/bos/phylotrees/',
     view_func=phylotrees_view,
-    methods=['GET','POST']
+    methods=['GET','POST','DELETE']
 )
 bp_phylotrees.add_url_rule(
-    bcs_api_base + '/bos/phylotrees/<int:phylo_id>',
+    bcs_api_base + '/bos/phylotrees/<int:id>',
     view_func=phylotrees_view,
     methods=['GET','PUT','DELETE']
 )

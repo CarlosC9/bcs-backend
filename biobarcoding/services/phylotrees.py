@@ -20,8 +20,37 @@ def update_phylotrees(phylotree_id, name = None, comment = None, analysis_id = N
     return {'status':'success','message':'UPDATE: phylotrees dummy completed'}, 200
 
 
-def delete_phylotrees(phylotree_id = None):
-    return {'status':'success','message':'DELETE: phylotrees dummy completed'}, 200
+def __delete_from_bcs(ids):
+    from biobarcoding.db_models.bioinformatics import PhylogeneticTree
+    bcs_session.query(PhylogeneticTree).filter(PhylogeneticTree.chado_phylotree_id.in_(ids))\
+        .delete(synchronize_session='fetch')
+
+
+def delete_phylotrees(id=None, ids=None):
+    from biobarcoding.db_models.chado import Phylotree, Dbxref
+    result = chado_session.query(Phylotree)
+    msg='[ '
+    if id:
+        result = result.filter(Phylotree.phylotree_id==id)
+        __delete_from_bcs([id])
+        msg+=f'{id} '
+    elif ids:
+        result = result.filter(Phylotree.phylotree_id.in_(ids))
+        __delete_from_bcs(ids)
+        msg+=f'{ids} '
+    else:
+        return {'status': 'failure', 'message': f'Phylotrees IDs missed.'}, 400
+    msg+=']'
+    result.delete(synchronize_session='fetch')
+    try:
+        chado_session.commit()
+        bcs_session.commit()
+    except Exception as e:
+        chado_session.rollback()
+        bcs_session.rollback()
+        return {'status':'failure','message':f'Phylotrees could not be deleted.'}, 400
+    return {'status':'success','message':f'Phylotrees deleted: {msg}'}, 200
+
 
 # Legacy import with python-chado
 def __import_phylotrees(input_file, name = None, comment = None, analysis_id = None):

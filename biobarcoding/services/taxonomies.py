@@ -22,16 +22,18 @@ def update_taxonomies(id, name = None, comment = None):
 
 def delete_taxonomies(id=None, ids=None):
     from biobarcoding.db_models.chado import Phylotree, Dbxref
-    result = chado_session.query(Phylotree)\
-        .filter(Phylotree.dbxref_id==chado_session.query(Dbxref.dbxref_id)\
+    result = chado_session.query(Phylotree) \
+        .filter(Phylotree.dbxref_id==chado_session.query(Dbxref.dbxref_id) \
                 .filter(Dbxref.accession=='taxonomy').first())
     msg='[ '
     if id:
-        result.filter(Phylotree.phylotree_id==id)
+        result = result.filter(Phylotree.phylotree_id==id)
         msg+=f'{id} '
-    if ids:
-        result.filter(Phylotree.phylotree_id.in_(ids))
+    elif ids:
+        result = result.filter(Phylotree.phylotree_id.in_(ids))
         msg+=f'{ids} '
+    else:
+        return {'status':'failure','message':f'Taxonomies IDs missed.'}, 400
     msg+=']'
     result.delete()
     chado_session.commit()
@@ -44,8 +46,10 @@ def import_taxonomies(input_file, name = None, comment = None):
     named=''
     if name:
         named = f' -n {name} '
+    import os
+    dir_path = os.path.dirname(os.path.realpath(__file__))
     from biobarcoding.services import exec_cmds
-    out, err = exec_cmds([f'''(cd ./biobarcoding/services/perl_scripts/ &&
+    out, err = exec_cmds([f'''(cd {dir_path}/perl_scripts/ &&
         perl ./load_ncbi_taxonomy.pl\
             -H {cfg["CHADO_HOST"]}\
             -D {cfg["CHADO_DATABASE"]}\
