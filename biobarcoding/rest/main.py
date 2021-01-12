@@ -59,11 +59,6 @@ def create_app(debug, cfg_dict=None):
          supports_credentials=True
          )
 
-    # Galaxy
-    print("Initializing base Galaxy instance")
-    initialize_galaxy(app)
-    print("Initializing base Galaxy instance - DONE")
-
     lock = NamedAtomicLock("bcs-backend-lock")
     lock.acquire()
     try:
@@ -74,6 +69,11 @@ def create_app(debug, cfg_dict=None):
         initialize_database_chado(app)
     finally:
         lock.release()
+
+    # Galaxy
+    print("Initializing base Galaxy instance")
+    initialize_galaxy(app)
+    print("Initializing base Galaxy instance - DONE")
 
     # Security
     # initialize_authn_authr(app)

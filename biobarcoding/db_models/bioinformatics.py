@@ -57,7 +57,7 @@ class Sequence(BioinformaticObject):
     }
 
     id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
-    chado_feature_id = Column(BigInteger, primary_key=False)  # Foreign key (not enforceable by the DB)
+    chado_feature_id = Column(BigInteger, unique=True, nullable=False, primary_key=False)  # Foreign key (not enforceable by the DB)
     specimen_id = Column(Integer, ForeignKey(Specimen.id), nullable=True, primary_key=False)
     specimen = relationship(Specimen)
 
@@ -70,7 +70,7 @@ class MultipleSequenceAlignment(BioinformaticObject):
     }
 
     id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
-    chado_analysis_id = Column(BigInteger, primary_key=False)  # Foreign key (not enforceable by the DB)
+    chado_analysis_id = Column(BigInteger, unique=True, nullable=False, primary_key=False)  # Foreign key (not enforceable by the DB)
 
 
 class PhylogeneticTree(BioinformaticObject):
@@ -81,7 +81,7 @@ class PhylogeneticTree(BioinformaticObject):
     }
 
     id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
-    chado_phylotree_id = Column(BigInteger, primary_key=False)  # Foreign key (not enforceable by the DB)
+    chado_phylotree_id = Column(BigInteger, unique=True, nullable=False, primary_key=False)  # Foreign key (not enforceable by the DB)
 
 
 class SequenceSimilarity(BioinformaticObject):
@@ -92,4 +92,4 @@ class SequenceSimilarity(BioinformaticObject):
     }
 
     id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
-    chado_analysis_id = Column(BigInteger, primary_key=False)  # Foreign key (not enforceable by the DB)
+    chado_analysis_id = Column(BigInteger, unique=True, nullable=False, primary_key=False)  # Foreign key (not enforceable by the DB)

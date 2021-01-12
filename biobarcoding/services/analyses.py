@@ -1,3 +1,5 @@
+from biobarcoding.db_models import DBSessionChado as chado_session
+
 def create_analyses(program, programversion, name = None, sourcename = None, description = None, algorithm = None, sourceversion = None, sourceuri = None, date_executed = None):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
@@ -16,7 +18,7 @@ def create_analyses(program, programversion, name = None, sourcename = None, des
     except Exception as e:
         return {'status':'failure','message':f'The analysis "{program} {programversion}" could not be created.'}, 500
 
-def read_analyses(analysis_id=None, ids=None, name=None, program=None, programversion=None, algorithm=None, sourcename=None, sourceversion=None, sourceuri=None, description=None):
+def read_analyses(analysis_id=None, ids=None, name=None, program=None, programversion=None, algorithm=None, sourcename=None, sourceversion=None, sourceuri=None, description=None, feature_id=None):
     result = __get_query(
         analysis_id=analysis_id,
         ids=ids,
@@ -27,7 +29,8 @@ def read_analyses(analysis_id=None, ids=None, name=None, program=None, programve
         sourcename=sourcename,
         sourceversion=sourceversion,
         sourceuri=sourceuri,
-        description=description)
+        description=description,
+        feature_id=feature_id)
     from biobarcoding.services import chado2json
     if analysis_id:
         return chado2json(result)[0], 200
@@ -49,17 +52,15 @@ def delete_analyses(analysis_id=None, ids=None, name=None, program=None, program
             sourceversion=sourceversion,
             sourceuri=sourceuri,
             description=description).delete(synchronize_session='fetch')
-        from biobarcoding.db_models import DBSessionChado
-        DBSessionChado.commit()
+        chado_session.commit()
         return {'status':'success','message':f'{res} analyses were successfully removed.'}, 201
     except Exception as e:
         print(e)
         return {'status':'failure','message':f'The analyses could not be removed.'}, 500
 
-def __get_query(analysis_id=None, ids=None, name=None, program=None, programversion=None, algorithm=None, sourcename=None, sourceversion=None, sourceuri=None, description=None):
-    from biobarcoding.db_models import DBSessionChado
+def __get_query(analysis_id=None, ids=None, name=None, program=None, programversion=None, algorithm=None, sourcename=None, sourceversion=None, sourceuri=None, description=None, feature_id=None):
     from biobarcoding.db_models.chado import Analysis
-    query = DBSessionChado.query(Analysis)
+    query = chado_session.query(Analysis)
     if analysis_id:
         query = query.filter(Analysis.analysis_id==analysis_id)
     if ids:
@@ -80,4 +81,8 @@ def __get_query(analysis_id=None, ids=None, name=None, program=None, programvers
         query = query.filter(Analysis.sourceuri==sourceuri)
     if description:
         query = query.filter(Analysis.description==description)
+    if feature_id:
+        from biobarcoding.db_models.chado import AnalysisFeature
+        query = query.join(AnalysisFeature)\
+            .filter(AnalysisFeature.feature_id==feature_id)
     return query

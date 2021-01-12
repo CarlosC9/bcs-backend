@@ -1,5 +1,4 @@
-from biobarcoding.db_models import DBSessionChado as session
-
+from biobarcoding.db_models import DBSessionChado as chado_session
 
 def create_taxonomies(name, comment = None):
     return {'status':'success','message':'CREATE: taxonomies dummy completed'}, 200
@@ -8,7 +7,7 @@ def create_taxonomies(name, comment = None):
 def read_taxonomies(id = None):
     from biobarcoding.services import chado2json
     from biobarcoding.db_models.chado import Phylotree, Dbxref
-    result = session.query(Phylotree)\
+    result = chado_session.query(Phylotree)\
         .join(Dbxref)\
         .filter(Dbxref.accession=='taxonomy')
     if id:
@@ -23,8 +22,8 @@ def update_taxonomies(id, name = None, comment = None):
 
 def delete_taxonomies(id=None, ids=None):
     from biobarcoding.db_models.chado import Phylotree, Dbxref
-    result = session.query(Phylotree)\
-        .filter(Phylotree.dbxref_id==session.query(Dbxref.dbxref_id)\
+    result = chado_session.query(Phylotree)\
+        .filter(Phylotree.dbxref_id==chado_session.query(Dbxref.dbxref_id)\
                 .filter(Dbxref.accession=='taxonomy').first())
     msg='[ '
     if id:
@@ -35,7 +34,7 @@ def delete_taxonomies(id=None, ids=None):
         msg+=f'{ids} '
     msg+=']'
     result.delete()
-    session.commit()
+    chado_session.commit()
     return {'status':'success','message':f'Taxonomies deleted: {msg}'}, 200
 
 
@@ -55,6 +54,9 @@ def import_taxonomies(input_file, name = None, comment = None):
             -d Pg\
             -i {input_file}\
             {named})'''])
+    chado_session.execute("SELECT setval('phylonode_phylonode_id_seq', (SELECT MAX(phylonode_id) FROM phylonode)+1);")
+    # chado_session.execute("ALTER SEQUENCE phylonode_phylonode_id_seq RESTART WITH (SELECT MAX(phylonode_id) FROM phylonode)+1;")
+    # chado_session.commit()
     if err:
         import os
         return {'status':'failure','message':f'Taxonomy in {os.path.basename(input_file)} could not be imported.\n{err}'}, 500

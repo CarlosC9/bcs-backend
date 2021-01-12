@@ -1,17 +1,12 @@
 import os, time
-from biobarcoding.db_models import DBSessionChado
-session = DBSessionChado()
+from biobarcoding.db_models import DBSession as bcs_session
+from biobarcoding.db_models import DBSessionChado as chado_session
 
 def create_phylotrees(name = None, comment = None):
     return {'status':'success','message':'CREATE: phylotrees dummy completed'}, 200
 
-def read_phylotrees(id = None):
-    from biobarcoding.db_models.chado import Phylotree, Dbxref
-    result = session.query(Phylotree)\
-        .join(Dbxref)\
-        .filter(Dbxref.accession!='taxonomy')
-    if id:
-        result = result.filter(Phylotree.phylotree_id==id)
+def read_phylotrees(id = None, analysis_id = None, name = None, comment = None, feature_id = None):
+    result = __get_query(id, analysis_id, name, comment, feature_id)
     response = []
     for value in result.all():
         tmp = value.__dict__
@@ -65,44 +60,56 @@ def import_phylotrees(input_file, name = None, comment = None, analysis_id = Non
     # Create the not null dbxref for this phylotree
     if not name:
         name = os.path.basename(input_file)
-    dbxref = __new_phylotree_dbxref(name)
     # Create the new phylotree
-    phylotree = __new_phylotree(name, dbxref.dbxref_id, comment, analysis_id)
+    phylotree = __new_phylotree(name, comment, analysis_id)
+    bcs_phylotree = __phylotree2bcs(phylotree)
     # Get phylonodes insertion
     phylonodes = __tree2phylonodes(phylotree.phylotree_id, tree.root, None, [0])
     try:
-        session.commit()
+        chado_session.commit()
     except Exception as e:
-        session.rollback()
+        chado_session.rollback()
         print(e)
         return f'The phylotree could not be inserted correctly.\n{e}', 500
     return 'The phylotree was imported correctly.', 200
 
-def __new_phylotree_dbxref(name):
-    from biobarcoding.db_models.chado import Db, Dbxref
-    dbxref = Dbxref(
-        db_id=session.query(Db).filter(Db.name=='null').first().db_id,
-        accession=f'phylotree:{name}',
-        version=time.strftime("%Y %b %d %H:%M:%S"))
-    session.add(dbxref)
-    session.flush()
-    return dbxref
-
-def __new_phylotree(name, dbxref_id, comment = None, analysis_id = None):
+def __new_phylotree(name, comment = None, analysis_id = None):
+    dbxref = __new_phylotree_dbxref(name)
     from biobarcoding.db_models.chado import Phylotree, Analysis
-    phylotree = Phylotree(dbxref_id=dbxref_id, name=name)
+    phylotree = Phylotree(dbxref_id=dbxref.dbxref_id, name=name)
     if comment:
         phylotree.comment = comment
     if analysis_id:
-        phylotree.analysis_id = session.query(Analysis).filter(Analysis.analysis_id==analysis_id).first().analysis_id
-    session.add(phylotree)
-    session.flush()
+        phylotree.analysis_id = chado_session.query(Analysis).filter(Analysis.analysis_id==analysis_id).first().analysis_id
+    chado_session.add(phylotree)
+    chado_session.flush()
     return phylotree
+
+def __new_phylotree_dbxref(name):
+    from biobarcoding.db_models.chado import Db, Dbxref
+    dbxref = Dbxref(
+        db_id=chado_session.query(Db).filter(Db.name=='null').first().db_id,
+        accession=f'phylotree:{name}',
+        version=time.strftime("%Y %b %d %H:%M:%S"))
+    chado_session.add(dbxref)
+    chado_session.flush()
+    return dbxref
+
+def __phylotree2bcs(phylotree):
+    from biobarcoding.services import get_or_create
+    from biobarcoding.db_models.bioinformatics import PhylogeneticTree
+    bcs_phylotree = get_or_create(bcs_session, PhylogeneticTree,
+        chado_phylotree_id = phylotree.phylotree_id,
+        chado_table = 'phylotree',
+        name = phylotree.name)
+    bcs_session.merge(bcs_phylotree)
+    bcs_session.commit()
+    return bcs_phylotree
 
 def __tree2phylonodes(phylotree_id, node, parent_id=None, index=[0]):
     from biobarcoding.db_models.chado import Phylonode, Feature
     phylonodes = []
-    feature_id = session.query(Feature.feature_id).filter(Feature.uniquename==node.name).first()
+    feature_id = chado_session.query(Feature.feature_id).filter(Feature.uniquename==node.name).first()
     phylonode = Phylonode(
         phylotree_id=phylotree_id,
         parent_phylonode_id=parent_id,
@@ -112,13 +119,33 @@ def __tree2phylonodes(phylotree_id, node, parent_id=None, index=[0]):
         left_idx=index[0],
         right_idx=index[0]+1)
     index[0]+=1
-    session.add(phylonode)
-    session.flush()
+    chado_session.add(phylonode)
+    chado_session.flush()
     if len(node.clades)>0:
         for clade in node.clades:
             phylonodes += __tree2phylonodes(phylotree_id, clade, phylonode.phylonode_id, index)
         phylonode.right_idx = index[0]
-        session.add(phylonode)
-        session.flush()
+        chado_session.add(phylonode)
+        chado_session.flush()
     index[0]+=1
     return phylonodes + [phylonode]
+
+
+def __get_query(phylotree_id = None, analysis_id = None, name = None, comment = None, feature_id = None):
+    from biobarcoding.db_models.chado import Phylotree, Dbxref
+    query = chado_session.query(Phylotree)\
+        .join(Dbxref)\
+        .filter(Dbxref.accession!='taxonomy')
+    if phylotree_id:
+        query = query.filter(Phylotree.phylotree_id==phylotree_id)
+    if analysis_id:
+        query = query.filter(Phylotree.analysis_id==analysis_id)
+    if name:
+        query = query.filter(Phylotree.name==name)
+    if comment:
+        query = query.filter(Phylotree.comment==comment)
+    if feature_id:
+        from biobarcoding.db_models.chado import Phylonode
+        query = query.join(Phylonode)\
+            .filter(Phylonode.feature_id==feature_id)
+    return query

@@ -35,3 +35,11 @@ def chado2json(query):
         tmp.pop('_sa_instance_state', None)
         response.append(tmp)
     return response
+
+
+def get_or_create(session, model, **kwargs):
+    instance = session.query(model).filter_by(**kwargs).first()
+    if not instance:
+        params = dict((k, v) for k, v in kwargs.items())
+        instance = model(**params)
+    return instance
