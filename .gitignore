@@ -17,3 +17,7 @@ biobarcoding/services/perl_scripts/load_taxonomy.err
 biobarcoding/services/perl_scripts/names.dmp
 
 biobarcoding/services/perl_scripts/nodes.dmp
+
+*.err
+
+*.dmp
