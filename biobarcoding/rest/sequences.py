@@ -67,6 +67,7 @@ class SequencesAPI(MethodView):
             try:
                 file_cpy = self._make_file(file)
                 response, code = import_sequences(file_cpy, self.organism_id, self.analysis_id, self.format)
+                responses.append(response)
             except Exception as e:
                 print(e)
                 responses.append({'status':'failure','message':f'Could not import the file {file}.'})
