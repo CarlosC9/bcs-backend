@@ -69,9 +69,10 @@ def __import_phylotrees(input_file, name = None, comment = None, analysis_id = N
 def export_phylotrees(phylotree_id = None):
     return {'status':'success','message':'UPDATE: phylotrees dummy completed'}, 200
 
-"""
+
 # NGD newick phylotree import
-__TODO__
+# TODO:
+"""
 phylotree:
  - type_id ? cvterm['phylogeny'].cvterms_id
  - for each selected cvterms: new phylotreeprop

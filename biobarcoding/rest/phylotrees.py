@@ -21,6 +21,7 @@ class PhyloAPI(MethodView):
     def get(self, id=None):
         print(f'GET {request.path}\nGetting phylotrees {id}')
         self._check_data(request.json)
+        self._check_data(request.args)
         if 'Accept' in request.headers and request.headers['Accept']=='text/newick':
             from biobarcoding.services.phylotrees import export_phylotrees
             response, code = export_phylotrees(id)

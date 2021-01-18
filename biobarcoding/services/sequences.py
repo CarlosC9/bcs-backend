@@ -6,15 +6,15 @@ def create_sequences(organism_id=None, analysis_id=None, residues=None):
     return {'status': 'success', 'message': 'CREATE: sequences dummy completed'}, 200
 
 
-def read_sequences(sequence_id=None, ids=None, organism_id=None, analysis_id=None):
+def read_sequences(sequence_id=None, ids=None, organism_id=None, analysis_id=None, phylotree_id=None):
     # from biobarcoding.services import conn_chado
     # conn = conn_chado()
     # resp = conn.feature.get_features(organism_id = organism_id,
     #     analysis_id = analysis_id, name = sequence_id)
     from biobarcoding.services import chado2json
     if sequence_id:
-        return chado2json(__get_query(sequence_id, ids, organism_id, analysis_id))[0], 200
-    return chado2json(__get_query(sequence_id, ids, organism_id, analysis_id)), 200
+        return chado2json(__get_query(sequence_id, ids, organism_id, analysis_id, phylotree_id))[0], 200
+    return chado2json(__get_query(sequence_id, ids, organism_id, analysis_id, phylotree_id)), 200
 
 
 def update_sequences(sequence_id, organism_id=None, analysis_id=None, residues=None):
@@ -80,7 +80,7 @@ def export_sequences(sequence_id=None, ids=None, organism_id=None, analysis_id=N
     return '/tmp/' + output_file, 200
 
 
-def __get_query(sequence_id=None, ids=None, organism_id=None, analysis_id=None, uniquename=None):
+def __get_query(sequence_id=None, ids=None, organism_id=None, analysis_id=None, phylotree_id=None, uniquename=None):
     from biobarcoding.db_models.chado import Feature
     query = chado_session.query(Feature)
     if sequence_id:
@@ -95,4 +95,8 @@ def __get_query(sequence_id=None, ids=None, organism_id=None, analysis_id=None, 
         from biobarcoding.db_models.chado import AnalysisFeature
         analysis_ids = chado_session.query(AnalysisFeature.feature_id).filter(AnalysisFeature.analysis_id==analysis_id).all()
         query = query.filter(Feature.feature_id.in_(analysis_ids))
+    if phylotree_id:
+        from biobarcoding.db_models.chado import Phylonode
+        phylotree_ids = chado_session.query(Phylonode.feature_id).filter(Phylonode.phylotree_id==phylotree_id).all()
+        query = query.filter(Feature.feature_id.in_(phylotree_ids))
     return query

@@ -15,6 +15,7 @@ class SequencesAPI(MethodView):
     ids = None
     organism_id = None
     analysis_id = None
+    phylotree_id = None
     format = 'fasta'
 
     def get(self, id=None, format=None):
@@ -27,7 +28,7 @@ class SequencesAPI(MethodView):
             return send_file(response, mimetype=f'text/{format}'), code
         else:
             from biobarcoding.services.sequences import read_sequences
-            response, code = read_sequences(id, self.ids, self.organism_id, self.analysis_id)
+            response, code = read_sequences(id, self.ids, self.organism_id, self.analysis_id, self.phylotree_id)
             return make_response(jsonify(response), code)
 
 
@@ -90,6 +91,8 @@ class SequencesAPI(MethodView):
                 self.organism_id = data['organism_id']
             if 'analysis_id' in data and data['analysis_id']:
                 self.analysis_id = data['analysis_id']
+            if 'phylotree_id' in data and data['phylotree_id']:
+                self.phylotree_id = data['phylotree_id']
             if 'format' in data and data['format']:
                 self.format = data['format']
         print(f'DATA: {data}')
