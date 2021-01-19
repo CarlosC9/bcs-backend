@@ -72,19 +72,7 @@ RUN apt-get update && \
     libgo-perl \
     libpq-dev \
     cpanminus \
-    postgresql \
-    postgresql-client \
-    postgresql-contrib \
-    postgresql-plperl \
-    libpq-dev \
-    libdbd-pg-perl \
-    libtemplate-perl \
-    libxml-simple-perl \
-    liblog-log4perl-perl \
-    ant \
     libparse-recdescent-perl \
-    xsltproc \
-    bioperl \
 	&& apt-get clean
 
 
