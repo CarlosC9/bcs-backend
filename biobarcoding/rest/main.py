@@ -6,7 +6,7 @@ from NamedAtomicLock import NamedAtomicLock
 import biobarcoding
 from biobarcoding.jobs.galaxy_resource import initialize_galaxy
 from biobarcoding.rest import logger, log_level, load_configuration_file, construct_session_persistence_backend, \
-    initialize_database, initialize_database_chado, bcs_gui_base, ResponseObject
+    initialize_database, initialize_database_chado, bcs_gui_base, ResponseObject, initialize_chado_edam
 from biobarcoding.rest.auth import bp_auth
 from biobarcoding.rest.file_manager import bp_files
 from biobarcoding.rest.identities_and_company import bp_identities, bp_sys_functions, bp_roles, bp_identities_roles, \
@@ -67,6 +67,9 @@ def create_app(debug, cfg_dict=None):
 
         # Database Chado
         initialize_database_chado(app)
+
+        # Insert EDAM Ontology in chado
+        initialize_chado_edam(app)
     finally:
         lock.release()
 

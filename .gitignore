@@ -3,7 +3,7 @@
 .mypy_cache
 /venv/
 sqlite:
-
+bcs_docker_local.conf
 build/
 dist/
 dump\.rdb

@@ -62,7 +62,6 @@ if [ ! $galaxy_started ] ; then
     docker run --name galaxy_devel -d -p 8080:80 -p 8021:21 -p 8022:22 --rm -v /home/paula/galaxy_storage/:/export  bgruening/galaxy-stable
   elif [ "$(whoami)" == "daniel" ] ; then
     ssh dreyes@balder docker run --name galaxy_devel_dreyes -d -p 8480:80 -p 8421:21 -p 8422:22 --rm -v /home/daniel/Documentos/DATOS/galaxy_storage/:/export bgruening/galaxy-stable
-    #echo El galaxy no funciona
   fi
 fi
 

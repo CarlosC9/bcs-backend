@@ -30,7 +30,7 @@ FROM python:3.8.4-slim-buster
 #
 # docker create --name bcs-local -p 8080:80
 #               -v /home/rnebot/DATOS/docker/bcs-local:/srv
-#               -e BCS_SERVICE_CONFIG_FILE="bcs_docker_local_sqlite.conf" nextgendem-mac/ngd-bcs-backend:latest
+#               -e BCS_CONFIG_FILE="bcs_docker_local_sqlite.conf" nextgendem-mac/ngd-bcs-backend:latest
 # docker cp bcs_docker_local_sqlite.conf /app/biobarcoding/rest/bcs_docker_local_sqlite.conf
 #
 #
@@ -72,6 +72,7 @@ RUN apt-get update && \
     libgo-perl \
     libpq-dev \
     cpanminus \
+    libparse-recdescent-perl \
 	&& apt-get clean
 
 
@@ -102,13 +103,10 @@ ENV C_FORCE_ROOT=1
 #Docker initialization configuration
 
 #Install perl dependencies
-RUN cpanm GO::Utils \
-          DBIx::DBStag \
-          DBIx::DBSchema \
-          DBD::Pg
-
-#Execute insertion
-COPY docker_assets/ /docker_assets/
+RUN cpanm DBD::Pg
+RUN cpanm DBIx::DBSchema
+RUN cpanm GO::Utils
+RUN cpanm DBIx::DBStag --force
 
 # gunicorn --workers=1 --log-level=debug --timeout=2000 --bind 0.0.0.0:80 biobarcoding.rest.main:app
 #CMD ["/usr/local/bin/gunicorn", "--workers=3", "--log-level=debug", "--timeout=2000", "--bind", "0.0.0.0:80", "biobarcoding.rest.main:app"]
@@ -116,3 +114,15 @@ COPY docker_assets/ /docker_assets/
 CMD ["supervisord", "-c", "/etc/supervisord.conf"]
 
 COPY biobarcoding /app/biobarcoding
+COPY docker_init /app/docker_init
+
+## BCS-BACKEND
+#docker network create bcs-net
+#docker run --network bcs-net --name redis --rm -d -p 6379:6379 redis
+#docker run --network bcs-net --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v /home/daniel/Documentos/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
+#docker build -t nextgendem-mac/ngd-bcs-backend .
+#docker create --network bcs-net --name bcs-local -p 8080:80 -e BCS_CONFIG_FILE="bcs_docker_local.conf" nextgendem-mac/ngd-bcs-backend:latest
+#docker cp bcs_docker_local.conf bcs-local:/app/biobarcoding/rest/bcs_docker_local.conf
+#docker cp ../private-conf/firebase-key.json bcs-local:/app/firebase-key.json
+#docker start bcs-local
+#docker logs -f bcs-local > output.log
