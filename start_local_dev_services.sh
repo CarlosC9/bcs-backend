@@ -37,17 +37,6 @@ if [ ! "$(docker ps -q -f name=postgres_devel)" ] ; then
   fi
 fi
 
-# BCS-BACKEND
-docker network create bcs-net
-docker run --network bcs-net --name redis --rm -d -p 6379:6379 redis
-docker run --network bcs-net --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v /home/daniel/Documentos/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
-docker build -t nextgendem-mac/ngd-bcs-backend .
-docker create --network bcs-net --name bcs-local -p 8080:80 -e BCS_CONFIG_FILE="bcs_docker_local.conf" nextgendem-mac/ngd-bcs-backend:latest
-docker cp bcs_docker_local.conf bcs-local:/app/biobarcoding/rest/bcs_docker_local.conf
-docker cp ../private-conf/firebase-key.json bcs-local:/app/firebase-key.json
-docker start bcs-local
-docker logs -f bcs-local > output.log
-
 # Galaxy
 # api key = fakekey; user = admin; password = password
 galaxy_started="yes"
