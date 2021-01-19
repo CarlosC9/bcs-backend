@@ -30,7 +30,7 @@ FROM python:3.8.4-slim-buster
 #
 # docker create --name bcs-local -p 8080:80
 #               -v /home/rnebot/DATOS/docker/bcs-local:/srv
-#               -e BCS_SERVICE_CONFIG_FILE="bcs_docker_local_sqlite.conf" nextgendem-mac/ngd-bcs-backend:latest
+#               -e BCS_CONFIG_FILE="bcs_docker_local_sqlite.conf" nextgendem-mac/ngd-bcs-backend:latest
 # docker cp bcs_docker_local_sqlite.conf /app/biobarcoding/rest/bcs_docker_local_sqlite.conf
 #
 #
@@ -72,6 +72,19 @@ RUN apt-get update && \
     libgo-perl \
     libpq-dev \
     cpanminus \
+    postgresql \
+    postgresql-client \
+    postgresql-contrib \
+    postgresql-plperl \
+    libpq-dev \
+    libdbd-pg-perl \
+    libtemplate-perl \
+    libxml-simple-perl \
+    liblog-log4perl-perl \
+    ant \
+    libparse-recdescent-perl \
+    xsltproc \
+    bioperl \
 	&& apt-get clean
 
 
@@ -102,13 +115,10 @@ ENV C_FORCE_ROOT=1
 #Docker initialization configuration
 
 #Install perl dependencies
-RUN cpanm GO::Utils \
-          DBIx::DBStag \
-          DBIx::DBSchema \
-          DBD::Pg
-
-#Execute insertion
-COPY docker_assets/ /docker_assets/
+RUN cpanm DBD::Pg
+RUN cpanm DBIx::DBSchema
+RUN cpanm GO::Utils
+RUN cpanm DBIx::DBStag --force
 
 # gunicorn --workers=1 --log-level=debug --timeout=2000 --bind 0.0.0.0:80 biobarcoding.rest.main:app
 #CMD ["/usr/local/bin/gunicorn", "--workers=3", "--log-level=debug", "--timeout=2000", "--bind", "0.0.0.0:80", "biobarcoding.rest.main:app"]
@@ -116,3 +126,4 @@ COPY docker_assets/ /docker_assets/
 CMD ["supervisord", "-c", "/etc/supervisord.conf"]
 
 COPY biobarcoding /app/biobarcoding
+COPY docker_init /app/docker_init
