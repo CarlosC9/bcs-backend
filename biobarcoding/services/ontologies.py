@@ -1,11 +1,11 @@
+from biobarcoding.db_models import DBSessionChado as chado_session
 
 def create_ontologies(name, definition = None, remote_url = None):
     return {'status':'success','message':'CREATE: ontology dummy completed.'}, 200
 
 def read_ontologies(ontology_id = None, name = None):
-    from biobarcoding.db_models import DBSessionChado
     from biobarcoding.db_models.chado import Cv
-    result = DBSessionChado().query(Cv)
+    result = chado_session.query(Cv)
     if ontology_id:
         result = result.filter(Cv.cv_id==ontology_id)
     if name:
@@ -63,14 +63,32 @@ def export_ontologies(id):
     return {'status':'success','message':'EXPORT: ontology dummy completed'}, 200
 
 
-def read_cvterms(cv_id, cvterm_id = None):
-    from biobarcoding.db_models import DBSessionChado
+# TODO:
+#  featureprop, analysisprop, phylotreeprop ?
+#  phylotree ?
+def read_cvterms(cv_id = None, cvterm_id = None, feature_id=None, analysis_id=None, phylotree_id=None):
     from biobarcoding.db_models.chado import Cv, Cvterm
-    result = DBSessionChado().query(Cvterm)
+    result = chado_session.query(Cvterm)
     if cvterm_id:
         result = result.filter(Cvterm.cvterm_id==cvterm_id)
     if cv_id:
         result = result.filter(Cvterm.cv_id==cv_id)
+    if feature_id:
+        from biobarcoding.db_models.chado import FeatureCvterm
+        cv_ids = chado_session.query(FeatureCvterm.cvterm_id)\
+            .filter(FeatureCvterm.feature_id==feature_id)
+        result = result.filter(Cvterm.cv_id.in_(cv_ids))
+    if analysis_id:
+        from biobarcoding.db_models.chado import AnalysisCvterm
+        cv_ids = chado_session.query(AnalysisCvterm.cvterm_id)\
+            .filter(AnalysisCvterm.analysis_id==analysis_id)
+        result = result.filter(Cvterm.cv_id.in_(cv_ids))
+    if phylotree_id:
+        # from biobarcoding.db_models.chado import Phylotree
+        # cv_id = chado_session.query(Phylotree.type_id)\
+        #     .filter(Phylotree.phylotree_id==phylotree_id)
+        # result = result.filter(Cvterm.cv_id==cv_id)
+        pass
     response = []
     for value in result.all():
         tmp = value.__dict__

@@ -113,13 +113,34 @@ class CvtermsAPI(MethodView):
     """
     Cvterms Resource
     """
+    feature_id = None
+    analysis_id = None
+    phylotree_id = None
+
     def get(self, cv_id=None, cvterm_id=None):
         print(f'GET {request.path}\nGetting ontology terms {id}')
+        self._check_data(request.json)
+        self._check_data(request.args)
         from biobarcoding.services.ontologies import read_cvterms
-        response, code = read_cvterms(cv_id, cvterm_id)
+        response, code = read_cvterms(cv_id, cvterm_id, self.feature_id, self.analysis_id, self.phylotree_id)
         return make_response(jsonify(response), code)
 
+    def _check_data(self, data):
+        if data:
+            if 'feature_id' in data and data['feature_id']:
+                self.feature_id = data['feature_id']
+            if 'analysis_id' in data and data['analysis_id']:
+                self.analysis_id = data['analysis_id']
+            if 'phylotree_id' in data and data['phylotree_id']:
+                self.phylotree_id = data['phylotree_id']
+        print(f'DATA: {data}')
+
 cvterms_view = CvtermsAPI.as_view('api_cvterms')
+bp_ontologies.add_url_rule(
+    bcs_api_base + '/ontologies/terms/',
+    view_func=cvterms_view,
+    methods=['GET']
+)
 bp_ontologies.add_url_rule(
     bcs_api_base + '/ontologies/<int:cv_id>/terms/',
     view_func=cvterms_view,
