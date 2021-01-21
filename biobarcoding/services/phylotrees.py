@@ -1,31 +1,37 @@
 import os, time
-from biobarcoding.db_models import DBSession as bcs_session
+
+from biobarcoding.authentication import bcs_session
+from biobarcoding.db_models import DBSession as db_session
 from biobarcoding.db_models import DBSessionChado as chado_session
 
+
+@bcs_session(read_only=False)
 def create_phylotrees(name = None, comment = None):
     return {'status':'success','message':'CREATE: phylotrees dummy completed'}, 200
 
+
+@bcs_session(read_only=True)
 def read_phylotrees(id = None, analysis_id = None, name = None, comment = None, feature_id = None):
     result = __get_query(id, analysis_id, name, comment, feature_id)
-    response = []
-    for value in result.all():
-        tmp = value.__dict__
-        tmp.pop('_sa_instance_state', None)
-        response.append(tmp)
+    from biobarcoding.services import chado2json
+    response = chado2json(result)
     if id:
         return response[0], 200
     return response, 200
 
+
+@bcs_session(read_only=False)
 def update_phylotrees(phylotree_id, name = None, comment = None, analysis_id = None):
     return {'status':'success','message':'UPDATE: phylotrees dummy completed'}, 200
 
 
 def __delete_from_bcs(ids):
     from biobarcoding.db_models.bioinformatics import PhylogeneticTree
-    bcs_session.query(PhylogeneticTree).filter(PhylogeneticTree.chado_phylotree_id.in_(ids))\
+    db_session.query(PhylogeneticTree).filter(PhylogeneticTree.chado_phylotree_id.in_(ids))\
         .delete(synchronize_session='fetch')
 
 
+@bcs_session(read_only=False)
 def delete_phylotrees(id=None, ids=None):
     from biobarcoding.db_models.chado import Phylotree, Dbxref
     result = chado_session.query(Phylotree)
@@ -42,13 +48,13 @@ def delete_phylotrees(id=None, ids=None):
         return {'status': 'failure', 'message': f'Phylotrees IDs missed.'}, 400
     msg+=']'
     result.delete(synchronize_session='fetch')
-    try:
-        chado_session.commit()
-        bcs_session.commit()
-    except Exception as e:
-        chado_session.rollback()
-        bcs_session.rollback()
-        return {'status':'failure','message':f'Phylotrees could not be deleted.'}, 400
+    # try:
+    #     chado_session.commit()
+    #     db_session.commit()
+    # except Exception as e:
+    #     chado_session.rollback()
+    #     db_session.rollback()
+    #     return {'status':'failure','message':f'Phylotrees could not be deleted.'}, 400
     return {'status':'success','message':f'Phylotrees deleted: {msg}'}, 200
 
 
@@ -66,6 +72,7 @@ def __import_phylotrees(input_file, name = None, comment = None, analysis_id = N
         return {'status':'failure','message':f'The phylotree could not be imported.'}, 500
 
 
+@bcs_session(read_only=True)
 def export_phylotrees(phylotree_id = None):
     return {'status':'success','message':'UPDATE: phylotrees dummy completed'}, 200
 
@@ -80,6 +87,7 @@ phylotree:
 phylonode:
  - type_id ? (root,leaf,internal)
 """
+@bcs_session(read_only=False)
 def import_phylotrees(input_file, name = None, comment = None, analysis_id = None):
     # Check newick format
     from Bio import Phylo
@@ -95,12 +103,12 @@ def import_phylotrees(input_file, name = None, comment = None, analysis_id = Non
     bcs_phylotree = __phylotree2bcs(phylotree)
     # Get phylonodes insertion
     phylonodes = __tree2phylonodes(phylotree.phylotree_id, tree.root, None, [0])
-    try:
-        chado_session.commit()
-    except Exception as e:
-        chado_session.rollback()
-        print(e)
-        return f'The phylotree could not be inserted correctly.\n{e}', 500
+    # try:
+    #     chado_session.commit()
+    # except Exception as e:
+    #     chado_session.rollback()
+    #     print(e)
+    #     return f'The phylotree could not be inserted correctly.\n{e}', 500
     return 'The phylotree was imported correctly.', 200
 
 def __new_phylotree(name, comment = None, analysis_id = None):
@@ -128,12 +136,12 @@ def __new_phylotree_dbxref(name):
 def __phylotree2bcs(phylotree):
     from biobarcoding.services import get_or_create
     from biobarcoding.db_models.bioinformatics import PhylogeneticTree
-    bcs_phylotree = get_or_create(bcs_session, PhylogeneticTree,
+    bcs_phylotree = get_or_create(db_session, PhylogeneticTree,
         chado_phylotree_id = phylotree.phylotree_id,
         chado_table = 'phylotree',
         name = phylotree.name)
-    bcs_session.merge(bcs_phylotree)
-    bcs_session.commit()
+    db_session.merge(bcs_phylotree)
+    # db_session.commit()
     return bcs_phylotree
 
 def __tree2phylonodes(phylotree_id, node, parent_id=None, index=[0]):

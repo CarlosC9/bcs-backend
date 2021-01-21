@@ -10,10 +10,10 @@ def conn_chado():
     return conn
 
 
-def exec_cmds(cmds):
+def exec_cmds(*args):
     import subprocess
     out = err = []
-    for cmd in cmds:
+    for cmd in args:
         print(cmd)
         process = subprocess.Popen(cmd,
             stdout=subprocess.PIPE,

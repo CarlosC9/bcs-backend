@@ -1,17 +1,18 @@
-from numpy.linalg.linalg import fortran_int
-
-from biobarcoding.db_models import DBSession as bcs_session
+from biobarcoding.authentication import bcs_session
+from biobarcoding.db_models import DBSession as db_session
 from biobarcoding.db_models import DBSessionChado as chado_session
 from biobarcoding.services import get_or_create
 from biobarcoding.db_models.chado import Analysis, AnalysisCvterm, Cvterm, Organism, Feature, AnalysisFeature
 from sqlalchemy import or_
 
 
+@bcs_session(read_only=False)
 def create_alignments(program=None, programversion=None, name=None, sourcename=None, description=None, algorithm=None,
                       sourceversion=None, sourceuri=None, timeexecuted=None):
     return {'status': 'success', 'message': f'CREATE: alignments dummy complete.'}, 201
 
 
+@bcs_session(read_only=True)
 def read_alignments(alignment_id=None, ids=None, name=None, program=None, programversion=None, algorithm=None,
                     sourcename=None, sourceversion=None, sourceuri=None, description=None, feature_id=None):
     result = __get_query(alignment_id=alignment_id, ids=ids, name=name, program=program, programversion=programversion,
@@ -23,6 +24,7 @@ def read_alignments(alignment_id=None, ids=None, name=None, program=None, progra
     return chado2json(result), 200
 
 
+@bcs_session(read_only=False)
 def update_alignments(alignment_id, program, programversion, name=None, description=None, algorithm=None,
                       sourcename=None, sourceversion=None, sourceuri=None, timeexecuted=None):
     return {'status': 'success', 'message': 'UPDATE: alignments dummy completed'}, 200
@@ -30,11 +32,11 @@ def update_alignments(alignment_id, program, programversion, name=None, descript
 
 def __delete_from_bcs(analysis_id):
     from biobarcoding.db_models.bioinformatics import MultipleSequenceAlignment
-    bcs_session.query(MultipleSequenceAlignment).filter(MultipleSequenceAlignment.chado_analysis_id == analysis_id) \
+    db_session.query(MultipleSequenceAlignment).filter(MultipleSequenceAlignment.chado_analysis_id == analysis_id) \
         .delete(synchronize_session='fetch')
-    bcs_session.commit()
 
 
+@bcs_session(read_only=False)
 def delete_alignments(alignment_id=None, ids=None, name=None, program=None, programversion=None, algorithm=None,
                       sourcename=None, sourceversion=None, sourceuri=None, description=None):
     try:
@@ -47,7 +49,6 @@ def delete_alignments(alignment_id=None, ids=None, name=None, program=None, prog
             delete_sequences(analysis_id=msa.analysis_id)
             __delete_from_bcs(msa.analysis_id)
         res.delete(synchronize_session='fetch')
-        chado_session.commit()
         return {'status': 'success', 'message': f'{res} alignments were successfully removed.'}, 201
     except Exception as e:
         print(e)
@@ -95,12 +96,13 @@ def __msa2chado(input_file, msa, format):
 
 def __msa2bcs(msa):
     from biobarcoding.db_models.bioinformatics import MultipleSequenceAlignment
-    bcs_msa = get_or_create(bcs_session, MultipleSequenceAlignment, chado_analysis_id=msa.analysis_id)
-    bcs_session.add(bcs_msa)
-    bcs_session.flush()
+    bcs_msa = get_or_create(db_session, MultipleSequenceAlignment, chado_analysis_id=msa.analysis_id)
+    db_session.add(bcs_msa)
+    db_session.flush()
     return bcs_msa
 
 
+@bcs_session(read_only=False)
 def import_alignments(input_file, format='fasta', **kwargs):
     msa = get_or_create(chado_session, Analysis, **kwargs)
     chado_session.add(msa)
@@ -113,16 +115,13 @@ def import_alignments(input_file, format='fasta', **kwargs):
     chado_session.flush()
     try:
         __msa2chado(input_file, msa, format)
-        chado_session.commit()
-        bcs_session.commit()
         return {'status': 'success', 'message': f'Imported MSA from {format} file.'}, 200
     except Exception as e:
-        chado_session.rollback()
-        bcs_session.rollback()
         print(e)
         return {'status': 'failure', 'message': e}, 500
 
 
+@bcs_session(read_only=True)
 def export_alignments(analysis_id):
     from biobarcoding.services.sequences import export_sequences
     return export_sequences(analysis_id=analysis_id)

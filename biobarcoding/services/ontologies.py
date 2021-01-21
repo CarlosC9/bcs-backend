@@ -1,8 +1,13 @@
+from biobarcoding.authentication import bcs_session
 from biobarcoding.db_models import DBSessionChado as chado_session
 
+
+@bcs_session(read_only=False)
 def create_ontologies(name, definition = None, remote_url = None):
     return {'status':'success','message':'CREATE: ontology dummy completed.'}, 200
 
+
+@bcs_session(read_only=True)
 def read_ontologies(ontology_id = None, name = None):
     from biobarcoding.db_models.chado import Cv
     result = chado_session.query(Cv)
@@ -19,12 +24,18 @@ def read_ontologies(ontology_id = None, name = None):
         return response[0], 200
     return response, 200
 
+
+@bcs_session(read_only=False)
 def update_ontologies(ontology_id, name = None, definition = None, remote_url = None, input_file = None):
     return {'status':'success','message':'UPDATE: ontology dummy completed'}, 200
 
+
+@bcs_session(read_only=False)
 def delete_ontologies(ontology_id = None):
     return {'status':'success','message':'DELETE: ontology dummy completed'}, 200
 
+
+@bcs_session(read_only=False)
 def import_ontologies(input_file):
     from flask import current_app
     cfg = current_app.config
@@ -59,6 +70,8 @@ def import_ontologies(input_file):
         return {'status':'failure','message':f'Ontology in {os.path.basename(input_file)} could not be imported.\n{err}'}, 500
     return {'status':'success','message':f'Ontology in {os.path.basename(input_file)} imported properly.\n{out}'}, 200
 
+
+@bcs_session(read_only=False)
 def export_ontologies(id):
     return {'status':'success','message':'EXPORT: ontology dummy completed'}, 200
 
@@ -66,6 +79,7 @@ def export_ontologies(id):
 # TODO:
 #  featureprop, analysisprop, phylotreeprop ?
 #  phylotree ?
+@bcs_session(read_only=True)
 def read_cvterms(cv_id = None, cvterm_id = None, feature_id=None, analysis_id=None, phylotree_id=None):
     from biobarcoding.db_models.chado import Cv, Cvterm
     result = chado_session.query(Cvterm)

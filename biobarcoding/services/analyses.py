@@ -1,5 +1,8 @@
+from biobarcoding.authentication import bcs_session
 from biobarcoding.db_models import DBSessionChado as chado_session
 
+
+@bcs_session(read_only=False)
 def create_analyses(program, programversion, name = None, sourcename = None, description = None, algorithm = None, sourceversion = None, sourceuri = None, date_executed = None):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
@@ -18,6 +21,8 @@ def create_analyses(program, programversion, name = None, sourcename = None, des
     except Exception as e:
         return {'status':'failure','message':f'The analysis "{program} {programversion}" could not be created.'}, 500
 
+
+@bcs_session(read_only=True)
 def read_analyses(analysis_id=None, ids=None, name=None, program=None, programversion=None, algorithm=None, sourcename=None, sourceversion=None, sourceuri=None, description=None, feature_id=None):
     result = __get_query(
         analysis_id=analysis_id,
@@ -36,9 +41,13 @@ def read_analyses(analysis_id=None, ids=None, name=None, program=None, programve
         return chado2json(result)[0], 200
     return chado2json(result), 200
 
+
+@bcs_session(read_only=False)
 def update_analyses(analysis_id, program, programversion, name = None, description = None, algorithm = None, sourcename = None, sourceversion = None, sourceuri = None, date_executed = None):
     return {'status':'success','message':'UPDATE: analysis dummy completed'}, 200
 
+
+@bcs_session(read_only=False)
 def delete_analyses(analysis_id=None, ids=None, name=None, program=None, programversion=None, algorithm=None, sourcename=None, sourceversion=None, sourceuri=None, description=None):
     try:
         res = __get_query(
@@ -52,11 +61,11 @@ def delete_analyses(analysis_id=None, ids=None, name=None, program=None, program
             sourceversion=sourceversion,
             sourceuri=sourceuri,
             description=description).delete(synchronize_session='fetch')
-        chado_session.commit()
         return {'status':'success','message':f'{res} analyses were successfully removed.'}, 201
     except Exception as e:
         print(e)
         return {'status':'failure','message':f'The analyses could not be removed.'}, 500
+
 
 def __get_query(analysis_id=None, ids=None, name=None, program=None, programversion=None, algorithm=None, sourcename=None, sourceversion=None, sourceuri=None, description=None, feature_id=None):
     from biobarcoding.db_models.chado import Analysis
