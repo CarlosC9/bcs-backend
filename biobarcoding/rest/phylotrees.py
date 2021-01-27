@@ -18,11 +18,11 @@ class PhyloAPI(MethodView):
     comment = None
     feature_id = None
 
-    def get(self, id=None):
+    def get(self, id=None, format=None):
         print(f'GET {request.path}\nGetting phylotrees {id}')
         self._check_data(request.json)
         self._check_data(request.args)
-        if 'Accept' in request.headers and request.headers['Accept']=='text/newick':
+        if format:
             from biobarcoding.services.phylotrees import export_phylotrees
             response, code = export_phylotrees(id)
             return send_file(response, mimetype='text/newick'), code
@@ -96,6 +96,29 @@ class PhyloAPI(MethodView):
         print(f'DATA: {data}')
 
 
+phylotrees_view = PhyloAPI.as_view('api_phylotrees')
+bp_phylotrees.add_url_rule(
+    bcs_api_base + '/bos/phylotrees/',
+    view_func=phylotrees_view,
+    methods=['GET','POST','DELETE']
+)
+bp_phylotrees.add_url_rule(
+    bcs_api_base + '/bos/phylotrees/<int:id>',
+    view_func=phylotrees_view,
+    methods=['GET','PUT','DELETE']
+)
+bp_phylotrees.add_url_rule(
+    bcs_api_base + '/bos/phylotrees.<string:format>',
+    view_func=phylotrees_view,
+    methods=['GET','DELETE']
+)
+bp_phylotrees.add_url_rule(
+    bcs_api_base + '/bos/phylotrees/<int:id>.<string:format>',
+    view_func=phylotrees_view,
+    methods=['GET','POST','PUT','DELETE']
+)
+
+
 class PhyloFeatAPI(MethodView):
     """
     Phylogenetic Tree Feature Resource
@@ -153,18 +176,6 @@ class PhyloFeatAPI(MethodView):
         post_data = request.json
         print(f'JSON data: {post_data}')
 
-
-phylotrees_view = PhyloAPI.as_view('api_phylotrees')
-bp_phylotrees.add_url_rule(
-    bcs_api_base + '/bos/phylotrees/',
-    view_func=phylotrees_view,
-    methods=['GET','POST','DELETE']
-)
-bp_phylotrees.add_url_rule(
-    bcs_api_base + '/bos/phylotrees/<int:id>',
-    view_func=phylotrees_view,
-    methods=['GET','PUT','DELETE']
-)
 
 phylo_feat_view = PhyloFeatAPI.as_view('api_phylo_feat')
 bp_phylotrees.add_url_rule(

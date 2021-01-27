@@ -12,12 +12,14 @@ def create_phylotrees(name = None, comment = None):
 
 @bcs_session(read_only=True)
 def read_phylotrees(id = None, analysis_id = None, name = None, comment = None, feature_id = None):
-    result = __get_query(id, analysis_id, name, comment, feature_id)
-    from biobarcoding.services import chado2json
-    response = chado2json(result)
-    if id:
-        return response[0], 200
-    return response, 200
+    query = __get_query(id, analysis_id, name, comment, feature_id)
+    try:
+        from biobarcoding.services import chado2json
+        if id:
+            return chado2json(query)[0], 200
+        return chado2json(query), 200
+    except Exception as e:
+        return f'Unable to get any result for the query.', 500
 
 
 @bcs_session(read_only=False)
@@ -74,7 +76,12 @@ def __import_phylotrees(input_file, name = None, comment = None, analysis_id = N
 
 @bcs_session(read_only=True)
 def export_phylotrees(phylotree_id = None):
-    return {'status':'success','message':'UPDATE: phylotrees dummy completed'}, 200
+    filepath = '/tmp/output_seqs.fas'
+    query = __get_query(phylotree_id)
+    with open(filepath, "w") as file:
+        from biobarcoding.services import chado2json
+        file.write(f'{chado2json(query)}')
+    return filepath, 200
 
 
 # NGD newick phylotree import

@@ -3,24 +3,20 @@ from biobarcoding.db_models import DBSession as db_session
 from biobarcoding.db_models import DBSessionChado as chado_session
 
 
-@bcs_session(read_only=False)
+@bcs_session()
 def create_sequences(organism_id=None, analysis_id=None, residues=None):
     return {'status': 'success', 'message': 'CREATE: sequences dummy completed'}, 200
 
 
 @bcs_session(read_only=True)
 def read_sequences(sequence_id=None, ids=None, organism_id=None, analysis_id=None, phylotree_id=None):
-    # from biobarcoding.services import conn_chado
-    # conn = conn_chado()
-    # resp = conn.feature.get_features(organism_id = organism_id,
-    #     analysis_id = analysis_id, name = sequence_id)
     from biobarcoding.services import chado2json
     if sequence_id:
         return chado2json(__get_query(sequence_id, ids, organism_id, analysis_id, phylotree_id))[0], 200
     return chado2json(__get_query(sequence_id, ids, organism_id, analysis_id, phylotree_id)), 200
 
 
-@bcs_session(read_only=False)
+@bcs_session()
 def update_sequences(sequence_id, organism_id=None, analysis_id=None, residues=None):
     return {'status': 'success', 'message': 'UPDATE: sequences dummy completed'}, 200
 
@@ -31,7 +27,7 @@ def __delete_from_bcs(feature_id):
         .delete(synchronize_session='fetch')
 
 
-@bcs_session(read_only=False)
+@bcs_session()
 def delete_sequences(sequence_id=None, ids=None, organism_id=None, analysis_id=None):
     query = __get_query(sequence_id, ids, organism_id, analysis_id)
     for seq in query.all():
@@ -40,7 +36,7 @@ def delete_sequences(sequence_id=None, ids=None, organism_id=None, analysis_id=N
     return {'status': 'success', 'message': f'{resp} sequences were successfully removed.'}, 200
 
 
-@bcs_session(read_only=False)
+@bcs_session()
 def import_sequences(input_file, organism_id=None, analysis_id=None, format='fasta'):
     from biobarcoding.services import conn_chado
     conn = conn_chado()

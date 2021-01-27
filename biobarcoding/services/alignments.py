@@ -122,7 +122,7 @@ def import_alignments(input_file, format='fasta', **kwargs):
 
 
 @bcs_session(read_only=True)
-def export_alignments(analysis_id):
+def export_alignments(analysis_id, format):
     from biobarcoding.services.sequences import export_sequences
     return export_sequences(analysis_id=analysis_id)
 

@@ -32,7 +32,7 @@ class AlignAPI(MethodView):
         self._check_data(request.args)
         if format:
             from biobarcoding.services.alignments import export_alignments
-            response, code = export_alignments(alignment_id)
+            response, code = export_alignments(analysis_id=alignment_id), 200
             return send_file(response, mimetype=f'text/{format}'), code
         from biobarcoding.services.alignments import read_alignments
         response, code = read_alignments(
