@@ -16,6 +16,7 @@ from typing import Dict
 import biobarcoding
 from biobarcoding.authentication import bcs_session
 from biobarcoding.common import generate_json
+from biobarcoding.common.helpers import get_module_logger
 from biobarcoding.common.pg_helpers import create_pg_database_engine, load_table, load_many_to_many_table, \
     load_computing_resources, load_processes_in_computing_resources, load_process_input_schema, load_table_extended
 from biobarcoding.db_models import DBSession, ORMBase, DBSessionChado, ORMBaseChado, ObjectType
@@ -30,8 +31,7 @@ bcs_api_base = "/api"  # Base for all RESTful calls
 bcs_gui_base = "/gui"  # Base for the Angular2 GUI
 bcs_external_gui_base = "/gui_external"  # Base for the Angular2 GUI when loaded from URL
 
-logger = logging.getLogger(__name__)
-logging.getLogger('flask_cors').level = logging.DEBUG
+logger = get_module_logger(__name__)
 log_level = logging.DEBUG
 
 
@@ -150,12 +150,16 @@ def load_configuration_file(flask_app):
         _, file_name = prepare_default_configuration(False)
         if not os.environ.get(biobarcoding.config_file_var):
             found = False
+            logger.debug(f"Trying {file_name}")
             for f in [file_name]:
                 if os.path.isfile(f):
                     print(f"Assuming {f} as configuration file")
+                    logger.debug(f"Assuming {f} as configuration file")
                     found = True
                     os.environ[biobarcoding.config_file_var] = f
                     break
+                else:
+                    logger.debug(f"Creating {f} as configuration file")
             if not found:
                 cfg, file_name = prepare_default_configuration(True)
                 print(f"Generating {file_name} as configuration file:\n{cfg}")
@@ -167,6 +171,8 @@ def load_configuration_file(flask_app):
         print(f'Configuration file at: {os.environ[biobarcoding.config_file_var]}')
         print("-----------------------------------------------")
         flask_app.config.from_envvar(biobarcoding.config_file_var)
+        logger.debug(flask_app.config)
+
     except Exception as e:
         print(f"{biobarcoding.config_file_var} environment variable not defined!")
         print(e)
