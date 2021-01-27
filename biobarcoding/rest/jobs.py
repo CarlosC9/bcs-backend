@@ -3,7 +3,7 @@ REST interface to manage JOBS API
 """
 from dotted.collection import DottedDict, DottedList, DottedJSONEncoder, DottedCollection
 from flask import Blueprint
-from flask import request, make_response, jsonify
+from flask import request, make_response, jsonify, Response, g
 from flask.views import MethodView
 import json
 
@@ -13,7 +13,9 @@ from biobarcoding.common.helpers import is_integer
 from biobarcoding.db_models import DBSession
 from biobarcoding.db_models.jobs import ProcessInComputeResource
 from biobarcoding.jobs import JobManagementAPI
-from biobarcoding.rest import bcs_api_base, register_api, Job, ComputeResource, Process
+from biobarcoding.rest import bcs_api_base, register_api, Job, ComputeResource, Process, ResponseObject
+from biobarcoding.authentication import bcs_session
+from biobarcoding.rest import make_simple_rest_crud
 
 bp_jobs = Blueprint('jobs', __name__)
 
@@ -23,18 +25,25 @@ class JobAPI(MethodView):
     """
     Job Resource
     """
-
+    page: int = None
+    page_size: int = None
     decorators = []  # Add decorators: identity, function execution permissions, logging, etc.
 
-    def get(self, job_id):
-        return "<h1 style='color:blue'>Hello JOBS!</h1>"
+    @bcs_session(read_only=True)
+    def get(self, job_id = None):
+        # return "<h1 style='color:blue'>Hello JOBS!</h1>"
+        db = g.bcs_session.db_session
+        r = ResponseObject()
         if job_id is None:
-            tmp = JobManagementAPI.list(filter)
-            return make_response(jsonify(tmp)), 200
+            query = db.query(Job)
+            self.__check_data(request.args)
+            if self.page and self.page_size:
+                query = query.offset((self.page - 1) * self.page_size).limit(self.page_size)
+            r.content = query.all()
         else:
             # Return detail and status of single job
-            tmp = JobManagementAPI.get(job_id)
-            return make_response(jsonify(tmp)), 200
+            db.query(Job).filter(Job.id == job_id).first()
+        return r.get_response()
 
     def post(self):
         """
@@ -144,6 +153,10 @@ class JobAPI(MethodView):
         'message': msg
         }
         return make_response(jsonify(responseObject)), 200
+
+    def __check_data(self, data):
+        self.page = int(data.get(self.page, 1))
+        self.page_size = int(data.get(self.page_size, 1000000))
 
 
 register_api(bp_jobs, JobAPI, "jobs", f"{bcs_api_base}/jobs/", "job_id")
