@@ -1,7 +1,3 @@
-<<<<<<< edf873c1026a63e6396c575774a2c944bddaed79
-def send_files():
-    pass
-=======
 from biobarcoding.jobs import JobExecutorAtResource
 import os
 import asyncio
@@ -40,10 +36,10 @@ class RemoteSSHClient:
 
     def disconnect(self):
         """Close ssh connection."""
-        if self.client:
-            self.client.close()
         if self.sftp:
             self.sftp.exit()
+        if self.conn:
+            self.conn.close()
 
     async def run_client(self, script_file):
         popen_pipe = os.popen(f"ssh {self.username}@{self.host} 'cd {self.remote_path} && chmod +x {script_file} && nohup ./{script_file} >/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!'")
@@ -81,7 +77,6 @@ class RemoteSSHClient:
             print(f'Finished uploading {file_path} to {self.remote_path} on {self.host}')
         else:
             print("SSH connection not created")
->>>>>>> ssh constructing
 
     async def upload_files_or_directories(self, files_dir_paths):
         """

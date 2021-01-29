@@ -49,4 +49,4 @@ class SSHTestCase(unittest.TestCase):
 
 
 if __name__ == '__main__':
-    SSHTestCase().killed_test()
+    SSHTestCase().main_test()
