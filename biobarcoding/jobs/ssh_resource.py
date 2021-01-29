@@ -4,12 +4,8 @@ def send_files():
 =======
 from biobarcoding.jobs import JobExecutorAtResource
 import os
-from paramiko import SSHClient, AutoAddPolicy, RSAKey, SFTPClient
-from paramiko.auth_handler import AuthenticationException, SSHException
-from scp import SCPClient, SCPException
-from stat import S_ISDIR
-
-import asyncio, asyncssh, sys
+import asyncio
+import asyncssh
 
 
 class RemoteSSHClient:
