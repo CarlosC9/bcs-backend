@@ -1,0 +1,9 @@
+{
+  "script_file": "test.sh",
+  "local_workspace": "/home/daniel/Documentos/GIT/bcs-backend/tests/ssh_data_test",
+  "remote_workspace": "/home/dreyes/ssh_test",
+  "host": "balder",
+  "username": "dreyes",
+  "known_hosts_filepath": "/home/daniel/.ssh/known_hosts",
+  "results_directory": "results"
+}
