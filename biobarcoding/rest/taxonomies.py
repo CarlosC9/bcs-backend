@@ -1,5 +1,7 @@
 from flask import Blueprint
 
+from biobarcoding.authentication import bcs_session
+
 bp_taxonomies = Blueprint('bp_taxonomies', __name__)
 
 from flask import request, make_response, jsonify, send_file
@@ -16,6 +18,7 @@ class TaxonomiesAPI(MethodView):
     name = None
     comment = None
 
+    @bcs_session(read_only=True)
     def get(self, id=None):
         print(f'GET {request.path}\nGetting taxonomies {id}')
         self._check_data(request.args)
@@ -29,6 +32,7 @@ class TaxonomiesAPI(MethodView):
             return make_response(jsonify(response), code)
 
 
+    @bcs_session()
     def post(self):
         print(f'POST {request.path}\nCreating taxonomies')
         self._check_data(request.args)
@@ -41,6 +45,7 @@ class TaxonomiesAPI(MethodView):
         return make_response(jsonify(response), code)
 
 
+    @bcs_session()
     def put(self, id):
         print(f'PUT {request.path}\nUpdating taxonomies {id}')
         self._check_data(request.json)
@@ -49,6 +54,7 @@ class TaxonomiesAPI(MethodView):
         return make_response(jsonify(response), code)
 
 
+    @bcs_session()
     def delete(self, id=None):
         print(f'DELETE {request.path}\nDeleting taxonomies {id}')
         self._check_data(request.args)

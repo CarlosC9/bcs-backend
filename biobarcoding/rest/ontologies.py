@@ -1,5 +1,7 @@
 from flask import Blueprint
 
+from biobarcoding.authentication import bcs_session
+
 bp_ontologies = Blueprint('bp_ontologies', __name__)
 
 from flask import request, make_response, jsonify, send_file
@@ -16,6 +18,7 @@ class OntologiesAPI(MethodView):
     definition = None
     remote_url = None
 
+    @bcs_session(read_only=True)
     def get(self, id=None):
         print(f'GET {request.path}\nGetting ontologies {id}')
         # self._check_data(request.json)
@@ -30,6 +33,7 @@ class OntologiesAPI(MethodView):
             return make_response(jsonify(response), code)
 
 
+    @bcs_session()
     def post(self):
         print(f'POST {request.path}\nCreating ontologies')
         if request.files:
@@ -42,6 +46,7 @@ class OntologiesAPI(MethodView):
         return make_response(jsonify(response), code)
 
 
+    @bcs_session()
     def put(self, id):
         print(f'PUT {request.path}\nUpdating ontologies {id}')
         self._check_data(request.json)
@@ -54,6 +59,7 @@ class OntologiesAPI(MethodView):
         return make_response(jsonify(response), code)
 
 
+    @bcs_session()
     def delete(self, id):
         print(f'DELETE {request.path}\nDeleting ontologies {id}')
         # self._check_data(request.json)
@@ -117,6 +123,7 @@ class CvtermsAPI(MethodView):
     analysis_id = None
     phylotree_id = None
 
+    @bcs_session(read_only=True)
     def get(self, cv_id=None, cvterm_id=None):
         print(f'GET {request.path}\nGetting ontology terms {id}')
         self._check_data(request.json)

@@ -1,9 +1,6 @@
-from biobarcoding.authentication import bcs_session
-from biobarcoding.db_models import DBSession as db_session
 from biobarcoding.db_models import DBSessionChado as chado_session
 
 
-@bcs_session(read_only=False)
 def create_organisms(genus, species, common_name = None, abbreviation = None, comment = None):
     from biobarcoding.services import get_or_create
     from biobarcoding.db_models.chado import Organism
@@ -20,7 +17,6 @@ def create_organisms(genus, species, common_name = None, abbreviation = None, co
         return {'status':'failure','message':f'The organism "{genus} {species}" could not be created.'}, 500
 
 
-@bcs_session(read_only=True)
 def read_organisms(organism_id = None, genus = None, species = None, common_name = None, abbreviation = None, comment = None):
     resp = __get_query(organism_id, genus=genus, species=species,
             common_name=common_name, abbreviation=abbreviation, comment=comment)
@@ -31,7 +27,6 @@ def read_organisms(organism_id = None, genus = None, species = None, common_name
     return resp, 200
 
 
-@bcs_session(read_only=False)
 def update_organisms(organism_id, genus = None, species = None, common_name = None, abbreviation = None, comment = None):
     try:
         resp = __get_query(organism_id, genus=genus, species=species,
@@ -42,7 +37,6 @@ def update_organisms(organism_id, genus = None, species = None, common_name = No
         return {'status':'failure','message':f'The organism "{genus} {species}" could not be updated.'}, 500
 
 
-@bcs_session(read_only=False)
 def delete_organisms(organism_id = None, ids = None, genus = None, species = None, common_name = None, abbreviation = None, comment = None):
     try:
         resp = __get_query(organism_id, ids, genus, species,
@@ -53,7 +47,6 @@ def delete_organisms(organism_id = None, ids = None, genus = None, species = Non
         # return {'status':'failure','message':f'The organisms could not be removed.'}, 500
 
 
-@bcs_session(read_only=True)
 def export_organisms(organism_id = None):
     from biobarcoding.services import conn_chado
     conn = conn_chado()

@@ -1,13 +1,10 @@
-from biobarcoding.authentication import bcs_session
 from biobarcoding.db_models import DBSessionChado as chado_session
 
 
-@bcs_session(read_only=False)
 def create_taxonomies(name, comment = None):
     return {'status':'success','message':'CREATE: taxonomies dummy completed'}, 200
 
 
-@bcs_session(read_only=True)
 def read_taxonomies(id = None):
     from biobarcoding.services import chado2json
     from biobarcoding.db_models.chado import Phylotree, Dbxref
@@ -20,12 +17,10 @@ def read_taxonomies(id = None):
     return chado2json(result), 200
 
 
-@bcs_session(read_only=False)
 def update_taxonomies(id, name = None, comment = None):
     return {'status':'success','message':'UPDATE: taxonomies dummy completed'}, 200
 
 
-@bcs_session(read_only=False)
 def delete_taxonomies(id=None, ids=None):
     from biobarcoding.db_models.chado import Phylotree, Dbxref
     result = chado_session.query(Phylotree) \
@@ -45,7 +40,6 @@ def delete_taxonomies(id=None, ids=None):
     return {'status':'success','message':f'Taxonomies deleted: {msg}'}, 200
 
 
-@bcs_session(read_only=False)
 def import_taxonomies(input_file, name = None, comment = None):
     from flask import current_app
     cfg = current_app.config
@@ -72,6 +66,5 @@ def import_taxonomies(input_file, name = None, comment = None):
     return {'status':'success','message':f'Taxonomy in {os.path.basename(input_file)} imported properly.\n{out}'}, 200
 
 
-@bcs_session(read_only=True)
 def export_taxonomies(id = None, ids = None):
     return {'status':'success','message':'EXPORT: taxonomies dummy completed'}, 200

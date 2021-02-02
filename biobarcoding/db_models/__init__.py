@@ -125,3 +125,4 @@ def setup_schema(Base, session):
 
 
 event.listen(mapper, "after_configured", setup_schema(ORMBase, DBSession))
+event.listen(mapper, "after_configured", setup_schema(ORMBaseChado, DBSessionChado))

@@ -1,5 +1,7 @@
 from flask import Blueprint
 
+from biobarcoding.authentication import bcs_session
+
 bp_phylotrees = Blueprint('bp_phylotrees', __name__)
 
 from flask import request, make_response, jsonify, send_file
@@ -18,6 +20,7 @@ class PhyloAPI(MethodView):
     comment = None
     feature_id = None
 
+    @bcs_session(read_only=True)
     def get(self, id=None, format=None):
         print(f'GET {request.path}\nGetting phylotrees {id}')
         self._check_data(request.json)
@@ -32,6 +35,7 @@ class PhyloAPI(MethodView):
         return make_response(jsonify(response), code)
 
 
+    @bcs_session()
     def post(self):
         print(f'POST {request.path}\nCreating phylotrees')
         self._check_data(request.json)
@@ -44,6 +48,7 @@ class PhyloAPI(MethodView):
         return make_response(jsonify(response), code)
 
 
+    @bcs_session()
     def put(self, id):
         print(f'PUT {request.path}\nUpdating phylotrees {id}')
         self._check_data(request.json)
@@ -52,6 +57,7 @@ class PhyloAPI(MethodView):
         return make_response(jsonify(response), code)
 
 
+    @bcs_session()
     def delete(self, id=None):
         print(f'DELETE {request.path}\nDeleting phylotrees {id}')
         self._check_data(request.args)
@@ -123,6 +129,7 @@ class PhyloFeatAPI(MethodView):
     """
     Phylogenetic Tree Feature Resource
     """
+    @bcs_session(read_only=True)
     def get(self, phylo_id, cmt_id=None):
         msg = f'GET {request.path}\nGetting comment {id}'
         print(msg)
@@ -135,6 +142,7 @@ class PhyloFeatAPI(MethodView):
         return make_response(jsonify(responseObject)), 200
 
 
+    @bcs_session()
     def post(self, phylo_id):
         msg = f'POST {request.path}\nCreating comment'
         print(msg)
@@ -147,6 +155,7 @@ class PhyloFeatAPI(MethodView):
         return make_response(jsonify(responseObject)), 200
 
 
+    @bcs_session()
     def put(self, phylo_id, cmt_id):
         msg = f'PUT {request.path}\nCreating comment {id}'
         print(msg)
@@ -159,6 +168,7 @@ class PhyloFeatAPI(MethodView):
         return make_response(jsonify(responseObject)), 200
 
 
+    @bcs_session()
     def delete(self, phylo_id, cmt_id=None):
         msg = f'DELETE {request.path}\nDeleting comment {id}'
         print(msg)

@@ -1,5 +1,7 @@
 from flask import Blueprint
 
+from biobarcoding.authentication import bcs_session
+
 bp_organisms = Blueprint('bp_organisms', __name__)
 
 from flask import request, make_response, jsonify, send_file
@@ -21,6 +23,7 @@ class OrganismsAPI(MethodView):
     abbreviation = None
     comment = None
 
+    @bcs_session(read_only=True)
     def get(self, id=None):
         print(f'GET {request.path}\nGetting organisms {id}')
         self._check_data(request.args)
@@ -34,6 +37,7 @@ class OrganismsAPI(MethodView):
             return make_response(jsonify(response), code)
 
 
+    @bcs_session()
     def post(self):
         print(f'POST {request.path}\nCreating organisms')
         self._check_data(request.json)
@@ -42,6 +46,7 @@ class OrganismsAPI(MethodView):
         return make_response(jsonify(response), code)
 
 
+    @bcs_session()
     def put(self, id):
         print(f'PUT {request.path}\nUpdating organisms')
         self._check_data(request.json)
@@ -50,6 +55,7 @@ class OrganismsAPI(MethodView):
         return make_response(jsonify(response), code)
 
 
+    @bcs_session()
     def delete(self, id=None):
         print(f'DELETE {request.path}\nDeleting organisms {id}')
         self._check_data(request.args)

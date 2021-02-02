@@ -1,16 +1,13 @@
 import os, time
 
-from biobarcoding.authentication import bcs_session
 from biobarcoding.db_models import DBSession as db_session
 from biobarcoding.db_models import DBSessionChado as chado_session
 
 
-@bcs_session(read_only=False)
 def create_phylotrees(name = None, comment = None):
     return {'status':'success','message':'CREATE: phylotrees dummy completed'}, 200
 
 
-@bcs_session(read_only=True)
 def read_phylotrees(id = None, analysis_id = None, name = None, comment = None, feature_id = None):
     query = __get_query(id, analysis_id, name, comment, feature_id)
     try:
@@ -22,7 +19,6 @@ def read_phylotrees(id = None, analysis_id = None, name = None, comment = None, 
         return f'Unable to get any result for the query.', 500
 
 
-@bcs_session(read_only=False)
 def update_phylotrees(phylotree_id, name = None, comment = None, analysis_id = None):
     return {'status':'success','message':'UPDATE: phylotrees dummy completed'}, 200
 
@@ -33,7 +29,6 @@ def __delete_from_bcs(ids):
         .delete(synchronize_session='fetch')
 
 
-@bcs_session(read_only=False)
 def delete_phylotrees(id=None, ids=None):
     from biobarcoding.db_models.chado import Phylotree, Dbxref
     result = chado_session.query(Phylotree)
@@ -74,7 +69,6 @@ def __import_phylotrees(input_file, name = None, comment = None, analysis_id = N
         return {'status':'failure','message':f'The phylotree could not be imported.'}, 500
 
 
-@bcs_session(read_only=True)
 def export_phylotrees(phylotree_id = None):
     filepath = '/tmp/output_seqs.fas'
     query = __get_query(phylotree_id)
@@ -94,7 +88,6 @@ phylotree:
 phylonode:
  - type_id ? (root,leaf,internal)
 """
-@bcs_session(read_only=False)
 def import_phylotrees(input_file, name = None, comment = None, analysis_id = None):
     # Check newick format
     from Bio import Phylo

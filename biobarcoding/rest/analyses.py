@@ -1,5 +1,7 @@
 from flask import Blueprint
 
+from biobarcoding.authentication import bcs_session
+
 bp_analyses = Blueprint('bp_analyses', __name__)
 
 from flask import request, make_response, jsonify
@@ -24,6 +26,7 @@ class AnalysesAPI(MethodView):
     date_executed = None
     feature_id = None
 
+    @bcs_session(read_only=True)
     def get(self, id=None):
         print(f'GET {request.path}\nGetting analyses {id}')
         self._check_data(request.args)
@@ -43,6 +46,7 @@ class AnalysesAPI(MethodView):
         return make_response(jsonify(response), code)
 
 
+    @bcs_session()
     def post(self):
         print(f'POST {request.path}\nCreating analyses')
         self._check_data(request.json)
@@ -60,6 +64,7 @@ class AnalysesAPI(MethodView):
         return make_response(jsonify(response), code)
 
 
+    @bcs_session()
     def put(self, id):
         print(f'POST {request.path}\nCreating analyses')
         self._check_data(request.json)
@@ -77,6 +82,7 @@ class AnalysesAPI(MethodView):
         return make_response(jsonify(response), code)
 
 
+    @bcs_session()
     def delete(self, id=None):
         print(f'DELETE {request.path}\nDeleting analyses {id}')
         self._check_data(request.args)
