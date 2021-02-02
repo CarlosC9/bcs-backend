@@ -59,7 +59,7 @@ def delete_alignments(alignment_id=None, ids=None, name=None, program=None, prog
                 'sourceversion':sourceversion, 'sourceuri':sourceuri, 'description':description }
     content = {k:v for k,v in content.items() if v is not None}
     try:
-        # TODO: The BCS data are not been deleted yet.
+        # TODO: The BCS data are not being deleted yet.
         query = __get_query(alignment_id=alignment_id, ids=ids, name=name, program=program, programversion=programversion,
                           algorithm=algorithm, sourcename=sourcename, sourceversion=sourceversion, sourceuri=sourceuri,
                           description=description)

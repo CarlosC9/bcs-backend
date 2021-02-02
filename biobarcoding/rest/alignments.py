@@ -1,12 +1,9 @@
-from flask import Blueprint, send_file
-
-from biobarcoding.authentication import bcs_session
+from flask import Blueprint, request, send_file
+from flask.views import MethodView
 
 bp_alignments = Blueprint('bp_alignments', __name__)
 
-from flask import request
-from flask.views import MethodView
-
+from biobarcoding.authentication import bcs_session
 from biobarcoding.rest import bcs_api_base, ResponseObject, Issue, IType
 
 
@@ -33,7 +30,8 @@ class AlignAPI(MethodView):
     def get(self, alignment_id=None, format=None):
         print(f'GET {request.path}\nGetting alignments {alignment_id}')
         self._check_data(request.args)
-        if format:
+        if format or self.format:
+            format = format or self.format
             from biobarcoding.services.alignments import export_alignments
             issues, content, status = export_alignments(analysis_id=alignment_id, format=format)
             return send_file(content, mimetype=f'text/{format}'), status
@@ -75,7 +73,7 @@ class AlignAPI(MethodView):
 
     @bcs_session()
     def put(self, alignment_id):
-        print(f'POST {request.path}\nCreating alignments')
+        print(f'PUT {request.path}\nUpdating alignments')
         self._check_data(request.json)
         from biobarcoding.services.alignments import update_alignments
         issues, content, status = update_alignments(alignment_id,
@@ -109,7 +107,7 @@ class AlignAPI(MethodView):
 
     def _import_files(self):
         issues, content = [], []
-        self.format = self.format or 'fasta'
+        self.format = self.format or 'obo'
         from biobarcoding.services.alignments import import_alignments
         for key, file in request.files.items(multi=True):
             try:
