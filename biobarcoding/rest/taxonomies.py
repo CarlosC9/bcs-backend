@@ -1,13 +1,10 @@
-from flask import Blueprint
-
-from biobarcoding.authentication import bcs_session
+from flask import Blueprint, request, send_file
+from flask.views import MethodView
 
 bp_taxonomies = Blueprint('bp_taxonomies', __name__)
 
-from flask import request, make_response, jsonify, send_file
-from flask.views import MethodView
-
-from biobarcoding.rest import bcs_api_base
+from biobarcoding.authentication import bcs_session
+from biobarcoding.rest import bcs_api_base, ResponseObject, Issue, IType
 
 
 class TaxonomiesAPI(MethodView):
@@ -19,17 +16,16 @@ class TaxonomiesAPI(MethodView):
     comment = None
 
     @bcs_session(read_only=True)
-    def get(self, id=None):
+    def get(self, id=None, format=None):
         print(f'GET {request.path}\nGetting taxonomies {id}')
         self._check_data(request.args)
-        if 'Accept' in request.headers and request.headers['Accept']=='text/ncbi':
+        if format:
             from biobarcoding.services.taxonomies import export_taxonomies
-            response, code = export_taxonomies(id, self.ids)
-            return send_file(response, mimetype='text/ncbi'), code
-        else:
-            from biobarcoding.services.taxonomies import read_taxonomies
-            response, code = read_taxonomies(id)
-            return make_response(jsonify(response), code)
+            issues, content, status = export_taxonomies(id, self.ids, format)
+            return send_file(content, mimetype='text/{format}'), status
+        from biobarcoding.services.taxonomies import read_taxonomies
+        issues, content, status = read_taxonomies(id, self.name, self.comment)
+        return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
     @bcs_session()
@@ -38,11 +34,11 @@ class TaxonomiesAPI(MethodView):
         self._check_data(request.args)
         self._check_data(request.json)
         if request.files:
-            response, code = self._import_files()
+            issues, content, status = self._import_files()
         else:
             from biobarcoding.services.taxonomies import create_taxonomies
-            response, code = create_taxonomies(self.name, self.comment)
-        return make_response(jsonify(response), code)
+            issues, content, status = create_taxonomies(self.name, self.comment)
+        return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
     @bcs_session()
@@ -50,8 +46,8 @@ class TaxonomiesAPI(MethodView):
         print(f'PUT {request.path}\nUpdating taxonomies {id}')
         self._check_data(request.json)
         from biobarcoding.services.taxonomies import update_taxonomies
-        response, code = update_taxonomies(id, self.name, self.comment)
-        return make_response(jsonify(response), code)
+        issues, content, status = update_taxonomies(id, self.name, self.comment)
+        return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
     @bcs_session()
@@ -59,22 +55,24 @@ class TaxonomiesAPI(MethodView):
         print(f'DELETE {request.path}\nDeleting taxonomies {id}')
         self._check_data(request.args)
         from biobarcoding.services.taxonomies import delete_taxonomies
-        response, code = delete_taxonomies(id, self.ids)
-        return make_response(jsonify(response), code)
+        issues, content, status = delete_taxonomies(id, self.ids)
+        return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
     def _import_files(self):
-        responses = []
+        issues, content = [], []
         from biobarcoding.services.taxonomies import import_taxonomies
         for key,file in request.files.items(multi=True):
             try:
                 file_cpy = self._make_file(file)
-                response, code = import_taxonomies(file_cpy, self.name, self.comment)
-                responses.append({'status':code,'message':response})
+                i, c, s = import_taxonomies(file_cpy, self.name, self.comment)
             except Exception as e:
                 print(e)
-                responses.append({'status':409,'message':'Could not import the file {file}.'})
-        return responses, 207
+                i, c = Issue(IType.ERROR, f'Could not import the file {file}.'), None
+            issues+=i
+            content.append(c)
+        return issues, content, 207
+
 
     def _make_file(self, file):
         import os
@@ -103,6 +101,11 @@ bp_taxonomies.add_url_rule(
 )
 bp_taxonomies.add_url_rule(
     bcs_api_base + '/taxonomies/<int:id>',
+    view_func=taxonomies_view,
+    methods=['GET','PUT','DELETE']
+)
+bp_taxonomies.add_url_rule(
+    bcs_api_base + '/taxonomies/<int:id>.<string:format>',
     view_func=taxonomies_view,
     methods=['GET','PUT','DELETE']
 )

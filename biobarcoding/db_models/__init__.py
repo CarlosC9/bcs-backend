@@ -112,6 +112,7 @@ def setup_schema(Base, session):
                     )
 
                 class Meta(object):
+                    include_fk = True
                     model = class_
                     sqla_session = session
 

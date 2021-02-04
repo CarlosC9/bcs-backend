@@ -29,10 +29,9 @@ class SequencesAPI(MethodView):
             from biobarcoding.services.sequences import export_sequences
             issues, content, status = export_sequences(id, self.ids, self.organism_id, self.analysis_id)
             return send_file(content, mimetype=f'text/{format}'), status
-        else:
-            from biobarcoding.services.sequences import read_sequences
-            issues, content, status = read_sequences(id, self.ids, self.organism_id, self.analysis_id, self.phylotree_id)
-            return ResponseObject(content=content, issues=issues, status=status).get_response()
+        from biobarcoding.services.sequences import read_sequences
+        issues, content, status = read_sequences(id, self.ids, self.organism_id, self.analysis_id, self.phylotree_id)
+        return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
     @bcs_session()

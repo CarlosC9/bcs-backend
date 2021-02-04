@@ -25,11 +25,8 @@ def read_alignments(alignment_id=None, ids=None, name=None, program=None, progra
                              description=description, feature_id=feature_id)
         if alignment_id:
             content = content.first()
-            chado_session.expunge(content)
         else:
             content = content.all()
-            for i in content:
-                chado_session.expunge(i)
         issues, status = [Issue(IType.INFO, 'READ alignments: The alignments were successfully read.')], 200
     except Exception as e:
         print(e)

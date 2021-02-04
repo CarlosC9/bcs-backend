@@ -11,18 +11,15 @@ def create_sequences(organism_id=None, analysis_id=None, residues=None):
 
 
 def read_sequences(sequence_id=None, ids=None, organism_id=None, analysis_id=None, phylotree_id=None):
-    content = { sequence_id:sequence_id, 'ids':' '.join(ids) if ids else None, organism_id:organism_id,
-                analysis_id:analysis_id, phylotree_id:phylotree_id }
+    content = { 'sequence_id':sequence_id, 'ids':' '.join(ids) if ids else None, 'organism_id':organism_id,
+                'analysis_id':analysis_id, 'phylotree_id':phylotree_id }
     content = {k:v for k,v in content.items() if v is not None}
     try:
         content = __get_query(sequence_id, ids, organism_id, analysis_id, phylotree_id)
         if sequence_id:
             content = content.first()
-            chado_session.expunge(content)
         else:
             content = content.all()
-            for i in content:
-                chado_session.expunge(i)
         issues, status = [Issue(IType.INFO, 'READ sequences: The sequences were successfully read')], 200
     except Exception as e:
         print(e)

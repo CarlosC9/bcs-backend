@@ -15,11 +15,8 @@ def read_ontologies(ontology_id = None, name = None, definition = None, remote_u
         content = __get_query(cv_id=ontology_id, name=name, definition=definition)
         if ontology_id:
             content = content.first()
-            chado_session.expunge(content)
         else:
             content = content.all()
-            for i in content:
-                chado_session.expunge(i)
         issues, status = [Issue(IType.INFO, 'READ ontologies: The ontologies were successfully read.')], 200
     except Exception as e:
         print(e)

@@ -50,6 +50,7 @@ class AlignAPI(MethodView):
             feature_id=self.feature_id)
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
+
     @bcs_session()
     def post(self):
         print(f'POST {request.path}\nCreating alignments')
@@ -71,6 +72,7 @@ class AlignAPI(MethodView):
                 timeexecuted=self.timeexecuted)
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
+
     @bcs_session()
     def put(self, alignment_id):
         print(f'PUT {request.path}\nUpdating alignments')
@@ -87,6 +89,7 @@ class AlignAPI(MethodView):
                                            sourceuri=self.sourceuri,
                                            timeexecuted=self.timeexecuted)
         return ResponseObject(content=content, issues=issues, status=status).get_response()
+
 
     @bcs_session()
     def delete(self, alignment_id=None):
@@ -107,7 +110,7 @@ class AlignAPI(MethodView):
 
     def _import_files(self):
         issues, content = [], []
-        self.format = self.format or 'obo'
+        self.format = self.format or 'fasta'
         from biobarcoding.services.alignments import import_alignments
         for key, file in request.files.items(multi=True):
             try:
@@ -218,7 +221,7 @@ class AlignFeatAPI(MethodView):
 
 alignment_feat_view = AlignFeatAPI.as_view('api_alignment_feat')
 bp_alignments.add_url_rule(
-    bcs_api_base + '/bos/alignments/<alignment_id>/features/',
+    bcs_api_base + '/bos/alignments/<int:alignment_id>/features/',
     view_func=alignment_feat_view,
     methods=['GET', 'POST']
 )

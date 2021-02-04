@@ -1,13 +1,10 @@
-from flask import Blueprint
-
-from biobarcoding.authentication import bcs_session
+from flask import Blueprint, request, send_file
+from flask.views import MethodView
 
 bp_phylotrees = Blueprint('bp_phylotrees', __name__)
 
-from flask import request, make_response, jsonify, send_file
-from flask.views import MethodView
-
-from biobarcoding.rest import bcs_api_base
+from biobarcoding.authentication import bcs_session
+from biobarcoding.rest import bcs_api_base, ResponseObject, Issue, IType
 
 
 class PhyloAPI(MethodView):
@@ -19,6 +16,7 @@ class PhyloAPI(MethodView):
     name = None
     comment = None
     feature_id = None
+    format = None
 
     @bcs_session(read_only=True)
     def get(self, id=None, format=None):
@@ -27,12 +25,11 @@ class PhyloAPI(MethodView):
         self._check_data(request.args)
         if format:
             from biobarcoding.services.phylotrees import export_phylotrees
-            response, code = export_phylotrees(id)
-            return send_file(response, mimetype='text/newick'), code
-        else:
-            from biobarcoding.services.phylotrees import read_phylotrees
-            response, code = read_phylotrees(id, self.analysis_id, self.name, self.comment, self.feature_id)
-        return make_response(jsonify(response), code)
+            issues, content, status = export_phylotrees(id, format)
+            return send_file(content, mimetype=f'text/{format}'), status
+        from biobarcoding.services.phylotrees import read_phylotrees
+        issues, content, status = read_phylotrees(id, self.analysis_id, self.name, self.comment, self.feature_id)
+        return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
     @bcs_session()
@@ -41,11 +38,11 @@ class PhyloAPI(MethodView):
         self._check_data(request.json)
         self._check_data(request.args)
         if request.files:
-            response, code = self._import_files()
+            issues, content, status = self._import_files()
         else:
             from biobarcoding.services.phylotrees import create_phylotrees
-            response, code = create_phylotrees(self.name, self.comment)
-        return make_response(jsonify(response), code)
+            issues, content, status = create_phylotrees(self.name, self.comment)
+        return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
     @bcs_session()
@@ -53,8 +50,8 @@ class PhyloAPI(MethodView):
         print(f'PUT {request.path}\nUpdating phylotrees {id}')
         self._check_data(request.json)
         from biobarcoding.services.phylotrees import update_phylotrees
-        response, code = update_phylotrees(id, self.name, self.comment)
-        return make_response(jsonify(response), code)
+        issues, content, status = update_phylotrees(id, self.name, self.comment)
+        return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
     @bcs_session()
@@ -62,22 +59,25 @@ class PhyloAPI(MethodView):
         print(f'DELETE {request.path}\nDeleting phylotrees {id}')
         self._check_data(request.args)
         from biobarcoding.services.phylotrees import delete_phylotrees
-        response, code = delete_phylotrees(id, self.ids)
-        return make_response(jsonify(response), code)
+        issues, content, status = delete_phylotrees(id, self.ids)
+        return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
     def _import_files(self):
-        responses = []
+        issues, content = [], []
+        self.format = self.format or 'newick'
         from biobarcoding.services.phylotrees import import_phylotrees
         for key,file in request.files.items(multi=True):
             try:
                 file_cpy = self._make_file(file)
-                response, code = import_phylotrees(file_cpy, analysis_id=self.analysis_id, name=self.name, comment=self.comment)
-                responses.append(response)
+                i, c, s = import_phylotrees(file_cpy, analysis_id=self.analysis_id, name=self.name, comment=self.comment)
             except Exception as e:
                 print(e)
-                responses.append({'status':409,'message':f'Could not import the file {file}.'})
-        return responses, 207
+                i, c = [Issue(IType.ERROR, f'Could not import the file {file}.')], None
+            issues+=i
+            content.append(c)
+        return issues, content, 207
+
 
     def _make_file(self, file):
         import os
@@ -99,6 +99,8 @@ class PhyloAPI(MethodView):
                 self.comment = data['comment']
             if 'feature_id' in data:
                 self.feature_id = data['feature_id']
+            if 'format' in data and data['format']:
+                self.format = data['format']
         print(f'DATA: {data}')
 
 
@@ -131,58 +133,33 @@ class PhyloFeatAPI(MethodView):
     """
     @bcs_session(read_only=True)
     def get(self, phylo_id, cmt_id=None):
-        msg = f'GET {request.path}\nGetting comment {id}'
-        print(msg)
-        self._check_data()
-
-        responseObject = {
-            'status': 'success',
-            'message': msg
-        }
-        return make_response(jsonify(responseObject)), 200
+        print(f'GET {request.path}\nGetting comment {phylo_id}:{cmt_id}')
+        issues = [Issue(IType.WARNING, f'GET phylogeny comment: dummy completed.')]
+        return ResponseObject(issues=issues).get_response()
 
 
     @bcs_session()
     def post(self, phylo_id):
-        msg = f'POST {request.path}\nCreating comment'
-        print(msg)
-        self._check_data()
-
-        responseObject = {
-            'status': 'success',
-            'message': msg
-        }
-        return make_response(jsonify(responseObject)), 200
+        print(f'POST {request.path}\nCreating comment {phylo_id}')
+        issues = [Issue(IType.WARNING, f'POST phylogeny comment: dummy completed.')]
+        return ResponseObject(issues=issues).get_response()
 
 
     @bcs_session()
     def put(self, phylo_id, cmt_id):
-        msg = f'PUT {request.path}\nCreating comment {id}'
-        print(msg)
-        self._check_data()
-
-        responseObject = {
-            'status': 'success',
-            'message': msg
-        }
-        return make_response(jsonify(responseObject)), 200
+        print(f'PUT {request.path}\nUpdating comment {phylo_id} {cmt_id}')
+        issues = [Issue(IType.WARNING, f'PUT phylogeny comment: dummy completed.')]
+        return ResponseObject(issues=issues).get_response()
 
 
     @bcs_session()
     def delete(self, phylo_id, cmt_id=None):
-        msg = f'DELETE {request.path}\nDeleting comment {id}'
-        print(msg)
-        self._check_data()
-
-        responseObject = {
-        'status': 'success',
-        'message': msg
-        }
-        return make_response(jsonify(responseObject)), 200
+        print(f'DELETE {request.path}\nDeleting comment {phylo_id} {cmt_id}')
+        issues = [Issue(IType.WARNING, f'DELETE phylogeny comment: dummy completed.')]
+        return ResponseObject(issues=issues).get_response()
 
 
     def _check_data(self):
-
         post_data = request.json
         print(f'JSON data: {post_data}')
 
