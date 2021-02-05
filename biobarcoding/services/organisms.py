@@ -15,10 +15,10 @@ def create_organisms(genus, species, common_name = None, abbreviation = None, co
             abbreviation=abbreviation,
             comment=comment)
         chado_session.merge(content)
-        issues, status = Issue(IType.INFO, f'CREATE organisms: The organism "{genus} {species}" was  successfully created.'), 201
+        issues, status = [Issue(IType.INFO, f'CREATE organisms: The organism "{genus} {species}" was  successfully created.')], 201
     except Exception as e:
         print(e)
-        issues, status = Issue(IType.ERROR, f'CREATE organisms: The organism "{genus} {species}" could not be created.'), 500
+        issues, status = [Issue(IType.ERROR, f'CREATE organisms: The organism "{genus} {species}" could not be created.')], 500
     return issues, content, status
 
 
