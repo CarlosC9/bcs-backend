@@ -111,19 +111,19 @@ bp_phylotrees.add_url_rule(
     methods=['GET','POST','DELETE']
 )
 bp_phylotrees.add_url_rule(
-    bcs_api_base + '/bos/phylotrees/<int:id>',
+    bcs_api_base + '/bos/phylotrees/<string:id>',
     view_func=phylotrees_view,
     methods=['GET','PUT','DELETE']
 )
 bp_phylotrees.add_url_rule(
     bcs_api_base + '/bos/phylotrees.<string:format>',
     view_func=phylotrees_view,
-    methods=['GET','DELETE']
+    methods=['GET']
 )
 bp_phylotrees.add_url_rule(
-    bcs_api_base + '/bos/phylotrees/<int:id>.<string:format>',
+    bcs_api_base + '/bos/phylotrees/<string:id>.<string:format>',
     view_func=phylotrees_view,
-    methods=['GET','POST','PUT','DELETE']
+    methods=['GET']
 )
 
 

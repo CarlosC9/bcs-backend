@@ -3,7 +3,7 @@ import os, time
 from biobarcoding.db_models import DBSession as db_session
 from biobarcoding.db_models import DBSessionChado as chado_session
 from biobarcoding.rest import Issue, IType
-
+from biobarcoding.db_models.chado import Phylotree, Phylonode
 
 def create_phylotrees(name = None, comment = None):
     issues = [Issue(IType.WARNING, 'CREATE phylotrees: dummy completed')]
@@ -51,7 +51,7 @@ def delete_phylotrees(id=None, ids=None, name = None, comment = None, analysis_i
         issues, status = [Issue(IType.INFO, f'DELETE phylotrees: The {resp} phylotrees were successfully removed.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'DELETE phylotrees: The phylotrees could not be removed.')], 500
+        issues, status = [Issue(IType.ERROR, 'DELETE phylotrees: The phylotrees could not be removed.')], 500
     return issues, content, status
 
 
@@ -66,7 +66,7 @@ def delete_phylotrees(id=None, ids=None, name = None, comment = None, analysis_i
 #         return {'status':'success','message':f'{response} phylotrees were successfully imported.'}, 200
 #     except Exception as e:
 #         print(e)
-#         return {'status':'failure','message':f'The phylotree could not be imported.'}, 500
+#         return {'status':'failure','message':'The phylotree could not be imported.'}, 500
 
 
 # NGD newick phylotree import
@@ -104,7 +104,7 @@ def import_phylotrees(input_file, name=None, comment=None, analysis_id=None, for
 
 def __new_phylotree(name, comment = None, analysis_id = None):
     dbxref = __new_phylotree_dbxref(name)
-    from biobarcoding.db_models.chado import Phylotree, Analysis
+    from biobarcoding.db_models.chado import Analysis
     phylotree = Phylotree(dbxref_id=dbxref.dbxref_id, name=name)
     if comment:
         phylotree.comment = comment
@@ -159,24 +159,50 @@ def __tree2phylonodes(phylotree_id, node, parent_id=None, index=[0]):
     return phylonodes + [phylonode]
 
 
+# NGD newick phylotree export
 # TODO ¿rebuilt phylogeny from chado?
-def export_phylotrees(phylotree_id = None, format = 'newick', output_file = None):
-    if not output_file:
-        output_file = '/tmp/output_seqs.fas'
+def __tree2newick(node, is_root=True):
+    result=''
+    children = chado_session.query(Phylonode).filter(Phylonode.parent_phylonode_id==node.phylonode_id)
+    if children.count()>0:
+        result+='(' if is_root else '\n('
+        i=1
+        for n in children.all():
+            result+=__tree2newick(n, False)
+            result+=',' if i<children.count() else ')'
+            i+=1
+    if node.label or node.distance:
+        label = node.label if node.label else ''
+        distance = node.distance if node.distance else '0.00000'
+        result+=f'\n{label}:{distance}'
+    result+=';' if is_root else ''
+    return result
+
+
+def __tree2file(phylotree_id, format, output_file):
+    result = ''
+    if format=='newick':
+        root = chado_session.query(Phylonode).filter(Phylonode.phylotree_id==phylotree_id,
+                                                     Phylonode.parent_phylonode_id==None).first()
+        result=__tree2newick(root)
+    with open(output_file, "w") as file:
+        file.write(result)
+    return output_file
+
+
+def export_phylotrees(phylotree_id=None, format='newick', output_file='/tmp/output_seqs.fas'):
     try:
-        query = __get_query(phylotree_id)
-        with open(output_file, "w") as file:
-            from biobarcoding.services import chado2json
-            file.write(f'{chado2json(query)}')
-        issues, status = [Issue(IType.INFO, f'EXPORT phylotrees: The phylotree were successfully exported.')], 200
+        if __get_query(phylotree_id).first():
+            __tree2file(phylotree_id, format, output_file)
+        issues, status = [Issue(IType.INFO, 'EXPORT phylotrees: The phylotree were successfully exported.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'EXPORT phylotrees: The phylotree could not be exported.')], 500
+        issues, status = [Issue(IType.ERROR, 'EXPORT phylotrees: The phylotree could not be exported.')], 500
     return issues, output_file, status
 
 
 def __get_query(phylotree_id = None, ids=None, analysis_id = None, name = None, comment = None, feature_id = None):
-    from biobarcoding.db_models.chado import Phylotree, Dbxref
+    from biobarcoding.db_models.chado import Dbxref
     dbxref_id = chado_session.query(Dbxref.dbxref_id).filter(Dbxref.accession=='taxonomy').first()
     query = chado_session.query(Phylotree).filter(Phylotree.dbxref_id!=dbxref_id)
     if phylotree_id:
@@ -190,7 +216,6 @@ def __get_query(phylotree_id = None, ids=None, analysis_id = None, name = None, 
     if comment:
         query = query.filter(Phylotree.comment==comment)
     if feature_id:
-        from biobarcoding.db_models.chado import Phylonode
         query = query.join(Phylonode)\
             .filter(Phylonode.feature_id==feature_id)
     return query
