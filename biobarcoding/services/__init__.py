@@ -10,10 +10,10 @@ def conn_chado():
     return conn
 
 
-def exec_cmds(cmds):
+def exec_cmds(*args):
     import subprocess
     out = err = []
-    for cmd in cmds:
+    for cmd in args:
         print(cmd)
         process = subprocess.Popen(cmd,
             stdout=subprocess.PIPE,
@@ -43,3 +43,10 @@ def get_or_create(session, model, **kwargs):
         params = dict((k, v) for k, v in kwargs.items())
         instance = model(**params)
     return instance
+
+
+# TODO in progress
+def get_query(session, model, **kwargs):
+    kwargs = {k:v for k,v in kwargs.items() if v is not None}
+    from biobarcoding.db_models.chado import Cv
+    return session.query(Cv).filter_by(**kwargs)

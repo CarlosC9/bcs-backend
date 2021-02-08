@@ -112,6 +112,7 @@ def setup_schema(Base, session):
                     )
 
                 class Meta(object):
+                    include_fk = True
                     model = class_
                     sqla_session = session
 
@@ -125,3 +126,4 @@ def setup_schema(Base, session):
 
 
 event.listen(mapper, "after_configured", setup_schema(ORMBase, DBSession))
+event.listen(mapper, "after_configured", setup_schema(ORMBaseChado, DBSessionChado))

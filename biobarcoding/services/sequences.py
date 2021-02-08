@@ -1,33 +1,62 @@
-from biobarcoding.db_models import DBSession as bcs_session
+from biobarcoding.db_models import DBSession as db_session
 from biobarcoding.db_models import DBSessionChado as chado_session
+
+from biobarcoding.rest import Issue, IType
 
 
 def create_sequences(organism_id=None, analysis_id=None, residues=None):
-    return {'status': 'success', 'message': 'CREATE: sequences dummy completed'}, 200
+    issues = [Issue(IType.WARNING, 'CREATE sequences: dummy completed')]
+    content = { organism_id : organism_id, analysis_id : analysis_id, residues : residues }
+    return issues, {k:v for k,v in content.items() if v is not None}, 200
 
 
 def read_sequences(sequence_id=None, ids=None, organism_id=None, analysis_id=None, phylotree_id=None):
-    # from biobarcoding.services import conn_chado
-    # conn = conn_chado()
-    # resp = conn.feature.get_features(organism_id = organism_id,
-    #     analysis_id = analysis_id, name = sequence_id)
-    from biobarcoding.services import chado2json
-    if sequence_id:
-        return chado2json(__get_query(sequence_id, ids, organism_id, analysis_id, phylotree_id))[0], 200
-    return chado2json(__get_query(sequence_id, ids, organism_id, analysis_id, phylotree_id)), 200
+    content = { 'sequence_id':sequence_id, 'ids':' '.join(ids) if ids else None, 'organism_id':organism_id,
+                'analysis_id':analysis_id, 'phylotree_id':phylotree_id }
+    content = {k:v for k,v in content.items() if v is not None}
+    try:
+        content = __get_query(sequence_id, ids, organism_id, analysis_id, phylotree_id)
+        if sequence_id:
+            content = content.first()
+        else:
+            content = content.all()
+        issues, status = [Issue(IType.INFO, 'READ sequences: The sequences were successfully read')], 200
+    except Exception as e:
+        print(e)
+        issues, status = [Issue(IType.ERROR, 'READ sequences: The sequences could not be read.')], 500
+    return issues, content, status
 
 
 def update_sequences(sequence_id, organism_id=None, analysis_id=None, residues=None):
-    return {'status': 'success', 'message': 'UPDATE: sequences dummy completed'}, 200
+    issues = [Issue(IType.WARNING, 'UPDATE sequences: dummy completed')]
+    content = { sequence_id : sequence_id, organism_id : organism_id, analysis_id : analysis_id, residues : residues }
+    return issues, {k:v for k,v in content.items() if v is not None}, 200
+
+
+def __delete_from_bcs(feature_id):
+    from biobarcoding.db_models.bioinformatics import Sequence
+    db_session.query(Sequence).filter(Sequence.chado_feature_id == feature_id) \
+        .delete(synchronize_session='fetch')
 
 
 def delete_sequences(sequence_id=None, ids=None, organism_id=None, analysis_id=None):
-    resp = __get_query(sequence_id, ids, organism_id, analysis_id).delete(synchronize_session='fetch')
-    chado_session.commit()
-    return {'status': 'success', 'message': f'{resp} sequences were successfully removed.'}, 200
+    content = { sequence_id:sequence_id, 'ids':' '.join(ids) if ids else '', organism_id:organism_id, analysis_id:analysis_id }
+    content = {k:v for k,v in content.items() if v is not None}
+    try:
+        query = __get_query(sequence_id, ids, organism_id, analysis_id)
+        for seq in query.all():
+            __delete_from_bcs(seq.feature_id)
+        resp = query.delete(synchronize_session='fetch')
+        issues, status = [Issue(IType.INFO, f'DELETE sequences: {resp} sequences were successfully removed.')], 200
+    except Exception as e:
+        print(e)
+        issues, status = [Issue(IType.ERROR, f'DELETE sequences: The sequences could not be removed.')], 500
+    return issues, content, status
 
 
 def import_sequences(input_file, organism_id=None, analysis_id=None, format='fasta'):
+    content = { input_file : input_file, format : format, organism_id : organism_id, analysis_id : analysis_id }
+    content = {k:v for k,v in content.items() if v is not None}
     from biobarcoding.services import conn_chado
     conn = conn_chado()
     if not organism_id:
@@ -37,31 +66,30 @@ def import_sequences(input_file, organism_id=None, analysis_id=None, format='fas
         except Exception as e:
             organism_id = conn.organism.get_organisms(species='undefined')[0]['organism_id']
     try:
-        # resp = conn.feature.load_fasta(input_file, organism_id, analysis_id=analysis_id, sequence_type='polypeptide', update=True)
         resp = conn.feature.load_fasta(input_file, organism_id, analysis_id=analysis_id, update=True)
         from Bio import SeqIO
-        __ids2bcs([seq.id for seq in SeqIO.parse(input_file, format)])
-        return {'status': 'success', 'message': f'Sequences: {resp}'}, 200
+        __seqs2bcs([seq.id for seq in SeqIO.parse(input_file, format)])
+        issues, status = [Issue(IType.INFO, f'IMPORT sequences: {resp} sequences were successfully imported.')], 200
     except Exception as e:
         print(e)
-        return {'status': 'failure', 'message': e}, 500
+        issues, status = [Issue(IType.ERROR, f'IMPORT sequences: file {input_file} could not be imported.')], 500
+    return issues, content, status
 
 
-def __ids2bcs(names):
+def __seqs2bcs(names):
     from biobarcoding.db_models.chado import Feature
-    from biobarcoding.db_models import DBSession as bcs_session
+    from biobarcoding.db_models import DBSession as db_session
     for seq in chado_session.query(Feature).filter(Feature.uniquename.in_(names)).all():
-        bcs_session.merge(__feature2bcs(seq))
-    bcs_session.commit()
+        db_session.merge(__feature2bcs(seq))
 
 
 def __feature2bcs(seq):
     from biobarcoding.services import get_or_create
     from biobarcoding.db_models.bioinformatics import Specimen, Sequence
-    bcs_specimen = get_or_create(bcs_session, Specimen, name=seq.uniquename)
-    bcs_session.merge(bcs_specimen)
-    bcs_session.flush()
-    bcs_sequence = get_or_create(bcs_session, Sequence,
+    bcs_specimen = get_or_create(db_session, Specimen, name=seq.uniquename)
+    db_session.merge(bcs_specimen)
+    db_session.flush()
+    bcs_sequence = get_or_create(db_session, Sequence,
                                  chado_feature_id=seq.feature_id,
                                  chado_table='feature',
                                  name=seq.uniquename,
@@ -71,13 +99,17 @@ def __feature2bcs(seq):
 
 def export_sequences(sequence_id=None, ids=None, organism_id=None, analysis_id=None, output_file=None):
     if not output_file:
-        output_file = "output_seqs.fas"
-    query = __get_query(sequence_id, ids, organism_id, analysis_id)
-    import sys
-    with open('/tmp/' + output_file, "w") as file:
-        for seq in query.all():
-            file.write(f'>{seq.uniquename}\n{seq.residues}\n')
-    return '/tmp/' + output_file, 200
+        output_file = "/tmp/output_seqs.fas"
+    try:
+        query = __get_query(sequence_id, ids, organism_id, analysis_id)
+        with open(output_file, "w") as file:
+            for seq in query.all():
+                file.write(f'>{seq.uniquename}\n{seq.residues}\n')
+        issues, status = [Issue(IType.INFO, f'EXPORT sequences: {query.count()} sequences were successfully exported.')], 200
+    except Exception as e:
+        print(e)
+        issues, status = [Issue(IType.ERROR, f'EXPORT sequences: The sequences could not be exported.')], 500
+    return issues, output_file, status
 
 
 def __get_query(sequence_id=None, ids=None, organism_id=None, analysis_id=None, phylotree_id=None, uniquename=None):
