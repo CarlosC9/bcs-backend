@@ -1,11 +1,13 @@
 from flask import Blueprint
 
+from biobarcoding.authentication import bcs_session
+
 bp_sequences = Blueprint('bp_sequences', __name__)
 
-from flask import request, make_response, jsonify, send_file
+from flask import request, send_file
 from flask.views import MethodView
 
-from biobarcoding.rest import bcs_api_base
+from biobarcoding.rest import bcs_api_base, ResponseObject, Issue, IType
 
 
 class SequencesAPI(MethodView):
@@ -15,62 +17,68 @@ class SequencesAPI(MethodView):
     ids = None
     organism_id = None
     analysis_id = None
+    phylotree_id = None
+    format = 'fasta'
 
+    @bcs_session(read_only=True)
     def get(self, id=None, format=None):
         print(f'GET {request.path}\nGetting sequences {id}')
         self._check_data(request.json)
         self._check_data(request.args)
         if format:
             from biobarcoding.services.sequences import export_sequences
-            response, code = export_sequences(id, self.ids, self.organism_id, self.analysis_id)
-            return send_file(response, mimetype=f'text/{format}'), code
-        else:
-            from biobarcoding.services.sequences import read_sequences
-            response, code = read_sequences(id, self.ids, self.organism_id, self.analysis_id)
-            return make_response(jsonify(response), code)
+            issues, content, status = export_sequences(id, self.ids, self.organism_id, self.analysis_id)
+            return send_file(content, mimetype=f'text/{format}'), status
+        from biobarcoding.services.sequences import read_sequences
+        issues, content, status = read_sequences(id, self.ids, self.organism_id, self.analysis_id, self.phylotree_id)
+        return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
+    @bcs_session()
     def post(self):
         print(f'POST {request.path}\nCreating sequences')
         self._check_data(request.json)
         self._check_data(request.args)
         if request.files:
-            response, code = self._import_files()
+            issues, content, status = self._import_files()
         else:
             from biobarcoding.services.sequences import create_sequences
-            response, code = create_sequences(self.organism_id, self.analysis_id)
-        return make_response(jsonify(response), code)
+            issues, content, status = create_sequences(self.organism_id, self.analysis_id)
+        return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
+    @bcs_session()
     def put(self, id):
         print(f'PUT {request.path}\nCreating sequences {id}')
         self._check_data(request.json)
         from biobarcoding.services.sequences import update_sequences
-        response, code = update_sequences(id, self.organism, self.analysis)
-        return make_response(jsonify(response), code)
+        issues, content, status = update_sequences(id, self.organism, self.analysis)
+        return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
+    @bcs_session()
     def delete(self, id=None):
         print(f'DELETE {request.path}\nDeleting sequences {id}')
         self._check_data(request.json)
         self._check_data(request.args)
         from biobarcoding.services.sequences import delete_sequences
-        response, code = delete_sequences(id, self.ids, self.organism_id, self.analysis_id)
-        return make_response(jsonify(response), code)
+        issues, content, status = delete_sequences(id, self.ids, self.organism_id, self.analysis_id)
+        return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
     def _import_files(self):
-        responses = []
         from biobarcoding.services.sequences import import_sequences
+        issues, content = [], []
         for key,file in request.files.items(multi=True):
             try:
                 file_cpy = self._make_file(file)
-                response, code = import_sequences(file_cpy, self.organism_id, self.analysis_id)
-                responses.append(response)
+                i, c, s = import_sequences(file_cpy, self.organism_id, self.analysis_id, self.format)
             except Exception as e:
                 print(e)
-                responses.append({'status':'failure','message':f'Could not import the file {file}.'})
-        return responses, 207
+                i, c = [Issue(IType.ERROR, f'Could not import the file {file}.')], {}
+            issues+=i
+            content.append(c)
+        return issues, content, 207
 
 
     def _make_file(self, file):
@@ -89,6 +97,10 @@ class SequencesAPI(MethodView):
                 self.organism_id = data['organism_id']
             if 'analysis_id' in data and data['analysis_id']:
                 self.analysis_id = data['analysis_id']
+            if 'phylotree_id' in data and data['phylotree_id']:
+                self.phylotree_id = data['phylotree_id']
+            if 'format' in data and data['format']:
+                self.format = data['format']
         print(f'DATA: {data}')
 
 
@@ -121,22 +133,22 @@ class SeqFeatAPI(MethodView):
     """
     def get(self, seq_id, cmt_id=None):
         print(f'GET {request.path}\nGetting comments {seq_id} {cmt_id}')
-        return make_response({'status':'success','message':'READ: sequence comments, dummy complete'}, 200)
+        return ResponseObject(content={'status':'success','message':'READ: sequence comments, dummy complete'}, status=200).get_response()
 
 
     def post(self, seq_id):
         print(f'POST {request.path}\nCreating comments')
-        return make_response({'status':'success','message':'CREATE: sequence comments, dummy complete'}, 200)
+        return ResponseObject(content={'status':'success','message':'CREATE: sequence comments, dummy complete'}, status=200).get_response()
 
 
     def put(self, seq_id, cmt_id):
         print(f'PUT {request.path}\nCreating comments {seq_id} {cmt_id}')
-        return make_response({'status':'success','message':'UPDATE: sequence comments, dummy complete'}, 200)
+        return ResponseObject(content={'status':'success','message':'UPDATE: sequence comments, dummy complete'}, status=200).get_response()
 
 
     def delete(self, seq_id, cmt_id=None):
         print(f'DELETE {request.path}\nDeleting comments {seq_id} {cmt_id}')
-        return make_response({'status':'success','message':'DELETE: sequence comments, dummy complete'}, 200)
+        return ResponseObject(content={'status':'success','message':'DELETE: sequence comments, dummy complete'}, status=200).get_response()
 
 
     def _check_data(self, data):

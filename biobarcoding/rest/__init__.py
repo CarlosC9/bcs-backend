@@ -16,6 +16,7 @@ from typing import Dict
 import biobarcoding
 from biobarcoding.authentication import bcs_session
 from biobarcoding.common import generate_json
+from biobarcoding.common.helpers import get_module_logger
 from biobarcoding.common.pg_helpers import create_pg_database_engine, load_table, load_many_to_many_table, \
     load_computing_resources, load_processes_in_computing_resources, load_process_input_schema, load_table_extended
 from biobarcoding.db_models import DBSession, ORMBase, DBSessionChado, ORMBaseChado, ObjectType
@@ -30,8 +31,7 @@ bcs_api_base = "/api"  # Base for all RESTful calls
 bcs_gui_base = "/gui"  # Base for the Angular2 GUI
 bcs_external_gui_base = "/gui_external"  # Base for the Angular2 GUI when loaded from URL
 
-logger = logging.getLogger(__name__)
-logging.getLogger('flask_cors').level = logging.DEBUG
+logger = get_module_logger(__name__)
 log_level = logging.DEBUG
 
 
@@ -49,6 +49,7 @@ class IType(Enum):
 
 @attrs
 class IssueLocation:
+    # TODO IssueLocation
     def __str__(self):
         return f"Put your Ad here :)"
 
@@ -150,12 +151,16 @@ def load_configuration_file(flask_app):
         _, file_name = prepare_default_configuration(False)
         if not os.environ.get(biobarcoding.config_file_var):
             found = False
+            logger.debug(f"Trying {file_name}")
             for f in [file_name]:
                 if os.path.isfile(f):
                     print(f"Assuming {f} as configuration file")
+                    logger.debug(f"Assuming {f} as configuration file")
                     found = True
                     os.environ[biobarcoding.config_file_var] = f
                     break
+                else:
+                    logger.debug(f"Creating {f} as configuration file")
             if not found:
                 cfg, file_name = prepare_default_configuration(True)
                 print(f"Generating {file_name} as configuration file:\n{cfg}")
@@ -167,12 +172,14 @@ def load_configuration_file(flask_app):
         print(f'Configuration file at: {os.environ[biobarcoding.config_file_var]}')
         print("-----------------------------------------------")
         flask_app.config.from_envvar(biobarcoding.config_file_var)
+        logger.debug(flask_app.config)
+
     except Exception as e:
         print(f"{biobarcoding.config_file_var} environment variable not defined!")
         print(e)
 
 
-def construct_session_persistence_backend(flask_app):
+def  construct_session_persistence_backend(flask_app):
     # A REDIS instance needs to be available. Check it
     # A local REDIS could be as simple as:
     #
@@ -208,11 +215,11 @@ def construct_session_persistence_backend(flask_app):
             # d["PERMANENT_SESSION_LIFETIME"] = 3600
         if rs2:
             try:
-                print("Trying connection to REDIS '"+r_host+"'")
+                print("Trying connection to REDIS '" + r_host + "'")
                 rs2.ping()
-                print("Connected to REDIS instance '"+r_host+"'")
+                print("Connected to REDIS instance '" + r_host + "'")
             except:
-                print("REDIS instance '"+r_host+"' not reachable, exiting now!")
+                print("REDIS instance '" + r_host + "' not reachable, exiting now!")
                 sys.exit(1)
         elif "SESSION_TYPE" not in d:
             print("No session persistence backend configured, exiting now!")
@@ -225,12 +232,14 @@ def construct_session_persistence_backend(flask_app):
 tm_object_type_fields = ["id", "uuid", "name"]
 tm_object_types = [  # ObjectType
     (bio_object_type_id["sequence"], "22bc2577-883a-4408-bba9-fcace20c0fc8", "sequence"),
-    (bio_object_type_id["multiple-sequence-alignment"], "e80a7d27-3ec8-4aa1-b49c-5498e0f85bee", "multiple-sequence-alignment"),
+    (bio_object_type_id["multiple-sequence-alignment"], "e80a7d27-3ec8-4aa1-b49c-5498e0f85bee",
+     "multiple-sequence-alignment"),
     (bio_object_type_id["phylogenetic-tree"], "d30120f0-28df-4bca-90e4-4f0676d1c874", "phylogenetic-tree"),
     (bio_object_type_id["geographic-layer"], "83084df6-7ad0-45d7-b3f1-6de594c78611", "geographic-layer"),
     (bio_object_type_id["sequence-similarity"], "7e23991b-24a0-4da1-8251-c3c3434dfb87", "sequence-similarity"),
     (bio_object_type_id["dataframe"], "5e5a1bfa-85e8-4ff8-9b1d-8180dc908933", "dataframe"),
-    (1000, "8fac3ce8-8796-445f-ac27-4baedadeff3b", "sys-functions"),  # Not bio algorithms, but BCS functions (both backend and frontend), like "export sequence", "browse alignments", "launch bioalgorithm", etc.
+    (1000, "8fac3ce8-8796-445f-ac27-4baedadeff3b", "sys-functions"),
+    # Not bio algorithms, but BCS functions (both backend and frontend), like "export sequence", "browse alignments", "launch bioalgorithm", etc.
     (1001, "21879d8f-1c0e-4f71-92a9-88bc6a3aa14b", "compute-resource"),
     (1002, "83077626-cf8c-48d3-854b-a355afdb7df9", "process")  # Bioinformatic algorithms
 ]
@@ -308,6 +317,7 @@ tm_processes = {  # Preloaded processes
     "caaca280-2290-4625-b5c0-76bcfb06e9ac": "import-phylotree",
     "15aa399f-dd58-433f-8e94-5b2222cd06c9": "Clustal Omega",
     "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": "MSA ClustalW",
+    "ec40143f-ae32-4dac-9cfb-caa047e1adb1": "ClustalW-PhyMl"
     "25932546-d26c-4367-8c81-0c682094d117": "ssh-transfer"
 }
 
@@ -399,8 +409,9 @@ def initialize_database_data():
     authenticator_id = "5f32a593-306f-4b69-983c-0a5680556fae"  # "local". Just the user name is good to be authorized
     iden = session.query(Identity).filter(Identity.name == test_user_id).first()
     authentication = session.query(Authenticator).filter(Authenticator.uuid == authenticator_id).first()
-    iden_authentication = session.query(IdentityAuthenticator).\
-        filter(and_(IdentityAuthenticator.identity == iden, IdentityAuthenticator.authenticator == authentication)).first()
+    iden_authentication = session.query(IdentityAuthenticator). \
+        filter(
+        and_(IdentityAuthenticator.identity == iden, IdentityAuthenticator.authenticator == authentication)).first()
     if not iden_authentication:
         iden_authentication = IdentityAuthenticator()
         iden_authentication.identity = iden
@@ -411,8 +422,10 @@ def initialize_database_data():
     session.commit()
 
     # Set test_user roles and groups
-    load_many_to_many_table(DBSession, RoleIdentity, Role, Identity, ["role_id", "identity_id"], [["sysadmin", "test_user"]])
-    load_many_to_many_table(DBSession, GroupIdentity, Group, Identity, ["group_id", "identity_id"], [["all-identified", "test_user"]])
+    load_many_to_many_table(DBSession, RoleIdentity, Role, Identity, ["role_id", "identity_id"],
+                            [["sysadmin", "test_user"]])
+    load_many_to_many_table(DBSession, GroupIdentity, Group, Identity, ["group_id", "identity_id"],
+                            [["all-identified", "test_user"]])
 
     # Insert a test BOS
     # session = DBSession()
@@ -444,9 +457,9 @@ def initialize_database(flask_app):
         print("-----------------------------")
         if db_connection_string.startswith("sqlite://"):
             biobarcoding.engine = sqlalchemy.create_engine(db_connection_string,
-                                                         echo=True,
-                                                         connect_args={'check_same_thread': False},
-                                                         poolclass=StaticPool)
+                                                           echo=True,
+                                                           connect_args={'check_same_thread': False},
+                                                           poolclass=StaticPool)
         else:
             biobarcoding.engine = create_pg_database_engine(db_connection_string, "bcs", recreate_db=recreate_db)
 
@@ -482,10 +495,115 @@ def initialize_database_chado(flask_app):
         print("-----------------------------")
         biobarcoding.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=True)
         # global DBSessionChado # global DBSessionChado registry to get the scoped_session
-        DBSessionChado.configure(bind=biobarcoding.chado_engine)  # reconfigure the sessionmaker used by this scoped_session
+        DBSessionChado.configure(
+            bind=biobarcoding.chado_engine)  # reconfigure the sessionmaker used by this scoped_session
         orm.configure_mappers()  # Important for SQLAlchemy-Continuum
         ORMBaseChado.metadata.bind = biobarcoding.chado_engine
         ORMBaseChado.metadata.reflect()
+    else:
+        print("No CHADO connection defined (CHADO_CONNECTION_STRING), exiting now!")
+        print(flask_app.config)
+        sys.exit(1)
+
+
+from sqlalchemy import text, Table, Column, BigInteger, ForeignKey, Index, MetaData, UniqueConstraint
+import subprocess
+
+
+def initialize_chado_edam(flask_app):
+    cfg = flask_app.config
+    if 'CHADO_DATABASE' in flask_app.config:
+        chado_xml_folder = os.path.join(os.sep, "app", "docker_init", "chado_xml")
+        db_relationship_comment = """Specifies relationships between databases.  This is 
+        particularly useful for ontologies that use multiple prefix IDs for it\'s vocabularies. For example,
+        the EDAM ontology uses the prefixes \"data\", \"format\", \"operation\" and others. Each of these would
+        have a record in the db table.  An \"EDAM\" record could be added for the entire ontology to the
+        db table and the previous records could be linked as \"part_of\" EDAM.  As another example
+        databases housing cross-references may have sub databases such as NCBI (e.g. Taxonomy, SRA, etc).
+        This table can use a \'part_of\' record to link all of them to NCBI."""
+
+        db_connection_string = f'postgres://{cfg["CHADO_USER"]}:{cfg["CHADO_PASSWORD"]}@{cfg["CHADO_HOST"]}:{cfg["CHADO_PORT"]}/{cfg["CHADO_DATABASE"]}'
+        print("Connecting to Chado database server to insert EDAM")
+        print(db_connection_string)
+        print("-----------------------------")
+        biobarcoding.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=True)
+
+        with biobarcoding.chado_engine.connect() as conn:
+            relationship_id = conn.execute(text("select * from INFORMATION_SCHEMA.TABLES where TABLE_NAME = 'db_relationship'")).fetchone()
+            if relationship_id is None:
+                try:
+                    meta = MetaData()
+                    meta.reflect(biobarcoding.chado_engine, only=["db",
+                                                                  "cvterm"])  # this get information about the db and cvterm tables in the existing database
+                    # CREATE db_relationship table to relate EDAM submodules with EDAM itself
+                    db_relationship = Table('db_relationship', meta,
+                                            Column('db_relationship_id', BigInteger, primary_key=True),
+                                            Column('type_id',
+                                                   BigInteger,
+                                                   ForeignKey('cvterm.cvterm_id', ondelete="CASCADE", initially="DEFERRED"),
+                                                   nullable=False),
+                                            Column('subject_id',
+                                                   BigInteger,
+                                                   ForeignKey('db.db_id', ondelete="CASCADE", initially="DEFERRED"),
+                                                   nullable=False),
+                                            Column('object_id',
+                                                   BigInteger,
+                                                   ForeignKey('db.db_id', ondelete="CASCADE", initially="DEFERRED"),
+                                                   nullable=False),
+                                            UniqueConstraint('type_id', 'subject_id', 'object_id',
+                                                             name='db_relationship_c1'),
+                                            Index('db_relationship_idx1', 'type_id'),
+                                            Index('db_relationship_idx2', 'subject_id'),
+                                            Index('db_relationship_idx3', 'object_id'),
+                                            comment=db_relationship_comment
+                                            )
+
+                    # DELETE CVTERMS THAT ARE IN THE CHADO XML AND ALSO IN THE DATABASE
+                    conn.execute(text("delete from cvterm where name = 'comment'and cv_id = 6 and is_obsolete = 0"))
+                    conn.execute(text("delete from cvterm where name = 'has_function'and cv_id = 4 and is_obsolete = 0"))
+                    conn.execute(text("delete from cvterm where name = 'has_input'and cv_id = 4 and is_obsolete = 0"))
+                    conn.execute(text("delete from cvterm where name = 'has_output'and cv_id = 4 and is_obsolete = 0"))
+                    conn.execute(text("delete from cvterm where name = 'is_a'and cv_id = 4 and is_obsolete = 0"))
+                    conn.execute(text("delete from cvterm where name = 'is_anonymous'and cv_id = 6 and is_obsolete = 0"))
+
+                    db_relationship.create(bind=conn)
+
+                except Exception as e:
+                    print("Something went wrong when inserting EDAM:")
+                    print(e)
+            else:
+                print("The preprocess to insert EDAM was already executed")
+
+            try:
+                edam_id = conn.execute(text("select db_id from db where name=\'EDAM\'")).fetchone()
+                if edam_id is None:
+                    # INSERT THE CHADO XML (EDAM) IN THE DATABASE
+                    command = ["stag-storenode.pl", "-d",
+                               f'dbi:Pg:dbname={cfg["CHADO_DATABASE"]};host={cfg["CHADO_HOST"]};port={cfg["CHADO_PORT"]}',
+                               "--user", cfg["CHADO_USER"], "--password", cfg["CHADO_PASSWORD"],
+                               os.path.join(chado_xml_folder, "EDAM.chado")]
+
+                    subprocess.run(command)
+                    #We commit 2 times because we need a commit on the last block to execute this one
+                    with biobarcoding.chado_engine.connect() as conn:
+                        # FILL THE db_relationship TABLE
+                        edam_id = conn.execute(text("select db_id from db where name=\'EDAM\'")).fetchone()[0]
+                        db_ids = conn.execute(text("select db_id from db where db_id > " + str(edam_id))).fetchall()
+                        type_id = conn.execute(text(
+                            "select cvterm_id from cvterm join cv on cvterm.cv_id = cv.cv_id where cvterm.name = \'part_of\' "
+                            "and cv.name = \'relationship\'")).fetchone()[0]
+
+                        for db_id in db_ids:
+                            conn.execute(text("INSERT INTO db_relationship (type_id,subject_id,object_id)" +
+                                              "VALUES(" + str(type_id) + "," + str(db_id[0]) + "," + str(edam_id) + ")"))
+                else:
+                    print("EDAM was already inserted")
+
+            except Exception as e:
+                print("""WARNING! Something went wrong when inserting EDAM. 
+                        You will need to delete the database if you do not want to insert EDAM:""")
+                print(e)
+
     else:
         print("No CHADO connection defined (CHADO_CONNECTION_STRING), exiting now!")
         print(flask_app.config)
@@ -508,6 +626,7 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
     :param execution_rules: a dictionary of execution rules (according to the decorator "bcs_session") by CRUD method
     :return: the blueprint (to register it) and the class (if needed)
     """
+
     class CrudAPI(MethodView):
 
         page: int = None
@@ -523,7 +642,7 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
                 # TODO Pagination
                 self.__check_data(request.args)
                 if self.page and self.page_size:
-                    query = query.offset((self.page-1)*self.page_size).limit(self.page_size)
+                    query = query.offset((self.page - 1) * self.page_size).limit(self.page_size)
                 # TODO Detail of fields
                 r.content = query.all()
             else:
@@ -584,7 +703,9 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
 
     bp_entity = Blueprint(f'bp_{entity_name}', __name__)
     register_api(bp_entity, CrudAPI, entity_name, f"{bcs_api_base}/{entity_name}/", "_id")
-    bp_entity.add_url_rule(f"{bcs_api_base}/{entity_name}.schema.json", view_func=get_entities_json_schema, methods=['GET'])
-    bp_entity.add_url_rule(f"{bcs_api_base}/{entity_name}/<int:_id>.schema.json", view_func=get_entity_json_schema, methods=['GET'])
+    bp_entity.add_url_rule(f"{bcs_api_base}/{entity_name}.schema.json", view_func=get_entities_json_schema,
+                           methods=['GET'])
+    bp_entity.add_url_rule(f"{bcs_api_base}/{entity_name}/<int:_id>.schema.json", view_func=get_entity_json_schema,
+                           methods=['GET'])
 
     return bp_entity, CrudAPI

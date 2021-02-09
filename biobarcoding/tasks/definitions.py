@@ -11,6 +11,7 @@ from biobarcoding.common.decorators import celery_wf
 from biobarcoding.common import check_pid_running
 from biobarcoding.jobs import JobExecutorAtResourceFactory
 from biobarcoding.db_models.jobs import Job
+from biobarcoding.common import ROOT
 
 """
 Celery tasks CANNOT be debugged in Celery!! (the code is run in a separate process; of course they can be debugged "off-line")
@@ -33,12 +34,8 @@ def periodic_sum(x, y):
 
 # ----------------------------------------------------------------
 
-outfile = "/home/rnebot/Downloads/borrame/log.txt"
-outfile_dreyes = "/home/dreyes/Documentos/borrame/log.txt"
-
-
-def append_text(file: str, s: str):
-    file = outfile_dreyes
+def append_text( s: str):
+    file = ROOT + "/tests/data_test/celery_log.txt"
     with open(file, "a+") as f:
         f.write(f"{s}\n")
 
@@ -80,7 +77,7 @@ def dummy_func(file, secs):
     start = time()
     endc = start
     while (endc - start) < secs:
-        append_text(file, f"elapsed {endc - start} of {secs}")
+        append_text(f"elapsed {endc - start} of {secs}")
         sleep(6)
         endc = time()
     os.exit(0)
@@ -169,7 +166,7 @@ def wf1_export_to_supported_file_formats(job_context: str):
     # Get resource manager: ssh, galaxy, other
     # job_executor = JobExecutorAtResourceFactory.get(tmp["resource"]["jm_type"], tmp["process"])
 
-    append_text(outfile, "export_to_supported_file_formats")
+    append_text("export_to_supported_file_formats")
     sleep(2)
 
 
@@ -250,7 +247,7 @@ def wf1_submit(job_context: str):
     inv_id = job_executor.submit(str(tmp['job_id']), inputs)
     tmp['g_id'] = inv_id
     job_context = json.dumps(tmp)
-    append_text(outfile, f"submit. workspace: {tmp['g_id']}")
+    append_text(f"submit. workspace: {tmp['g_id']}")
     return job_context
 
 
@@ -267,13 +264,13 @@ def wf1_wait_until_execution_starts(job_context: str):
     job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp['resource'])
     status = job_executor.job_status(tmp["g_id"])
     if status == 'running':  # pasa siempre or running?
-        append_text(outfile, f"wait_until_execution_starts: status: {status}")
+        append_text(f"wait_until_execution_starts: status: {status}")
         return job_context
     if status == 'error':
-        append_text(outfile, f"wait_until_execution_starts: status: {status}")
+        append_text(f"wait_until_execution_starts: status: {status}")
         return 'error', job_context
     else:
-        append_text(outfile, f"wait_until_execution_starts: status: {status}")
+        append_text(f"wait_until_execution_starts: status: {status}")
         return 3, job_context
 
 
@@ -292,13 +289,13 @@ def wf1_wait_for_execution_end(job_context: str):
     job_executor = job.get(tmp["resource"]["jm_type"], tmp["resource"])
     status = job_executor.job_status(tmp["g_id"])
     if isinstance(status, dict):
-        append_text(outfile, f"wait_for_execution_end: status: {status}")
+        append_text(f"wait_for_execution_end: status: {status}")
         return 'error', job_context
     if status == 'ok':
-        append_text(outfile, f"wait_for_execution_end: status: {status}")
+        append_text(f"wait_for_execution_end: status: {status}")
         return job_context
     else:
-        append_text(outfile, f"wait_for_execution_end: status: {status}")
+        append_text(f"wait_for_execution_end: status: {status}")
         return 3, job_context
 
 
@@ -316,7 +313,7 @@ def wf1_transfer_data_from_resource(job_context: str):
     r = job_executor.get_results(tmp["g_id"])
     tmp['results'] = r
     job_context = json.dumps(tmp)
-    append_text(outfile, f"transfer_data_from: results: {r}")
+    append_text(f"transfer_data_from: results: {r}")
     return job_context
 
 
@@ -329,7 +326,7 @@ def wf1_import_into_database(job_context: str):
     :param job_context:
     :return:
     """
-    append_text(outfile, "import_into_database")
+    append_text("import_into_database")
     sleep(2)
 
 
@@ -349,7 +346,7 @@ def wf1_cleanup_workspace(job_context: str):
     job_executor.remove_job_workspace(str(tmp["job_id"]))
     del tmp['g_id']
     job_context = json.dumps(tmp)
-    append_text(outfile, f"cleanup:")
+    append_text(f"cleanup:")
     return job_context
 
 
@@ -363,7 +360,7 @@ def wf1_complete_succesfully(job_context: str):
     :param job_context:
     :return:
     """
-    append_text(outfile, "complete_successfully")
+    append_text("complete_successfully")
     sleep(2)
 
 
@@ -384,11 +381,8 @@ def wf1_completed_error(job_context: str):
     tmp['error'] = status
     job_executor.remove_job_workspace(str(tmp['job_id']))
     job_context = json.dumps(tmp)
-    append_text(outfile, f"error: {tmp['error']}")
+    append_text(f"error: {tmp['error']}")
     return job_context
-
-    # append_text(outfile, "completed_error")
-    # sleep(2)
 
 
 @celery_app.task(name="cancel")
@@ -405,10 +399,5 @@ def wf1_cancelled(job_context: str):
     job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp["resource"])
     job_executor.cancel_job(tmp['g_id'])
     job_executor.remove_job_workspace(str(tmp['job_id']))
-    append_text(outfile, f"cancelled")
+    append_text(f"cancelled")
     return job_context
-
-
-
-if __name__ == "__main__":
-    main()

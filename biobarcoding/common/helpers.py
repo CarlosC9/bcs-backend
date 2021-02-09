@@ -1,4 +1,5 @@
 import io
+import logging
 import os
 import sys
 import tempfile
@@ -181,3 +182,17 @@ def download_file(location, wv_user=None, wv_password=None, wv_host_name=None):
         data = io.BytesIO(data)
 
     return data
+
+
+def get_module_logger(mod_name,
+                      level=logging.DEBUG,
+                      log_format='%(asctime)s [%(name)-12s] %(levelname)-8s %(message)s'):
+    """
+    To use this, do logger = get_module_logger(__name__)
+    """
+    logger = logging.getLogger(mod_name)
+    handler = logging.StreamHandler()
+    handler.setFormatter(logging.Formatter(log_format))
+    logger.addHandler(handler)
+    logger.setLevel(level)
+    return logger

@@ -529,7 +529,8 @@ def check_tools(wf1_dic, wf2_dic):
     tool_list = list()
     for step, content in steps1.items():
         if 'errors' in content:
-            if content['errors'] == "Tool is not installed":  # TODO depende de la versión de galaxi esto lleva un punto al final o no xq lo que hay que buscar otra cosa
+            if content[
+                'errors'] == "Tool is not installed":  # TODO depende de la versión de galaxi esto lleva un punto al final o no xq lo que hay que buscar otra cosa
                 tool_list.append(steps2[step]['tool_shed_repository'])
     if len(tool_list) == 0:
         return 'all tools are installed'
@@ -640,6 +641,20 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         return r
         # download_result(gi,r,'/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test')
 
+def convert_workflows_to_formly():
+    wfdict1 = {'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json',
+               'phyml': ROOT + '/biobarcoding/inputs_schema/phyml_galaxy.json',
+               'fname' : 'clustalw_phyml_formly.json'
+               }
+    wfdict2 = {'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json',
+               'fname' : 'clustalw_formly.json'}
+    path = ROOT + '/biobarcoding/inputs_schema/'
+    lwdict = [wfdict1, wfdict2]
+    for wfdict in lwdict:
+        if wfdict['fname'] not in os.listdir(path):
+            newpath = path + wfdict['fname']
+            del wfdict['fname']
+            convertToFormly(wfdict,newpath)
 
 def initialize_galaxy(flask_app):
     if {'GALAXY_API_KEY', 'GALAXY_LOCATION'} <= flask_app.config.keys():
@@ -669,10 +684,10 @@ def initialize_galaxy(flask_app):
                 wf_dict_out = gi.workflows.export_workflow_dict(wf['id'])
                 list_of_tools = check_tools(wf_dict_out, wf_dict_in)
                 install_tools(gi, list_of_tools)
+        # conversion of workflows galaxy into workflows formly
+        convert_workflows_to_formly()
     else:
         return 'No Galaxy test credentials in config file'
-
-
 
 
 class ToFormlyConverter:
@@ -687,6 +702,9 @@ class ToFormlyConverter:
         'optional': 'required'
     }
 
+    def __init__(self, step_label):
+        self.step_label = step_label
+
     @staticmethod
     def rename_keys(d, keys):
         return dict([(keys.get(k), v) for k, v in d.items() if k in keys.keys()])
@@ -695,26 +713,27 @@ class ToFormlyConverter:
     def options(g_input):
         return [{'value': o[1], 'label': o[0]} for o in g_input['options']]
 
-    def choose_converter(self,g_input):
+    def choose_converter(self, g_input):
         input_type = g_input['model_class']
         if input_type == 'SelectToolParameter':
-            converter = convertSelectToolParameter()
+            converter = convertSelectToolParameter(self.step_label)
         elif input_type == 'BooleanToolParameter':
-            converter = convertBooleanToolParameter()
+            converter = convertBooleanToolParameter(self.step_label)
         elif input_type == 'Conditional':
-            converter = converterConditional()
+            converter = converterConditional(self.step_label)
         elif input_type == 'IntegerToolParameter':
-            converter = converterIntegerToolParameter()
+            converter = converterIntegerToolParameter(self.step_label)
         elif input_type == 'FloatToolParameter':
-            converter = converterIntegerToolParameter()
+            converter = converterIntegerToolParameter(self.step_label)
         elif input_type == 'TextToolParameter':
-            converter = converterTextToolParameter()
+            converter = converterTextToolParameter(self.step_label)
         else:
             return 'no converter for model class {}'.format(g_input['model_class'])
         return converter.convert(g_input)
 
     def conversion(self, g_input):
         form = self.rename_keys(g_input, self.field)
+        form['key'] = '.'.join([self.step_label, form['key']])
         form['templateOptions'] = self.rename_keys(g_input, self.templateoptionsfields)
         if 'value' in g_input:
             form['defaultValue'] = g_input['value']
@@ -722,40 +741,45 @@ class ToFormlyConverter:
         form['templateOptions']['description'] = g_input['help']
         return form
 
-    def get_formly_json(self, g_input):
+    def get_formly_dict(self, g_input):
         l = []
         for i in g_input:
             forms = self.choose_converter(i)
-            if isinstance(forms,list) and len(forms)>1:
+            if isinstance(forms, list) and len(forms) > 1:
                 for f in forms:
                     if isinstance(f, dict):
                         l.append(f)
             else:
                 if isinstance(forms, dict):
                     l.append(forms)
-        # regex = r'(?<!: )"(\S*?)"'
-        # tmp = json.dumps(l, indent=3)
-        # return re.sub(regex, '\\1', tmp)
-        return json.dumps(l, indent=3)
+        return l
 
 
-class convertBooleanToolParameter(ToFormlyConverter):
-    def __init__(self):
-        super().__init__()
+class convertBooleanToolParameter(ToFormlyConverter): #TODO hay algún fallo al poner el valor por defecto!
+    def __init__(self,step_label):
+        super(convertBooleanToolParameter, self).__init__(step_label)
 
     def convert(self, g_input):
         form = self.conversion(g_input)
         form['type'] = 'radio'
         form['templateOptions']['options'] = [
             {'value': g_input['truevalue'], 'label': 'Yes'},
-            {'value': g_input['falsevalue'], 'label': 'No'} #check is needed
+            {'value': g_input['falsevalue'], 'label': 'No'}  # check is needed
         ]
+        if form['defaultValue']:
+            if form['defaultValue'] == 'false':
+                form['defaultValue'] = 'OFF'
+            elif form['defaultValue'] == 'true':
+                form['defaultValue'] = 'YES'
+            else:
+                form['defaultValue'] = form['defaultValue']
+
         return form
 
 
 class convertSelectToolParameter(ToFormlyConverter):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, step_label):
+        super(convertSelectToolParameter, self).__init__(step_label)
 
     def convert(self, g_input):
         form = self.conversion(g_input)
@@ -763,8 +787,8 @@ class convertSelectToolParameter(ToFormlyConverter):
         return form
 
 class converterIntegerToolParameter(ToFormlyConverter):
-    def __init__(self):
-        super().__init__()
+    def __init__(self,step_label):
+        super(converterIntegerToolParameter, self).__init__(step_label)
 
     def convert(self, g_input):
         form = self.conversion(g_input)
@@ -778,16 +802,17 @@ class converterIntegerToolParameter(ToFormlyConverter):
 
 
 class converterTextToolParameter(ToFormlyConverter):
-    def convert(self,input):
+    def __init__(self,step_label):
+        super(converterTextToolParameter, self).__init__(step_label)
+    def convert(self, input):
         form = self.conversion(input)
         form['type'] = 'textarea'
         return form
 
 
-
 class converterConditional(ToFormlyConverter):
-    def __init__(self):
-        super().__init__()
+    def __init__(self,step_label):
+        super(converterConditional, self).__init__(step_label)
         self.selector = None
         self.cases = None
 
@@ -798,13 +823,35 @@ class converterConditional(ToFormlyConverter):
         selector_form = self.choose_converter(self.selector)
         form.append(selector_form)
         for i in self.cases:
-            if len(i['inputs'])>0:
+            if len(i['inputs']) > 0:
                 for j in i['inputs']:
                     case_form = self.choose_converter(j)
-                    if isinstance(case_form,dict):
-                        case_form['hideExpression'] = 'model.' + selector_form['key']+ '!=\'' + i['value']+'\''
+                    if isinstance(case_form, dict):
+                        case_form['hideExpression'] = 'model.' + selector_form['key'] + '!=\'' + i['value'] + '\''
                     else:
-                        print('no converter for ',j['model_class'])
+                        print('no converter for ', j['model_class'])
                     form.append(case_form)
         return form
 
+
+def convertToFormly(wf_steps, newpath):
+    '''
+    dicctionary step_label: form_path
+    '''
+    fieldGroup = list()
+    formly = dict()
+    formly['type'] = 'stepper'
+    for k, v in wf_steps.items():
+        input_path = v
+        with open(input_path, 'r') as f:
+            galaxy_dict_in = json.load(f)
+        inputs = galaxy_dict_in['inputs']
+        convert = ToFormlyConverter(k)
+        form = dict()
+        form['templateOptions'] = {'label': k}
+        form['fieldGroup'] = convert.get_formly_dict(inputs)
+        fieldGroup.append(form)
+    formly['fieldGroup'] = fieldGroup
+    formly_json = json.dumps([formly], indent=3)
+    with open(newpath, 'w') as file:
+        file.write(formly_json)

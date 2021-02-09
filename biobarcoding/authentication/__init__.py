@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 from biobarcoding.authorization import ast_evaluator, authr_expression, string_to_ast
 from biobarcoding.common import generate_json
 from biobarcoding.common.helpers import serialize_from_object, deserialize_to_object
-from biobarcoding.db_models import DBSession, ObjectType
+from biobarcoding.db_models import DBSession, ObjectType, DBSessionChado
 from biobarcoding.db_models.sysadmin import Authenticator, Identity, IdentityAuthenticator, ACLExpression, ACL, \
     SystemFunction
 
@@ -82,6 +82,7 @@ class BCSSession:
     # Not persisted
     identity: Identity = None
     db_session: Session = None
+    chado_db_session: Session = None
 
 
 EXEMPT_METHODS = set(['OPTIONS'])
@@ -231,6 +232,8 @@ class bcs_session(object):
                     g.bcs_session.db_session = db_session
                     ident = db_session.query(Identity).get(g.bcs_session.identity_id)
                     g.bcs_session.identity = ident
+                    chado_db_session = DBSessionChado() # Chado test
+                    g.bcs_session.chado_db_session = chado_db_session   # Chado test
                     try:  # Protect "db_session"
                         # Get execution rule
                         if self.authr is None or bcs_session.is_function_name(self.authr):
@@ -264,20 +267,24 @@ class bcs_session(object):
                         if can_execute:
                             res = f(*args, **kwargs)
                             db_session.commit()
+                            chado_db_session.commit()   # Chado test
                         else:
                             raise Exception(f"Current user ({sess.identity_name}) cannot execute function {f_code_name}")
                     except:
                         traceback.print_exc()
                         db_session.rollback()
+                        chado_db_session.rollback() # Chado test
                         raise
                     finally:
                         DBSession.remove()
+                        DBSessionChado.remove() # Chado test
                 except:
                     res = None
                 finally:
                     if not self.read_only:
                         g.bcs_session.identity = None
                         g.bcs_session.db_session = None
+                        g.bcs_session.chado_db_session = None   # Chado test
                         flask_session["session"] = serialize_session(g.bcs_session)
                     # g.bcs_session = None  -- NO need for this line, "g" is reset after every request
                 return res

@@ -1,0 +1,10 @@
+{
+    "a_galaxy_workflow": "true",
+    "annotation": "",
+    "format-version": "0.1",
+    "name": "clustalw_mrbayes",
+    "steps": {},
+    "tags": [],
+    "uuid": "48236495-83f8-4400-9484-11661705bfb0",
+    "version": 0
+}
