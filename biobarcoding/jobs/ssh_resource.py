@@ -1,3 +1,5 @@
+import psutil
+
 from biobarcoding.jobs import JobExecutorAtResource
 import os
 import asyncio
@@ -43,8 +45,9 @@ class RemoteSSHClient:
 
     async def run_client(self, script_file):
         popen_pipe = os.popen(f"ssh {self.username}@{self.host} 'cd {self.remote_path} && chmod +x {script_file} && nohup ./{script_file} >/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!'")
-        self.pid = popen_pipe.readline().rstrip()
-        print(f"PID: {self.pid}")
+        pid = popen_pipe.readline().rstrip()
+        print(f"PID: {pid}")
+        return pid
 
     def command_status(self):
         """
@@ -65,7 +68,7 @@ class RemoteSSHClient:
         else:
             print("No command has been executed")
 
-    async def upload_file(self, file_path, remote_file_path):
+    '''async def upload_file(self, file_path, remote_file_path):
         """
         Upload multiple files to remote_path.
 
@@ -76,7 +79,20 @@ class RemoteSSHClient:
             await self.sftp.put(file_path, remotepath=os.path.join(self.remote_path, remote_file_path))
             print(f'Finished uploading {file_path} to {self.remote_path} on {self.host}')
         else:
-            print("SSH connection not created")
+            print("SSH connection not created")'''
+
+    def upload_file_or_folder(self, local_path, remote_path):
+            """
+            Upload multiple files to remote_path.
+
+            :param path: path to local folder or file. Folders must end with /
+            :param remote_file_path: path to remote folder or file. Folders must end with /
+            """
+            popen_pipe = os.popen(
+                f"nohup bash -c \"rsync {local_path} {self.username}@{self.host}:{os.path.join(self.remote_path, remote_path)}\" >/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!")
+            pid = popen_pipe.readline().rstrip()
+            print(f"PID: {pid}")
+            return pid
 
     async def upload_files_or_directories(self, files_dir_paths):
         """
@@ -113,6 +129,13 @@ class RemoteSSHClient:
         else:
             print("SSH connection not created")
 
+    def remove_dir(self, dirname):
+        popen_pipe = os.popen(
+            f"nohup ssh {self.username}@{self.host} rm -r {dirname} >/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!")
+        pid = popen_pipe.readline().rstrip()
+        print(f"PID: {pid}")
+        return pid
+
     async def remove_file(self, file):
         if self.sftp is not None:
             await self.sftp.remove(os.path.join(self.remote_path, file))
@@ -148,21 +171,17 @@ class RemoteSSHClient:
         else:
             print("SSH connection not created")
 
-    async def remove_directory(self, dir_path):
+    '''async def remove_directory(self, dir_path):
         if self.sftp is not None:
             await self.sftp.rmtree(dir_path)
         else:
-            print("SSH connection not created")
+            print("SSH connection not created")'''
 
-    async def check_files(self, files):
-        statements = []
-        for file in files:
-            statements.append(self.sftp.isfile(os.path.join(self.remote_path, file)))
-        output = await asyncio.gather(*statements)
-        return all(output)
+    async def exists_remotely(self, name):
+        return await self.sftp.exists(os.path.join(self.remote_path, name))
 
 
-class JobExecutionWithSSH(JobExecutorAtResource):
+class JobExecutorWithSSH(JobExecutorAtResource):
 
     def __init__(self):
         self.host = None
@@ -171,6 +190,7 @@ class JobExecutionWithSSH(JobExecutorAtResource):
         self.remote_path = None
         self.local_workspace = None
         self.remote_client = None
+        self.up_files = None
         self.loop = asyncio.get_event_loop()
 
     # RESOURCE
@@ -179,6 +199,7 @@ class JobExecutionWithSSH(JobExecutorAtResource):
         self.username = params['username']
         self.known_hosts_filepath = params['known_hosts_filepath']
         self.remote_path = params['remote_workspace']
+        self.up_files = params['upload_files']
         self.local_workspace = params['local_workspace'] if 'local_workspace' in params else None
 
     def check(self):
@@ -213,16 +234,23 @@ class JobExecutionWithSSH(JobExecutorAtResource):
         if self.remote_path == name:
             # it is empty because the remote_path is already a parameter in remote_client
             self.loop.run_until_complete(self.remote_client.make_directory(""))
-            entries = [os.path.join(self.local_workspace, f) for f in os.listdir(self.local_workspace)]
-            self.loop.run_until_complete(self.remote_client.upload_files_or_directories(entries))
+            self.remote_client.upload_file_or_directory(self.local_workspace)
         else:
             print("The Job Workspace should be equal to remote_path")
 
     def remove_job_workspace(self, name):  # After Job is completed (or if Job was not started)
-        self.loop.run_until_complete(self.remote_client.remove_directory(self.remote_path))
+        if name != self.remote_path:
+            raise Exception("JobExecutionWithSSH - upload_file - remote_location must be equal to self.remote_path")
+            pid = self.remote_client.remove_dir(self.remote_path)
+        return pid
 
-    def upload_file(self, workspace, local_filename, remote_location):
-        self.loop.run_until_complete(self.remote_client.upload_file(local_filename, remote_location))
+    def upload_file(self, workspace, local_fileidx, remote_location):
+        '''if remote_location != self.remote_path:
+            raise Exception("JobExecutionWithSSH - upload_file - remote_location must be equal to self.remote_path")'''
+
+        pid = self.remote_client.upload_file(self.up_files[local_fileidx], self.remote_path)
+
+        return pid
 
     def move_file(self, remote_source, remote_destination):
         self.loop.run_until_complete(self.remote_client.move_file(remote_source, remote_destination))
@@ -233,8 +261,17 @@ class JobExecutionWithSSH(JobExecutorAtResource):
     async def submit(self, workspace, params):
         await self.remote_client.run_client(params["script_file"])
 
+    '''def remote_job_status(self, native_id):
+        return self.remote_client.command_status()'''
+
     def job_status(self, native_id):
-        return self.remote_client.command_status()
+        for proc in psutil.process_iter():
+            try:
+                if native_id == proc.pid:
+                    return True
+            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                pass
+        return False;
 
     def cancel_job(self, native_id):
         self.remote_client.kill_process()

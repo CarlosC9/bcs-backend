@@ -107,3 +107,9 @@ class JobExecutorAtResourceFactory:
             tmp = JobExecutorAtGalaxy()
             tmp.set_resource(resource_param)
             return tmp
+        elif job_executor_name.lower() == "ssh":
+            from biobarcoding.jobs.ssh_resource import JobExecutorWithSSH
+            tmp = JobExecutorWithSSH()
+            tmp.set_resource(resource_param)
+            tmp.connect()
+            return tmp

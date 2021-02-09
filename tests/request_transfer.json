@@ -1,0 +1,13 @@
+{
+  "resource_id": "0292821a-dd33-450a-bdd8-813b2b95c456",
+  "process_id": "25932546-d26c-4367-8c81-0c682094d117",
+  "process_params": {
+    "parameters": {
+        "script_file": "test.sh",
+        "remote_workspace": "/home/dreyes/",
+        "host": "balder",
+        "username": "dreyes",
+        "known_hosts_filepath": "/home/daniel/.ssh/known_hosts"
+    }
+  }
+}

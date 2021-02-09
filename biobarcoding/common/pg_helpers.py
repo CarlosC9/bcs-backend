@@ -146,7 +146,7 @@ def load_computing_resources(sf):
 def load_processes_in_computing_resources(sf):
     session = sf()
     local_uuid = "21879d8f-1c0e-4f71-92a9-88bc6a3aa14b"
-    process = session.query(Process).filter(Process.uuid == "c8df0c20-9cd5-499b-92d4-5fb35b5a369a").first()
+    process = session.query(Process).filter(Process.uuid == "b").first()
     resource = session.query(ComputeResource).filter(ComputeResource.uuid == "8fac3ce8-8796-445f-ac27-4baedadeff3b").first()
     r = session.query(ProcessInComputeResource).filter(and_(ProcessInComputeResource.process_id==process.id, ProcessInComputeResource.resource_id==resource.id)).first()
     if not r:
@@ -157,7 +157,11 @@ def load_processes_in_computing_resources(sf):
         r.resource = resource
         session.add(r)
         session.commit()
+    resource = session.query(ComputeResource).filter(ComputeResource.uuid == "0292821a-dd33-450a-bdd8-813b2b95c456").first()
+    r = session.query(ProcessInComputeResource).filter(and_(ProcessInComputeResource.process_id == process.id,
+                                                            ProcessInComputeResource.resource_id == resource.id)).first()
     sf.remove()
+
 
 
 def load_process_input_schema(sf):

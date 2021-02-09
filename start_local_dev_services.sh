@@ -65,8 +65,11 @@ if [ ! $galaxy_started ] ; then
 fi
 
 # CD to BCS-BACKEND source code (needed for proper Celery execution)
-cd "$(dirname $0)"
+CWD=$(basename "$PWD")
+if test $CWD = "docker_init"
+then
+  cd ..
+fi
 
-# CELERY
 # Worker AND Beat (only for development; NOT for production -use Supervisor and two separate processes-)
 celery -A biobarcoding.tasks worker --beat --loglevel=info
