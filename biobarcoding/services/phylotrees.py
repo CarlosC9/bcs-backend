@@ -15,7 +15,7 @@ def read_phylotrees(id = None, analysis_id = None, name = None, comment = None, 
     content = { 'id':id, 'analysis_id':analysis_id, 'name':name, 'comment':comment, 'feature_id':feature_id }
     content = {k:v for k,v in content.items() if v is not None}
     try:
-        content = __get_query(id, analysis_id, name, comment, feature_id)
+        content = __get_query(id, analysis_id=analysis_id, name=name, comment=comment, feature_id=feature_id)
         if id:
             content = content.first()
         else:
