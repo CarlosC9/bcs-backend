@@ -81,15 +81,16 @@ class RemoteSSHClient:
         else:
             print("SSH connection not created")'''
 
-    def upload_file_or_folder(self, local_path, remote_path):
+    def upload_file_or_directory(self, local_path, remote_path):
             """
             Upload multiple files to remote_path.
 
             :param path: path to local folder or file. Folders must end with /
             :param remote_file_path: path to remote folder or file. Folders must end with /
             """
-            popen_pipe = os.popen(
-                f"nohup bash -c \"rsync {local_path} {self.username}@{self.host}:{os.path.join(self.remote_path, remote_path)}\" >/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!")
+            cmd = f"nohup bash -c \"rsync {local_path} {self.username}@{self.host}:{os.path.join(self.remote_path, remote_path)}\" >/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!"
+            print(cmd)
+            popen_pipe = os.popen(cmd)
             pid = popen_pipe.readline().rstrip()
             print(f"PID: {pid}")
             return pid
@@ -166,8 +167,11 @@ class RemoteSSHClient:
 
     async def make_directory(self, dir_name):
         if self.sftp is not None:
-            # TODO: Se le puede asignar permisos, por ejemplo al working directory
-            await self.sftp.mkdir(os.path.join(self.remote_path, dir_name))
+            if not await self.exists_remotely(dir_name) and self.sftp.isdir(os.path.join(self.remote_path, dir_name)):
+                # TODO: Se le puede asignar permisos, por ejemplo al working directory
+                await self.sftp.mkdir(os.path.join(self.remote_path, dir_name))
+            else:
+                print("folder already exists")
         else:
             print("SSH connection not created")
 
@@ -179,6 +183,9 @@ class RemoteSSHClient:
 
     async def exists_remotely(self, name):
         return await self.sftp.exists(os.path.join(self.remote_path, name))
+
+    async def same_size(self, local_name, remote_name):
+        return os.path.getsize(local_name) == await self.sftp.getsize(os.path.join(self.remote_path, remote_name))
 
 
 class JobExecutorWithSSH(JobExecutorAtResource):
@@ -248,7 +255,8 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         '''if remote_location != self.remote_path:
             raise Exception("JobExecutionWithSSH - upload_file - remote_location must be equal to self.remote_path")'''
 
-        pid = self.remote_client.upload_file(self.up_files[local_fileidx], self.remote_path)
+        pid = self.remote_client.upload_file_or_directory(
+                    self.up_files[local_fileidx]["local_path"], self.up_files[local_fileidx]["remote_path"])
 
         return pid
 
@@ -258,8 +266,8 @@ class JobExecutorWithSSH(JobExecutorAtResource):
     def remove_file(self, remote_filename):
         self.loop.run_until_complete(self.remote_client.remove_file(remote_filename))
 
-    async def submit(self, workspace, params):
-        await self.remote_client.run_client(params["script_file"])
+    def submit(self, workspace, params):
+        return self.loop.run_until_complete(self.remote_client.run_client(params["script_file"]))
 
     '''def remote_job_status(self, native_id):
         return self.remote_client.command_status()'''
@@ -289,8 +297,18 @@ class JobExecutorWithSSH(JobExecutorAtResource):
     def check_files(self, remote_files):
         return self.loop.run_until_complete(self.remote_client.check_files(remote_files))
 
-    def make_directory(self, dirname):
-        self.loop.run_until_complete(self.remote_client.make_directory(dirname))
+    def make_directories(self, dir_names):
+        statements = []
+        for dir_name in dir_names:
+            statements.append(self.remote_client.make_directory(dir_name))
+        self.loop.run_until_complete(asyncio.gather(*statements))
+
+    def exists(self, file_idx):
+        check = self.loop.run_until_complete(self.remote_client.exists_remotely(self.up_files[file_idx]["remote_path"]))
+        if check:
+            check &= self.loop.run_until_complete(self.remote_client.same_size(
+                        self.up_files[file_idx]["local_path"], self.up_files[file_idx]["remote_path"]))
+        return check
 
     def check_resource(self):
         """

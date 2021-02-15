@@ -317,7 +317,7 @@ tm_processes = {  # Preloaded processes
     "caaca280-2290-4625-b5c0-76bcfb06e9ac": "import-phylotree",
     "15aa399f-dd58-433f-8e94-5b2222cd06c9": "Clustal Omega",
     "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": "MSA ClustalW",
-    "ec40143f-ae32-4dac-9cfb-caa047e1adb1": "ClustalW-PhyMl"
+    "ec40143f-ae32-4dac-9cfb-caa047e1adb1": "ClustalW-PhyMl",
     "25932546-d26c-4367-8c81-0c682094d117": "ssh-transfer"
 }
 

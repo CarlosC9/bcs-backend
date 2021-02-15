@@ -57,6 +57,7 @@ asyncssh==2.5.0
 pytest==6.2.2
 selenium==3.141.0
 google_auth_oauthlib==0.4.2
+flower==0.9.7
 #cachier==1.2.2
 #tablib <- dictmapper (convert nested dict's to CSV)
 
