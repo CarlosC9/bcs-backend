@@ -70,6 +70,9 @@ class JobExecutorAtResource(ABC):
     def remove_job_workspace(self, name):  # After Job is completed (or if Job was not started)
         pass
 
+    def exists(self, local_path, remote_path):
+        pass
+
     def upload_file(self, workspace, local_filename, remote_location):
         pass
 

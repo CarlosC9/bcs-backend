@@ -88,7 +88,13 @@ class RemoteSSHClient:
             :param path: path to local folder or file. Folders must end with /
             :param remote_file_path: path to remote folder or file. Folders must end with /
             """
-            cmd = f"nohup bash -c \"rsync {local_path} {self.username}@{self.host}:{os.path.join(self.remote_path, remote_path)}\" >/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!"
+            remote_path = os.path.join(self.remote_path, remote_path)
+            remote_dir = os.path.split(remote_path)[0]
+            if remote_dir != "":
+                create_remote_dir_cmd = f"--rsync-path='mkdir -p {remote_dir} && rsync'"
+            else:
+                create_remote_dir_cmd = ""
+            cmd = f"nohup bash -c \"rsync {create_remote_dir_cmd} {local_path} {self.username}@{self.host}:{remote_path}\" >/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!"
             print(cmd)
             popen_pipe = os.popen(cmd)
             pid = popen_pipe.readline().rstrip()
@@ -251,14 +257,17 @@ class JobExecutorWithSSH(JobExecutorAtResource):
             pid = self.remote_client.remove_dir(self.remote_path)
         return pid
 
-    def upload_file(self, workspace, local_fileidx, remote_location):
+    def upload_file(self, workspace, local_filename, remote_location):
         '''if remote_location != self.remote_path:
             raise Exception("JobExecutionWithSSH - upload_file - remote_location must be equal to self.remote_path")'''
+        return self.remote_client.upload_file_or_directory(local_filename, remote_location)
 
-        pid = self.remote_client.upload_file_or_directory(
-                    self.up_files[local_fileidx]["local_path"], self.up_files[local_fileidx]["remote_path"])
-
-        return pid
+    # def upload_file(self, workspace, local_fileidx, remote_location):
+    #
+    #     pid = self.remote_client.upload_file_or_directory(
+    #                 self.up_files[local_fileidx]["local_path"], self.up_files[local_fileidx]["remote_path"])
+    #
+    #     return pid
 
     def move_file(self, remote_source, remote_destination):
         self.loop.run_until_complete(self.remote_client.move_file(remote_source, remote_destination))
@@ -303,11 +312,15 @@ class JobExecutorWithSSH(JobExecutorAtResource):
             statements.append(self.remote_client.make_directory(dir_name))
         self.loop.run_until_complete(asyncio.gather(*statements))
 
-    def exists(self, file_idx):
-        check = self.loop.run_until_complete(self.remote_client.exists_remotely(self.up_files[file_idx]["remote_path"]))
+    def exists(self, local_path, remote_path):
+        # check = self.loop.run_until_complete(self.remote_client.exists_remotely(self.up_files[file_idx]["remote_path"]))
+        # if check:
+        #     check &= self.loop.run_until_complete(self.remote_client.same_size(
+        #                 self.up_files[file_idx]["local_path"], self.up_files[file_idx]["remote_path"]))
+        # return check
+        check = self.loop.run_until_complete(self.remote_client.exists_remotely(remote_path))
         if check:
-            check &= self.loop.run_until_complete(self.remote_client.same_size(
-                        self.up_files[file_idx]["local_path"], self.up_files[file_idx]["remote_path"]))
+            check &= self.loop.run_until_complete(self.remote_client.same_size(local_path, remote_path))
         return check
 
     def check_resource(self):

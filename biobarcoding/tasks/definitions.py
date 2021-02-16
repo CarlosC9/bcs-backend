@@ -181,30 +181,26 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
     :param job_context:
     :return:
     """
-    print("Dentro")
-    data_dir = "/home/daniel/Documentos/GIT/bcs-backend/tests/ssh_data_test/"
-    test_dir = "/home/daniel/Documentos/GIT/bcs-backend/tests/"
+    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../tests/ssh_data_test")
     filepackage_list = [dict(transfer_type="upload", local_path=os.path.join(data_dir, "myfile.txt"),
-                             remote_path="myfile.txt"),
+                             remote_path="wks/myfile.txt"),
                         dict(transfer_type="upload", local_path=os.path.join(data_dir, "add_line.py"),
-                             remote_path="add_line.py"),
+                             remote_path="wks/add_line.py"),
                         dict(transfer_type="upload", local_path=os.path.join(data_dir, "count_lines.py"),
-                             remote_path="test_folder/count_lines.py"),
+                             remote_path="wks/count_lines.py"),
                         dict(transfer_type="upload", local_path=os.path.join(data_dir, "test.sh"),
-                             remote_path="test_folder_2/test.sh")
+                             remote_path="wks/test.sh")
                         ]
-    folders = ["test_folder", "test_folder_2"]
-
     tmp = json.loads(job_context)
     if "upload_files" not in tmp["process"]["inputs"]["parameters"]:
         tmp["process"]["inputs"]["parameters"]["upload_files"] = filepackage_list
 
-    print(tmp)
     job_executor = JobExecutorAtResourceFactory().get(tmp["resource"], tmp["process"]["inputs"]["parameters"])
 
     # TODO Preparar lista de ficheros (también en "tmp")
     # TODO Leer fichero actual
     transfer_state = tmp.get("transfer_state")
+    print(f"Transfer state: {transfer_state}")
     if transfer_state:
         i = transfer_state["idx"]
         pid = transfer_state["pid"]
@@ -212,21 +208,31 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
         i = 0
         pid = None
         #job_executor.make_directories(folders)
+
+    # Ith transfer
+    transfer_at_i = tmp["process"]["inputs"]["parameters"]["upload_files"][i] if i < len(filepackage_list) else dict(local_path="", remote_path="")
+    local_path = transfer_at_i["local_path"]
+    remote_path = transfer_at_i["remote_path"]  # Add workspace base?
     # TODO Comprobar si el fichero "i" está en el otro lado (puede que haya finalizado la transferencia)
     #  Local: filepackage_list[i].local...
     if i == len(filepackage_list):  # Transfer finished
+        print("Transfer finished")
         del tmp["transfer_state"]
         job_context = json.dumps(tmp)
         return job_context
-    elif job_executor.job_status(pid):  # Transfer is beeing executed
+    elif job_executor.job_status(pid):  # Transfer is being executed
+        print("Transfer executing")
+        sleep(5)
         return None, job_context
-    elif job_executor.exists(i):  # File i has been transferred successfully
+    elif job_executor.exists(local_path, remote_path):  # File i has been transferred successfully
+        print(f"File {i} transferred: : {local_path} -> {remote_path}. Moving to next")
         i += 1
         tmp["transfer_state"] = dict(idx=i, pid=None)
         job_context = json.dumps(tmp)
         return None, job_context
     else:  # Transfer file i
-        pid = job_executor.upload_file("", i, "")
+        print(f"Begin transfer {i}: {local_path} -> {remote_path}")
+        pid = job_executor.upload_file("", local_path, remote_path)
         tmp["transfer_state"] = dict(idx=i, pid=pid)
         job_context = json.dumps(tmp)
         return None, job_context
