@@ -257,6 +257,7 @@ tm_default_users = {  # Identities
     "f3848599-4aa3-4964-b7e1-415d478560be": "admin",
     "2a512320-cef7-41c6-a141-8380d900761b": "_anonymous",
     "27c6a285-dd80-44d3-9493-3e390092d301": "test_user",
+    "75f3373b-ee0e-4e13-85da-2045010f3939": "celery_user"
 }
 
 tm_default_groups = {
@@ -272,6 +273,7 @@ tm_default_roles = {
     "98da9069-5c62-44c3-8f69-985e439d106d": "data-importer",
     "a2aef599-a34d-4290-bde5-14899b70eff1": "bioinformatic-job-executor",
     "0b827be9-99c4-42d5-ad9a-8e7f3a4ebc39": "basic-user"
+    # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": "celery"
 }
 
 tm_authenticators = {  # Authenticator
@@ -333,10 +335,12 @@ tm_system_functions = {
     "1882a009-a285-45a4-bcd3-bb8e23bab2b6": "get job",
     "7b5e6398-3a35-400c-92cc-551687058cd0": "post job",
     "ab579882-0060-45ed-b747-5a43b39c8d25": "delete job"
+    # xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx": "put job"
+
 }
 
 
-# 75f3373b-ee0e-4e13-85da-2045010f3939
+#
 # 6bb4cbbe-d6cd-4c2e-bb59-782e3c9e9f6c
 # 44363784-d304-4e7e-a507-8bae48598e50
 # 8b62f4aa-d32a-4841-89f5-9ed50da44121
