@@ -4,6 +4,7 @@ import os
 import requests
 from billiard.context import Process
 
+from biobarcoding.jobs.ssh_resource import JobExecutorWithSSH
 from biobarcoding.tasks import celery_app
 from time import sleep, time
 
@@ -181,7 +182,7 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
     :param job_context:
     :return:
     """
-    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../tests/ssh_data_test")
+    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../tests/ssh_data_test")
     filepackage_list = [dict(transfer_type="upload", local_path=os.path.join(data_dir, "myfile.txt"),
                              remote_path="wks/myfile.txt"),
                         dict(transfer_type="upload", local_path=os.path.join(data_dir, "add_line.py"),
@@ -197,8 +198,6 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
 
     job_executor = JobExecutorAtResourceFactory().get(tmp["resource"], tmp["process"]["inputs"]["parameters"])
 
-    # TODO Preparar lista de ficheros (también en "tmp")
-    # TODO Leer fichero actual
     transfer_state = tmp.get("transfer_state")
     print(f"Transfer state: {transfer_state}")
     if transfer_state:
@@ -207,14 +206,12 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
     else:
         i = 0
         pid = None
-        #job_executor.make_directories(folders)
 
     # Ith transfer
     transfer_at_i = tmp["process"]["inputs"]["parameters"]["upload_files"][i] if i < len(filepackage_list) else dict(local_path="", remote_path="")
     local_path = transfer_at_i["local_path"]
     remote_path = transfer_at_i["remote_path"]  # Add workspace base?
-    # TODO Comprobar si el fichero "i" está en el otro lado (puede que haya finalizado la transferencia)
-    #  Local: filepackage_list[i].local...
+
     if i == len(filepackage_list):  # Transfer finished
         print("Transfer finished")
         del tmp["transfer_state"]

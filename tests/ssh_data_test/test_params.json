@@ -1,9 +1,27 @@
 {
   "script_file": "test.sh",
-  "local_workspace": "/home/daniel/Documentos/GIT/bcs-backend/tests/ssh_data_test",
-  "remote_workspace": "/home/dreyes/ssh_test",
+  "local_workspace": "/home/daniel/Documentos/GIT/bcs-backend/tests/ssh_data_test/",
+  "remote_workspace": "/home/dreyes",
   "host": "balder",
   "username": "dreyes",
   "known_hosts_filepath": "/home/daniel/.ssh/known_hosts",
-  "results_directory": "results"
+  "results_directory": "results",
+  "upload_files": [
+    {
+      "local_path": "/home/daniel/Documentos/GIT/bcs-backend/tests/ssh_data_test/myfile.txt",
+      "remote_path": "myfile.txt"
+    },
+    {
+      "local_path": ",/home/daniel/Documentos/GIT/bcs-backend/tests/ssh_data_test/add_line.py",
+      "remote_path": "add_line.py"
+    },
+    {
+      "local_path": "/home/daniel/Documentos/GIT/bcs-backend/tests/ssh_data_test/count_lines.py",
+      "remote_path": "count_lines.py"
+    },
+    {
+      "local_path": "/home/daniel/Documentos/GIT/bcs-backend/tests/ssh_data_test/test.sh",
+      "remote_path": "test.sh"
+    }
+  ]
 }

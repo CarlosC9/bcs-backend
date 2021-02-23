@@ -15,10 +15,11 @@ class RemoteSSHClient:
         self.username = username
         self.known_hosts_filepath = known_hosts_filepath
         self.remote_path = remote_path
-        self.pid = None
+        self.job_status_dir = os.path.join("/tmp", username + "_jobs_status")
         self.client = None
         self.sftp = None
         self.conn = None
+        self.last_job_remotely = None
 
     async def connect(self):
         """Open connection to remote host."""
@@ -30,6 +31,11 @@ class RemoteSSHClient:
                 self.conn, self.client = await asyncssh.create_connection(asyncssh.SSHClient, self.host, **kwargs)
                 self.sftp = await self.conn.start_sftp_client()
                 await self.sftp.chdir(self.remote_path)  # change remote working directory
+                if not os.path.isdir(self.job_status_dir): #create folder for saving local jobs exit status
+                    os.mkdir(self.job_status_dir)
+                    #TODO meter exit status en remote path directamente
+                if not await self.exists_remotely(self.job_status_dir): #create folder for saving remote jobs exit status
+                    await self.make_directory(self.job_status_dir)
             except Exception as error:
                 print(f'Connection failed: \
                    did you remember to create a known_host file? {error}')
@@ -44,90 +50,130 @@ class RemoteSSHClient:
             self.conn.close()
 
     async def run_client(self, script_file):
-        popen_pipe = os.popen(f"ssh {self.username}@{self.host} 'cd {self.remote_path} && chmod +x {script_file} && nohup ./{script_file} >/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!'")
+        #TODO cambiar ruta mtest2 y mtest2.err a self.remote_path y mirar como dar parámetros al script_file de manera standard
+        cmd = f"ssh {self.username}@{self.host} 'cd {self.remote_path} && chmod +x {script_file} && (nohup ./{script_file}  >/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!; wait $!; echo $? >> {self.job_status_dir}/$!.exit_status)'"
+        print(cmd)
+        popen_pipe = os.popen(cmd)
         pid = popen_pipe.readline().rstrip()
+        self.last_job_remotely = True
         print(f"PID: {pid}")
         return pid
 
-    def command_status(self):
+    async def command_status(self, pid):
         """
         Get Job status
-        :return status: -1: command not executed; 0: running; 1: not running
+        :return exit_status
         """
-        status = -1
-        if self.pid is not None:
-            status = os.system(f"ssh {self.username}@{self.host} 'ps --pid {self.pid}' >/dev/null 2>&1")
+        exit_status = -1#means no process with this pid
+        if pid is not None:
+            if self.last_job_remotely:
+                #TODO el directorio de job status va a ser el mismo self.remote_path
+                if await self.exists_remotely(f"{self.job_status_dir}/{pid}.exit_status"):
+                    cmd = f"ssh {self.username}@{self.host} 'cat {self.job_status_dir}/{pid}.exit_status'"
+                    popen_pipe = os.popen(cmd)
+                    exit_status = popen_pipe.readline().strip()
+                else:
+                    exit_status = -2 #-2 means running
+            else:
+                if os.path.isfile(f"{self.job_status_dir}/{pid}.exit_status"):
+                    cmd = f"cat {self.job_status_dir}/{pid}.exit_status"
+                    popen_pipe = os.popen(cmd)
+                    exit_status = popen_pipe.readline().strip()
+                else:
+                    exit_status = -2#-2 means running
+            print(f"Exit Status: {exit_status}")
         else:
-            print("No process being executing with the SSH Client")
-        return status
+            print(f"No process being executing with PID: {pid}")
+        return int(exit_status)
 
-    def kill_process(self):
-        if self.pid is not None:
-            os.system(f"ssh {self.username}@{self.host} 'kill -9 {self.pid}'")
-            self.pid = None
+    def kill_process(self, pid):
+        if pid is not None:
+            if self.last_job_remotely:
+                os.system(f"ssh {self.username}@{self.host} 'kill -9 {pid}'")
+            else:
+                os.system(f"kill -9 {pid}")
         else:
             print("No command has been executed")
 
-    '''async def upload_file(self, file_path, remote_file_path):
-        """
-        Upload multiple files to remote_path.
-
-        :param file_path: List of paths to local files.
-        :param remote_file_path: List of paths to local files.
-        """
-        if self.sftp is not None:
-            await self.sftp.put(file_path, remotepath=os.path.join(self.remote_path, remote_file_path))
-            print(f'Finished uploading {file_path} to {self.remote_path} on {self.host}')
-        else:
-            print("SSH connection not created")'''
-
-    def upload_file_or_directory(self, local_path, remote_path):
+    def upload_directory(self, local_path, remote_path):
             """
             Upload multiple files to remote_path.
 
-            :param path: path to local folder or file. Folders must end with /
-            :param remote_file_path: path to remote folder or file. Folders must end with /
+            :param path: path to local folder.
+            :param remote_file_path: path to remote folder relative to self.remote_path.
             """
-            remote_path = os.path.join(self.remote_path, remote_path)
-            remote_dir = os.path.split(remote_path)[0]
-            if remote_dir != "":
-                create_remote_dir_cmd = f"--rsync-path='mkdir -p {remote_dir} && rsync'"
+            remote_path = os.path.join(self.remote_path, remote_path, "")#ensure it always ends with / (the separator)
+            remote_dir = os.path.join(self.remote_path, os.path.split(remote_path)[0])
+            if remote_dir != "" and False:
+                create_remote_dir_cmd = f"--rsync-path='mkdir -p {remote_dir} & rsync'"
             else:
                 create_remote_dir_cmd = ""
-            cmd = f"nohup bash -c \"rsync {create_remote_dir_cmd} {local_path} {self.username}@{self.host}:{remote_path}\" >/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!"
+            #-av for folders TODO mirar si es necesaria la v
+            cmd = f"(nohup bash -c \"rsync -av {create_remote_dir_cmd} {local_path} {self.username}@{self.host}:{remote_path}\" >/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!; wait $!; echo $? >> {self.job_status_dir}/$!.exit_status)"
             print(cmd)
             popen_pipe = os.popen(cmd)
+            self.last_job_remotely = False
             pid = popen_pipe.readline().rstrip()
             print(f"PID: {pid}")
             return pid
 
-    async def upload_files_or_directories(self, files_dir_paths):
-        """
-        Upload multiple files and directories to remote_path.
-
-        :param files_dir_paths: List of paths to local files or directories.
-        :type files_dir_paths: List[str]
-        """
+    async def download_directory(self, remote_dir, local_dir):
+        """Download file from remote host."""
+        pid = None
         if self.sftp is not None:
-            await self.sftp.put(files_dir_paths, recurse=True)
-            print(
-                f'Finished uploading {len(files_dir_paths)} files or directories to {self.remote_path} on {self.host}')
+            remote_dir = os.path.normpath(os.path.join(self.remote_path, remote_dir)) #ensure it doesn't finish with / (separator)
+            if self.sftp.isdir(os.path.join(self.remote_path, remote_dir)):
+                local_dir = os.path.join(local_dir, "")#ensure that it ends with / (separator)
+                cmd = f"(nohup \"scp -r {self.username}@{self.host}:{remote_dir} {local_dir}\" (>/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!; wait $!; echo $? >> {self.job_status_dir}/$!.exit_status))"
+                print(cmd)
+                popen_pipe = os.popen(cmd)
+                self.last_job_remotely = False
+                pid = popen_pipe.readline().rstrip()
+                print(f"PID: {pid}")
+            else:
+                print("The remote directory doesn't exist")
         else:
             print("SSH connection not created")
+
+    def upload_file(self, local_path, remote_path):
+            """
+            Upload file to remote_path.
+
+            :param path: path to local file.
+            :param remote_file_path: path to file relative to self.remote_path.
+            """
+            remote_path = os.path.join(self.remote_path, remote_path)
+            remote_dir = os.path.join(self.remote_path, os.path.split(remote_path)[0])
+            if remote_dir != "" and False:
+                create_remote_dir_cmd = f"--rsync-path='mkdir -p {remote_dir} & rsync'"
+            else:
+                create_remote_dir_cmd = ""
+            #-av for folders
+            cmd = f"(nohup bash -c \"rsync {create_remote_dir_cmd} {local_path} {self.username}@{self.host}:{remote_path}\" >/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!; wait $!; echo $? >> {self.job_status_dir}/$!.exit_status)"
+            print(cmd)
+            popen_pipe = os.popen(cmd)
+            self.last_job_remotely = False
+            pid = popen_pipe.readline().rstrip()
+            print(f"PID: {pid}")
+            return pid
 
     async def download_file(self, remote_file, local_file):
         """Download file from remote host."""
+        pid = None
         if self.sftp is not None:
-            await self.sftp.get(os.path.join(self.remote_path, remote_file), localpath=local_file)
+            remote_file = os.path.join(self.remote_path, remote_file)
+            if self.sftp.isfile(remote_file):
+                cmd = f"(nohup \"scp {self.username}@{self.host}:{remote_file} {local_file}\" (>/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!; wait $!; echo $? >> {self.job_status_dir}/$!.exit_status))"
+                print(cmd)
+                popen_pipe = os.popen(cmd)
+                self.last_job_remotely = False
+                pid = popen_pipe.readline().rstrip()
+                print(f"PID: {pid}")
+            else:
+                print("The remote file doesn't exist")
         else:
             print("SSH connection not created")
-
-    async def download_files_or_directories(self, remote_file_dir, local_file_dir):
-        """Download file from remote host."""
-        if self.sftp is not None:
-            await self.sftp.get(os.path.join(self.remote_path, remote_file_dir), localpath=local_file_dir, recurse=True)
-        else:
-            print("SSH connection not created")
+        return pid
 
     async def move_file(self, filepath, new_filepath):
         if self.sftp is not None:
@@ -136,32 +182,9 @@ class RemoteSSHClient:
         else:
             print("SSH connection not created")
 
-    def remove_dir(self, dirname):
-        popen_pipe = os.popen(
-            f"nohup ssh {self.username}@{self.host} rm -r {dirname} >/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!")
-        pid = popen_pipe.readline().rstrip()
-        print(f"PID: {pid}")
-        return pid
-
     async def remove_file(self, file):
         if self.sftp is not None:
             await self.sftp.remove(os.path.join(self.remote_path, file))
-        else:
-            print("SSH connection not created")
-
-    async def remove_files(self, files):
-        """
-        Upload multiple files to a remote directory.
-
-        :param files: List of paths to local files.
-        :type files: List[str]
-        """
-        if self.sftp is not None:
-            statements = []
-            for file in files:
-                statements.append(self.remove_file(file))
-            await asyncio.gather(*statements)
-            print(f'Finished removing {len(files)} files from {self.remote_path} on {self.host}')
         else:
             print("SSH connection not created")
 
@@ -173,7 +196,7 @@ class RemoteSSHClient:
 
     async def make_directory(self, dir_name):
         if self.sftp is not None:
-            if not await self.exists_remotely(dir_name) and self.sftp.isdir(os.path.join(self.remote_path, dir_name)):
+            if not await self.sftp.isdir(os.path.join(self.remote_path, dir_name)):
                 # TODO: Se le puede asignar permisos, por ejemplo al working directory
                 await self.sftp.mkdir(os.path.join(self.remote_path, dir_name))
             else:
@@ -181,11 +204,11 @@ class RemoteSSHClient:
         else:
             print("SSH connection not created")
 
-    '''async def remove_directory(self, dir_path):
+    async def remove_directory(self, dir_path):
         if self.sftp is not None:
-            await self.sftp.rmtree(dir_path)
+            await self.sftp.rmtree(os.path.join(self.remote_path, dir_path))
         else:
-            print("SSH connection not created")'''
+            print("SSH connection not created")
 
     async def exists_remotely(self, name):
         return await self.sftp.exists(os.path.join(self.remote_path, name))
@@ -216,8 +239,8 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         self.local_workspace = params['local_workspace'] if 'local_workspace' in params else None
 
     def check(self):
-        exit_status = os.system(f"nc -z {self.host} 22")
-        if exit_status:  # if exit_status is 0 the server is accessible else it is not
+        not_accessible = os.system(f"nc -z {self.host} 22")
+        if not_accessible:  # if not_accessible is 0 the server is accessible else it is not
             return False
         else:
             return True
@@ -244,30 +267,16 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         pass
 
     def create_job_workspace(self, name):
-        if self.remote_path == name:
-            # it is empty because the remote_path is already a parameter in remote_client
-            self.loop.run_until_complete(self.remote_client.make_directory(""))
-            self.remote_client.upload_file_or_directory(self.local_workspace)
-        else:
-            print("The Job Workspace should be equal to remote_path")
+        self.loop.run_until_complete(self.remote_client.make_directory(name))
 
-    def remove_job_workspace(self, name):  # After Job is completed (or if Job was not started)
-        if name != self.remote_path:
-            raise Exception("JobExecutionWithSSH - upload_file - remote_location must be equal to self.remote_path")
-            pid = self.remote_client.remove_dir(self.remote_path)
-        return pid
+    def remove_job_workspace(self, name):
+        self.loop.run_until_complete(self.remote_client.remove_directory(name))
 
     def upload_file(self, workspace, local_filename, remote_location):
-        '''if remote_location != self.remote_path:
-            raise Exception("JobExecutionWithSSH - upload_file - remote_location must be equal to self.remote_path")'''
-        return self.remote_client.upload_file_or_directory(local_filename, remote_location)
+        return self.remote_client.upload_file(local_filename, remote_location)
 
-    # def upload_file(self, workspace, local_fileidx, remote_location):
-    #
-    #     pid = self.remote_client.upload_file_or_directory(
-    #                 self.up_files[local_fileidx]["local_path"], self.up_files[local_fileidx]["remote_path"])
-    #
-    #     return pid
+    def upload_directory(self, workspace, local_filename, remote_location):
+        return self.remote_client.upload_directory(local_filename, remote_location)
 
     def move_file(self, remote_source, remote_destination):
         self.loop.run_until_complete(self.remote_client.move_file(remote_source, remote_destination))
@@ -278,47 +287,22 @@ class JobExecutorWithSSH(JobExecutorAtResource):
     def submit(self, workspace, params):
         return self.loop.run_until_complete(self.remote_client.run_client(params["script_file"]))
 
-    '''def remote_job_status(self, native_id):
-        return self.remote_client.command_status()'''
-
     def job_status(self, native_id):
-        for proc in psutil.process_iter():
-            try:
-                if native_id == proc.pid:
-                    return True
-            except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
-                pass
-        return False;
+        return self.loop.run_until_complete(self.remote_client.command_status(native_id))
 
     def cancel_job(self, native_id):
-        self.remote_client.kill_process()
+        self.remote_client.kill_process(native_id)
 
     # SSH
-    def send_files_or_directories(self, files):
-        self.loop.run_until_complete(self.remote_client.upload_files_or_directories(self, files))
+    def retrieve_file(self, remote_file, local_file):
+        self.loop.run_until_complete(self.remote_client.download_file(remote_file, local_file))
 
-    def retrieve_files_or_directories(self, remote_files_dirs, local_dir):
-        self.loop.run_until_complete(self.remote_client.download_files_or_directories(remote_files_dirs, local_dir))
-
-    def remove_files(self, remote_files):
-        self.loop.run_until_complete(self.remote_client.remove_files(remote_files))
-
-    def check_files(self, remote_files):
-        return self.loop.run_until_complete(self.remote_client.check_files(remote_files))
-
-    def make_directories(self, dir_names):
-        statements = []
-        for dir_name in dir_names:
-            statements.append(self.remote_client.make_directory(dir_name))
-        self.loop.run_until_complete(asyncio.gather(*statements))
+    def retrieve_directory(self, remote_dir, local_dir):
+        self.loop.run_until_complete(self.remote_client.download_directory(remote_dir, local_dir))
 
     def exists(self, local_path, remote_path):
-        # check = self.loop.run_until_complete(self.remote_client.exists_remotely(self.up_files[file_idx]["remote_path"]))
-        # if check:
-        #     check &= self.loop.run_until_complete(self.remote_client.same_size(
-        #                 self.up_files[file_idx]["local_path"], self.up_files[file_idx]["remote_path"]))
-        # return check
         check = self.loop.run_until_complete(self.remote_client.exists_remotely(remote_path))
+        #todo mirar que
         if check:
             check &= self.loop.run_until_complete(self.remote_client.same_size(local_path, remote_path))
         return check
@@ -338,12 +322,8 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         # TODO: same as create_job_workspace?
         pass
 
-    def execute(self, commands):
-        # TODO: same as submit?
-        pass
-
     def check_executing_process(self):
-        # TODO: same as create_job_workspace?
+
         pass
 
     def remove_execution_directory(self, name):
