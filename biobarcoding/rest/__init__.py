@@ -9,7 +9,7 @@ from alchemyjsonschema import SchemaFactory, StructuralWalker
 from attr import attrs, attrib
 from flask import Response, Blueprint, g, request
 from flask.views import MethodView
-from sqlalchemy import orm, and_
+from sqlalchemy import orm, and_, or_
 from sqlalchemy.pool import StaticPool
 from typing import Dict
 
@@ -709,3 +709,85 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
                            methods=['GET'])
 
     return bp_entity, CrudAPI
+
+
+
+
+def filter_parse(orm, filter_str: str):
+    """
+    @param orm_bcs: <ORMSqlAlchemy>
+    @param orm_chado: <ORMSqlAlchemy>
+    @param filter_str:
+        [{"campo1": "<condicion>", "campo2": "<condicion>"}, {"campo1": "<condicion"}]
+        <condicion>: {"op": "<operador", "left": "<valor>", "right": <valor>, "unary": <valor>}
+    @return: (bcs_filter, chado_filter)
+    """
+    def get_condition(orm, field, condition):
+        obj = orm[field]
+        op = condition["op"]
+        value, left, right = condition.get("unary"), condition.get("left"), condition.get("right")
+        if op == "in":
+            return obj.in_(value)
+        elif op == "eq":
+            return obj == value
+        elif op == "between":
+            return obj.between_(left, right)
+        return True
+
+    try:
+        import json
+        filter = json.loads(filter_str)
+        unk_fields = []
+        or_clause = []
+        for clause in filter:
+            and_clause = []
+            for field, condition in clause.items():
+                if field in orm: # BCS
+                    and_clause.append(get_condition(orm, field, condition))
+                else:
+                    print(f'Unknown column "{field}" for the given tables.')
+                    unk_fields.append(field)
+            or_clause.append(and_(*and_clause))
+        return or_(*or_clause), unk_fields
+    except Exception as e:
+        print(e)
+        return False, False
+
+
+# def filter_parse(filter_str: str) -> filter_chado, filter_bcs:
+#     """
+#     [{"campo1": "<condicion>", "campo2": "<condicion>"}, {"campo1": "<condicion"}]
+#     <condicion>: {"op": "<operador", "left": "<valor>", "right": <valor>, "unary": <valor>}
+#
+#     :param filter_str:
+#     :return:
+#     """
+#     def append_bcs_condition(bcs_and_clause, field, condition):
+#         if field == "...":
+#             obj = ...
+#         elif field == "...":
+#             obj = ...
+#         op = condition["op"]
+#         if condition == "in":
+#             v = condition["unary"]
+#             cond = obj.in_(v)
+#         elif condition == "eq":
+#             cond = obj == v
+#         elif condition == "between":
+#             left = condition["left"]
+#             right = condition["right"]
+#             cond = obj.between_(left, right)
+#
+#     filter = json.loads(filter_str)
+#     bcs_where = ...
+#     chado_where = ...
+#     for and_clause in filter:
+#         bcs_and_clause = ...
+#         chado_and_clause = ...
+#         for field, condition in and_clause.items():
+#             if field in (...): # Chado fields
+#                 append_chado_condition(chado_and_clause, field, condition)
+#             else: # BCS
+#                 append_bcs_condition(bcs_and_clause, field, condition)
+#         concatenate_
+#     return filter(bcs_where), filter(chado_where)
