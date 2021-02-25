@@ -109,7 +109,7 @@ def wf1_prepare_workspace(job_context):
     :param job_context:
     :return:
     """
-    # tmp = json.loads(job_context)
+    tmp = json.loads(job_context)
 
     # Example access RESTful endpoint of "bcs-backend"
     # requests.get(job_context["endpoint_url"]+f"/api/jobs/{job_context['job_id']}")
@@ -118,8 +118,11 @@ def wf1_prepare_workspace(job_context):
     #  requests.put(job_context["endpoint_url"] + f"/api/jobs/{job_context['job_id']}/status", "preparing_workspace")
 
     # Get resource manager: ssh, galaxy, other
-    # job_executor = JobExecutorAtResourceFactory()
-    # job_executor = JobExecutorAtResourceFactory.get(tmp["resource"]["jm_type"], tmp["process"])
+    job_executor = JobExecutorAtResourceFactory.get(tmp["resource"]["jm_type"], tmp["process"])
+    wid = job_executor.create_job_workspace(tmp['job_id'])
+    tmp['process']['w_id'] = wid
+    job_context = json.dumps(tmp)
+    # se puede dar que ese workspace ya exista o no funcione galaxy
 
     # Launch subprocess if needed
     # if "_pid" not in tmp:
@@ -141,7 +144,9 @@ def wf1_prepare_workspace(job_context):
     #     job_context = json.dumps(tmp)
     #     append_text(outfile, "prepare_workspace FINISHED")
     #     return job_context  # Return nothing (None) or <context> (if context changed) to move to the default next task
-    pass
+    # TODO update Job status to "preparing_workspace"
+    #  requests.put(job_context["endpoint_url"] + f"/api/jobs/{job_context['job_id']}/status", "preparing_workspace")
+    return job_context
 
 
 @celery_app.task(name="export")

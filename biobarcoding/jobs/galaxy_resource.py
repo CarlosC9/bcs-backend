@@ -583,6 +583,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         self.connect()
         gi = self.galaxy_instance
         history = create_history(gi, name)
+        # tengo que retornar algo diferente si no se puede conectar a galaxy
         self.disconnect()
         return history['id']
 
@@ -590,6 +591,14 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         self.connect()
         gi = self.galaxy_instance
         gi.histories.delete_history(history_id(gi, workspace))
+
+    def upload_file(self, workspace, local_filename, remote_location):
+        self.connect()
+        gi = self.galaxy_instance
+        # invocation =  load_input_files(gi,i nput_files, workflow, history)
+        # return transfer state
+        pass
+
 
     def submit(self, workspace, params):
         # "process": {"name": "MSA ClustalW",
@@ -609,10 +618,11 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         self.connect()
         gi = self.galaxy_instance
         input_params = params['inputs']['parameters']
-        inputs = params['inputs']['data']  # mapeo de datasets (nombres y steps) #estoy hay que tenerlo bien armado
+        inputs = params['inputs']['data']  # mapeo de datasets (nombres y steps) #esto hay que tenerlo bien armado
         workflow = params['name']
         w_id = workflow_id(gi, workflow)
         # dataset = gi.histories.show_matching_datasets(workspace) -> lista con los data set en un workspace
+        #hacer solo el tema de los inputs (normalmente solo hay un data set)
         datamap, parameters = params_input_creation(gi, workflow, inputs, input_params,
                                                     history_name=workspace)  # catch error
         history_id = gi.histories.get_histories(name=workspace)[0]['id']
