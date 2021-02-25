@@ -8,6 +8,7 @@ from flask.views import MethodView
 import json
 
 from sqlalchemy import and_
+from alchemyjsonschema import SchemaFactory, StructuralWalker
 
 from biobarcoding.common.helpers import is_integer
 from biobarcoding.db_models import DBSession
@@ -42,7 +43,7 @@ class JobAPI(MethodView):
             r.content = query.all()
         else:
             # Return detail and status of single job
-            db.query(Job).filter(Job.id == job_id).first()
+            r.content = db.query(Job).filter(Job.id == job_id).first()
         return r.get_response()
 
     def post(self):
@@ -101,8 +102,10 @@ class JobAPI(MethodView):
 
         # PROCESS
         d.process = DottedDict()
+        d.status = "created"
         d.process.inputs = process_params
         d.process.name = process_in_resource.native_process_id
+        d.endpoint_url = "http//:localhost:5000/" #TODO esto debe de salir del config file. cómo?
         # RESOURCE
         d.resource = DottedDict()
         d.resource.name = resource.name
@@ -114,7 +117,7 @@ class JobAPI(MethodView):
         job = Job()
         job.resource = resource
         job.process = process
-        job.status = "created"
+        job.status = d.status
         job.inputs = json.dumps(process_params.to_json())
         session.add(job)
         session.commit()
@@ -132,6 +135,7 @@ class JobAPI(MethodView):
 
         return make_response(jsonify(response_object)), 200
 
+    @bcs_session()
     def delete(self, job_id):
         # Cancel Job
         msg = f'DELETE {request.path}\nDeleting job {id}'
@@ -142,12 +146,17 @@ class JobAPI(MethodView):
         }
         return make_response(jsonify(responseObject)), 200
 
+    @bcs_session()
     def put(self, job_id):
         # Update job? What would be the utility
-        msg = f'PUT {request.path}\nModifying job {id}'
+        msg = f'PUT {request.path}\nModifying job {job_id}'
         print(msg)
-        self._check_data()
-
+        db = g.bcs_session.db_session
+        # r = ResponseObject()
+        req = request.get_json()
+        job = db.query(Job).filter(Job.id == job_id).first()
+        job.status = req['status']
+        db.add(job)
         responseObject = {
         'status': 'success',
         'message': msg
@@ -159,4 +168,4 @@ class JobAPI(MethodView):
         self.page_size = int(data.get(self.page_size, 1000000))
 
 
-register_api(bp_jobs, JobAPI, "jobs", f"{bcs_api_base}/jobs/", "job_id")
+register_api(bp_jobs, JobAPI, "jobs", f"{bcs_api_base}/jobs/", pk ="job_id")
