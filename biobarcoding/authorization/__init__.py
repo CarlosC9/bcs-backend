@@ -151,9 +151,12 @@ if __name__ == '__main__':
     org_id.identity = ident
     org_id.organization = organization
 
+    # Examples uses of "in". The implicit subjects are current user and current object
+    #  so, "role" applies to the role of the current user, and equally, "group"
     in_examples = ["role in ('admin', 'advanced_user')",
                    "group in ('nextgendem', 'students')"]
 
+    # Example combining several IN conditions with AND and ON
     full_examples = ["(role in ('admin', 'advanced_user') and group in ('nextgendem')) or not role in ('people') and not group in ('students')"]
 
     for e in in_examples:

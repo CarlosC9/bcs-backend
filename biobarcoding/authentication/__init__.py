@@ -202,10 +202,18 @@ def deserialize_session(s, return_error_response_if_none=True) -> BCSSession:
 
 class bcs_session(object):
     """
-    Decorator for methods requiring: Session, and Authentication/Authorization
+    Decorator for RESTful methods requiring: Session, and Authentication/Authorization
     @bcs_session(read_only=False)
     """
     def __init__(self, read_only=False, authr=None):
+        """
+        The authentication "can execute" rule can be:
+          - None: assume the function name, using "reflection"
+          - Simple string: a literal with a function name regarding permissions
+          - String following an "authr_expression" Authorization Rule syntax
+        :param read_only: True if it is a read only function, regarding database
+        :param authr: Authentication rule
+        """
         self.read_only = read_only
         self.authr = authr
 
@@ -232,21 +240,24 @@ class bcs_session(object):
                     g.bcs_session.db_session = db_session
                     ident = db_session.query(Identity).get(g.bcs_session.identity_id)
                     g.bcs_session.identity = ident
-                    chado_db_session = DBSessionChado() # Chado test
+                    chado_db_session = DBSessionChado()  # Chado test
                     g.bcs_session.chado_db_session = chado_db_session   # Chado test
                     try:  # Protect "db_session"
                         # Get execution rule
                         if self.authr is None or bcs_session.is_function_name(self.authr):
                             if self.authr is None:
+                                # (be careful of refactorizations)
                                 f_code_name = f"{inspect.getmodule(f).__name__}.{f.__name__}"
                             else:
                                 f_code_name = self.authr
-                            # Search authorization database using full function name (be careful of refactorizations)
+                            # Search authorization database "f_code_name"
                             ahora = datetime.now()
                             function = db_session.query(SystemFunction).filter(SystemFunction.name == f_code_name).first()
                             if function:
                                 obj_type = db_session.query(ObjectType).filter(
                                     ObjectType.name == "sys-functions").first()
+                                # Rule stored in the database. Find the active one for the desired function
+                                # TODO if there is no ACLExpression, search ACL elements (or maybe generate an expression from the ACL elements)
                                 rule = db_session.query(ACLExpression.expression). \
                                     filter(and_(
                                     or_(ACLExpression.validity_start is None, ACLExpression.validity_start <= ahora),
@@ -254,9 +265,9 @@ class bcs_session(object):
                                     join(ACLExpression.acl).filter(
                                     and_(ACL.object_type == obj_type.id, ACL.object_id == function.uuid)).first()
                             else:
-                                rule = None
+                                rule = None  # If the function name cannot be found, rule = None -> so "can execute"
                         else:
-                            rule = self.authr  # Rule specified literally
+                            rule = self.authr  # Rule specified literally, needs to be parsed
                         # Check execution permission
                         if rule:
                             ast = string_to_ast(authr_expression, rule)
@@ -273,11 +284,11 @@ class bcs_session(object):
                     except:
                         traceback.print_exc()
                         db_session.rollback()
-                        chado_db_session.rollback() # Chado test
+                        chado_db_session.rollback()  # Chado test
                         raise
                     finally:
                         DBSession.remove()
-                        DBSessionChado.remove() # Chado test
+                        DBSessionChado.remove()  # Chado test
                 except:
                     res = None
                 finally:

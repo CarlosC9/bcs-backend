@@ -70,11 +70,14 @@ RUN apt-get update && \
     perl \
     libdbi-perl \
     libgo-perl \
+    libv-perl \
     libpq-dev \
     cpanminus \
     libparse-recdescent-perl \
+    bioperl \
+    wget \
+    unzip \
 	&& apt-get clean
-
 
 # COMMON
 RUN pip3 install --no-cache-dir --upgrade pip && \
@@ -102,11 +105,20 @@ ENV C_FORCE_ROOT=1
 
 #Docker initialization configuration
 
-#Install perl dependencies
-RUN cpanm DBD::Pg
-RUN cpanm DBIx::DBSchema
-RUN cpanm GO::Utils
-RUN cpanm DBIx::DBStag --force
+# Chado Perl "Bio" module
+
+RUN cpan install Bundle::GMOD && \
+    cpanm DBD::Pg DBIx::DBSchema GO::Utils Bio::GMOD DBIx::DBStag
+
+RUN bio_path=`perl -MV=Bio::GMOD | tail -1 | awk '{$1=$1};1' | cut -f 1 -d ":"` && \
+    bio_path=`dirname ${bio_path}` && \
+    export bio_path=`dirname ${bio_path}`
+
+RUN wget https://github.com/GMOD/Chado/archive/master.zip -O /tmp/chado_src.zip && \
+    unzip -o /tmp/chado_src.zip -d /tmp/chado_project && \
+    cp -r /tmp/chado_project/Chado-master/chado/lib/Bio ${bio_path}/ && \
+    rm /tmp/chado_src.zip /tmp/chado_project -r && \
+    cpan Bio::Chado::Schema
 
 # gunicorn --workers=1 --log-level=debug --timeout=2000 --bind 0.0.0.0:80 biobarcoding.rest.main:app
 #CMD ["/usr/local/bin/gunicorn", "--workers=3", "--log-level=debug", "--timeout=2000", "--bind", "0.0.0.0:80", "biobarcoding.rest.main:app"]
