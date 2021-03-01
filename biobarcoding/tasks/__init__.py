@@ -22,24 +22,7 @@ def is_port_open(host="localhost", port=6379):
     return result_of_check == 0
 
 def create_celery_user():
-    session = DBSession()
-    test_user_id = "celery_user"
-    authenticator_id = "75f3373b-ee0e-4e13-85da-2045010f3939"
-    iden = session.query(Identity).filter(Identity.name == test_user_id).first()
-    authentication = session.query(Authenticator).filter(Authenticator.uuid == authenticator_id).first()
-    iden_authentication = session.query(IdentityAuthenticator). \
-        filter(
-        and_(IdentityAuthenticator.identity == iden, IdentityAuthenticator.authenticator == authentication)).first()
-    if not iden_authentication:
-        iden_authentication = IdentityAuthenticator()
-        iden_authentication.identity = iden
-        iden_authentication.authenticator = authentication
-        iden_authentication.name = "celery_user"
-        iden_authentication.email = "celery@celery.org"
-        session.add(iden_authentication)
-        #TODO rol: only put job
-    session.commit()
-
+    pass
 
 
 def change_status(status,job_context):
@@ -107,7 +90,6 @@ def initialize_celery(flask_app):
     celery.Task = ContextTask
 
     biobarcoding.celery = celery
-    create_celery_user()
 
 
 # CELERY APP, used by CELERY TASKS
