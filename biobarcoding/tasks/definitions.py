@@ -184,14 +184,14 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
     """
     data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../tests/ssh_data_test")
     filepackage_list = [dict(transfer_type="upload", local_path=os.path.join(data_dir, "myfile.txt"),
-                             remote_path="wks/myfile.txt"),
+                             remote_path="myfile.txt"),
                         dict(transfer_type="upload", local_path=os.path.join(data_dir, "add_line.py"),
-                             remote_path="wks/add_line.py"),
+                             remote_path="add_line.py"),
                         dict(transfer_type="upload", local_path=os.path.join(data_dir, "count_lines.py"),
-                             remote_path="wks/count_lines.py"),
+                             remote_path="count_lines.py"),
                         dict(transfer_type="upload", local_path=os.path.join(data_dir, "test.sh"),
-                             remote_path="wks/test.sh")
-                        ]
+                             remote_path="test.sh")]
+
     tmp = json.loads(job_context)
     if "upload_files" not in tmp["process"]["inputs"]["parameters"]:
         tmp["process"]["inputs"]["parameters"]["upload_files"] = filepackage_list
@@ -217,7 +217,7 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
         del tmp["transfer_state"]
         job_context = json.dumps(tmp)
         return job_context
-    elif job_executor.job_status(pid):  # Transfer is being executed
+    elif job_executor.job_status(pid) == "running":  # Transfer is being executed
         print("Transfer executing")
         sleep(5)
         return None, job_context
