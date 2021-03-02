@@ -1,5 +1,6 @@
 from biobarcoding.db_models import DBSessionChado as chado_session
-from biobarcoding.rest import Issue, IType
+from biobarcoding.db_models.chado import Analysis
+from biobarcoding.rest import Issue, IType, filter_parse, paginator
 
 
 def create_analyses(program, programversion, name = None, sourcename = None, description = None, algorithm = None, sourceversion = None, sourceuri = None, timeexecuted = None):
@@ -76,31 +77,30 @@ def delete_analyses(analysis_id=None, ids=None, name=None, program=None, program
     return issues, content, status
 
 
-def __get_query(analysis_id=None, ids=None, name=None, program=None, programversion=None, algorithm=None, sourcename=None, sourceversion=None, sourceuri=None, description=None, feature_id=None):
-    from biobarcoding.db_models.chado import Analysis
+def __get_query(id=None, **kwargs):
     query = chado_session.query(Analysis)
-    if analysis_id:
-        query = query.filter(Analysis.analysis_id==analysis_id)
-    if ids:
-        query = query.filter(Analysis.analysis_id.in_(ids))
-    if name:
-        query = query.filter(Analysis.name==name)
-    if program:
-        query = query.filter(Analysis.program==program)
-    if programversion:
-        query = query.filter(Analysis.programversion==programversion)
-    if algorithm:
-        query = query.filter(Analysis.algorithm==algorithm)
-    if sourcename:
-        query = query.filter(Analysis.sourcename==sourcename)
-    if sourceversion:
-        query = query.filter(Analysis.sourceversion==sourceversion)
-    if sourceuri:
-        query = query.filter(Analysis.sourceuri==sourceuri)
-    if description:
-        query = query.filter(Analysis.description==description)
-    if feature_id:
+    if id:
+        query = query.filter(Analysis.analysis_id == id)
+    else:
+        if 'filter' in kwargs:
+            query = query.filter(filter_parse(Analysis, kwargs.get('filter'), __aux_own_filter))
+        if 'order' in kwargs:
+            query = __get_query_ordered(query, kwargs.get('order'))
+        if 'pagination' in kwargs:
+            query = paginator(query, kwargs.get('pagination'))
+    return query
+
+
+def __aux_own_filter(filter):
+    clause = []
+    if 'feature_id' in filter and filter.get('feature_id'):
         from biobarcoding.db_models.chado import AnalysisFeature
-        query = query.join(AnalysisFeature)\
-            .filter(AnalysisFeature.feature_id==feature_id)
+        _ids = chado_session.query(AnalysisFeature.analysis_id)\
+            .filter(AnalysisFeature.feature_id==filter.get('feature_id'))
+        clause.append(Analysis.analysis_id.in_(_ids))
+    return clause
+
+
+def __get_query_ordered(query, order):
+    # query = query.order(order_parse(Analysis, kwargs.get('order'), __aux_own_order))
     return query

@@ -6,23 +6,15 @@ from biobarcoding.db_models.chado import Analysis, AnalysisCvterm, Cvterm, Organ
 from sqlalchemy import or_
 
 
-def create_alignments(program=None, programversion=None, name=None, sourcename=None, description=None, algorithm=None,
-                      sourceversion=None, sourceuri=None, timeexecuted=None):
+def create(**kwargs):
     issues = [Issue(IType.WARNING, 'CREATE alignments: dummy completed')]
-    content = { 'program':program, 'programversion':programversion, 'name':name, 'sourcename':sourcename, 'description':description, 'algorithm':algorithm,
-                      'sourceversion':sourceversion, 'sourceuri':sourceuri, 'timeexecuted':timeexecuted }
-    return issues, content, 200
+    return issues, None, 200
 
 
-def read_alignments(alignment_id=None, ids=None, name=None, program=None, programversion=None, algorithm=None,
-                    sourcename=None, sourceversion=None, sourceuri=None, description=None, feature_id=None):
-    content = { 'alignment_id':alignment_id, 'ids':' '.join(ids) if ids else None, 'name':name, 'program':program, 'programversion':programversion, 'algorithm':algorithm,
-                    'sourcename':sourcename, 'sourceversion':sourceversion, 'sourceuri':sourceuri, 'description':description, 'feature_id':feature_id }
-    content = {k:v for k,v in content.items() if v is not None}
+def read(alignment_id=None, **kwargs):
+    content = None
     try:
-        content = __get_query(alignment_id=alignment_id, ids=ids, name=name, program=program, programversion=programversion,
-                             algorithm=algorithm, sourcename=sourcename, sourceversion=sourceversion, sourceuri=sourceuri,
-                             description=description, feature_id=feature_id)
+        content = __get_query(alignment_id, **kwargs)
         if alignment_id:
             content = content.first()
         else:
@@ -34,13 +26,9 @@ def read_alignments(alignment_id=None, ids=None, name=None, program=None, progra
     return issues, content, status
 
 
-def update_alignments(alignment_id, program, programversion, name=None, description=None, algorithm=None,
-                      sourcename=None, sourceversion=None, sourceuri=None, timeexecuted=None):
+def update(alignment_id, **kwargs):
     issues = [Issue(IType.WARNING, 'UPDATE alignments: dummy completed')]
-    content = { 'alignment_id':alignment_id, 'program':program, 'programversion':programversion, 'name':name,
-                'sourcename':sourcename, 'description':description, 'algorithm':algorithm,
-                'sourceversion':sourceversion, 'sourceuri':sourceuri, 'timeexecuted':timeexecuted }
-    return issues, content, 200
+    return issues, None, 200
 
 
 def __delete_from_bcs(analysis_id):
@@ -49,18 +37,12 @@ def __delete_from_bcs(analysis_id):
         .delete(synchronize_session='fetch')
 
 
-def delete_alignments(alignment_id=None, ids=None, name=None, program=None, programversion=None, algorithm=None,
-                      sourcename=None, sourceversion=None, sourceuri=None, description=None):
-    content = { 'alignment_id':alignment_id, 'ids':' '.join(ids) if ids else None, 'name':name, 'program':program,
-                'programversion':programversion, 'algorithm':algorithm, 'sourcename':sourcename,
-                'sourceversion':sourceversion, 'sourceuri':sourceuri, 'description':description }
-    content = {k:v for k,v in content.items() if v is not None}
+def delete(alignment_id=None, **kwargs):
+    content = None
     try:
         # TODO: The BCS data are not being deleted yet.
-        query = __get_query(alignment_id=alignment_id, ids=ids, name=name, program=program, programversion=programversion,
-                          algorithm=algorithm, sourcename=sourcename, sourceversion=sourceversion, sourceuri=sourceuri,
-                          description=description)
-        from biobarcoding.services.sequences import delete_sequences
+        query = __get_query(alignment_id, **kwargs)
+        from biobarcoding.services.sequences import delete as delete_sequences
         for msa in query.all():
             delete_sequences(analysis_id=msa.analysis_id)
             __delete_from_bcs(msa.analysis_id)
@@ -97,7 +79,7 @@ def __bind2src(feature, srcname):
         chado_session.add(relationship)
 
 
-def __msa2chado(input_file, msa, format):
+def __msafile2chado(input_file, msa, format):
     from Bio import AlignIO
     seqs = AlignIO.read(input_file, format or 'fasta')
     for seq in seqs:
@@ -119,9 +101,8 @@ def __msa2bcs(msa):
     return bcs_msa
 
 
-def import_alignments(input_file, format='fasta', **kwargs):
-    content = { 'input_file':input_file, 'format':format, **kwargs }
-    content = {k:v for k,v in content.items() if v is not None}
+def import_file(input_file, format='fasta', **kwargs):
+    content = None
     try:
         msa = get_or_create(chado_session, Analysis, **kwargs)
         chado_session.add(msa)
@@ -132,7 +113,7 @@ def import_alignments(input_file, format='fasta', **kwargs):
         msa_cvterm = get_or_create(chado_session, AnalysisCvterm, cvterm_id=cvterm_id, analysis_id=msa.analysis_id)
         chado_session.add(msa_cvterm)
         chado_session.flush()
-        __msa2chado(input_file, msa, format)
+        __msafile2chado(input_file, msa, format)
         issues, status = [Issue(IType.INFO, f'IMPORT alignments: The {format} alignment were successfully imported.')], 200
     except Exception as e:
         print(e)
@@ -140,16 +121,18 @@ def import_alignments(input_file, format='fasta', **kwargs):
     return issues, content, status
 
 
-def export_alignments(analysis_id, format):
-    from biobarcoding.services.sequences import export_sequences
-    return export_sequences(analysis_id=analysis_id)
+def export(analysis_id, format='fasta', **kwargs):
+    if format=='fasta':
+        from biobarcoding.services.sequences import export as export_sequences
+        return export_sequences(output_file="/tmp/alignment.fas", analysis_id=analysis_id)
+    else:
+        issues, status = [Issue(IType.ERROR, f'EXPORT alignments: The format {format} could not be imported.')], 500
+        return issues, None, status
 
 
-def __get_query(alignment_id=None, ids=None, name=None, program=None, programversion=None, algorithm=None,
-                sourcename=None, sourceversion=None, sourceuri=None, description=None, feature_id=None):
+def __get_query(alignment_id=None, **kwargs):
     from biobarcoding.services.analyses import __get_query as get_analyses
-    query = get_analyses(alignment_id, ids, name, program, programversion, algorithm,
-                         sourcename, sourceversion, sourceuri, description, feature_id)
+    query = get_analyses(alignment_id, **kwargs)
     msa_ids = chado_session.query(AnalysisCvterm.analysis_id) \
         .join(Cvterm, AnalysisCvterm.cvterm_id == Cvterm.cvterm_id) \
         .filter(or_(Cvterm.name == 'Alignment', Cvterm.name == 'Sequence alignment'))

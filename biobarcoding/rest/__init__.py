@@ -711,49 +711,6 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
     return bp_entity, CrudAPI
 
 
-
-
-def filter_parse(orm, filter_str: str):
-    """
-    @param orm_bcs: <ORMSqlAlchemy>
-    @param orm_chado: <ORMSqlAlchemy>
-    @param filter_str:
-        [{"campo1": "<condicion>", "campo2": "<condicion>"}, {"campo1": "<condicion"}]
-        <condicion>: {"op": "<operador", "left": "<valor>", "right": <valor>, "unary": <valor>}
-    @return: (bcs_filter, chado_filter)
-    """
-    def get_condition(orm, field, condition):
-        obj = orm[field]
-        op = condition["op"]
-        value, left, right = condition.get("unary"), condition.get("left"), condition.get("right")
-        if op == "in":
-            return obj.in_(value)
-        elif op == "eq":
-            return obj == value
-        elif op == "between":
-            return obj.between_(left, right)
-        return True
-
-    try:
-        import json
-        filter = json.loads(filter_str)
-        unk_fields = []
-        or_clause = []
-        for clause in filter:
-            and_clause = []
-            for field, condition in clause.items():
-                if field in orm: # BCS
-                    and_clause.append(get_condition(orm, field, condition))
-                else:
-                    print(f'Unknown column "{field}" for the given tables.')
-                    unk_fields.append(field)
-            or_clause.append(and_(*and_clause))
-        return or_(*or_clause), unk_fields
-    except Exception as e:
-        print(e)
-        return False, False
-
-
 # def filter_parse(filter_str: str) -> filter_chado, filter_bcs:
 #     """
 #     [{"campo1": "<condicion>", "campo2": "<condicion>"}, {"campo1": "<condicion"}]
@@ -791,3 +748,51 @@ def filter_parse(orm, filter_str: str):
 #                 append_bcs_condition(bcs_and_clause, field, condition)
 #         concatenate_
 #     return filter(bcs_where), filter(chado_where)
+
+def filter_parse(orm, filter, aux_filter=None):
+    """
+    @param orm: <ORMSqlAlchemy>
+    @param filter:
+        [{"campo1": "<condicion>", "campo2": "<condicion>"}, {"campo1": "<condicion"}]
+        <condicion>: {"op": "<operador", "left": "<valor>", "right": <valor>, "unary": <valor>}
+    @param aux_filter: <callable function(filter)>
+    @return: <orm_clause_filter>
+    """
+    def get_condition(orm, field, condition):
+        obj = getattr(orm, field)
+        op = condition["op"]
+        value, left, right = condition.get("unary"), condition.get("left"), condition.get("right")
+        if op == "in":
+            return obj.in_(value)
+        elif op == "eq":
+            return obj == value
+        elif op == "between":
+            return obj.between_(left, right)
+        return True
+
+    try:
+        or_clause = []
+        for clause in filter:
+            and_clause = []
+            for field, condition in clause.items():
+                if hasattr(orm, field):
+                    and_clause.append(get_condition(orm, field, condition))
+                else:
+                    print(f'Unknown column "{field}" for the given tables.')
+            if aux_filter:
+                and_clause+=aux_filter(clause)
+            or_clause.append(and_(*and_clause))
+        return or_(*or_clause)
+    except Exception as e:
+        print(e)
+        return False
+
+
+def paginator(query, pagination):
+    if 'pageIndex' in pagination and 'pageSize' in pagination:
+        page = pagination.get('pageIndex')
+        page_size = pagination.get('pageSize')
+        query = query\
+            .offset((page - 1) * page_size)\
+            .limit(page_size)
+    return query

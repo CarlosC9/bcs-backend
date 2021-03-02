@@ -41,8 +41,7 @@ def delete_taxonomies(id=None, ids=None):
 
 
 def import_taxonomies(input_file, name = None, comment = None):
-    content = { 'input_file':input_file, 'name':name, 'comment':comment, 'analysis_id':analysis_id }
-    content = {k:v for k,v in content.items() if v is not None}
+    content = None
     try:
         from flask import current_app
         cfg = current_app.config
@@ -63,7 +62,7 @@ def import_taxonomies(input_file, name = None, comment = None):
                 {named})''')
         chado_session.execute("SELECT setval('phylonode_phylonode_id_seq', (SELECT MAX(phylonode_id) FROM phylonode)+1);")
         # chado_session.execute("ALTER SEQUENCE phylonode_phylonode_id_seq RESTART WITH (SELECT MAX(phylonode_id) FROM phylonode)+1;")
-        issues, status = Issue(IType.ERROR, f'IMPORT taxonomies: The taxonomy {os.path.basename(input_file)} was successfully imported.'), 200
+        issues, status = Issue(IType.INFO, f'IMPORT taxonomies: The taxonomy {os.path.basename(input_file)} was successfully imported.'), 200
         if err:
             raise err
     except Exception as e:
