@@ -107,7 +107,7 @@ def initialize_celery(flask_app):
     celery.Task = ContextTask
 
     biobarcoding.celery = celery
-    create_celery_user()
+#    create_celery_user()
 
 
 # CELERY APP, used by CELERY TASKS

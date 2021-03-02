@@ -21,3 +21,5 @@ biobarcoding/services/perl_scripts/nodes.dmp
 *.err
 
 *.dmp
+
+tests/data_test/training_set.json
