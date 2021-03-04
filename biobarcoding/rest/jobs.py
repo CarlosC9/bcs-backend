@@ -105,7 +105,7 @@ class JobAPI(MethodView):
         d.status = "created"
         d.process.inputs = process_params
         d.process.name = process_in_resource.native_process_id
-        d.endpoint_url = "http//:localhost:5000/" #TODO esto debe de salir del config file. cómo?
+        d.endpoint_url = "http://localhost:5000" #TODO esto debe de salir del config file. cómo?
         # RESOURCE
         d.resource = DottedDict()
         d.resource.name = resource.name

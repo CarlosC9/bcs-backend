@@ -48,7 +48,7 @@ def change_status(status,job_context):
     tmp = json.loads(job_context)
     job_id = tmp["job_id"]
     if tmp["status"] != status:
-        url = tmp["endpoint"]
+        url = tmp["endpoint_url"]
         s = requests.Session()
         # todo permisos propios para celery
         response = s.put(f"{url}{bcs_api_base}/authn?user=test_user")

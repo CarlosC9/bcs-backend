@@ -11,6 +11,8 @@ from biobarcoding.db_models import DBSession
 from biobarcoding.db_models.jobs import ComputeResource
 from biobarcoding.jobs import JobExecutorAtResource
 from pathlib import Path
+from multiprocessing import Process, Queue
+
 
 
 # no tiene sentido que haga esto xq galaxy ya es este objeto
@@ -55,7 +57,7 @@ def library_id(gi, libname: 'str'):
         return lib['id']
 
 
-def history_id(gi, history_name: 'str'):
+def get_history_id(gi, history_name: 'str'):
     histories = gi.histories.get_histories()
     try:
         hist = next(item for item in histories if item["name"] == history_name)
@@ -146,12 +148,6 @@ def create_library(gi, library_name: 'str'):
         gi.libraries.create_library(library_name)
         return library_id(library_name)
 
-
-def create_history(gi, name):
-    history = gi.histories.create_history(name=name)
-    return history
-
-
 def delete_history(gi, history):
     gi.histories.delete_histoy(history['id'])
 
@@ -211,25 +207,13 @@ def load_input_files(gi, inputs, workflow, history):
 
     for step, step_data in workflow['inputs'].items():
         # upload file and record the identifier
-        if step_data['label'] in inputs and 'path' in inputs[step_data['label']]:
-            upload_res = gi.tools.upload_file(path=inputs[step_data['label']]['path'], history_id=history['id'],
-                                              file_name=step_data['label'],
-                                              file_type=inputs[step_data['label']]['type'])
-            inputs_for_invoke[step] = {
-                'id': upload_res['outputs'][0]['id'],
-                'src': 'hda'
-            }
-        elif step_data['label'] in inputs and 'dataset_id' in inputs[step_data['label']]:
-            inputs_for_invoke[step] = {
-                'id': inputs[step_data['label']]['dataset_id'],
-                'src': 'hda'
-            }
-        elif step_data['label'] in inputs and not isinstance(inputs[step_data['label']], Mapping):
-            # We are in the presence of a simple parameter input
-            inputs_for_invoke[step] = inputs[step_data['label']]
-        else:
-            raise ValueError("Label '{}' is not present in inputs yaml".format(step_data['label']))
-
+        for input in inputs:
+            if step_data['label'] in input.values() and 'path' in input.keys():
+                d_id = gi.histories.show_matching_datasets(history_id=history['id'],name_filter=step_data['label'])[0].get('id')
+                inputs_for_invoke[step] = {
+                    'id': d_id,
+                    'src': 'hda'
+                }
     return inputs_for_invoke
 
 
@@ -374,25 +358,25 @@ def params_input_creation(gi, workflow_name, inputs_data, param_data, history_id
     for pk in params_to_move:
         inputs_data[pk] = param_data[pk]
 
-    validate_labels(wf_dict, param_data)
-    num_inputs = validate_input_labels(wf_json=wf_dict, inputs=inputs_data)
-    if num_inputs > 0:
-        validate_file_exists(inputs_data)
+    # validate_labels(wf_dict, param_data)
+    # num_inputs = validate_input_labels(wf_json=wf_dict, inputs=inputs_data)
+    # if num_inputs > 0:
+    #     validate_file_exists(inputs_data)
 
-    validate_dataset_id_exists(gi, inputs_data)
+    # validate_dataset_id_exists(gi, inputs_data)
 
-    print('Create new history to run workflow ...')
-    if num_inputs > 0:
-        if history_name != None:
-            print(history_name)
-            history = gi.histories.create_history(name=history_name)
-        else:
-            history = gi.histories.get_histories(history_id)[0]
-        datamap = load_input_files(gi, inputs=inputs_data,
-                                   workflow=show_wf, history=history)
-        # TODO check that input parameters are correct by form
-        print('Set parameters ...')
-        params = set_params(wf_dict, param_data)
+    # print('Create new history to run workflow ...')
+    # if num_inputs > 0:
+    #     if history_name != None:
+    #         print(history_name)
+    #         history = gi.histories.create_history(name=history_name)
+    #     else:
+    history = gi.histories.get_histories(history_id)[0]
+    datamap = load_input_files(gi, inputs=inputs_data,
+                               workflow=show_wf, history=history)
+    # TODO check that input parameters are correct by form
+    print('Set parameters ...')
+    params = set_params(wf_dict, param_data)
     return datamap, params
 
 
@@ -582,7 +566,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
     def create_job_workspace(self, name):
         self.connect()
         gi = self.galaxy_instance
-        history = create_history(gi, name)
+        history = gi.histories.create_history(name=str(name))
         # tengo que retornar algo diferente si no se puede conectar a galaxy
         self.disconnect()
         return history['id']
@@ -590,14 +574,68 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
     def remove_job_workspace(self, workspace):
         self.connect()
         gi = self.galaxy_instance
-        gi.histories.delete_history(history_id(gi, workspace))
+        # TODO hacer un purge y tmb haer un purge del dataset..... p quizás poner como tarea de mantenimiento del celery??
+        gi.histories.delete_history(get_history_id(gi, workspace))
 
-    def upload_file(self, workspace, local_filename, remote_location):
+    def upload_file(self, **kwards):
+        """
+            Loads file in the inputs yaml to the Galaxy instance given. Returns
+            datasets dictionary with names and histories. It associates existing datasets on Galaxy given by dataset_id
+            to the input where they should be used.
+
+            This setup currently doesn't support collections as inputs.
+
+            Input yaml file should be formatted as:
+
+            input_label_a:
+              path: /path/to/file_a
+              type:
+            input_label_b:
+              path: /path/to/file_b
+              type:
+            input_label_c:
+              dataset_id:
+
+            this makes it extensible to support
+            :param gi: the galaxy instance (API object)
+            :param inputs: dictionary of inputs as read from the inputs YAML file
+            :param workflow: workflow object produced by gi.workflows.show_workflow
+            :param history: the history object to where the files should be uploaded
+            :return: inputs object for invoke_workflow
+            """
+
         self.connect()
         gi = self.galaxy_instance
-        # invocation =  load_input_files(gi,i nput_files, workflow, history)
-        # return transfer state
-        pass
+        inputs = 'files list'
+        workflow = gi.workflows.show_workflow
+        inputs_for_invoke = {}
+        workflow_id = kwards.get('workflow')
+        history = kwards.get('workspace')
+        h_id = get_history_id(gi,history)
+        label = kwards.get('step')
+        local_filename = kwards.get('local_path')
+        try:
+            upload_info = gi.tools.upload_file(path=local_filename,
+                                               history_id=h_id,
+                                               file_name=label)
+            pid = upload_info['jobs'][0]['id']
+        except:
+            pid = "error"
+        return pid
+
+
+    def exists(self, **kwargs):
+        self.connect()
+        gi = self.galaxy_instance
+        label = kwargs.get('step')
+        history = kwargs.get('workspace')
+        h_id = get_history_id(gi,history_name= history)
+        dataset_info = gi.histories.show_matching_datasets(history_id = h_id , name_filter = label )
+        if len(dataset_info)>0:
+            return True
+        else:
+            return False
+
 
 
     def submit(self, workspace, params):
@@ -606,12 +644,9 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         #                 {"parameters":
         #                      {"MSA ClustalW": {"darna": "PROTEIN"}
         #                       },
-        #                  "data": {"Input dataset":
-        #                               {
-        #                                   "path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta",
-        #                                   "type": "fasta"
-        #                                   }
-        #                           }
+        #                  "data": [{"step":"Input dataset" ,
+        #                           "path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta",
+        #                           "type": "fasta"},....]
         #                  }
         #             }
 
@@ -623,8 +658,11 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         w_id = workflow_id(gi, workflow)
         # dataset = gi.histories.show_matching_datasets(workspace) -> lista con los data set en un workspace
         #hacer solo el tema de los inputs (normalmente solo hay un data set)
+
         datamap, parameters = params_input_creation(gi, workflow, inputs, input_params,
                                                     history_name=workspace)  # catch error
+        # TODO no me está funcionando mi test de siempre y no sé porque
+        # TODO revisar la fomra del data map, quizás me pueda ahorrar toda esa función xq esto ya está comprobadoo desde el gui
         history_id = gi.histories.get_histories(name=workspace)[0]['id']
         invocation = gi.workflows.invoke_workflow(workflow_id=w_id,
                                                   inputs=datamap,
@@ -632,10 +670,14 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
                                                   history_id=history_id)
         return invocation['id']
 
-    def job_status(self, native_id):
+    def job_status(self, pid):
         self.connect()
         gi = self.galaxy_instance
-        return invocation_errors(gi, native_id)
+        if pid:
+            job = gi.jobs.show_job(pid)
+            return job['state']
+        else:
+            return None
         # job here refers to invocation so it will probably not check the upload file job
 
     def cancel_job(self, native_id):
