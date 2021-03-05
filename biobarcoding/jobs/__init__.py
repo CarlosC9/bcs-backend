@@ -96,24 +96,23 @@ class JobExecutorAtResourceFactory:
     def __init__(self):
         self.execs = dict()
 
-    def get(self, resource_dict: Dict, params_dict: Dict):
-        print(resource_dict)
-        k = resource_dict['name']
+    def get(self, job_executor_name, resource_param: Dict, **kwargs):
+        k = (job_executor_name, resource_param["name"])
         if k not in self.execs:
-            self.execs[k] = JobExecutorAtResourceFactory._create(resource_dict['jm_type'], params_dict)
+            self.execs[k] = JobExecutorAtResourceFactory._create(job_executor_name, resource_param, **kwargs)
 
         return self.execs[k]
 
     @staticmethod
-    def _create(job_jm_type: str, job_params: Dict):
-        if job_jm_type.lower() == "galaxy":
+    def _create(job_executor_name: str, resource_param: Dict, **kwargs):
+        if job_executor_name.lower() == "galaxy":
             from biobarcoding.jobs.galaxy_resource import JobExecutorAtGalaxy
             tmp = JobExecutorAtGalaxy()
-            tmp.set_resource(job_params)
+            tmp.set_resource(resource_param)
             return tmp
-        elif job_jm_type.lower() == "ssh":
+        elif job_executor_name.lower() == "ssh":
             from biobarcoding.jobs.ssh_resource import JobExecutorWithSSH
-            tmp = JobExecutorWithSSH()
-            tmp.set_resource(job_params)
+            tmp = JobExecutorWithSSH(kwargs["job_id"])
+            tmp.set_resource(resource_param)
             tmp.connect()
             return tmp

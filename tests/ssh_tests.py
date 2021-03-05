@@ -15,8 +15,8 @@ class SSHTestCase(unittest.TestCase):
         remote_client.upload_file("", "/home/daniel/Documentos/GIT/bcs-backend/tests/ssh_data_test/test.sh", "test.sh")
 
     def main_test(self):
-        ssh_data_dirname = os.path.join(os.path.dirname(os.path.abspath(__file__)), "ssh_data_test")
-        with open(os.path.join(ssh_data_dirname, 'test_params.json')) as json_file:
+        ssh_data_dirname = os.path.dirname(os.path.abspath(__file__))
+        with open(os.path.join(ssh_data_dirname, 'request_params.json')) as json_file:
             params = json.load(json_file)
 
         remote_client = JobExecutorWithSSH()

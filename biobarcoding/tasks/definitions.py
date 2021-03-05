@@ -113,7 +113,7 @@ def wf1_prepare_workspace(job_context):
     :param job_context:
     :return:
     """
-    # tmp = json.loads(job_context)
+    tmp = json.loads(job_context)
 
     # Example access RESTful endpoint of "bcs-backend"
     # requests.get(job_context["endpoint_url"]+f"/api/jobs/{job_context['job_id']}")
@@ -123,7 +123,9 @@ def wf1_prepare_workspace(job_context):
 
     # Get resource manager: ssh, galaxy, other
     # job_executor = JobExecutorAtResourceFactory()
-    # job_executor = JobExecutorAtResourceFactory.get(tmp["resource"]["jm_type"], tmp["process"])
+    job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
+                                                      , job_id=str(tmp["job_id"]))
+    job_executor.create_job_workspace(str(tmp["job_id"]))
 
     # Launch subprocess if needed
     # if "_pid" not in tmp:
@@ -182,21 +184,10 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
     :param job_context:
     :return:
     """
-    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../tests/ssh_data_test")
-    filepackage_list = [dict(transfer_type="upload", local_path=os.path.join(data_dir, "myfile.txt"),
-                             remote_path="myfile.txt"),
-                        dict(transfer_type="upload", local_path=os.path.join(data_dir, "add_line.py"),
-                             remote_path="add_line.py"),
-                        dict(transfer_type="upload", local_path=os.path.join(data_dir, "count_lines.py"),
-                             remote_path="count_lines.py"),
-                        dict(transfer_type="upload", local_path=os.path.join(data_dir, "test.sh"),
-                             remote_path="test.sh")]
-
     tmp = json.loads(job_context)
-    if "upload_files" not in tmp["process"]["inputs"]["parameters"]:
-        tmp["process"]["inputs"]["parameters"]["upload_files"] = filepackage_list
 
-    job_executor = JobExecutorAtResourceFactory().get(tmp["resource"], tmp["process"]["inputs"]["parameters"])
+    job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
+                                                      , job_id=str(tmp["job_id"]))
 
     transfer_state = tmp.get("transfer_state")
     print(f"Transfer state: {transfer_state}")
@@ -208,11 +199,11 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
         pid = None
 
     # Ith transfer
-    transfer_at_i = tmp["process"]["inputs"]["parameters"]["upload_files"][i] if i < len(filepackage_list) else dict(local_path="", remote_path="")
+    files_list = tmp["process"]["inputs"]["data"]
+    transfer_at_i = files_list[i] if i < len(files_list) else dict(local_path="", remote_path="")
     local_path = transfer_at_i["local_path"]
-    remote_path = transfer_at_i["remote_path"]  # Add workspace base?
-
-    if i == len(filepackage_list):  # Transfer finished
+    remote_path = transfer_at_i["remote_path"]
+    if i == len(files_list):  # Transfer finished
         print("Transfer finished")
         del tmp["transfer_state"]
         job_context = json.dumps(tmp)
@@ -244,9 +235,8 @@ def wf1_submit(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory()
-    print(tmp["process"]["inputs"]["parameters"])
-    job_executor = job_executor.get(tmp["resource"], tmp["process"]["inputs"]["parameters"])
+    job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
+                                                      , job_id=str(tmp["job_id"]))
     #TODO: ver galaxy -- inputs = tmp["process"]
     inv_id = job_executor.submit(str(tmp['job_id']), tmp["process"]["inputs"]["parameters"])
     tmp['g_id'] = inv_id
@@ -265,7 +255,8 @@ def wf1_wait_until_execution_starts(job_context: str):
     """
     tmp = json.loads(job_context)
     job_executor = JobExecutorAtResourceFactory()
-    job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp['resource'])
+    job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
+                                                      , job_id=str(tmp["job_id"]))
     status = job_executor.job_status(tmp["g_id"])
     if status == 'running':  # pasa siempre or running?
         append_text(f"wait_until_execution_starts: status: {status}")
@@ -290,7 +281,8 @@ def wf1_wait_for_execution_end(job_context: str):
     """
     tmp = json.loads(job_context)
     job = JobExecutorAtResourceFactory()
-    job_executor = job.get(tmp["resource"]["jm_type"], tmp["resource"])
+    job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
+                                                      , job_id=str(tmp["job_id"]))
     status = job_executor.job_status(tmp["g_id"])
     if isinstance(status, dict):
         append_text(f"wait_for_execution_end: status: {status}")
@@ -313,7 +305,8 @@ def wf1_transfer_data_from_resource(job_context: str):
     """
     tmp = json.loads(job_context)
     job_executor = JobExecutorAtResourceFactory()
-    job_executor = job_executor.get(tmp["resource"], tmp["process"]["inputs"]["parameters"])
+    job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
+                                                      , job_id=str(tmp["job_id"]))
     r = job_executor.get_results(tmp["g_id"])
     tmp['results'] = r
     job_context = json.dumps(tmp)
@@ -345,8 +338,8 @@ def wf1_cleanup_workspace(job_context: str):
     """
 
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory()
-    job_executor = job_executor.get(tmp["resource"], tmp["process"]["inputs"]["parameters"])
+    job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
+                                                      , job_id=str(tmp["job_id"]))
     job_executor.remove_job_workspace(str(tmp["job_id"]))
     del tmp['g_id']
     job_context = json.dumps(tmp)
@@ -378,8 +371,8 @@ def wf1_completed_error(job_context: str):
     """
 
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory()
-    job_executor = job_executor.get(tmp["resource"], tmp["process"]["inputs"]["parameters"])
+    job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
+                                                      , job_id=str(tmp["job_id"]))
     status = job_executor.job_status(job_executor["g_id"])
     tmp['error'] = status
     job_executor.remove_job_workspace(str(tmp['job_id']))
@@ -398,8 +391,8 @@ def wf1_cancelled(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory()
-    job_executor = job_executor.get(tmp["resource"], tmp["process"]["inputs"]["parameters"])
+    job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
+                                                      , job_id=str(tmp["job_id"]))
     job_executor.cancel_job(tmp['g_id'])
     job_executor.remove_job_workspace(str(tmp['job_id']))
     append_text(f"cancelled")

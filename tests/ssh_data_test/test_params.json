@@ -1,5 +1,6 @@
 {
   "script_file": "test.sh",
+  "script_params": "-p 3 --version --help",
   "local_workspace": "/home/daniel/Documentos/GIT/bcs-backend/tests/ssh_data_test/",
   "remote_workspace": "/home/dreyes",
   "host": "balder",
