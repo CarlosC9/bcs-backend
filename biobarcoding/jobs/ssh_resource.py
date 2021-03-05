@@ -59,7 +59,7 @@ class RemoteSSHClient:
         @return: pid: PID of the executed script process
         """
         job_id = os.path.basename(os.path.normpath(self.remote_path))
-        cmd = f"ssh {self.username}@{self.host} 'cd {self.remote_path} && chmod +x {script_file} && (nohup ./{script_file} {script_params}  >/{self.remote_path}/{job_id}_log </dev/null 2>/{self.remote_path}/{job_id}_log.err & echo $!; wait $!; echo $? >> {self.remote_path}/$!.exit_status)'"
+        cmd = f"ssh {self.username}@{self.host} 'cd {self.remote_path} && chmod +x {script_file} && (nohup ./{script_file} {script_params}  >/{self.remote_path}/bcs.stdout.log </dev/null 2>/{self.remote_path}/bcs.err.log & echo $!; wait $!; echo $? >> {self.remote_path}/$!.exit_status)'"
 
         print(cmd)
         popen_pipe = os.popen(cmd)
