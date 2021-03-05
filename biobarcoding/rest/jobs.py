@@ -61,7 +61,8 @@ class JobAPI(MethodView):
         req = request.get_json()
         d.endpoint_url = ""
         # Load resource and process
-        in_dict = DottedDict(req['params'])
+        print(req)
+        in_dict = DottedDict(req)
         if is_integer(in_dict.resource_id):
             resource = session.query(ComputeResource).get(in_dict.resource_id)
         else:

@@ -70,6 +70,9 @@ class JobExecutorAtResource(ABC):
     def remove_job_workspace(self, name):  # After Job is completed (or if Job was not started)
         pass
 
+    def exists(self, local_path, remote_path):
+        pass
+
     def upload_file(self, workspace, local_filename, remote_location):
         pass
 
@@ -93,17 +96,23 @@ class JobExecutorAtResourceFactory:
     def __init__(self):
         self.execs = dict()
 
-    def get(self, job_executor_name, resource_param: Dict):
+    def get(self, job_executor_name, resource_param: Dict, **kwargs):
         k = (job_executor_name, resource_param["name"])
         if k not in self.execs:
-            self.execs[k] = JobExecutorAtResourceFactory._create(job_executor_name, resource_param)
+            self.execs[k] = JobExecutorAtResourceFactory._create(job_executor_name, resource_param, **kwargs)
 
         return self.execs[k]
 
     @staticmethod
-    def _create(job_executor_name: str, resource_param: Dict):
+    def _create(job_executor_name: str, resource_param: Dict, **kwargs):
         if job_executor_name.lower() == "galaxy":
             from biobarcoding.jobs.galaxy_resource import JobExecutorAtGalaxy
             tmp = JobExecutorAtGalaxy()
             tmp.set_resource(resource_param)
+            return tmp
+        elif job_executor_name.lower() == "ssh":
+            from biobarcoding.jobs.ssh_resource import JobExecutorWithSSH
+            tmp = JobExecutorWithSSH(kwargs["job_id"])
+            tmp.set_resource(resource_param)
+            tmp.connect()
             return tmp

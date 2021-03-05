@@ -10,7 +10,6 @@ import sys
 import datetime
 import time
 import ctypes.util
-import pyodbc
 from typing import Union
 # from pyvirtualdisplay import Display
 

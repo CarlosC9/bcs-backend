@@ -319,7 +319,8 @@ tm_processes = {  # Preloaded processes
     "caaca280-2290-4625-b5c0-76bcfb06e9ac": "import-phylotree",
     "15aa399f-dd58-433f-8e94-5b2222cd06c9": "Clustal Omega",
     "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": "MSA ClustalW",
-    "ec40143f-ae32-4dac-9cfb-caa047e1adb1": "ClustalW-PhyMl"
+    "ec40143f-ae32-4dac-9cfb-caa047e1adb1": "ClustalW-PhyMl",
+    "25932546-d26c-4367-8c81-0c682094d117": "ssh-transfer"
 }
 
 tm_system_functions = {
@@ -389,7 +390,6 @@ tm_system_functions = {
 # 47728a0d-f7e4-49be-9fe7-d675f8981514
 # b0da1326-a697-4a47-a959-2e779c7c179f
 # 087341a7-a371-4b7b-b3b9-92f91825e880
-# 25932546-d26c-4367-8c81-0c682094d117
 
 def initialize_database_data():
     # Load base tables
