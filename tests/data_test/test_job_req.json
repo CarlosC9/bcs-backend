@@ -7,15 +7,17 @@
         "darna": "PROTEIN"
       }
     },
-    "data": {
-      "Input dataset": {
-        "path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta",
-        "type": "fasta"
-      }
-    }
+    "data":  [
+                    {
+                      "step": "Input dataset",
+                      "path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta",
+                      "type": "fasta"
+                    }
+                  ]
   },
   "credentials": {
     "api_key": "fakekey"
   }
 }
+
 

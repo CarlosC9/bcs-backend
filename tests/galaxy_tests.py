@@ -1,3 +1,4 @@
+import time
 import unittest
 from pathlib import Path
 import os
@@ -9,19 +10,27 @@ from biobarcoding.jobs.galaxy_resource import *
 class MyTestCase(unittest.TestCase):
     def test_upload_file(self):
         insfile = 'data_test/parsec_creds.yaml'
-        insname = 'beauvoir3'
+        insname = 'local'
         ins = galaxy_instance(insfile, name = insname)
         gi = login(ins['key'],url=ins['url'])
         history = gi.histories.create_history(name="test_upload_file history")
-        fn =  Path('data_test/ls_orchid.fasta')
-        file_name = "test1"
+        fn =  Path('data_test/training_set.json')
+        file_name = "Kaggel_dataset"
         d = gi.tools.upload_file(
             fn,
             history_id=history["id"],
             file_name=file_name,
             dbkey="?",
             file_type="fasta")
+        while(True):
+            job = gi.jobs.show_job(d['jobs'][0]['id'])
+            state = job['state']
+            print(state)
+            time.sleep(1)
+            if state == 'ok':
+                break
         self.assertNotEqual(d, None, "should be something here")
+
 
     def test_inputs_files(self):
         insfile = 'data_test/parsec_creds.yaml'

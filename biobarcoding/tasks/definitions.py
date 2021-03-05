@@ -4,7 +4,6 @@ import os
 import requests
 from billiard.context import Process
 
-from biobarcoding.jobs.ssh_resource import JobExecutorWithSSH
 from biobarcoding.tasks import celery_app
 from time import sleep, time
 
@@ -13,6 +12,8 @@ from biobarcoding.common import check_pid_running
 from biobarcoding.jobs import JobExecutorAtResourceFactory
 from biobarcoding.db_models.jobs import Job
 from biobarcoding.common import ROOT
+from biobarcoding.rest import bcs_api_base
+
 
 """
 Celery tasks CANNOT be debugged in Celery!! (the code is run in a separate process; of course they can be debugged "off-line")
@@ -87,24 +88,6 @@ def dummy_func(file, secs):
     os.exit(0)
 
 
-# "job_context" for Celery tasks:
-#
-# "job_id": ...,
-# "endpoint_url": ...
-# "resource": {
-#     "name": "",
-#     "jm_type": "",
-#     "jm_location": {
-#     },
-#     "jm_credentials": {
-#     }
-# }
-# "process": {
-#     "name": "",
-#     "inputs": {
-#     }
-# }
-
 @celery_app.task(name="prepare")
 @celery_wf(celery_app, wf1, "prepare")
 def wf1_prepare_workspace(job_context):
@@ -126,30 +109,6 @@ def wf1_prepare_workspace(job_context):
     job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
                                                       , job_id=str(tmp["job_id"]))
     job_executor.create_job_workspace(str(tmp["job_id"]))
-
-    # Launch subprocess if needed
-    # if "_pid" not in tmp:
-    #     p = Process(target=dummy_func, args=(outfile, 13))
-    #     p.start()
-    #     tmp["_pid"] = p.pid
-    #     append_text(outfile, f"prepare_workspace. PID: {p.pid}")
-    #     job_context = json.dumps(tmp)
-    #
-    # # TODO Task "work"
-    # append_text(outfile, "prepare_workspace")
-    #
-    # # Wait for subprocess to finish (if needed)
-    # if check_pid_running(tmp["_pid"]):
-    #     append_text(outfile, "retrying task ...")
-    #     return 3, job_context  # Return a tuple with first element <seconds to wait>, <context> to repeat the task
-    # else:  # Clear "_pid" if subprocess was launched
-    #     del tmp["_pid"]
-    #     job_context = json.dumps(tmp)
-    #     append_text(outfile, "prepare_workspace FINISHED")
-    #     return job_context  # Return nothing (None) or <context> (if context changed) to move to the default next task
-    # TODO update Job status to "preparing_workspace"
-    #  requests.put(job_context["endpoint_url"] + f"/api/jobs/{job_context['job_id']}/status", "preparing_workspace")
-    pass
 
 
 @celery_app.task(name="export")
@@ -185,47 +144,59 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
     :return:
     """
     tmp = json.loads(job_context)
-
     job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
                                                       , job_id=str(tmp["job_id"]))
-
     transfer_state = tmp.get("transfer_state")
     print(f"Transfer state: {transfer_state}")
-    if transfer_state:
+    if transfer_state:  # ya ha empezado la transferencia
         i = transfer_state["idx"]
-        pid = transfer_state["pid"]
+        pid = transfer_state["pid"]  # job_id
     else:
         i = 0
         pid = None
 
     # Ith transfer
-    files_list = tmp["process"]["inputs"]["data"]
-    transfer_at_i = files_list[i] if i < len(files_list) else dict(local_path="", remote_path="")
-    local_path = transfer_at_i["local_path"]
-    remote_path = transfer_at_i["remote_path"]
-    if i == len(files_list):  # Transfer finished
+    # transfer_at_i = tmp["process"]["inputs"]["parameters"]["upload_files"][i] if i < len(filepackage_list) else dict(
+    #     local_path="", remote_path="")
+    transfer_at_i = tmp["process"]['inputs']['data'][i] if i < len(filepackage_list) else dict(
+        local_path="", remote_path="")
+
+    local_path = transfer_at_i.get("path")
+    remote_path = transfer_at_i.get("remote_path")  # Add workspace base?
+    step = transfer_at_i.get("step")
+
+    if i == len(filepackage_list):  # Transfer finished
         print("Transfer finished")
         del tmp["transfer_state"]
         job_context = json.dumps(tmp)
         return job_context
     elif job_executor.job_status(pid) == "running":  # Transfer is being executed
-        print("Transfer executing")
+        # print("Transfer executing")
         sleep(5)
-        return None, job_context
-    elif job_executor.exists(local_path, remote_path):  # File i has been transferred successfully
+        print(job_context)
+    elif job_executor.exists(local_path=local_path,
+                             remote_path=remote_path,
+                             step=step,
+                             workspace=str(tmp['job_id'])):  # File i has been transferred successfully
         print(f"File {i} transferred: : {local_path} -> {remote_path}. Moving to next")
         i += 1
         tmp["transfer_state"] = dict(idx=i, pid=None)
         job_context = json.dumps(tmp)
-        return None, job_context
+        print(job_context)
     else:  # Transfer file i
         print(f"Begin transfer {i}: {local_path} -> {remote_path}")
-        pid = job_executor.upload_file("", local_path, remote_path)
+        pid = job_executor.upload_file(local_path=local_path,
+                                       remote_path=remote_path,
+                                       step=step,
+                                       workspace=str(tmp['job_id']))
+        # TODO yo puedo tener un error aquí
         tmp["transfer_state"] = dict(idx=i, pid=pid)
+        print(tmp['transfer_state'])
         job_context = json.dumps(tmp)
         return None, job_context
 
 
+    
 @celery_app.task(name="submit")
 @celery_wf(celery_app, wf1, "submit")
 def wf1_submit(job_context: str):
@@ -238,10 +209,13 @@ def wf1_submit(job_context: str):
     job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
                                                       , job_id=str(tmp["job_id"]))
     #TODO: ver galaxy -- inputs = tmp["process"]
-    inv_id = job_executor.submit(str(tmp['job_id']), tmp["process"]["inputs"]["parameters"])
-    tmp['g_id'] = inv_id
+    job_executor = JobExecutorAtResourceFactory()
+    job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp['resource'])
+    inputs = tmp["process"]
+    pid = job_executor.submit(str(tmp['job_id']), inputs)
+    tmp['pid'] = pid
     job_context = json.dumps(tmp)
-    append_text(f"submit. workspace: {tmp['g_id']}")
+    append_text(f"submit. workspace: {tmp['pid']}")
     return job_context
 
 
@@ -254,15 +228,16 @@ def wf1_wait_until_execution_starts(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory()
     job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
-                                                      , job_id=str(tmp["job_id"]))
-    status = job_executor.job_status(tmp["g_id"])
-    if status == 'running':  # pasa siempre or running?
+                                            , job_id=str(tmp["job_id"]))
+    if status == 'running' or 'ok':  # pasa siempre or running?
+    status = job_executor.job_status(tmp["pid"])
+
         append_text(f"wait_until_execution_starts: status: {status}")
         return job_context
     if status == 'error':
         append_text(f"wait_until_execution_starts: status: {status}")
+        # pasar error en job_context?
         return 'error', job_context
     else:
         append_text(f"wait_until_execution_starts: status: {status}")
@@ -280,10 +255,9 @@ def wf1_wait_for_execution_end(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
-    job = JobExecutorAtResourceFactory()
     job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
                                                       , job_id=str(tmp["job_id"]))
-    status = job_executor.job_status(tmp["g_id"])
+    status = job_executor.job_status(tmp["pid"])
     if isinstance(status, dict):
         append_text(f"wait_for_execution_end: status: {status}")
         return 'error', job_context
@@ -304,10 +278,9 @@ def wf1_transfer_data_from_resource(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory()
     job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
                                                       , job_id=str(tmp["job_id"]))
-    r = job_executor.get_results(tmp["g_id"])
+    r = job_executor.get_results(tmp["pid"])
     tmp['results'] = r
     job_context = json.dumps(tmp)
     append_text(f"transfer_data_from: results: {r}")
@@ -341,10 +314,9 @@ def wf1_cleanup_workspace(job_context: str):
     job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
                                                       , job_id=str(tmp["job_id"]))
     job_executor.remove_job_workspace(str(tmp["job_id"]))
-    del tmp['g_id']
+    del tmp['pid']
     job_context = json.dumps(tmp)
     append_text(f"cleanup:")
-    return job_context
 
 
 @celery_app.task(name="success")
@@ -356,8 +328,9 @@ def wf1_complete_succesfully(job_context: str):
     :param job_context:
     :return:
     """
+    # TODO CHANGE STATE
     append_text("complete_successfully")
-    sleep(2)
+    return job_context
 
 
 @celery_app.task(name="error")

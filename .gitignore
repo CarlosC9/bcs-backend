@@ -22,3 +22,4 @@ biobarcoding/services/perl_scripts/taxdump.tar.gz*
 
 *.dmp
 
+tests/data_test/training_set.json
