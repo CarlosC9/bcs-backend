@@ -339,7 +339,7 @@ def wf1_cleanup_workspace(job_context: str):
     del tmp['pid']
     job_context = json.dumps(tmp)
     append_text(f"cleanup:")
-    return job_context
+
 
 
 
@@ -352,17 +352,9 @@ def wf1_complete_succesfully(job_context: str):
     :param job_context:
     :return:
     """
+    # TODO CHANGE STATE
     append_text("complete_successfully")
-    tmp = json.loads(job_context)
-    status = change_status("success", job_context)
-    if status == 200:
-        tmp["status"] = "success"
-        job_context = json.dumps(tmp)
-        return job_context
-    elif status == None:
-        return job_context
-    else:
-        return 'error', job_context
+    return job_context
 
 
 @celery_app.task(name="error")
@@ -380,7 +372,6 @@ def wf1_completed_error(job_context: str):
     job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp["resource"])
     status = job_executor.job_status(job_executor["g_id"])
     tmp['error'] = status
-    # TODO este remove no debería hacerse en cleanup??
     job_executor.remove_job_workspace(str(tmp['job_id']))
     job_context = json.dumps(tmp)
     append_text(f"error: {tmp['error']}")

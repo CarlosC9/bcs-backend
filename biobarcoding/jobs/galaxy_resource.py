@@ -217,7 +217,6 @@ def load_input_files(gi, inputs, workflow, history):
     return inputs_for_invoke
 
 
-# Nuevo
 def set_params_json(json_wf, param_data):
     """
     Associate parameters to workflow steps via the step label. The result is a dictionary
@@ -357,20 +356,6 @@ def params_input_creation(gi, workflow_name, inputs_data, param_data, history_id
 
     for pk in params_to_move:
         inputs_data[pk] = param_data[pk]
-
-    # validate_labels(wf_dict, param_data)
-    # num_inputs = validate_input_labels(wf_json=wf_dict, inputs=inputs_data)
-    # if num_inputs > 0:
-    #     validate_file_exists(inputs_data)
-
-    # validate_dataset_id_exists(gi, inputs_data)
-
-    # print('Create new history to run workflow ...')
-    # if num_inputs > 0:
-    #     if history_name != None:
-    #         print(history_name)
-    #         history = gi.histories.create_history(name=history_name)
-    #     else:
     history = gi.histories.get_histories(history_id)[0]
     datamap = load_input_files(gi, inputs=inputs_data,
                                workflow=show_wf, history=history)
@@ -404,11 +389,11 @@ def input_creation(gi, workflow_name, history_name, inputs_data):  # TODO test
     validate_dataset_id_exists(gi, inputs_data)
 
     print('Create new history to run workflow ...')
-    if num_inputs > 0:
-        history = gi.histories.create_history(name=history_name)
-        datamap = load_input_files(gi, inputs=inputs_data,
-                                   workflow=show_wf, history=history)
-        # TODO check that input parameters are correct
+    history = gi.histories.create_history(name=history_name)
+    #dict step : data id
+    datamap = load_input_files(gi, inputs=inputs_data,
+                               workflow=show_wf, history=history)
+    # TODO check that input parameters are correct
     return datamap
 
 
@@ -653,15 +638,11 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         self.connect()
         gi = self.galaxy_instance
         input_params = params['inputs']['parameters']
-        inputs = params['inputs']['data']  # mapeo de datasets (nombres y steps) #esto hay que tenerlo bien armado
+        inputs = params['inputs']['data']
         workflow = params['name']
         w_id = workflow_id(gi, workflow)
-        # dataset = gi.histories.show_matching_datasets(workspace) -> lista con los data set en un workspace
-        #hacer solo el tema de los inputs (normalmente solo hay un data set)
-
         datamap, parameters = params_input_creation(gi, workflow, inputs, input_params,
                                                     history_name=workspace)  # catch error
-        # TODO no me está funcionando mi test de siempre y no sé porque
         # TODO revisar la fomra del data map, quizás me pueda ahorrar toda esa función xq esto ya está comprobadoo desde el gui
         history_id = gi.histories.get_histories(name=workspace)[0]['id']
         invocation = gi.workflows.invoke_workflow(workflow_id=w_id,
@@ -670,12 +651,6 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
                                                   history_id=history_id)
         return invocation['id']
 
-<<<<<<< Updated upstream
-    def job_status(self, native_id):
-        self.connect()
-        gi = self.galaxy_instance
-        return invocation_errors(gi, native_id)
-=======
     def job_status(self, pid):
         """
         :return: state of the given job among the following values: `new`,
@@ -692,8 +667,6 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
             return state
         else:
             return None
->>>>>>> Stashed changes
-        # job here refers to invocation so it will probably not check the upload file job
 
     def cancel_job(self, native_id):
         self.connect()
