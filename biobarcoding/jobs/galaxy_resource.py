@@ -670,14 +670,29 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
                                                   history_id=history_id)
         return invocation['id']
 
+<<<<<<< Updated upstream
+    def job_status(self, native_id):
+        self.connect()
+        gi = self.galaxy_instance
+        return invocation_errors(gi, native_id)
+=======
     def job_status(self, pid):
+        """
+        :return: state of the given job among the following values: `new`,
+          `queued`, `running`, `waiting`, `ok`. If the state cannot be
+          retrieved, an empty string is returned.
+        """
         self.connect()
         gi = self.galaxy_instance
         if pid:
-            job = gi.jobs.show_job(pid)
-            return job['state']
+            state = gi.jobs.get_state(pid)
+            # TODO al pasarle el id del invocation estoy viendo el estado de todo el workflow? una invocación de
+            #  workflow debe ser un job a su vez.....
+            print(f"{state} job in job_status function")
+            return state
         else:
             return None
+>>>>>>> Stashed changes
         # job here refers to invocation so it will probably not check the upload file job
 
     def cancel_job(self, native_id):
