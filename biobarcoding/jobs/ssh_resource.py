@@ -169,7 +169,7 @@ class RemoteSSHClient:
             Upload file to remote_path.
 
             @param local_path: path to local file.
-            @param remote_path: path to file relative to self.remote_path.
+            @param remote_path: the remote path to file relative to self.remote_path.
             @return: PID of the process uploading the file.
             """
             remote_path = os.path.join(self.remote_path, remote_path)
@@ -331,8 +331,8 @@ class JobExecutorWithSSH(JobExecutorAtResource):
     def remove_job_workspace(self, name):
         self.loop.run_until_complete(self.remote_client.remove_directory(os.path.join(ROOT_DIR, name)))
 
-    def upload_file(self, workspace, local_filename, remote_location):
-        return self.remote_client.upload_file(local_filename, remote_location)
+    def upload_file(self, local_filename, **kwargs):
+        return self.remote_client.upload_file(local_filename, kwargs['remote_path'])
 
     def upload_directory(self, workspace, local_filename, remote_location):
         return self.remote_client.upload_directory(local_filename, remote_location)
@@ -344,6 +344,7 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         self.loop.run_until_complete(self.remote_client.remove_file(remote_filename))
 
     def submit(self, workspace, params):
+        params = params["inputs"]["parameters"]
         return self.loop.run_until_complete(self.remote_client.run_client(params["script_file"], params["script_params"]))
 
     def job_status(self, native_id):
@@ -359,16 +360,19 @@ class JobExecutorWithSSH(JobExecutorAtResource):
     def retrieve_directory(self, remote_dir, local_dir):
         self.loop.run_until_complete(self.remote_client.download_directory(remote_dir, local_dir))
 
-    def exists(self, local_path, remote_path):
-        if os.path.exists(local_path):
-            check = self.loop.run_until_complete(self.remote_client.exists_remotely(remote_path))
+    def exists(self, **kwargs):
+        print(kwargs)
+        print(kwargs["local_path"])
+        if os.path.exists(kwargs["local_path"]):
+            check = self.loop.run_until_complete(self.remote_client.exists_remotely(kwargs["remote_path"]))
 
             if check:
                 #the same_size method works ONLY with files and empty directories
-                check &= self.loop.run_until_complete(self.remote_client.same_size(local_path, remote_path))
+                check &= self.loop.run_until_complete(
+                    self.remote_client.same_size(kwargs["local_path"], kwargs["remote_path"]))
             return check
         else:
-            print(f"File {local_path} not found in your local system")
+            print(f"File {kwargs['local_path']} not found in your local system")
             return None
 
     def check_resource(self):

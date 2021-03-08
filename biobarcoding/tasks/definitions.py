@@ -156,36 +156,37 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
         pid = None
 
     # Ith transfer
-    # transfer_at_i = tmp["process"]["inputs"]["parameters"]["upload_files"][i] if i < len(filepackage_list) else dict(
-    #     local_path="", remote_path="")
-    transfer_at_i = tmp["process"]['inputs']['data'][i] if i < len(filepackage_list) else dict(
+    files_list = tmp["process"]["inputs"]["data"]
+    transfer_at_i = files_list[i] if i < len(files_list) else dict(
         local_path="", remote_path="")
 
+    '''The transfer_at_i keys are unique for each job type. The only field that is mandatory
+    is the path that refers to the local path of the file to be transferred'''
     local_path = transfer_at_i.get("path")
-    remote_path = transfer_at_i.get("remote_path")  # Add workspace base?
+    remote_path = transfer_at_i.get("remote_path")
     step = transfer_at_i.get("step")
 
-    if i == len(filepackage_list):  # Transfer finished
+    if i == len(files_list):  # Transfer finished
         print("Transfer finished")
         del tmp["transfer_state"]
         job_context = json.dumps(tmp)
         return job_context
     elif job_executor.job_status(pid) == "running":  # Transfer is being executed
-        # print("Transfer executing")
+        print("Transfer executing")
         sleep(5)
         print(job_context)
     elif job_executor.exists(local_path=local_path,
                              remote_path=remote_path,
                              step=step,
                              workspace=str(tmp['job_id'])):  # File i has been transferred successfully
-        print(f"File {i} transferred: : {local_path} -> {remote_path}. Moving to next")
+        print(f"File {i} transferred: {local_path} -> {remote_path}. Moving to next")
         i += 1
         tmp["transfer_state"] = dict(idx=i, pid=None)
         job_context = json.dumps(tmp)
         print(job_context)
     else:  # Transfer file i
         print(f"Begin transfer {i}: {local_path} -> {remote_path}")
-        pid = job_executor.upload_file(local_path=local_path,
+        pid = job_executor.upload_file(local_path,
                                        remote_path=remote_path,
                                        step=step,
                                        workspace=str(tmp['job_id']))
@@ -208,9 +209,6 @@ def wf1_submit(job_context: str):
     tmp = json.loads(job_context)
     job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
                                                       , job_id=str(tmp["job_id"]))
-    #TODO: ver galaxy -- inputs = tmp["process"]
-    job_executor = JobExecutorAtResourceFactory()
-    job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp['resource'])
     inputs = tmp["process"]
     pid = job_executor.submit(str(tmp['job_id']), inputs)
     tmp['pid'] = pid
@@ -230,9 +228,8 @@ def wf1_wait_until_execution_starts(job_context: str):
     tmp = json.loads(job_context)
     job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
                                             , job_id=str(tmp["job_id"]))
-    if status == 'running' or 'ok':  # pasa siempre or running?
     status = job_executor.job_status(tmp["pid"])
-
+    if status == 'running' or 'ok':  # pasa siempre or running?
         append_text(f"wait_until_execution_starts: status: {status}")
         return job_context
     if status == 'error':
