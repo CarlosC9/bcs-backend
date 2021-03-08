@@ -4,6 +4,7 @@ import os
 import requests
 from billiard.context import Process
 
+from biobarcoding.rest.file_manager import FilesAPI
 from biobarcoding.tasks import celery_app
 from time import sleep, time
 
@@ -19,6 +20,7 @@ from biobarcoding.rest import bcs_api_base
 Celery tasks CANNOT be debugged in Celery!! (the code is run in a separate process; of course they can be debugged "off-line")
 """
 
+MAX_ERRORS = 3
 
 # Send messages
 # Refresh queues of jobs (at different computing resources)
@@ -151,9 +153,11 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
     if transfer_state:  # ya ha empezado la transferencia
         i = transfer_state["idx"]
         pid = transfer_state["pid"]  # job_id
+        n_errors = transfer_state["n_errors"]
     else:
         i = 0
         pid = None
+        n_errors = 0
 
     # Ith transfer
     files_list = tmp["process"]["inputs"]["data"]
@@ -166,7 +170,16 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
     remote_path = transfer_at_i.get("remote_path")
     step = transfer_at_i.get("step")
 
-    if i == len(files_list):  # Transfer finished
+    if not os.path.isfile(local_path):
+        if n_errors < MAX_ERRORS:
+            n_errors += 1
+            tmp["transfer_state"] = dict(idx=i, pid=None, n_errors=n_errors)
+            job_context = json.dumps(tmp)
+            return None, job_context
+        else:
+            #TODO: retornar algo a celery para que sepa que no hay que ejecutar esto otra vez
+            pass
+    elif i == len(files_list):  # Transfer finished
         print("Transfer finished")
         del tmp["transfer_state"]
         job_context = json.dumps(tmp)
@@ -181,7 +194,7 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
                              workspace=str(tmp['job_id'])):  # File i has been transferred successfully
         print(f"File {i} transferred: {local_path} -> {remote_path}. Moving to next")
         i += 1
-        tmp["transfer_state"] = dict(idx=i, pid=None)
+        tmp["transfer_state"] = dict(idx=i, pid=None, n_errors=n_errors)
         job_context = json.dumps(tmp)
         print(job_context)
     else:  # Transfer file i
@@ -191,7 +204,7 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
                                        step=step,
                                        workspace=str(tmp['job_id']))
         # TODO yo puedo tener un error aquí
-        tmp["transfer_state"] = dict(idx=i, pid=pid)
+        tmp["transfer_state"] = dict(idx=i, pid=pid, n_errors=n_errors)
         print(tmp['transfer_state'])
         job_context = json.dumps(tmp)
         return None, job_context
@@ -274,14 +287,63 @@ def wf1_transfer_data_from_resource(job_context: str):
     :param job_context:
     :return:
     """
+
+    """
+        Transfer data to the compute resource
+        :param job_context:
+        :return:
+        """
     tmp = json.loads(job_context)
     job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
                                                       , job_id=str(tmp["job_id"]))
-    r = job_executor.get_results(tmp["pid"])
-    tmp['results'] = r
-    job_context = json.dumps(tmp)
-    append_text(f"transfer_data_from: results: {r}")
-    return job_context
+    transfer_state = tmp.get("transfer_state")
+    print(f"Transfer state: {transfer_state}")
+    if transfer_state:  # ya ha empezado la transferencia
+        i = transfer_state["idx"]
+        pid = transfer_state["pid"]  # job_id
+    else:
+        i = 0
+        pid = None
+        os.mkdir(f"base_path_to_results/{tmp['job_id']}/")
+
+    # Ith transfer
+    files_list = tmp["process"]["inputs"]["results"]
+    transfer_at_i = files_list[i] if i < len(files_list) else dict(
+        local_path="", remote_path="")
+
+    '''The transfer_at_i keys are unique for each job type. The only field that is mandatory
+    is the path that refers to the local path of the file to be transferred'''
+    local_path = os.path.join(f"base_path_to_results/{tmp['job_id']}/", transfer_at_i.get("path"))
+    remote_path = transfer_at_i.get("remote_path")
+    step = transfer_at_i.get("step")
+
+    if i == len(files_list):  # Transfer finished
+        print("Transfer finished")
+        del tmp["transfer_state"]
+        job_context = json.dumps(tmp)
+        return job_context
+    elif job_executor.job_status(pid) == "running":  # Transfer is being executed
+        print("Transfer executing")
+        sleep(5)
+        print(job_context)
+    elif os.path.isfile(local_path):  # File i has been transferred successfully
+        print(f"File {i} transferred: {local_path} -> {remote_path}. Moving to next")
+        FilesAPI.put(local_path)
+        i += 1
+        tmp["transfer_state"] = dict(idx=i, pid=None)
+        job_context = json.dumps(tmp)
+        print(job_context)
+    else:  # Transfer file i
+        print(f"Begin transfer {i}: {local_path} -> {remote_path}")
+        pid = job_executor.download_file(local_path,
+                                       remote_path=remote_path,
+                                       step=step,
+                                       workspace=str(tmp['job_id']))
+        # TODO yo puedo tener un error aquí
+        tmp["transfer_state"] = dict(idx=i, pid=pid)
+        print(tmp['transfer_state'])
+        job_context = json.dumps(tmp)
+        return None, job_context
 
 
 @celery_app.task(name="import")

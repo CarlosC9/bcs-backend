@@ -354,15 +354,13 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         self.remote_client.kill_process(native_id)
 
     # SSH
-    def retrieve_file(self, remote_file, local_file):
-        self.loop.run_until_complete(self.remote_client.download_file(remote_file, local_file))
+    def download_file(self, local_path, **kwargs):
+        self.loop.run_until_complete(self.remote_client.download_file(kwargs["remote_path"], local_path))
 
     def retrieve_directory(self, remote_dir, local_dir):
         self.loop.run_until_complete(self.remote_client.download_directory(remote_dir, local_dir))
 
     def exists(self, **kwargs):
-        print(kwargs)
-        print(kwargs["local_path"])
         if os.path.exists(kwargs["local_path"]):
             check = self.loop.run_until_complete(self.remote_client.exists_remotely(kwargs["remote_path"]))
 

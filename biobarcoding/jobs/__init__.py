@@ -76,6 +76,9 @@ class JobExecutorAtResource(ABC):
     def upload_file(self, local_path, **kwargs):
         pass
 
+    def download_file(self, local_path, **kwargs):
+        pass
+
     def move_file(self, remote_source, remote_destination):
         pass
 
