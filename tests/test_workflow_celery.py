@@ -5,8 +5,6 @@ from biobarcoding.jobs import JobExecutorAtResourceFactory
 import json
 import requests
 from biobarcoding.rest import bcs_api_base
-
-"""
 req = {
   "resource_id": "8fac3ce8-8796-445f-ac27-4baedadeff3b",
   "process_id": "c8df0c20-9cd5-499b-92d4-5fb35b5a369a",
@@ -33,7 +31,9 @@ req = {
 
 s = requests.Session()
 s.put('http://localhost:5000/api/jobs/1?status=succes')
-s.post('http://localhost:5000/api/jobs/', json = dict(params = req))
+s.post('http://localhost:5000/api/jobs/', json = req)
+"""
+
 """
 
 

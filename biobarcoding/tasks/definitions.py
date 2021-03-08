@@ -158,6 +158,7 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
     # Ith transfer
     # transfer_at_i = tmp["process"]["inputs"]["parameters"]["upload_files"][i] if i < len(filepackage_list) else dict(
     #     local_path="", remote_path="")
+    filepackage_list = tmp["process"]['inputs']['data']
     transfer_at_i = tmp["process"]['inputs']['data'][i] if i < len(filepackage_list) else dict(
         local_path="", remote_path="")
 
@@ -230,9 +231,8 @@ def wf1_wait_until_execution_starts(job_context: str):
     tmp = json.loads(job_context)
     job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
                                             , job_id=str(tmp["job_id"]))
-    if status == 'running' or 'ok':  # pasa siempre or running?
     status = job_executor.job_status(tmp["pid"])
-
+    if status == 'running' or 'ok':  # pasa siempre or running?
         append_text(f"wait_until_execution_starts: status: {status}")
         return job_context
     if status == 'error':
@@ -261,7 +261,7 @@ def wf1_wait_for_execution_end(job_context: str):
     if isinstance(status, dict):
         append_text(f"wait_for_execution_end: status: {status}")
         return 'error', job_context
-    if status == 'ok':
+    elif status == 'ok':
         append_text(f"wait_for_execution_end: status: {status}")
         return job_context
     else:
