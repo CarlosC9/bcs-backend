@@ -11,11 +11,11 @@ def create(**kwargs):
     return issues, None, 200
 
 
-def read(alignment_id=None, **kwargs):
+def read(id=None, **kwargs):
     content = None
     try:
-        content = __get_query(alignment_id, **kwargs)
-        if alignment_id:
+        content = __get_query(id, **kwargs)
+        if id:
             content = content.first()
         else:
             content = content.all()
@@ -26,26 +26,26 @@ def read(alignment_id=None, **kwargs):
     return issues, content, status
 
 
-def update(alignment_id, **kwargs):
+def update(id, **kwargs):
     issues = [Issue(IType.WARNING, 'UPDATE alignments: dummy completed')]
     return issues, None, 200
 
 
-def __delete_from_bcs(analysis_id):
+def __delete_from_bcs(*args):
     from biobarcoding.db_models.bioinformatics import MultipleSequenceAlignment
-    db_session.query(MultipleSequenceAlignment).filter(MultipleSequenceAlignment.chado_analysis_id == analysis_id) \
+    db_session.query(MultipleSequenceAlignment).filter(MultipleSequenceAlignment.chado_analysis_id.in_(*args)) \
         .delete(synchronize_session='fetch')
 
 
-def delete(alignment_id=None, **kwargs):
+def delete(id=None, **kwargs):
     content = None
     try:
         # TODO: The BCS data are not being deleted yet.
-        query = __get_query(alignment_id, **kwargs)
+        query = __get_query(id, **kwargs)
         from biobarcoding.services.sequences import delete as delete_sequences
-        for msa in query.all():
-            delete_sequences(analysis_id=msa.analysis_id)
-            __delete_from_bcs(msa.analysis_id)
+        _ids = [msa.analysis_id for msa in query.all()]
+        delete_sequences(filter=[{'analysis_id':{'op':'in','unary':_ids}}])
+        __delete_from_bcs(_ids)
         resp = query.delete(synchronize_session='fetch')
         issues, status = [Issue(IType.INFO, f'DELETE alignments: The {resp} alignments were successfully removed.')], 200
     except Exception as e:
@@ -104,7 +104,11 @@ def __msa2bcs(msa):
 def import_file(input_file, format='fasta', **kwargs):
     content = None
     try:
-        msa = get_or_create(chado_session, Analysis, **kwargs)
+        if not kwargs.get('program'):
+            kwargs['program']='Multiple Sequence Alignment'
+        if not kwargs.get('programversion'):
+            kwargs['programversion']='(Imported file)'
+        msa = Analysis(**kwargs)
         chado_session.add(msa)
         chado_session.flush()
         __msa2bcs(msa)
@@ -121,21 +125,22 @@ def import_file(input_file, format='fasta', **kwargs):
     return issues, content, status
 
 
-def export(analysis_id, format='fasta', **kwargs):
+def export(id, format='fasta', **kwargs):
     if format=='fasta':
         from biobarcoding.services.sequences import export as export_sequences
-        return export_sequences(output_file="/tmp/alignment.fas", analysis_id=analysis_id)
+        return export_sequences(output_file="/tmp/alignment.fas", format='fasta',
+                                **{'filter': [{'analysis_id': {'op': 'eq', 'unary': id}}]})
     else:
         issues, status = [Issue(IType.ERROR, f'EXPORT alignments: The format {format} could not be imported.')], 500
         return issues, None, status
 
 
-def __get_query(alignment_id=None, **kwargs):
+def __get_query(id=None, **kwargs):
     from biobarcoding.services.analyses import __get_query as get_analyses
-    query = get_analyses(alignment_id, **kwargs)
+    query = get_analyses(id, **kwargs)
     msa_ids = chado_session.query(AnalysisCvterm.analysis_id) \
         .join(Cvterm, AnalysisCvterm.cvterm_id == Cvterm.cvterm_id) \
-        .filter(or_(Cvterm.name == 'Alignment', Cvterm.name == 'Sequence alignment'))
+        .filter(or_(Cvterm.name == 'Alignment', Cvterm.name == 'Sequence alignment')).all()
     query = query.filter(Analysis.analysis_id.in_(msa_ids))
     return query
 

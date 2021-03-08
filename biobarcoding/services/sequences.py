@@ -54,16 +54,16 @@ def import_file(input_file, format='fasta', **kwargs):
     content = None
     from biobarcoding.services import conn_chado
     conn = conn_chado()
-    if not 'organism_id' in kwargs or not kwargs['organism_id']:
+    if not kwargs.get('organism_id'):
         try:
             kwargs['organism_id'] = conn.organism.add_organism(genus='organism',
                                                      species='undefined', common='', abbr='')['organism_id']
         except Exception as e:
             kwargs['organism_id'] = conn.organism.get_organisms(species='undefined')[0]['organism_id']
     try:
-        resp = conn.feature.load_fasta(input_file, kwargs['organism_id'], analysis_id=kwargs['analysis_id'], update=True)
+        resp = conn.feature.load_fasta(input_file, kwargs.get('organism_id'), analysis_id=kwargs.get('analysis_id'), update=True)
         from Bio import SeqIO
-        __seqs2bcs([seq.id for seq in SeqIO.parse(input_file, format)])
+        __seqs2bcs([seq.id for seq in SeqIO.parse(input_file, format or 'fasta')])
         issues, status = [Issue(IType.INFO, f'IMPORT sequences: {resp} sequences were successfully imported.')], 200
     except Exception as e:
         print(e)

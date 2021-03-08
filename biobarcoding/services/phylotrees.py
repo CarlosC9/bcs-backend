@@ -63,15 +63,16 @@ phylonode:
 """
 def import_file(input_file, format='newick', **kwargs):
     content = None
+    format = format or 'newick'
     try:
-        # Check newick format
+        # TODO: Check newick format
         from Bio import Phylo
         tree = Phylo.read(input_file, format)
     except Exception as e:
         issues = [Issue(IType.ERROR, f'IMPORT phylotress: The file {input_file}.{format} could not be imported.')]
         return issues, content, 500
     try:
-        if not 'name' in kwargs and not kwargs['name']:
+        if not kwargs.get('name'):
             kwargs['name'] = os.path.basename(input_file)
         # Create the new phylotree
         phylotree = __new_phylotree(kwargs.get('name'), kwargs.get('comment'), kwargs.get('analysis_id'))

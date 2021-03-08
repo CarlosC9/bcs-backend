@@ -18,48 +18,47 @@ class BioObjAPI(MethodView):
     @bcs_session(read_only=True)
     def get(self, bos, id=None, format=None):
         print(f'GET {request.path}\nGetting {bos} {id}')
-        bos_service = self._prepare(bos)
+        self._prepare(bos)
         if format:
-            issues, content, status = bos_service.export(id, format=format, **self.kwargs)
+            issues, content, status = self.service.export(id, format=format, **self.kwargs)
             return send_file(content, mimetype=f'text/{format}'), status
-        issues, content, status = bos_service.read(id, **self.kwargs)
+        issues, content, status = self.service.read(id, **self.kwargs)
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
     @bcs_session()
     def post(self, bos, format=None):
         print(f'POST {request.path}\nCreating {bos}')
+        self._prepare(bos)
         if request.files:
             issues, content, status = self._import_files(format)
         else:
-            bos_service = self._prepare(bos)
-            issues, content, status = bos_service.create(**self.kwargs)
+            issues, content, status = self.service.create(**self.kwargs.get('value'))
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
     @bcs_session()
     def put(self, bos, id, format=None):
         print(f'PUT {request.path}\nCreating {bos} {id}')
-        bos_service = self._prepare(bos)
-        issues, content, status = bos_service.update(id, **self.kwargs)
+        self._prepare(bos)
+        issues, content, status = self.service.update(id, **self.kwargs)
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
     @bcs_session()
     def delete(self, bos, id=None, format=None):
         print(f'DELETE {request.path}\nDeleting {bos} {id}')
-        bos_service = self._prepare(bos)
-        issues, content, status = bos_service.delete(id, **self.kwargs)
+        self._prepare(bos)
+        issues, content, status = self.service.delete(id, **self.kwargs)
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
-    def _import_files(self, bos, format):
-        bos_service = self._prepare(bos)
+    def _import_files(self, format):
         issues, content = [], []
         for key,file in request.files.items(multi=True):
             try:
                 file_cpy = self._make_file(file)
-                i, c, s = bos_service.import_file(file_cpy, format, **self.kwargs)
+                i, c, s = self.service.import_file(file_cpy, format, **self.kwargs.get('value'))
             except Exception as e:
                 print(e)
                 i, c = [Issue(IType.ERROR, f'Could not import the file {file}.')], {}
@@ -78,7 +77,7 @@ class BioObjAPI(MethodView):
 
     def _prepare(self, bos):
         self._check_data()
-        return importlib.import_module(f'biobarcoding.services.{bos}')
+        self.service = importlib.import_module(f'biobarcoding.services.{bos}')
 
 
     def _check_data(self, data=None):
@@ -96,8 +95,8 @@ class BioObjAPI(MethodView):
             # dict = data.to_dict(flat=False)
             # args = { key: dict[key][0] if len(dict[key]) <= 1 else dict[key] for key in dict }
             # self.kwargs.update(args)
+            from urllib.parse import unquote
             if 'filter' in data and data['filter']:
-                from urllib.parse import unquote
                 self.kwargs['filter'] += json.loads(unquote(data.get('filter')))
             if 'order' in data and data['order']:
                 self.kwargs['order'].update(
@@ -109,8 +108,7 @@ class BioObjAPI(MethodView):
                         data.get('pagination')))
             if 'value' in data and data['value']:
                 self.kwargs['value'].update(
-                    json.loads(
-                        data.get('value')))
+                    json.loads(unquote(data.get('value'))))
             print(f'KWARGS: {self.kwargs}')
 
 
