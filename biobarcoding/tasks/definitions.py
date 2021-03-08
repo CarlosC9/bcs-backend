@@ -207,11 +207,11 @@ def wf1_submit(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
-                                                      , job_id=str(tmp["job_id"]))
+
     #TODO: ver galaxy -- inputs = tmp["process"]
     job_executor = JobExecutorAtResourceFactory()
-    job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp['resource'])
+    job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
+                                                      , job_id=str(tmp["job_id"]))
     inputs = tmp["process"]
     pid = job_executor.submit(str(tmp['job_id']), inputs)
     tmp['pid'] = pid
