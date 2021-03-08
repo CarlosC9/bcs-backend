@@ -59,7 +59,6 @@ class JobAPI(MethodView):
         # Start JSON for processing
         d = DottedDict()
         req = request.get_json()
-        d.endpoint_url = ""
         # Load resource and process
         print(req)
         in_dict = DottedDict(req)

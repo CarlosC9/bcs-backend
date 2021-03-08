@@ -258,7 +258,7 @@ def wf1_wait_for_execution_end(job_context: str):
     if isinstance(status, dict):
         append_text(f"wait_for_execution_end: status: {status}")
         return 'error', job_context
-    if status == 'ok':
+    elif status == 'ok':
         append_text(f"wait_for_execution_end: status: {status}")
         return job_context
     else:
