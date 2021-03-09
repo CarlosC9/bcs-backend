@@ -771,6 +771,8 @@ def filter_parse(orm, filter, aux_filter=None):
         return True
 
     try:
+        if not isinstance(filter, (list, tuple)):
+            filter=[filter]
         or_clause = []
         for clause in filter:
             and_clause = []

@@ -1,34 +1,30 @@
 from biobarcoding.db_models import DBSessionChado as chado_session
-from biobarcoding.rest import Issue, IType
+from biobarcoding.db_models.chado import Organism
+from biobarcoding.rest import Issue, IType, filter_parse, paginator
 
 
-def create_organisms(genus, species, common_name = None, abbreviation = None, comment = None):
-    content = { 'genus':genus, 'species':species, 'common_name':common_name, 'abbreviation':abbreviation, 'comment':comment }
-    content = {k:v for k,v in content.items() if v is not None}
+def create(**kwargs):
+    content = None
+    if not kwargs.get('genus'):
+        kwargs['genus']='organism'
+    if not kwargs.get('species'):
+        kwargs['species']='undefined'
     try:
         from biobarcoding.services import get_or_create
-        from biobarcoding.db_models.chado import Organism
-        content = get_or_create(chado_session, Organism,
-            genus=genus,
-            species=species,
-            common_name=common_name,
-            abbreviation=abbreviation,
-            comment=comment)
+        content = get_or_create(chado_session, Organism, **kwargs)
         chado_session.merge(content)
-        issues, status = [Issue(IType.INFO, f'CREATE organisms: The organism "{genus} {species}" was  successfully created.')], 201
+        issues, status = [Issue(IType.INFO, f'CREATE organisms: The organism "{kwargs.get("genus")} {kwargs.get("species")}" was  successfully created.')], 201
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'CREATE organisms: The organism "{genus} {species}" could not be created.')], 500
+        issues, status = [Issue(IType.ERROR, f'CREATE organisms: The organism "{kwargs.get("genus")} {kwargs.get("species")}" could not be created.')], 500
     return issues, content, status
 
 
-def read_organisms(organism_id = None, genus = None, species = None, common_name = None, abbreviation = None, comment = None):
-    content = { 'organism_id':organism_id, 'genus':genus, 'species':species, 'common_name':common_name, 'abbreviation':abbreviation, 'comment':comment }
-    content = {k:v for k,v in content.items() if v is not None}
+def read(id = None, **kwargs):
+    content = None
     try:
-        content = __get_query(organism_id, genus=genus, species=species,
-                common_name=common_name, abbreviation=abbreviation, comment=comment)
-        if organism_id:
+        content = __get_query(id, **kwargs)
+        if id:
             content = content.first()
         else:
             content = content.all()
@@ -39,18 +35,15 @@ def read_organisms(organism_id = None, genus = None, species = None, common_name
     return issues, content, status
 
 
-def update_organisms(organism_id, genus = None, species = None, common_name = None, abbreviation = None, comment = None):
+def update(id, **kwargs):
     issues = [Issue(IType.WARNING, 'UPDATE phylotrees: dummy completed')]
-    content = { 'organism_id':organism_id, 'genus':genus, 'species':species, 'common_name':common_name, 'abbreviation':abbreviation, 'comment':comment }
-    return issues, content, 200
+    return issues, None, 200
 
 
-def delete_organisms(organism_id = None, ids = None, genus = None, species = None, common_name = None, abbreviation = None, comment = None):
-    content = { 'organism_id':organism_id, 'genus':genus, 'species':species, 'common_name':common_name, 'abbreviation':abbreviation, 'comment':comment }
-    content = {k:v for k,v in content.items() if v is not None}
+def delete(id = None, **kwargs):
+    content = None
     try:
-        content = __get_query(organism_id, ids, genus, species,
-            common_name, abbreviation, comment).delete(synchronize_session='fetch')
+        content = __get_query(id, **kwargs).delete(synchronize_session='fetch')
         issues, status = [Issue(IType.INFO, 'DELETE organisms: The organisms were successfully removed.')], 200
     except Exception as e:
         print(e)
@@ -58,21 +51,17 @@ def delete_organisms(organism_id = None, ids = None, genus = None, species = Non
     return issues, content, status
 
 
-def export_organisms(organism_id = None, format = 'genbank', output_file = None):
+def export(id = None, format = None, output_file = None, **kwargs):
     if not output_file:
         output_file = '/tmp/output_taxa.gbk'
+    if not format:
+        format = 'genbank'
     try:
-        from biobarcoding.services import conn_chado
-        conn = conn_chado()
         import sys
         stdout = sys.stdout
         with open(output_file, "w") as sys.stdout:
-            if organism_id:
-                conn.export.export_gbk(organism_id)
-            else:
-                orgs = conn.organism.get_organisms()
-                for org in orgs:
-                    conn.export.export_gbk(org['organism_id'])
+            if format == 'genbank':
+                __print_gbk(id, **kwargs)
         sys.stdout = stdout
         issues, status = Issue(IType.INFO, 'EXPORT organisms: The organisms were successfully exported.'), 200
     except Exception as e:
@@ -83,31 +72,67 @@ def export_organisms(organism_id = None, format = 'genbank', output_file = None)
     return issues, output_file, status
 
 
-def __get_query(organism_id=None, ids=None, genus=None, species=None, common_name=None, abbreviation=None, comment=None, feature_id=None, phylonode_id=None):
-    from biobarcoding.db_models.chado import Organism
+def __print_gbk(id=None, **kwargs):
+    from biobarcoding.services import conn_chado
+    conn = conn_chado()
+    for org in __get_query(id, **kwargs).all():
+        conn.export.export_gbk(org['organism_id'])
+
+
+def __get_query(id=None, **kwargs):
     query = chado_session.query(Organism)
-    if organism_id:
-        query = query.filter(Organism.organism_id==organism_id)
-    if ids:
-        query = query.filter(Organism.organism_id.in_(ids))
-    if genus:
-        query = query.filter(Organism.genus==genus)
-    if species:
-        query = query.filter(Organism.species==species)
-    if abbreviation:
-        query = query.filter(Organism.abbreviation==abbreviation)
-    if common_name:
-        query = query.filter(Organism.common_name==common_name)
-    if comment:
-        query = query.filter(Organism.comment==comment)
-    if feature_id:
+    if id:
+        query = query.filter(Organism.organism_id==id)
+    else:
+        if 'filter' in kwargs:
+            query = query.filter(filter_parse(Organism, kwargs.get('filter'), __aux_own_filter))
+        if 'order' in kwargs:
+            query = __get_query_ordered(query, kwargs.get('order'))
+        if 'pagination' in kwargs:
+            query = paginator(query, kwargs.get('pagination'))
+    return query
+
+
+def __aux_own_filter(filter):
+    clause = []
+    if filter.get('feature_id'):
         from biobarcoding.db_models.chado import Feature
-        feat_org_id = chado_session.query(Feature.organism_id)\
-            .filter(Feature.feature_id==feature_id)
-        query = query.filter(Organism.organism_id==feat_org_id)
-    if phylonode_id:
+        _organism_ids = chado_session.query(Feature.organism_id)\
+            .filter(filter_parse(Feature, [{'feature_id': filter.get('feature_id')}])).all()
+        clause.append(Organism.organism_id.in_(_organism_ids))
+    if filter.get('analysis_id'):
+        from biobarcoding.db_models.chado import AnalysisFeature, Feature
+        _feature_ids = chado_session.query(AnalysisFeature.feature_id)\
+            .filter(filter_parse(AnalysisFeature, [{'analysis_id': filter.get('analysis_id')}])).all()
+        _organism_ids = chado_session.query(Feature.organism_id)\
+            .filter(Feature.feature_id.in_(_feature_ids)).all()
+        clause.append(Organism.organism_id.in_(_organism_ids))
+    if filter.get('phylonode_id'):
         from biobarcoding.db_models.chado import PhylonodeOrganism
-        node_org_id = chado_session.query(PhylonodeOrganism.organism_id)\
-            .filter(PhylonodeOrganism.phylonode_id==phylonode_id)
-        query = query.filter(Organism.organism_id==node_org_id)
+        _organism_ids = chado_session.query(PhylonodeOrganism.organism_id)\
+            .filter(PhylonodeOrganism.phylonode_id == filter.get('phylonode_id')).all()
+        clause.append(Organism.organism_id.in_(_organism_ids))
+    if filter.get('phylotree_id'):
+        from biobarcoding.db_models.chado import Phylonode, PhylonodeOrganism
+        _phylonode_ids = chado_session.query(Phylonode.phylonode_id)\
+            .filter(filter_parse(Phylonode, [{'phylotree_id': filter.get('phylotree_id')}])).all()
+        _organism_ids = chado_session.query(PhylonodeOrganism.organism_id)\
+            .filter(PhylonodeOrganism.phylonode_id.in_(_phylonode_ids)).all()
+        clause.append(Organism.organism_id.in_(_organism_ids))
+    if filter.get('rank'):
+        # TODO: organism.type_id ?
+        from biobarcoding.db_models.chado import Phylonode, PhylonodeOrganism, Cv, Cvterm
+        _rank_cvterm_ids = chado_session.query(Cvterm.cvterm_id)\
+            .join(Cv).filter(Cv.name=='taxonomy')\
+            .filter(filter_parse(Cvterm, [{'name':filter.get('rank')}])).all()
+        _phylonode_ids = chado_session.query(Phylonode.phylonode_id)\
+            .filter(Phylonode.type_id.in_(_rank_cvterm_ids)).all()
+        _ids = chado_session.query(PhylonodeOrganism.organism_id)\
+            .filter(PhylonodeOrganism.phylonode_id.in_(_phylonode_ids)).all()
+        clause.append(Organism.organism_id.in_(_ids))
+    return clause
+
+
+def __get_query_ordered(query, order):
+    # query = query.order(order_parse(Organism, kwargs.get('order'), __aux_own_order))
     return query
