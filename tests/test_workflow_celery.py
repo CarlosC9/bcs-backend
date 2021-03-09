@@ -5,6 +5,9 @@ from biobarcoding.jobs import JobExecutorAtResourceFactory
 import json
 import requests
 from biobarcoding.rest import bcs_api_base
+import requests
+import os
+import subprocess
 req = {
   "resource_id": "8fac3ce8-8796-445f-ac27-4baedadeff3b",
   "process_id": "c8df0c20-9cd5-499b-92d4-5fb35b5a369a",
@@ -35,7 +38,6 @@ s.post('http://localhost:5000/api/jobs/', json = req)
 """
 
 """
-
 
 def wf1_prepare_workspace(job_context):
     """
@@ -179,7 +181,7 @@ def wf_results(job_context):
     tmp = json.loads(job_context)
     job_executor = JobExecutorAtResourceFactory()
     job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp["resource"])
-    r = job_executor.get_results(tmp["g_id"])
+    r = job_executor.download_file(tmp["g_id"])
     tmp['results'] = r
     print(tmp['results'])
     job_context = json.dumps(tmp)
@@ -205,7 +207,6 @@ def wf_cancel(job_context):
 
 
 def workflow(job_context):
-    # job_context = json.dumps(dict_input)
     return_0 = wf1_prepare_workspace(job_context)
     return_01 = wf1_transfer_data_to_resource(return_0)
     return_1 = wf1_1(return_01)
@@ -238,7 +239,9 @@ class MyTestCase(unittest.TestCase):
         # job_context = '{"endpoint_url": "", "process": {"inputs": {"parameters": {"clustalw": {"dnarna": "DNA", "outform": "clustal", "out_order": "ALIGNED", "mode": "complete", "out_seqnos": "ON"}, "phyml": {"phylip_format": "", "nb_data_set": "1", "type_of_seq": "nt", "prop_invar": "e", "equi_freq": "m", "nbSubstCat": "4", "gamma": "e", "move": "NNI", "optimisationTopology": "tlr", "branchSupport": "-4", "numStartSeed": "0", "inputTree": "false", "tstv": "e", "model": "HKY85"}}, "data": {"Input dataset": {"path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta", "type": "fasta"}}}, "name": "ClustalW-PhyMl"}, "resource": {"name": "localhost - galaxy", "jm_type": "galaxy", "jm_location": {"url": "http://localhost:8080/"}, "jm_credentials": {"api_key": "fakekey"}}, "job_id": 8}'
         # NUEVO:
         job_context = '{"endpoint_url": "http//:localhost:5000/", ' \
-                      '"process": {"inputs": {"parameters": {"ClustalW": {"darna": "PROTEIN"}}, "data": [{"step": "Input dataset","path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta","type": "fasta"}]},"name": "MSA ClustalW"}, "status": "created","resource": {"name": "localhost - galaxy", "jm_type": "galaxy","jm_location": {"url": "http://localhost:8080/"}, "jm_credentials": {"api_key": "fakekey"}},"job_id": 60}'
+                      '"process": {"inputs": {"parameters": {"ClustalW": {"darna": "PROTEIN"}}, "data": [{"step": "Input dataset","path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta","type": "fasta"}]},"name": "MSA ClustalW"}, "status": "created",' \
+                      '"resource": ' \
+                      '{"name": "localhost - galaxy", "jm_type": "galaxy","jm_location": {"url": "http://localhost:8080/"}, "jm_credentials": {"api_key": "fakekey"}},"job_id": 60}'
         print(workflow(job_context))
 
 if __name__ == '__main__':

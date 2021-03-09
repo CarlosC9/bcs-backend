@@ -498,8 +498,9 @@ def check_tools(wf1_dic, wf2_dic):
     tool_list = list()
     for step, content in steps1.items():
         if 'errors' in content:
-            if content[
-                'errors'] == "Tool is not installed":  # TODO depende de la versión de galaxi esto lleva un punto al final o no xq lo que hay que buscar otra cosa
+            if content['errors'] == "Tool is not installed":
+                # TODO depende de la versión de galaxi esto lleva un punto al final o no xq lo que hay que buscar
+                #  otra cosa
                 tool_list.append(steps2[step]['tool_shed_repository'])
     if len(tool_list) == 0:
         return 'all tools are installed'
@@ -562,7 +563,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         # TODO hacer un purge y tmb haer un purge del dataset..... p quizás poner como tarea de mantenimiento del celery??
         gi.histories.delete_history(get_history_id(gi, workspace))
 
-    def upload_file(self, **kwards):
+    def upload_file(self,local_path, **kwards):
         """
             Loads file in the inputs yaml to the Galaxy instance given. Returns
             datasets dictionary with names and histories. It associates existing datasets on Galaxy given by dataset_id
@@ -598,9 +599,8 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         history = kwards.get('workspace')
         h_id = get_history_id(gi,history)
         label = kwards.get('step')
-        local_filename = kwards.get('local_path')
         try:
-            upload_info = gi.tools.upload_file(path=local_filename,
+            upload_info = gi.tools.upload_file(path=local_path,
                                                history_id=h_id,
                                                file_name=label)
             pid = upload_info['jobs'][0]['id']
@@ -674,12 +674,16 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         gi.invocations.cancel_invocation(native_id)
         # job here refers to invocation
 
-    def get_results(self, native_id):
+    def download_file(self, native_id,local_path = None):
         self.connect()
         gi = self.galaxy_instance
+        # todo bajar documento uno a uno
+        # 1. cargar lista
+        # 2. comprobar que el documento ya esté
+        # 3. si no está descargarlo al path
         r = list_invocation_results(gi, native_id)
+        download_result(gi, r, '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/download')
         return r
-        # download_result(gi,r,'/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test')
 
 def convert_workflows_to_formly():
     wfdict1 = {'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json',
