@@ -25,6 +25,20 @@ MAX_ERRORS = 3
 # Send messages
 # Refresh queues of jobs (at different computing resources)
 
+def change_status(tmp, status: str):
+    endpoint_url, job_id = tmp["endpoint_url"], tmp["job_id"]
+    url = f"{endpoint_url}/api/jobs/{job_id}"
+    if tmp["status"] != status:
+        # todo pasar el cookie en el job context
+        cmd = ["curl", "-c", "cookies.txt", "-X", "PUT", "http://localhost:5000/api/authn?user=test_user", "&&", "curl",
+               "-b", "cookies.txt", "-X", "PUT", "-H", "Content-Type: application/json", "-d",
+               '{"status":"preparing_workspace"}', url]
+        import subprocess
+        print(subprocess.run(cmd))
+        tmp["status"] = status
+        return tmp
+    else:
+        return tmp
 
 @celery_app.task
 def add(x, y):
@@ -90,6 +104,36 @@ def dummy_func(file, secs):
     os.exit(0)
 
 
+
+job_context = {"endpoint_url": "http//:localhost:5000/",
+               "process":
+                   {"inputs":
+                        {"parameters": "...."},
+                         "data": [{
+                                "bo_type": "collection",
+                                "ids": ["jkdjdjdjjdjd"],
+                                "type": "fasta"},
+                                  {
+                                    "bo_type": "path",
+                                      "ids":["...."],
+                                      "type":"fasta"
+                                  },
+                                 {"so_type": "seq",
+                                  "bo": ["jkdjdjdjjdjd", "jdjdjdjfjdjdj"],
+                                "type": "fasta"}
+                         ]
+                    },
+                    "name": {"........"},
+               "outputs":[{"....."}],
+               "status": "created",
+               "resource": {"......."},
+               "job_id": 60}
+
+
+
+
+
+
 @celery_app.task(name="prepare")
 @celery_wf(celery_app, wf1, "prepare")
 def wf1_prepare_workspace(job_context):
@@ -99,6 +143,7 @@ def wf1_prepare_workspace(job_context):
     :return:
     """
     tmp = json.loads(job_context)
+    tmp = change_status(tmp,"preparing_workspace")
 
     # Example access RESTful endpoint of "bcs-backend"
     # requests.get(job_context["endpoint_url"]+f"/api/jobs/{job_context['job_id']}")
@@ -108,8 +153,7 @@ def wf1_prepare_workspace(job_context):
 
     # Get resource manager: ssh, galaxy, other
     # job_executor = JobExecutorAtResourceFactory()
-    job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
-                                                      , job_id=str(tmp["job_id"]))
+    job_executor = JobExecutorAtResourceFactory().get(tmp)
     job_executor.create_job_workspace(str(tmp["job_id"]))
 
 
@@ -123,6 +167,7 @@ def wf1_export_to_supported_file_formats(job_context: str):
     :return:
     """
     # tmp = json.loads(job_context)
+    #tmp = change_status(tmp, "preparing_workspace")
 
     # Example access RESTful endpoint of "bcs-backend"
     # requests.get(job_context["endpoint_url"]+f"/api/jobs/{job_context['job_id']}")
@@ -136,6 +181,21 @@ def wf1_export_to_supported_file_formats(job_context: str):
     append_text("export_to_supported_file_formats")
     sleep(2)
 
+job_context = {"endpoint_url": "http//:localhost:5000/",
+               "process":
+                   {"inputs":
+                        {"parameters": {"ClustalW": {"darna": "PROTEIN"}},
+                         "data": [
+                             {"path": "...."},
+                             { "path": "path"},
+                             {"type": "fasta"}
+                         ]},
+                    "name": "MSA ClustalW"},
+               "status": "created",
+               "resource": {".........."},
+               "job_id": 60}
+
+
 
 @celery_app.task(name="transfer_data")
 @celery_wf(celery_app, wf1, "transfer_data")
@@ -146,8 +206,8 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
     :return:
     """
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
-                                                      , job_id=str(tmp["job_id"]))
+    tmp = change_status(tmp, "transfer_data_to_resource")
+    job_executor = JobExecutorAtResourceFactory().get(tmp)
     transfer_state = tmp.get("transfer_state")
     print(f"Transfer state: {transfer_state}")
     if transfer_state:  # ya ha empezado la transferencia
@@ -162,23 +222,16 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
     # Ith transfer
     files_list = tmp["process"]["inputs"]["data"]
     transfer_at_i = files_list[i] if i < len(files_list) else dict(
-        local_path="", remote_path="")
+        path="")
 
     '''The transfer_at_i keys are unique for each job type. The only field that is mandatory
     is the path that refers to the local path of the file to be transferred'''
     local_path = transfer_at_i.get("path")
-    remote_path = transfer_at_i.get("remote_path")
-    step = transfer_at_i.get("step")
 
-    if not os.path.isfile(local_path):
-        if n_errors < MAX_ERRORS:
-            n_errors += 1
-            tmp["transfer_state"] = dict(idx=i, pid=None, n_errors=n_errors)
-            job_context = json.dumps(tmp)
-            return None, job_context
-        else:
-            #TODO: retornar algo a celery para que sepa que no hay que ejecutar esto otra vez
-            pass
+    if i < len(files_list) and not os.path.isfile(local_path):
+        tmp["transfer_state"] = f"{local_path} doesn't exist"
+        job_context = json.dumps(tmp)
+        return "error", job_context
     elif i == len(files_list):  # Transfer finished
         print("Transfer finished")
         del tmp["transfer_state"]
@@ -188,21 +241,15 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
         print("Transfer executing")
         sleep(5)
         print(job_context)
-    elif job_executor.exists(local_path=local_path,
-                             remote_path=remote_path,
-                             step=step,
-                             workspace=str(tmp['job_id'])):  # File i has been transferred successfully
-        print(f"File {i} transferred: {local_path} -> {remote_path}. Moving to next")
+    elif job_executor.exists(tmp):  # File i has been transferred successfully
+        print(f"File {i} transferred: {local_path} . Moving to next")
         i += 1
         tmp["transfer_state"] = dict(idx=i, pid=None, n_errors=n_errors)
         job_context = json.dumps(tmp)
         print(job_context)
     else:  # Transfer file i
-        print(f"Begin transfer {i}: {local_path} -> {remote_path}")
-        pid = job_executor.upload_file(local_path,
-                                       remote_path=remote_path,
-                                       step=step,
-                                       workspace=str(tmp['job_id']))
+        print(f"Begin transfer {i}: {local_path}")
+        pid = job_executor.upload_file(tmp)
         # TODO yo puedo tener un error aquí
         tmp["transfer_state"] = dict(idx=i, pid=pid, n_errors=n_errors)
         print(tmp['transfer_state'])
@@ -220,10 +267,10 @@ def wf1_submit(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
-                                                      , job_id=str(tmp["job_id"]))
+    tmp = change_status(tmp, "submit")
+    job_executor = JobExecutorAtResourceFactory().get(tmp)
     inputs = tmp["process"]
-    pid = job_executor.submit(str(tmp['job_id']), inputs)
+    pid = job_executor.submit(tmp["process"])
     tmp['pid'] = pid
     job_context = json.dumps(tmp)
     append_text(f"submit. workspace: {tmp['pid']}")
@@ -239,8 +286,7 @@ def wf1_wait_until_execution_starts(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
-                                            , job_id=str(tmp["job_id"]))
+    job_executor = JobExecutorAtResourceFactory().get(tmp)
     status = job_executor.job_status(tmp["pid"])
     if status == 'running' or 'ok':  # pasa siempre or running?
         append_text(f"wait_until_execution_starts: status: {status}")
@@ -265,8 +311,7 @@ def wf1_wait_for_execution_end(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
-                                                      , job_id=str(tmp["job_id"]))
+    job_executor = JobExecutorAtResourceFactory().get(tmp)
     status = job_executor.job_status(tmp["pid"])
     if isinstance(status, dict):
         append_text(f"wait_for_execution_end: status: {status}")
@@ -294,8 +339,7 @@ def wf1_transfer_data_from_resource(job_context: str):
         :return:
         """
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
-                                                      , job_id=str(tmp["job_id"]))
+    job_executor = JobExecutorAtResourceFactory().get(tmp)
     transfer_state = tmp.get("transfer_state")
     print(f"Transfer state: {transfer_state}")
     if transfer_state:  # ya ha empezado la transferencia
@@ -307,16 +351,15 @@ def wf1_transfer_data_from_resource(job_context: str):
         os.mkdir(f"base_path_to_results/{tmp['job_id']}/")
 
     # Ith transfer
-    files_list = tmp["process"]["inputs"]["results"]
+    files_list = tmp["process"]["inputs"]["results"] # en mi caso esta es una lista de ids que tengo que pedir a mi workspace
     transfer_at_i = files_list[i] if i < len(files_list) else dict(
         local_path="", remote_path="")
 
     '''The transfer_at_i keys are unique for each job type. The only field that is mandatory
     is the path that refers to the local path of the file to be transferred'''
     local_path = os.path.join(f"base_path_to_results/{tmp['job_id']}/", transfer_at_i.get("path"))
-    remote_path = transfer_at_i.get("remote_path")
-    step = transfer_at_i.get("step")
 
+    # miss transferencias no tienen estados
     if i == len(files_list):  # Transfer finished
         print("Transfer finished")
         del tmp["transfer_state"]
@@ -327,18 +370,15 @@ def wf1_transfer_data_from_resource(job_context: str):
         sleep(5)
         print(job_context)
     elif os.path.isfile(local_path):  # File i has been transferred successfully
-        print(f"File {i} transferred: {local_path} -> {remote_path}. Moving to next")
+        print(f"File {i} transferred: {local_path} -> Moving to next")
         FilesAPI.put(local_path)
         i += 1
         tmp["transfer_state"] = dict(idx=i, pid=None)
         job_context = json.dumps(tmp)
         print(job_context)
     else:  # Transfer file i
-        print(f"Begin transfer {i}: {local_path} -> {remote_path}")
-        pid = job_executor.download_file(local_path,
-                                       remote_path=remote_path,
-                                       step=step,
-                                       workspace=str(tmp['job_id']))
+        print(f"Begin transfer {i}: {local_path}")
+        pid = job_executor.download_file(tmp)
         # TODO yo puedo tener un error aquí
         tmp["transfer_state"] = dict(idx=i, pid=pid)
         print(tmp['transfer_state'])
@@ -370,8 +410,8 @@ def wf1_cleanup_workspace(job_context: str):
     """
 
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
-                                                      , job_id=str(tmp["job_id"]))
+    tmp = change_status(tmp, "cleanup")
+    job_executor = JobExecutorAtResourceFactory().get(tmp)
     job_executor.remove_job_workspace(str(tmp["job_id"]))
     del tmp['pid']
     job_context = json.dumps(tmp)
@@ -403,9 +443,8 @@ def wf1_completed_error(job_context: str):
     """
 
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
-                                                      , job_id=str(tmp["job_id"]))
-    status = job_executor.job_status(job_executor["g_id"])
+    job_executor = JobExecutorAtResourceFactory().get(tmp)
+    status = job_executor.job_status(job_executor["pid"])
     tmp['error'] = status
     job_executor.remove_job_workspace(str(tmp['job_id']))
     job_context = json.dumps(tmp)
@@ -423,9 +462,8 @@ def wf1_cancelled(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory().get(tmp["resource"]["jm_type"], tmp["resource"]
-                                                      , job_id=str(tmp["job_id"]))
-    job_executor.cancel_job(tmp['g_id'])
-    job_executor.remove_job_workspace(str(tmp['job_id']))
+    job_executor = JobExecutorAtResourceFactory().get(tmp)
+    job_executor.cancel_job(tmp['pid'])
+    job_executor.remove_job_workspace(tmp)
     append_text(f"cancelled")
     return job_context
