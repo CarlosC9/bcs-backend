@@ -41,7 +41,7 @@ class BioObjAPI(MethodView):
     def put(self, bos, id, format=None):
         print(f'PUT {request.path}\nCreating {bos} {id}')
         self._prepare(bos)
-        issues, content, status = self.service.update(id, **self.kwargs)
+        issues, content, status = self.service.update(id, **self.kwargs.get('value'))
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
@@ -82,33 +82,30 @@ class BioObjAPI(MethodView):
 
     def _check_data(self, data=None):
         if not data:
-            self.kwargs = { 'filter' : [],
-              'order' : {},
-              'pagination' : {},
-              'value' : {}}
+            self.kwargs = { 'filter' : [], 'order' : {}, 'pagination' : {},
+                            'value' : {}, 'searchValue' : '' }
             if request.json:
                 self._check_data(request.json)
             if request.values:
                 self._check_data(request.values)
         else:
             print(f'DATA: {data}')
-            # dict = data.to_dict(flat=False)
-            # args = { key: dict[key][0] if len(dict[key]) <= 1 else dict[key] for key in dict }
-            # self.kwargs.update(args)
+            input = data.copy()
             from urllib.parse import unquote
-            if 'filter' in data and data['filter']:
-                self.kwargs['filter'] += json.loads(unquote(data.get('filter')))
-            if 'order' in data and data['order']:
-                self.kwargs['order'].update(
-                    json.loads(
-                        data.get('order')))
-            if 'pagination' in data and data['pagination']:
-                self.kwargs['pagination'].update(
-                    json.loads(
-                        data.get('pagination')))
-            if 'value' in data and data['value']:
-                self.kwargs['value'].update(
-                    json.loads(unquote(data.get('value'))))
+            for key in self.kwargs:
+                if input.get(key):
+                    i = input.get(key)
+                    try:
+                        i = unquote(i)
+                    except Exception as e:
+                        pass
+                    try:
+                        i = json.loads(i)
+                    except Exception as e:
+                        pass
+                    self.kwargs[key] = i
+                    input.pop(key)
+            self.kwargs['value'].update(input)
             print(f'KWARGS: {self.kwargs}')
 
 
@@ -161,11 +158,11 @@ bp_bos.add_url_rule(
 #
 #     def _check_data(self, data):
 #         if data:
-#             if 'id' in data and data['id']:
+#             if data.get('id'):
 #                 self.ids = data['id']
-#             if 'comment' in data and data['comment']:
+#             if data.get('comment'):
 #                 self.comment = data['comment']
-#             if 'range' in data and data['range']:
+#             if data.get('range'):
 #                 self.range = data['range']
 #         print(f'DATA: {data}')
 #

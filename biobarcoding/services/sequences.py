@@ -101,15 +101,15 @@ def __seqs2file(output_file, format, seqs):
                 file.write(f'>{seq.uniquename}\n{seq.residues}\n')
 
 
-def export(id=None, output_file="/tmp/output_seqs.fas", format='fasta', **kwargs):
+def export(id=None, format='fasta', **kwargs):
     try:
         query = __get_query(id, **kwargs)
-        __seqs2file(output_file, format, query.all())
+        __seqs2file(f'/tmp/output_ngd.{format}', format, query.all())
         issues, status = [Issue(IType.INFO, f'EXPORT sequences: {query.count()} sequences were successfully exported.')], 200
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, f'EXPORT sequences: The sequences could not be exported.')], 500
-    return issues, output_file, status
+    return issues, f'/tmp/output_ngd.{format}', status
 
 
 def __get_query(id=None, **kwargs):

@@ -146,15 +146,15 @@ def __tree2phylonodes(phylotree_id, node, parent_id=None, index=[0]):
 
 
 # NGD newick phylotree export
-def export(id=None, format='newick', output_file='/tmp/output_seqs.fas', **kwargs):
+def export(id=None, format='newick', **kwargs):
     try:
         if __get_query(id).first():
-            __tree2file(id, format, output_file)
+            __tree2file(id, format, f'/tmp/output_ngd.{format}')
         issues, status = [Issue(IType.INFO, 'EXPORT phylotrees: The phylotree were successfully exported.')], 200
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, 'EXPORT phylotrees: The phylotree could not be exported.')], 500
-    return issues, output_file, status
+    return issues, f'/tmp/output_ngd.{format}', status
 
 def __tree2file(phylotree_id, format, output_file):
     result = ''

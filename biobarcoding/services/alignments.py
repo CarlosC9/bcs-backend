@@ -128,7 +128,7 @@ def import_file(input_file, format='fasta', **kwargs):
 def export(id, format='fasta', **kwargs):
     if format=='fasta':
         from biobarcoding.services.sequences import export as export_sequences
-        return export_sequences(output_file="/tmp/alignment.fas", format='fasta',
+        return export_sequences(format='fasta',
                                 **{'filter': [{'analysis_id': {'op': 'eq', 'unary': id}}]})
     else:
         issues, status = [Issue(IType.ERROR, f'EXPORT alignments: The format {format} could not be imported.')], 500

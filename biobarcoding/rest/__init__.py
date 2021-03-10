@@ -70,6 +70,7 @@ class Issue:
 @attrs
 class ResponseObject:
     content = attrib(default=None)  # type: object
+    count = attrib(default=0)  # type: int
     issues = attrib(default=[])  # type: List[Issue]
     # Mimetype.
     content_type = attrib(default="text/json")  # type: str
@@ -86,7 +87,8 @@ class ResponseObject:
         """
         if self.status == 200:
             if self.content_type in ("text/json", "application/json"):
-                obj = generate_json(dict(issues=[s.as_dict() for s in self.issues], content=self.content))
+                obj = generate_json(dict(issues=[s.as_dict() for s in self.issues],
+                                         content=self.content, count=self.count))
             else:
                 obj = self.content
         else:
