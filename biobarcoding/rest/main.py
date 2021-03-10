@@ -11,13 +11,8 @@ from biobarcoding.rest.auth import bp_auth
 from biobarcoding.rest.file_manager import bp_files
 from biobarcoding.rest.identities_and_company import bp_identities, bp_sys_functions, bp_roles, bp_identities_roles, \
     bp_groups, bp_organizations, bp_acl
-from biobarcoding.rest.sequences import bp_sequences
-from biobarcoding.rest.alignments import bp_alignments
-from biobarcoding.rest.phylotrees import bp_phylotrees
-from biobarcoding.rest.taxonomies import bp_taxonomies
-from biobarcoding.rest.organisms import bp_organisms
-from biobarcoding.rest.analyses import bp_analyses
-from biobarcoding.rest.ontologies import bp_ontologies
+from biobarcoding.rest.bos import bp_bos
+from biobarcoding.rest.metadata import bp_metadata
 from biobarcoding.rest.jobs import bp_jobs
 from biobarcoding.rest.tasks import bp_tasks
 from biobarcoding.rest.processes import  bp_processes, bp_resources
@@ -96,13 +91,8 @@ def create_app(debug, cfg_dict=None):
                bp_acl,
                bp_processes,
                bp_resources,
-               bp_analyses,
-               bp_taxonomies,
-               bp_ontologies,
-               bp_organisms,
-               bp_sequences,
-               bp_alignments,
-               bp_phylotrees,
+               bp_bos,
+               bp_metadata
                ]:
         app.register_blueprint(bp)
 

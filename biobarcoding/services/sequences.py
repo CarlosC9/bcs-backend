@@ -1,22 +1,20 @@
 from biobarcoding.db_models import DBSession as db_session
 from biobarcoding.db_models import DBSessionChado as chado_session
+from biobarcoding.db_models.chado import Feature
 
-from biobarcoding.rest import Issue, IType
+from biobarcoding.rest import Issue, IType, filter_parse, paginator
 
 
-def create_sequences(organism_id=None, analysis_id=None, residues=None):
+def create(**kwargs):
     issues = [Issue(IType.WARNING, 'CREATE sequences: dummy completed')]
-    content = { organism_id : organism_id, analysis_id : analysis_id, residues : residues }
-    return issues, {k:v for k,v in content.items() if v is not None}, 200
+    return issues, None, 200
 
 
-def read_sequences(sequence_id=None, ids=None, organism_id=None, analysis_id=None, phylotree_id=None):
-    content = { 'sequence_id':sequence_id, 'ids':' '.join(ids) if ids else None, 'organism_id':organism_id,
-                'analysis_id':analysis_id, 'phylotree_id':phylotree_id }
-    content = {k:v for k,v in content.items() if v is not None}
+def read(id=None, **kwargs):
+    content = None
     try:
-        content = __get_query(sequence_id, ids, organism_id, analysis_id, phylotree_id)
-        if sequence_id:
+        content = __get_query(id, **kwargs)
+        if id:
             content = content.first()
         else:
             content = content.all()
@@ -27,10 +25,9 @@ def read_sequences(sequence_id=None, ids=None, organism_id=None, analysis_id=Non
     return issues, content, status
 
 
-def update_sequences(sequence_id, organism_id=None, analysis_id=None, residues=None):
+def update(id, **kwargs):
     issues = [Issue(IType.WARNING, 'UPDATE sequences: dummy completed')]
-    content = { sequence_id : sequence_id, organism_id : organism_id, analysis_id : analysis_id, residues : residues }
-    return issues, {k:v for k,v in content.items() if v is not None}, 200
+    return issues, None, 200
 
 
 def __delete_from_bcs(feature_id):
@@ -39,11 +36,10 @@ def __delete_from_bcs(feature_id):
         .delete(synchronize_session='fetch')
 
 
-def delete_sequences(sequence_id=None, ids=None, organism_id=None, analysis_id=None):
-    content = { sequence_id:sequence_id, 'ids':' '.join(ids) if ids else '', organism_id:organism_id, analysis_id:analysis_id }
-    content = {k:v for k,v in content.items() if v is not None}
+def delete(id=None, **kwargs):
+    content = None
     try:
-        query = __get_query(sequence_id, ids, organism_id, analysis_id)
+        query = __get_query(id, **kwargs)
         for seq in query.all():
             __delete_from_bcs(seq.feature_id)
         resp = query.delete(synchronize_session='fetch')
@@ -53,22 +49,21 @@ def delete_sequences(sequence_id=None, ids=None, organism_id=None, analysis_id=N
         issues, status = [Issue(IType.ERROR, f'DELETE sequences: The sequences could not be removed.')], 500
     return issues, content, status
 
-
-def import_sequences(input_file, organism_id=None, analysis_id=None, format='fasta'):
-    content = { input_file : input_file, format : format, organism_id : organism_id, analysis_id : analysis_id }
-    content = {k:v for k,v in content.items() if v is not None}
+# TODO: replace python-chado lib?
+def import_file(input_file, format='fasta', **kwargs):
+    content = None
     from biobarcoding.services import conn_chado
     conn = conn_chado()
-    if not organism_id:
+    if not kwargs.get('organism_id'):
         try:
-            organism_id = conn.organism.add_organism(genus='organism',
+            kwargs['organism_id'] = conn.organism.add_organism(genus='organism',
                                                      species='undefined', common='', abbr='')['organism_id']
         except Exception as e:
-            organism_id = conn.organism.get_organisms(species='undefined')[0]['organism_id']
+            kwargs['organism_id'] = conn.organism.get_organisms(species='undefined')[0]['organism_id']
     try:
-        resp = conn.feature.load_fasta(input_file, organism_id, analysis_id=analysis_id, update=True)
+        resp = conn.feature.load_fasta(input_file, kwargs.get('organism_id'), analysis_id=kwargs.get('analysis_id'), update=True)
         from Bio import SeqIO
-        __seqs2bcs([seq.id for seq in SeqIO.parse(input_file, format)])
+        __seqs2bcs([seq.id for seq in SeqIO.parse(input_file, format or 'fasta')])
         issues, status = [Issue(IType.INFO, f'IMPORT sequences: {resp} sequences were successfully imported.')], 200
     except Exception as e:
         print(e)
@@ -97,38 +92,57 @@ def __feature2bcs(seq):
     return bcs_sequence
 
 
-def export_sequences(sequence_id=None, ids=None, organism_id=None, analysis_id=None, output_file=None):
-    if not output_file:
-        output_file = "/tmp/output_seqs.fas"
-    try:
-        query = __get_query(sequence_id, ids, organism_id, analysis_id)
-        with open(output_file, "w") as file:
-            for seq in query.all():
+def __seqs2file(output_file, format, seqs):
+    with open(output_file, "w") as file:
+        for seq in seqs:
+            if format=='fasta':
                 file.write(f'>{seq.uniquename}\n{seq.residues}\n')
+            else:
+                file.write(f'>{seq.uniquename}\n{seq.residues}\n')
+
+
+def export(id=None, format='fasta', **kwargs):
+    try:
+        query = __get_query(id, **kwargs)
+        __seqs2file(f'/tmp/output_ngd.{format}', format, query.all())
         issues, status = [Issue(IType.INFO, f'EXPORT sequences: {query.count()} sequences were successfully exported.')], 200
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, f'EXPORT sequences: The sequences could not be exported.')], 500
-    return issues, output_file, status
+    return issues, f'/tmp/output_ngd.{format}', status
 
 
-def __get_query(sequence_id=None, ids=None, organism_id=None, analysis_id=None, phylotree_id=None, uniquename=None):
-    from biobarcoding.db_models.chado import Feature
+def __get_query(id=None, **kwargs):
     query = chado_session.query(Feature)
-    if sequence_id:
-        query = query.filter(Feature.feature_id == sequence_id)
-    if ids:
-        query = query.filter(Feature.feature_id.in_(ids))
-    if organism_id:
-        query = query.filter(Feature.organism_id == organism_id)
-    if uniquename:
-        query = query.filter(Feature.uniquename == uniquename)
-    if analysis_id:
+    if id:
+        query = query.filter(Feature.feature_id == id)
+    else:
+        if 'filter' in kwargs:
+            query = query.filter(filter_parse(Feature, kwargs.get('filter'), __aux_own_filter))
+        if 'order' in kwargs:
+            query = __get_query_ordered(query, kwargs.get('order'))
+        if 'pagination' in kwargs:
+            query = paginator(query, kwargs.get('pagination'))
+    return query
+
+
+def __aux_own_filter(filter):
+    clause=[]
+    if 'analysis_id' in filter:
         from biobarcoding.db_models.chado import AnalysisFeature
-        analysis_ids = chado_session.query(AnalysisFeature.feature_id).filter(AnalysisFeature.analysis_id==analysis_id).all()
-        query = query.filter(Feature.feature_id.in_(analysis_ids))
-    if phylotree_id:
+        _ids = chado_session.query(AnalysisFeature.feature_id)\
+                .filter(
+                    filter_parse(AnalysisFeature, [{'analysis_id': filter.get('analysis_id')}]))
+        clause.append(Feature.feature_id.in_(_ids))
+    if 'phylotree_id' in filter:
         from biobarcoding.db_models.chado import Phylonode
-        phylotree_ids = chado_session.query(Phylonode.feature_id).filter(Phylonode.phylotree_id==phylotree_id).all()
-        query = query.filter(Feature.feature_id.in_(phylotree_ids))
+        _ids = chado_session.query(Phylonode.feature_id)\
+                .filter(
+                    filter_parse(Phylonode, [{'phylotree_id': filter.get('phylotree_id')}]))
+        clause.append(Feature.feature_id.in_(_ids))
+    return clause
+
+
+def __get_query_ordered(query, order):
+    # query = query.order(order_parse(Feature, kwargs.get('order'), __aux_own_order))
     return query
