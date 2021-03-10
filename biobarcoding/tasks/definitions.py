@@ -240,16 +240,16 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
     elif job_executor.job_status(pid) == "running":  # Transfer is being executed
         print("Transfer executing")
         sleep(5)
-        print(job_context)
-    elif job_executor.exists(tmp):  # File i has been transferred successfully
+        return None, job_context
+    elif job_executor.exists(tmp, i):  # File i has been transferred successfully
         print(f"File {i} transferred: {local_path} . Moving to next")
         i += 1
         tmp["transfer_state"] = dict(idx=i, pid=None, n_errors=n_errors)
         job_context = json.dumps(tmp)
-        print(job_context)
+        return None, job_context
     else:  # Transfer file i
         print(f"Begin transfer {i}: {local_path}")
-        pid = job_executor.upload_file(tmp)
+        pid = job_executor.upload_file(tmp, i)
         # TODO yo puedo tener un error aquí
         tmp["transfer_state"] = dict(idx=i, pid=pid, n_errors=n_errors)
         print(tmp['transfer_state'])
@@ -368,17 +368,17 @@ def wf1_transfer_data_from_resource(job_context: str):
     elif job_executor.job_status(pid) == "running":  # Transfer is being executed
         print("Transfer executing")
         sleep(5)
-        print(job_context)
+        return None, job_context
     elif os.path.isfile(local_path):  # File i has been transferred successfully
         print(f"File {i} transferred: {local_path} -> Moving to next")
         FilesAPI.put(local_path)
         i += 1
         tmp["transfer_state"] = dict(idx=i, pid=None)
         job_context = json.dumps(tmp)
-        print(job_context)
+        return None, job_context
     else:  # Transfer file i
         print(f"Begin transfer {i}: {local_path}")
-        pid = job_executor.download_file(tmp)
+        pid = job_executor.download_file(tmp, i)
         # TODO yo puedo tener un error aquí
         tmp["transfer_state"] = dict(idx=i, pid=pid)
         print(tmp['transfer_state'])

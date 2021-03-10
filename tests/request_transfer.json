@@ -3,7 +3,7 @@
   "process_id": "25932546-d26c-4367-8c81-0c682094d117",
   "process_params": {
     "parameters": {
-      "script_file": "test_falso.sh",
+      "script_file": "test.sh",
       "script_params": "\"Nueva línea por parámetro\""
     },
     "data": [

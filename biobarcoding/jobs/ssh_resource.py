@@ -331,8 +331,10 @@ class JobExecutorWithSSH(JobExecutorAtResource):
     def remove_job_workspace(self, name):
         self.loop.run_until_complete(self.remote_client.remove_directory(os.path.join(ROOT_DIR, name)))
 
-    def upload_file(self, local_filename, **kwargs):
-        return self.remote_client.upload_file(local_filename, kwargs['remote_path'])
+    def upload_file(self, job_executor, i):
+        local_path = job_executor["process"]["inputs"]["data"][i]["path"]
+        remote_path = job_executor["process"]["inputs"]["data"][i]["remote_path"]
+        return self.remote_client.upload_file(local_path, remote_path)
 
     def upload_directory(self, workspace, local_filename, remote_location):
         return self.remote_client.upload_directory(local_filename, remote_location)
@@ -343,8 +345,8 @@ class JobExecutorWithSSH(JobExecutorAtResource):
     def remove_file(self, remote_filename):
         self.loop.run_until_complete(self.remote_client.remove_file(remote_filename))
 
-    def submit(self, workspace, params):
-        params = params["inputs"]["parameters"]
+    def submit(self, process):
+        params = process["inputs"]["parameters"]
         return self.loop.run_until_complete(self.remote_client.run_client(params["script_file"], params["script_params"]))
 
     def job_status(self, native_id):
@@ -354,23 +356,27 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         self.remote_client.kill_process(native_id)
 
     # SSH
-    def download_file(self, local_path, **kwargs):
-        self.loop.run_until_complete(self.remote_client.download_file(kwargs["remote_path"], local_path))
+    def download_file(self, job_context, i):
+        local_path = job_context["process"]["outputs"][i]["path"]
+        remote_path = job_context["process"]["outputs"][i]["remote_path"]
+        self.loop.run_until_complete(self.remote_client.download_file(remote_path, local_path))
 
     def retrieve_directory(self, remote_dir, local_dir):
         self.loop.run_until_complete(self.remote_client.download_directory(remote_dir, local_dir))
 
-    def exists(self, **kwargs):
-        if os.path.exists(kwargs["local_path"]):
-            check = self.loop.run_until_complete(self.remote_client.exists_remotely(kwargs["remote_path"]))
+    def exists(self, tmp, i):
+        local_path = tmp["process"]["inputs"]["data"][i]["path"]
+        remote_path = tmp["process"]["inputs"]["data"][i]["remote_path"]
+        if os.path.exists(local_path):
+            check = self.loop.run_until_complete(self.remote_client.exists_remotely(remote_path))
 
             if check:
                 #the same_size method works ONLY with files and empty directories
                 check &= self.loop.run_until_complete(
-                    self.remote_client.same_size(kwargs["local_path"], kwargs["remote_path"]))
+                    self.remote_client.same_size(local_path, remote_path))
             return check
         else:
-            print(f"File {kwargs['local_path']} not found in your local system")
+            print(f"File {local_path} not found in your local system")
             return None
 
     def check_resource(self):

@@ -99,10 +99,12 @@ class JobExecutorAtResourceFactory:
     def __init__(self):
         self.execs = dict()
 
-    def get(self, job_executor_name, resource_param: Dict, **kwargs):
-        k = (job_executor_name, resource_param["name"])
+    def get(self, job_context):
+        job_executor_name = job_context["resource"]["jm_type"]
+        k = (job_executor_name, job_context["resource"]["name"])
         if k not in self.execs:
-            self.execs[k] = JobExecutorAtResourceFactory._create(job_executor_name, resource_param, **kwargs)
+            self.execs[k] = JobExecutorAtResourceFactory._create(job_executor_name, job_context["resource"],
+                                                                 job_id=job_context["job_id"])
 
         return self.execs[k]
 
@@ -115,7 +117,7 @@ class JobExecutorAtResourceFactory:
             return tmp
         elif job_executor_name.lower() == "ssh":
             from biobarcoding.jobs.ssh_resource import JobExecutorWithSSH
-            tmp = JobExecutorWithSSH(kwargs["job_id"])
+            tmp = JobExecutorWithSSH(str(kwargs["job_id"]))
             tmp.set_resource(resource_param)
             tmp.connect()
             return tmp
