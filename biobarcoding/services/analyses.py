@@ -7,7 +7,7 @@ def create(**kwargs):
     content = None
     try:
         chado_session.add(Analysis(**kwargs))
-        issues, status = [Issue(IType.INFO, f'CREATE analyses: The analysis "{kwargs.get("program")} {kwargs.get("programversion")}" created successfully.\{res}')], 201
+        issues, status = [Issue(IType.INFO, f'CREATE analyses: The analysis "{kwargs.get("program")} {kwargs.get("programversion")}" created successfully.')], 201
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, f'CREATE analyses: The analysis "{kwargs.get("program")} {kwargs.get("programversion")}" could not be created.')], 500
