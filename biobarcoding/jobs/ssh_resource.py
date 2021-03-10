@@ -331,9 +331,10 @@ class JobExecutorWithSSH(JobExecutorAtResource):
     def remove_job_workspace(self, name):
         self.loop.run_until_complete(self.remote_client.remove_directory(os.path.join(ROOT_DIR, name)))
 
-    def upload_file(self, job_executor, i):
-        local_path = job_executor["process"]["inputs"]["data"][i]["path"]
-        remote_path = job_executor["process"]["inputs"]["data"][i]["remote_path"]
+    def upload_file(self, job_context):
+        i = job_context["transfer_state"]["idx"]
+        local_path = job_context["process"]["inputs"]["data"][i]["path"]
+        remote_path = job_context["process"]["inputs"]["data"][i]["remote_path"]
         return self.remote_client.upload_file(local_path, remote_path)
 
     def upload_directory(self, workspace, local_filename, remote_location):
@@ -357,6 +358,7 @@ class JobExecutorWithSSH(JobExecutorAtResource):
 
     # SSH
     def download_file(self, job_context, i):
+        i = job_context["transfer_state"]["idx"]
         local_path = job_context["process"]["outputs"][i]["path"]
         remote_path = job_context["process"]["outputs"][i]["remote_path"]
         self.loop.run_until_complete(self.remote_client.download_file(remote_path, local_path))
@@ -364,9 +366,10 @@ class JobExecutorWithSSH(JobExecutorAtResource):
     def retrieve_directory(self, remote_dir, local_dir):
         self.loop.run_until_complete(self.remote_client.download_directory(remote_dir, local_dir))
 
-    def exists(self, tmp, i):
-        local_path = tmp["process"]["inputs"]["data"][i]["path"]
-        remote_path = tmp["process"]["inputs"]["data"][i]["remote_path"]
+    def exists(self, job_context):
+        i = job_context["transfer_state"]["idx"]
+        local_path = job_context["process"]["inputs"]["data"][i]["path"]
+        remote_path = job_context["process"]["inputs"]["data"][i]["remote_path"]
         if os.path.exists(local_path):
             check = self.loop.run_until_complete(self.remote_client.exists_remotely(remote_path))
 

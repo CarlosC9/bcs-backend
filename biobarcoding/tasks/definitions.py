@@ -218,6 +218,7 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
         i = 0
         pid = None
         n_errors = 0
+        tmp["transfer_state"] = dict(idx=i, pid=None, n_errors=n_errors)
 
     # Ith transfer
     files_list = tmp["process"]["inputs"]["data"]
@@ -241,7 +242,7 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
         print("Transfer executing")
         sleep(5)
         return None, job_context
-    elif job_executor.exists(tmp, i):  # File i has been transferred successfully
+    elif job_executor.exists(tmp):  # File i has been transferred successfully
         print(f"File {i} transferred: {local_path} . Moving to next")
         i += 1
         tmp["transfer_state"] = dict(idx=i, pid=None, n_errors=n_errors)
@@ -249,7 +250,7 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
         return None, job_context
     else:  # Transfer file i
         print(f"Begin transfer {i}: {local_path}")
-        pid = job_executor.upload_file(tmp, i)
+        pid = job_executor.upload_file(tmp)
         # TODO yo puedo tener un error aquí
         tmp["transfer_state"] = dict(idx=i, pid=pid, n_errors=n_errors)
         print(tmp['transfer_state'])
@@ -349,6 +350,7 @@ def wf1_transfer_data_from_resource(job_context: str):
         i = 0
         pid = None
         os.mkdir(f"base_path_to_results/{tmp['job_id']}/")
+        tmp["transfer_state"] = dict(idx=i, pid=None)
 
     # Ith transfer
     files_list = tmp["process"]["inputs"]["results"] # en mi caso esta es una lista de ids que tengo que pedir a mi workspace
@@ -378,7 +380,7 @@ def wf1_transfer_data_from_resource(job_context: str):
         return None, job_context
     else:  # Transfer file i
         print(f"Begin transfer {i}: {local_path}")
-        pid = job_executor.download_file(tmp, i)
+        pid = job_executor.download_file(tmp)
         # TODO yo puedo tener un error aquí
         tmp["transfer_state"] = dict(idx=i, pid=pid)
         print(tmp['transfer_state'])
