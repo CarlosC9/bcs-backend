@@ -357,7 +357,7 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         self.remote_client.kill_process(native_id)
 
     # SSH
-    def download_file(self, job_context, i):
+    def download_file(self, job_context):
         i = job_context["transfer_state"]["idx"]
         local_path = job_context["process"]["outputs"][i]["path"]
         remote_path = job_context["process"]["outputs"][i]["remote_path"]
