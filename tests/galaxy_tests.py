@@ -14,9 +14,9 @@ class MyTestCase(unittest.TestCase):
         insname = 'local'
         ins = galaxy_instance(insfile, name = insname)
         gi = login(ins['key'],url=ins['url'])
-        history = gi.histories.create_history(name="test_upload_file history")
-        fn =  Path('data_test/training_set.json')
-        file_name = "Kaggel_dataset"
+        history = gi.histories.create_history(name="invoke test")
+        fn =  Path('data_test/matK_25taxones_Netgendem_SINalinear.fasta')
+        file_name = "Input dataset"
         d = gi.tools.upload_file(
             fn,
             history_id=history["id"],
@@ -24,13 +24,16 @@ class MyTestCase(unittest.TestCase):
             dbkey="?",
             file_type="fasta")
         while(True):
-            job = gi.jobs.show_job(d['jobs'][0]['id'])
-            state = job['state']
-            print(state)
-            time.sleep(1)
-            if state == 'ok':
+            status1 = gi.histories.get_status(get_history_id(gi,"invoke test"))
+            print(status1)
+            time.sleep(5)
+            status2 = gi.histories.get_status(get_history_id(gi, "invoke test"))
+            print(status2)
+            self.assertIsInstance(status1,dict, "ok")
+            self.assertNotEquals(status1['state'], status2['state'])
+            if status2['state'] == 'ok' or 'error':
                 break
-        self.assertNotEqual(d, None, "should be something here")
+
 
     def test_invocation_states(self):
         # todo test
@@ -61,27 +64,24 @@ class MyTestCase(unittest.TestCase):
         inputs = params['inputs']['data']
         workflow = params['name']
         w_id = workflow_id(gi, workflow)
-
+        h_id = gi.histories.get_histories(name='invoke test')[0]['id']
         datamap, parameters = params_input_creation(gi, "ClustalW-PhyMl", inputs, input_params,
-                                                    history_name='Unnamed history')
+                                                    history_id=h_id)
         gi = login(ins['key'], url=ins['url'])
-        history_id = gi.histories.get_histories(name='Unnamed history')[0]['id']
         invocation = gi.workflows.invoke_workflow(workflow_id=w_id,
                                                   inputs=datamap,
                                                   params=parameters,
-                                              history_id=history_id)
-        i = 0
+                                              history_id=h_id)
         while (True):
-            i =+1
-            inv = gi.jobs.show_job(invocation['id'])
-            state = gi.jobs.get_status(invocation['id'])
-            print(state)
-            time.sleep(1)
-            if state == 'ok' or i==100:
+            status1 = gi.histories.get_status(invocation['history_id'])
+            print(status1)
+            time.sleep(5)
+            status2 = gi.histories.get_status(invocation['history_id'])
+            print(status2)
+            self.assertIsInstance(status2, dict, "ok")
+            self.assertNotEquals(status1['state'], status2['state'])
+            if status2['state'] == 'ok' or 'error':
                 break
-        self.assertNotEqual(inv, None, "should be something here")
-
-
 
     def test_inputs_files(self):
         insfile = 'data_test/parsec_creds.yaml'
