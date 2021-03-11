@@ -4,6 +4,7 @@ from pathlib import Path
 import os
 
 from bioblend import galaxy
+
 from biobarcoding.jobs.galaxy_resource import *
 
 
@@ -30,6 +31,56 @@ class MyTestCase(unittest.TestCase):
             if state == 'ok':
                 break
         self.assertNotEqual(d, None, "should be something here")
+
+    def test_invocation_states(self):
+        # todo test
+        import json
+        insfile = 'data_test/parsec_creds.yaml'
+        insname = 'local'
+        tmp = {"endpoint_url": "",
+                       "process":
+                           {"inputs":
+                                {"parameters":
+                                     {"clustalw":
+                                          {"dnarna": "DNA", "outform": "clustal", "out_order": "ALIGNED", "mode": "complete", "out_seqnos": "ON"},
+                                      "phyml":
+                                          {"phylip_format": "", "nb_data_set": "1", "type_of_seq": "nt", "prop_invar": "e", "equi_freq": "m", "nbSubstCat": "4", "gamma": "e", "move": "NNI", "optimisationTopology": "tlr", "branchSupport": "-4", "numStartSeed": "0", "inputTree": "false", "tstv": "e", "model": "HKY85"}
+                                      },
+                                 "data": [
+                                     {"step": "Input dataset",
+                                      "path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta",
+                                      "type": "fasta"}
+                                 ]
+                                 },
+                            "name": "ClustalW-PhyMl"},
+                       "resource": {"name": "localhost - galaxy", "jm_type": "galaxy", "jm_location": {"url": "http://localhost:8080/"}, "jm_credentials": {"api_key": "fakekey"}}, "job_id": 8}
+        ins = galaxy_instance(insfile, name=insname)
+        gi = login(ins['key'], url=ins['url'])
+        params = tmp["process"]
+        input_params = params['inputs']['parameters']
+        inputs = params['inputs']['data']
+        workflow = params['name']
+        w_id = workflow_id(gi, workflow)
+
+        datamap, parameters = params_input_creation(gi, "ClustalW-PhyMl", inputs, input_params,
+                                                    history_name='Unnamed history')
+        gi = login(ins['key'], url=ins['url'])
+        history_id = gi.histories.get_histories(name='Unnamed history')[0]['id']
+        invocation = gi.workflows.invoke_workflow(workflow_id=w_id,
+                                                  inputs=datamap,
+                                                  params=parameters,
+                                              history_id=history_id)
+        i = 0
+        while (True):
+            i =+1
+            inv = gi.jobs.show_job(invocation['id'])
+            state = gi.jobs.get_status(invocation['id'])
+            print(state)
+            time.sleep(1)
+            if state == 'ok' or i==100:
+                break
+        self.assertNotEqual(inv, None, "should be something here")
+
 
 
     def test_inputs_files(self):
