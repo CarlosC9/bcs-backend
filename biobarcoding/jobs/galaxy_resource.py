@@ -14,7 +14,44 @@ from biobarcoding.jobs import JobExecutorAtResource
 from pathlib import Path
 from multiprocessing import Process, Queue
 
+import os
+import time
 
+DOWNLOAD_PATH = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/download'
+JOB_STATUS_DIR = os.path.join(DOWNLOAD_PATH)
+
+def get(url, path):
+    """
+    Execute remote client script
+    @param url: url of the get
+    @param path: local path of the file gotten with curl
+    @return: pid: PID of the executed script process
+    """
+    path = os.path.join(DOWNLOAD_PATH,path)
+    cmd = f"(nohup bash -c \"curl -o {path} {url} \" >/tmp/mtest </dev/null 2>/tmp/mtest.err & echo $!; wait $!; echo $? >> {JOB_STATUS_DIR}/$!.exit_status)"
+
+    print(cmd)
+    popen_pipe = os.popen(cmd)
+    pid = popen_pipe.readline().rstrip()
+    print(f"PID: {pid}")
+    return pid
+
+
+def download_status(pid):
+    exit_status = ""
+    if pid:
+        if os.path.isfile(f"{JOB_STATUS_DIR}/{pid}.exit_status"):
+            with open(f"{JOB_STATUS_DIR}/{pid}.exit_status", "r") as f:
+                exit_status = f.readline().strip()
+                if exit_status.strip() == "0":
+                    exit_status = "ok"
+                else:
+                    print(f"Error executing get with pid: {pid}. Exit status = {exit_status}")
+                    exit_status = ""  # This means error
+        else:
+            exit_status = "running"
+
+    return exit_status
 
 # no tiene sentido que haga esto xq galaxy ya es este objeto
 class instance():
@@ -536,6 +573,42 @@ def install_tools(gi, tools):
                                                     new_tool_panel_section_label='New'
                                                     )
 
+def upload_status(gi,job_context):
+    i = job_context["transfer_state"]["idx"]
+    if i == 0:
+        # todavía no he empezado
+        return None
+    status = gi.histories.get_status(get_history_id(gi,job_context['job_id']))
+    if status['state'] == 'ok' and status['state_details']['ok'] < len(i):
+        # "in this case we can say that galaxy does not know about de nwe job"
+        status['state'] = "queued"
+        # TODO check if I really need to do this
+        print(f"changing {i} UPLOAD status from ok to queued this should happend only a few times")
+
+    if status['state'] == 'error':
+        return status['state_details']
+    else:
+        return status['state']
+
+
+
+def invocation_status(gi,job_context):
+    pid = job_context.get('pid')
+    invocation = gi.invocations.show_invocation(pid)
+    status = gi.histories.get_status(invocation['history_id'])
+    "the first call to state cab be ok just because is the state of previous job. "
+    print(f"{status['state']} job in job_status function")
+    # "the first call to state cab be ok just because is the state of previous job."
+    files_list = job_context['process']['inputs']['data']
+    if status['state'] == 'ok' and status['state_details']['ok'] == len(files_list):
+        # galaxy is still displaying status for the upload process
+        status['state'] = "queued"
+        # TODO check if I really need to do this
+        print(f"changing PROCESS status from ok to queued this should happend only a few times")
+    if status['state'] == 'error':
+        return status['state_details']
+    else:
+        return status['state']
 
 class JobExecutorAtGalaxy(JobExecutorAtResource):
     def __init__(self):
@@ -640,7 +713,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         workspace = str(job_context['job_id'])
         datamap, parameters = params_input_creation(gi, workflow, inputs, input_params,
                                                     history_name=workspace)  # catch error
-        # TODO revisar la fomra del data map, quizás me pueda ahorrar toda esa función xq esto ya está comprobadoo desde el gui
+        # TODO revisar la forma del data map, quizás me pueda ahorrar toda esa función xq esto ya está comprobadoo desde el gui
         history_id = gi.histories.get_histories(name=workspace)[0]['id']
         invocation = gi.workflows.invoke_workflow(workflow_id=w_id,
                                                   inputs=datamap,
@@ -648,48 +721,29 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
                                                   history_id=history_id)
         return invocation['id']
 
-    def job_status(self, job_context):
+
+    def job_status(self,job_context):
         """
-        :return: state of the given job among the following values: `new`,
-          `queued`, `running`, `waiting`, `ok`. If the state cannot be
-          retrieved, an empty string is returned.
-        """
-        # TODO el estado witing no sé de qué va
+           :return: state of the given job among the following values: `new`,
+             `queued`, `running`, `waiting`, `ok`. If the state cannot be
+             retrieved, an empty string is returned.
+           """
         self.connect()
         gi = self.galaxy_instance
-        # estoy en un proceso
-        if not job_context.get('transfer_state'):
+        if job_context.get("transfer_state"):
+            if job_context["transfer_state"]["state"] == "upload":
+                status = upload_status(gi,job_context) # i need
+                return status # if error return dict
+            if job_context["transfer_state"]["state"] =="download":
+                pid = job_context["transfer_state"]["pid"]
+                return download_status(pid)
+        else:
             pid = job_context.get('pid')
             if not pid:
                 return None
-            invocation = gi.invocations.show_invocation(pid)
-            status = gi.histories.get_status(invocation['history_id'])
-            "the first call to state cab be ok just because is the state of previous job. "
-            print(f"{status['state']} job in job_status function")
-            # "the first call to state cab be ok just because is the state of previous job."
-            files_list = job_context['process']['inputs']['data']
-            if status['state'] == 'ok' and status['state_details']['ok'] == len(files_list):
-                # galaxy is still displaying status for the upload process
-                status['state'] = "queued"
-                # TODO check if I really need to do this
-                print(f"changing PROCESS status from ok to queued this should happend only a few times")
-        else:
-            # estoy un en una subida
-            i = job_context["transfer_state"]["idx"]
-            if i == 0:
-                # todavía no he empezado
-                return None
-            status = gi.histories.get_status(get_history_id(gi,job_context['job_id']))
-            if status['state'] == 'ok' and status['state_details']['ok'] < len(i):
-                # "in this case we can say that galaxy does not know about de nwe job"
-                status['state'] = "queued"
-                # TODO check if I really need to do this
-                print(f"changing {i} UPLOAD status from ok to queued this should happend only a few times")
-
-        if status['state'] == 'error':
-            return status['state_details']
-        else:
-            return status['state']
+            else:
+                status = invocation_status(gi,job_context)
+                return status
 
 
     def cancel_job(self, native_id):
@@ -707,15 +761,11 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         history_name = str(job_context['job_id'])
         self.connect()
         gi = self.galaxy_instance
-        path = os.path.join(local_path,'.'.join([remote_name,file_ext]))
-        # TODO NO ENCUENTRS EL DATA SET
-        dataset = gi.histories.show_matching_datasets(history_id=get_history_id(gi,history_name), name_filter= remote_name)
+        path = os.path.join(DOWNLOAD_PATH,str(job_context['job_id']),local_path)
+        dataset = gi.histories.show_matching_datasets(history_id=get_history_id(gi,history_name), name_filter= remote_name)[0] # todo revisar remote name dar exacto o regex?
         download_url = dataset['download_url'] + '?to_ext=' + file_ext
         url = urljoin(gi.base_url, download_url)
-        cmd = ["curl", url, "--output", path ]
-        popen_pipe = os.popen(cmd)
-        pid = popen_pipe.readline().rstrip()
-        print(f"PID: {pid}")
+        pid = get(url,path)
         return pid
 
 def convert_workflows_to_formly():

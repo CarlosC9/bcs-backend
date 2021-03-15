@@ -70,13 +70,13 @@ class JobExecutorAtResource(ABC):
     def remove_job_workspace(self, name):  # After Job is completed (or if Job was not started)
         pass
 
-    def exists(self, **kwargs):
+    def exists(self, job_context):
         pass
 
-    def upload_file(self, local_path, **kwargs):
+    def upload_file(self, job_context):
         pass
 
-    def download_file(self, local_path, **kwargs):
+    def download_file(self, job_context):
         pass
 
     def move_file(self, remote_source, remote_destination):
@@ -85,10 +85,10 @@ class JobExecutorAtResource(ABC):
     def remove_file(self, remote_filename):
         pass
 
-    def submit(self, workspace, params):
+    def submit(self, job_context):
         pass
 
-    def job_status(self, native_id):
+    def job_status(self, job_context): # Todo intentar cambiar
         pass
 
     def cancel_job(self, native_id):
@@ -100,12 +100,12 @@ class JobExecutorAtResourceFactory:
         self.execs = dict()
 
     def get(self, job_context):
-        job_executor_name = job_context["resource"]["jm_type"]
-        k = (job_executor_name, job_context["resource"]["name"])
+        job_executor_name = job_context["resource"].get("jm_type")
+        resource_param = job_context["resource"]
+        k = (job_executor_name, resource_param["name"])
+        job_id = job_context.get("job_id")
         if k not in self.execs:
-            self.execs[k] = JobExecutorAtResourceFactory._create(job_executor_name, job_context["resource"],
-                                                                 job_id=job_context["job_id"])
-
+            self.execs[k] = JobExecutorAtResourceFactory._create(job_executor_name, resource_param, job_id= job_id)
         return self.execs[k]
 
     @staticmethod
