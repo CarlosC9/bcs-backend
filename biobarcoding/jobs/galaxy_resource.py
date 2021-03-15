@@ -1,4 +1,5 @@
 from typing import List, Any
+from urllib.parse import urljoin
 
 from bioblend import galaxy
 import json
@@ -462,7 +463,6 @@ def list_invocation_results(gi, invocation_id: 'str'):
         else:
             return gi.histories.get_status(h_id)
 
-
 def download_result(gi, results: 'list', path: 'str'):
     '''
     Download invocation result
@@ -471,6 +471,11 @@ def download_result(gi, results: 'list', path: 'str'):
     :param path:
     :return:
     '''
+
+    #url:
+    # dataset = dataset_dict
+    # file_ext = dataset.get('file_ext')
+    # download_url = dataset['download_url'] + '?to_ext=' + file_ext
     if isinstance(results, list):
         for r in results:
             gi.datasets.download_dataset(r['id'], file_path=path)
@@ -563,7 +568,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         # TODO hacer un purge y tmb haer un purge del dataset..... p quizás poner como tarea de mantenimiento del celery??
         gi.histories.delete_history(get_history_id(gi, workspace))
 
-    def upload_file(self,local_path, **kwards):
+    def upload_file(self,job_context):
         """
             Loads file in the inputs yaml to the Galaxy instance given. Returns
             datasets dictionary with names and histories. It associates existing datasets on Galaxy given by dataset_id
@@ -592,16 +597,13 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
 
         self.connect()
         gi = self.galaxy_instance
-        inputs = 'files list'
-        workflow = gi.workflows.show_workflow
-        inputs_for_invoke = {}
-        workflow_id = kwards.get('workflow')
-        history = kwards.get('workspace')
-        h_id = get_history_id(gi,history)
-        label = kwards.get('step')
+        i = job_context["transfer_state"]["idx"]
+        label = job_context["process"]["inputs"]["data"][i]["remote_name"]
+        local_path = job_context["process"]["inputs"]["data"][i]["path"]
+        history = str(job_context['job_id'])
         try:
             upload_info = gi.tools.upload_file(path=local_path,
-                                               history_id=h_id,
+                                               history_id=get_history_id(gi,history),
                                                file_name=label)
             pid = upload_info['jobs'][0]['id']
         except:
@@ -609,11 +611,14 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         return pid
 
 
-    def exists(self, **kwargs):
+    def exists(self, job_context):
         self.connect()
         gi = self.galaxy_instance
-        label = kwargs.get('step')
-        history = kwargs.get('workspace')
+        if not job_context.get('transfer_state'):
+            return False
+        i = job_context["transfer_state"]["idx"]
+        label = job_context["process"]["inputs"]["data"][i]["remote_name"] # si esto es 0 es el primer data set
+        history = str(job_context['job_id'])
         h_id = get_history_id(gi,history_name= history)
         dataset_info = gi.histories.show_matching_datasets(history_id = h_id , name_filter = label )
         if len(dataset_info)>0:
@@ -623,24 +628,16 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
 
 
 
-    def submit(self, workspace, params):
-        # "process": {"name": "MSA ClustalW",
-        #             "inputs":
-        #                 {"parameters":
-        #                      {"MSA ClustalW": {"darna": "PROTEIN"}
-        #                       },
-        #                  "data": [{"step":"Input dataset" ,
-        #                           "path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta",
-        #                           "type": "fasta"},....]
-        #                  }
-        #             }
 
+    def submit(self, job_context):
         self.connect()
         gi = self.galaxy_instance
-        input_params = params['inputs']['parameters']
-        inputs = params['inputs']['data']
-        workflow = params['name']
+        input_params = job_context['process']['inputs']['parameters']
+        inputs = job_context['process']['inputs']['data']
+        # TODO cambiar el nombre del proceso y ponerlo dentro de process
+        workflow = job_context['name']
         w_id = workflow_id(gi, workflow)
+        workspace = str(job_context['job_id'])
         datamap, parameters = params_input_creation(gi, workflow, inputs, input_params,
                                                     history_name=workspace)  # catch error
         # TODO revisar la fomra del data map, quizás me pueda ahorrar toda esa función xq esto ya está comprobadoo desde el gui
@@ -651,22 +648,49 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
                                                   history_id=history_id)
         return invocation['id']
 
-    def job_status(self, pid):
+    def job_status(self, job_context):
         """
         :return: state of the given job among the following values: `new`,
           `queued`, `running`, `waiting`, `ok`. If the state cannot be
           retrieved, an empty string is returned.
         """
+        # TODO el estado witing no sé de qué va
         self.connect()
         gi = self.galaxy_instance
-        if pid:
-            state = gi.jobs.get_state(pid)
-            # TODO al pasarle el id del invocation estoy viendo el estado de todo el workflow? una invocación de
-            #  workflow debe ser un job a su vez.....
-            print(f"{state} job in job_status function")
-            return state
+        # estoy en un proceso
+        if not job_context.get('transfer_state'):
+            pid = job_context.get('pid')
+            if not pid:
+                return None
+            invocation = gi.invocations.show_invocation(pid)
+            status = gi.histories.get_status(invocation['history_id'])
+            "the first call to state cab be ok just because is the state of previous job. "
+            print(f"{status['state']} job in job_status function")
+            # "the first call to state cab be ok just because is the state of previous job."
+            files_list = job_context['process']['inputs']['data']
+            if status['state'] == 'ok' and status['state_details']['ok'] == len(files_list):
+                # galaxy is still displaying status for the upload process
+                status['state'] = "queued"
+                # TODO check if I really need to do this
+                print(f"changing PROCESS status from ok to queued this should happend only a few times")
         else:
-            return None
+            # estoy un en una subida
+            i = job_context["transfer_state"]["idx"]
+            if i == 0:
+                # todavía no he empezado
+                return None
+            status = gi.histories.get_status(get_history_id(gi,job_context['job_id']))
+            if status['state'] == 'ok' and status['state_details']['ok'] < len(i):
+                # "in this case we can say that galaxy does not know about de nwe job"
+                status['state'] = "queued"
+                # TODO check if I really need to do this
+                print(f"changing {i} UPLOAD status from ok to queued this should happend only a few times")
+
+        if status['state'] == 'error':
+            return status['state_details']
+        else:
+            return status['state']
+
 
     def cancel_job(self, native_id):
         self.connect()
@@ -674,16 +698,25 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         gi.invocations.cancel_invocation(native_id)
         # job here refers to invocation
 
-    def download_file(self, native_id,local_path = None):
+    def download_file(self,job_context):
+        index = job_context['transfer_state'].get('idx')
+        result =  job_context['results'][index]
+        remote_name = result.get('remote_path') # TODO o remote_name lo jusnto sería poner todo según el punto de vista de galaxy?
+        local_path = result.get('path')
+        file_ext = result.get('file_ext')
+        history_name = str(job_context['job_id'])
         self.connect()
         gi = self.galaxy_instance
-        # todo bajar documento uno a uno
-        # 1. cargar lista
-        # 2. comprobar que el documento ya esté
-        # 3. si no está descargarlo al path
-        r = list_invocation_results(gi, native_id)
-        download_result(gi, r, '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/download')
-        return r
+        path = os.path.join(local_path,'.'.join([remote_name,file_ext]))
+        # TODO NO ENCUENTRS EL DATA SET
+        dataset = gi.histories.show_matching_datasets(history_id=get_history_id(gi,history_name), name_filter= remote_name)
+        download_url = dataset['download_url'] + '?to_ext=' + file_ext
+        url = urljoin(gi.base_url, download_url)
+        cmd = ["curl", url, "--output", path ]
+        popen_pipe = os.popen(cmd)
+        pid = popen_pipe.readline().rstrip()
+        print(f"PID: {pid}")
+        return pid
 
 def convert_workflows_to_formly():
     wfdict1 = {'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json',
