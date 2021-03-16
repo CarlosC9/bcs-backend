@@ -326,7 +326,7 @@ ssh_tm_processes = {# Preloaded SSH processes
     "25932546-d26c-4367-8c81-0c682094d117": "SSHTestProcess"
 }
 
-tm_processes = galaxy_tm_processes + ssh_tm_processes
+tm_processes = {**ssh_tm_processes, **galaxy_tm_processes}
 
 tm_system_functions = {
     "6ba7c06b-c164-4049-8259-f713920284a2": "get sequence",
