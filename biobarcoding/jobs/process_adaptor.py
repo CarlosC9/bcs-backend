@@ -9,7 +9,7 @@ class ProcessAdaptor(ABC):
     '''The only public method of Process Adaptors'''
 
     @abc.abstractmethod
-    def fill_job_context_with_process(self, job_context):
+    def adapt_job_context(self, job_context):
         raise NotImplementedError
 
 
