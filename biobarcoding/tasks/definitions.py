@@ -106,29 +106,34 @@ def dummy_func(file, secs):
 
 
 
-job_context = {"endpoint_url": "http//:localhost:5000/",
-               "process":
-                   {"inputs":
-                        {"parameters": "...."},
-                         "data": [{
-                                "bo_type": "collection",
-                                "ids": ["jkdjdjdjjdjd"],
-                                "type": "fasta"},
-                                  {
-                                    "bo_type": "path",
-                                      "ids":["...."],
-                                      "type":"fasta"
-                                  },
-                                 {"bo_type": "seq",
-                                  "bo": ["jkdjdjdjjdjd", "jdjdjdjfjdjdj"],
-                                "type": "fasta"}
-                         ]
-                    },
-                    "name": {"........"},
-               "outputs":[{"....."}],
-               "status": "created",
-               "resource": {"......."},
-               "job_id": 60}
+# job_context = {"endpoint_url": "http//:localhost:5000/",
+#                "process":
+#                    {"inputs":
+#                         {"parameters": "...."},
+#                          "data": [
+#                              {
+#                          "name": "fasta.fasta",
+#                          "file" : {
+#                                 {"bo_type": "collection",
+#                                 "ids": ["jkdjdjdjjdjd"],
+#                                 "type": "fasta"},
+#                                   {
+#                                     "bo_type": "path",
+#                                       "ids":["...."],
+#                                       "type":"fasta"
+#                                   },
+#                                  {"bo_type": "seq",
+#                                   "bo": ["jkdjdjdjjdjd", "jdjdjdjfjdjdj"],
+#                                 "type": "fasta"}
+#                                 }
+#                              }
+#                          ]
+#                     },
+#                     "name": {"........"},
+#                "outputs":[{"....."}],
+#                "status": "created",
+#                "resource": {"......."},
+#                "job_id": 60}
 
 
 
