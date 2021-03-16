@@ -308,7 +308,7 @@ tm_job_mgmt_types = {
     "fc1fb247-6b76-420c-9c48-f69f154cbe1d": "ebi"
 }
 
-tm_processes = {  # Preloaded processes
+galaxy_tm_processes = {# Preloaded Galaxy processes
     "02f44e54-f139-4ea0-a1bf-fe27054c0d6c": "klustal-1",
     "903a73a9-5a4e-4cec-b8fa-4fc9bd5ffab5": "blast",
     "5c4ba6db-e7f2-4d5c-a89a-76059ac116b1": "mrbayes",
@@ -320,8 +320,13 @@ tm_processes = {  # Preloaded processes
     "15aa399f-dd58-433f-8e94-5b2222cd06c9": "Clustal Omega",
     "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": "MSA ClustalW",
     "ec40143f-ae32-4dac-9cfb-caa047e1adb1": "ClustalW-PhyMl",
-    "25932546-d26c-4367-8c81-0c682094d117": "ssh-transfer"
 }
+
+ssh_tm_processes = {# Preloaded SSH processes
+    "25932546-d26c-4367-8c81-0c682094d117": "SSHTestProcess"
+}
+
+tm_processes = galaxy_tm_processes + ssh_tm_processes
 
 tm_system_functions = {
     "6ba7c06b-c164-4049-8259-f713920284a2": "get sequence",
