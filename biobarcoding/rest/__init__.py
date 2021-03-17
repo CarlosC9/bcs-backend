@@ -800,7 +800,7 @@ def paginator(query, pagination):
     if 'pageIndex' in pagination and 'pageSize' in pagination:
         page = pagination.get('pageIndex')
         page_size = pagination.get('pageSize')
-        query = query\
+        return query\
             .offset((page - 1) * page_size)\
             .limit(page_size)
     return query

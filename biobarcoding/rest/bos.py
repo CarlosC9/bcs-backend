@@ -22,8 +22,8 @@ class BioObjAPI(MethodView):
         if format:
             issues, content, status = self.service.export(id, format=format, **self.kwargs)
             return send_file(content, mimetype=f'text/{format}'), status
-        issues, content, status = self.service.read(id, **self.kwargs)
-        return ResponseObject(content=content, issues=issues, status=status).get_response()
+        issues, content, count, status = self.service.read(id, **self.kwargs)
+        return ResponseObject(content=content, count=count, issues=issues, status=status).get_response()
 
 
     @bcs_session()
