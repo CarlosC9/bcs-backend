@@ -8,6 +8,7 @@ def create(**kwargs):
     return {'status':'success','message':'CREATE: taxonomies dummy completed'}, 200
 
 
+count = 0
 def read(id = None, **kwargs):
     content = None
     try:
@@ -20,7 +21,7 @@ def read(id = None, **kwargs):
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.INFO, 'READ taxonomies: The taxonomies could not be read.')], 500
-    return issues, content, status
+    return issues, content, count, status
 
 
 def update(id, **kwargs):
@@ -83,6 +84,8 @@ def __get_query(id = None, **kwargs):
         .filter(Dbxref.accession=='taxonomy').first()
     query = chado_session.query(Phylotree)\
         .filter(Phylotree.dbxref_id==_tax_tag)
+    global count
+    count = 0
     if id:
         query = query.filter(Phylotree.phylotree_id==id)
     else:
@@ -91,6 +94,7 @@ def __get_query(id = None, **kwargs):
         if 'order' in kwargs:
             query = __get_query_ordered(query, kwargs.get('order'))
         if 'pagination' in kwargs:
+            count = query.count()
             query = paginator(query, kwargs.get('pagination'))
     return query
 
