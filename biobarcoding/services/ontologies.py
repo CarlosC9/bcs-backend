@@ -8,6 +8,7 @@ def create(**kwargs):
     return issues, None, 200
 
 
+count = 0
 def read(id=None, **kwargs):
     content = None
     try:
@@ -20,7 +21,7 @@ def read(id=None, **kwargs):
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, 'READ ontologies: The ontologies could not be read.')], 500
-    return issues, content, status
+    return issues, content, count, status
 
 
 def update(id, remote_url = None, input_file = None, **kwargs):
@@ -80,6 +81,8 @@ def export(id=None, format='obo', **kwargs):
 def __get_query(id=None, **kwargs):
     from biobarcoding.db_models.chado import Cv
     query = chado_session.query(Cv)
+    global count
+    count = 0
     if id:
         query = query.filter(Cv.cv_id == id)
     else:
@@ -88,6 +91,7 @@ def __get_query(id=None, **kwargs):
         if 'order' in kwargs:
             query = __get_query_ordered(query, kwargs.get('order'))
         if 'pagination' in kwargs:
+            count = query.count()
             query = paginator(query, kwargs.get('pagination'))
     return query
 

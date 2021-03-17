@@ -1,9 +1,11 @@
 from biobarcoding.db_models import DBSession as db_session
 from biobarcoding.db_models import DBSessionChado as chado_session
-from biobarcoding.rest import IType, Issue
+from biobarcoding.rest import IType, Issue, filter_parse, paginator
 from biobarcoding.services import get_or_create
 from biobarcoding.db_models.chado import Analysis, AnalysisCvterm, Cvterm, Organism, Feature, AnalysisFeature
 from sqlalchemy import or_
+
+from biobarcoding.services.analyses import __get_query_ordered, __aux_own_filter
 
 
 def create(**kwargs):
@@ -11,6 +13,7 @@ def create(**kwargs):
     return issues, None, 200
 
 
+count = 0
 def read(id=None, **kwargs):
     content = None
     try:
@@ -23,7 +26,7 @@ def read(id=None, **kwargs):
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, 'READ alignments: The alignments could not be read.')], 500
-    return issues, content, status
+    return issues, content, count, status
 
 
 def update(id, **kwargs):
@@ -136,14 +139,23 @@ def export(id, format='fasta', **kwargs):
 
 
 def __get_query(id=None, **kwargs):
-    from biobarcoding.services.analyses import __get_query as get_analyses
-    query = get_analyses(id, **kwargs)
     msa_ids = chado_session.query(AnalysisCvterm.analysis_id) \
         .join(Cvterm, AnalysisCvterm.cvterm_id == Cvterm.cvterm_id) \
         .filter(or_(Cvterm.name == 'Alignment', Cvterm.name == 'Sequence alignment')).all()
-    query = query.filter(Analysis.analysis_id.in_(msa_ids))
+    query = chado_session.query(Analysis).filter(Analysis.analysis_id.in_(msa_ids))
+    global count
+    count = 0
+    if id:
+        query = query.filter(Analysis.analysis_id == id)
+    else:
+        if 'filter' in kwargs:
+            query = query.filter(filter_parse(Analysis, kwargs.get('filter'), __aux_own_filter))
+        if 'order' in kwargs:
+            query = __get_query_ordered(query, kwargs.get('order'))
+        if 'pagination' in kwargs:
+            count = query.count()
+            query = paginator(query, kwargs.get('pagination'))
     return query
-
 
 # Alignment notation
 def read_alignmentComments(self, id=None):
