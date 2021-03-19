@@ -9,7 +9,7 @@ from alchemyjsonschema import SchemaFactory, StructuralWalker
 from attr import attrs, attrib
 from flask import Response, Blueprint, g, request
 from flask.views import MethodView
-from sqlalchemy import orm, and_
+from sqlalchemy import orm, and_, or_
 from sqlalchemy.pool import StaticPool
 from typing import Dict
 
@@ -70,6 +70,7 @@ class Issue:
 @attrs
 class ResponseObject:
     content = attrib(default=None)  # type: object
+    count = attrib(default=0)  # type: int
     issues = attrib(default=[])  # type: List[Issue]
     # Mimetype.
     content_type = attrib(default="text/json")  # type: str
@@ -86,7 +87,8 @@ class ResponseObject:
         """
         if self.status == 200:
             if self.content_type in ("text/json", "application/json"):
-                obj = generate_json(dict(issues=[s.as_dict() for s in self.issues], content=self.content))
+                obj = generate_json(dict(issues=[s.as_dict() for s in self.issues],
+                                         content=self.content, count=self.count))
             else:
                 obj = self.content
         else:
@@ -718,3 +720,92 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
                            methods=['GET'])
 
     return bp_entity, CrudAPI
+
+
+# def filter_parse(filter_str: str) -> filter_chado, filter_bcs:
+#     """
+#     [{"campo1": "<condicion>", "campo2": "<condicion>"}, {"campo1": "<condicion"}]
+#     <condicion>: {"op": "<operador", "left": "<valor>", "right": <valor>, "unary": <valor>}
+#
+#     :param filter_str:
+#     :return:
+#     """
+#     def append_bcs_condition(bcs_and_clause, field, condition):
+#         if field == "...":
+#             obj = ...
+#         elif field == "...":
+#             obj = ...
+#         op = condition["op"]
+#         if condition == "in":
+#             v = condition["unary"]
+#             cond = obj.in_(v)
+#         elif condition == "eq":
+#             cond = obj == v
+#         elif condition == "between":
+#             left = condition["left"]
+#             right = condition["right"]
+#             cond = obj.between_(left, right)
+#
+#     filter = json.loads(filter_str)
+#     bcs_where = ...
+#     chado_where = ...
+#     for and_clause in filter:
+#         bcs_and_clause = ...
+#         chado_and_clause = ...
+#         for field, condition in and_clause.items():
+#             if field in (...): # Chado fields
+#                 append_chado_condition(chado_and_clause, field, condition)
+#             else: # BCS
+#                 append_bcs_condition(bcs_and_clause, field, condition)
+#         concatenate_
+#     return filter(bcs_where), filter(chado_where)
+
+def filter_parse(orm, filter, aux_filter=None):
+    """
+    @param orm: <ORMSqlAlchemy>
+    @param filter:
+        [{"campo1": "<condicion>", "campo2": "<condicion>"}, {"campo1": "<condicion"}]
+        <condicion>: {"op": "<operador", "left": "<valor>", "right": <valor>, "unary": <valor>}
+    @param aux_filter: <callable function(filter)>
+    @return: <orm_clause_filter>
+    """
+    def get_condition(orm, field, condition):
+        obj = getattr(orm, field)
+        op = condition["op"]
+        value, left, right = condition.get("unary"), condition.get("left"), condition.get("right")
+        if op == "in":
+            return obj.in_(value)
+        elif op == "eq":
+            return obj == value
+        elif op == "between":
+            return obj.between_(left, right)
+        return True
+
+    try:
+        if not isinstance(filter, (list, tuple)):
+            filter=[filter]
+        or_clause = []
+        for clause in filter:
+            and_clause = []
+            for field, condition in clause.items():
+                if hasattr(orm, field):
+                    and_clause.append(get_condition(orm, field, condition))
+                else:
+                    print(f'Unknown column "{field}" for the given tables.')
+            if aux_filter:
+                and_clause+=aux_filter(clause)
+            or_clause.append(and_(*and_clause))
+        return or_(*or_clause)
+    except Exception as e:
+        print(e)
+        return False
+
+
+def paginator(query, pagination):
+    if 'pageIndex' in pagination and 'pageSize' in pagination:
+        page = pagination.get('pageIndex')
+        page_size = pagination.get('pageSize')
+        return query\
+            .offset((page - 1) * page_size)\
+            .limit(page_size)
+    return query

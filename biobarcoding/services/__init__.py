@@ -48,5 +48,4 @@ def get_or_create(session, model, **kwargs):
 # TODO in progress
 def get_query(session, model, **kwargs):
     kwargs = {k:v for k,v in kwargs.items() if v is not None}
-    from biobarcoding.db_models.chado import Cv
-    return session.query(Cv).filter_by(**kwargs)
+    return session.query(model).filter_by(**kwargs)

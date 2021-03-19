@@ -1,42 +1,25 @@
 from biobarcoding.db_models import DBSessionChado as chado_session
-from biobarcoding.rest import Issue, IType
+from biobarcoding.db_models.chado import Analysis
+from biobarcoding.rest import Issue, IType, filter_parse, paginator
 
 
-def create_analyses(program, programversion, name = None, sourcename = None, description = None, algorithm = None, sourceversion = None, sourceuri = None, timeexecuted = None):
-    content = { 'program':program, 'programversion':programversion, 'name':name, 'sourcename':sourcename, 'description':description, 'algorithm':algorithm,
-                      'sourceversion':sourceversion, 'sourceuri':sourceuri, 'timeexecuted':timeexecuted }
-    content = {k:v for k,v in content.items() if v is not None}
+def create(**kwargs):
+    content = None
     try:
-        from biobarcoding.services import conn_chado
-        conn = conn_chado()
-        res = conn.analysis.add_analysis(
-            program = program,
-            programversion = programversion,
-            name = name,
-            description = description,
-            algorithm = algorithm,
-            sourcename = sourcename,
-            sourceversion = sourceversion,
-            sourceuri = sourceuri,
-            date_executed = timeexecuted)
-        issues, status = [Issue(IType.INFO, f'CREATE analyses: The analysis "{program} {programversion}" created successfully.\{res}')], 201
+        chado_session.add(Analysis(**kwargs))
+        issues, status = [Issue(IType.INFO, f'CREATE analyses: The analysis "{kwargs.get("program")} {kwargs.get("programversion")}" created successfully.')], 201
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'CREATE analyses: The analysis "{program} {programversion}" could not be created.')], 500
+        issues, status = [Issue(IType.ERROR, f'CREATE analyses: The analysis "{kwargs.get("program")} {kwargs.get("programversion")}" could not be created.')], 500
     return issues, content, status
 
 
-def read_analyses(analysis_id=None, ids=None, name=None, program=None, programversion=None, algorithm=None,
-                  sourcename=None, sourceversion=None, sourceuri=None, description=None, feature_id=None):
-    content = { 'analysis_id':analysis_id, 'ids':ids, 'name':name, 'program':program, 'programversion':programversion,
-                'algorithm':algorithm, 'sourcename':sourcename, 'sourceversion':sourceversion, 'sourceuri':sourceuri,
-                'description':description, 'feature_id':feature_id}
-    content = {k:v for k,v in content.items() if v is not None}
+count = 0
+def read(id=None, **kwargs):
+    content = None
     try:
-        content = __get_query(analysis_id=analysis_id, ids=ids, name=name, program=program, programversion=programversion,
-            algorithm=algorithm, sourcename=sourcename, sourceversion=sourceversion, sourceuri=sourceuri,
-            description=description, feature_id=feature_id)
-        if analysis_id:
+        content = __get_query(id, **kwargs)
+        if id:
             content = content.first()
         else:
             content = content.all()
@@ -44,30 +27,22 @@ def read_analyses(analysis_id=None, ids=None, name=None, program=None, programve
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, 'READ analyses: The analyses could not be read.')], 500
-    return issues, content, status
+    return issues, content, count, status
 
 
-def update_analyses(analysis_id, program, programversion, name = None, description = None, algorithm = None, sourcename = None, sourceversion = None, sourceuri = None, timeexecuted = None):
+def update(id, **kwargs):
     issues = [Issue(IType.WARNING, 'UPDATE alignments: dummy completed')]
-    content = { 'analysis_id':analysis_id, 'program':program, 'programversion':programversion, 'name':name,
-                'sourcename':sourcename, 'description':description, 'algorithm':algorithm,
-                'sourceversion':sourceversion, 'sourceuri':sourceuri, 'timeexecuted':timeexecuted }
-    return issues, content, 200
+    return issues, None, 200
 
 
-def delete_analyses(analysis_id=None, ids=None, name=None, program=None, programversion=None, algorithm=None, sourcename=None, sourceversion=None, sourceuri=None, description=None):
-    content = { 'analysis_id':analysis_id, 'ids':' '.join(ids) if ids else None, 'name':name, 'program':program,
-                'programversion':programversion, 'algorithm':algorithm, 'sourcename':sourcename,
-                'sourceversion':sourceversion, 'sourceuri':sourceuri, 'description':description }
-    content = {k:v for k,v in content.items() if v is not None}
+def delete(id=None, **kwargs):
+    content = None
     try:
-        query = __get_query(analysis_id=analysis_id, ids=ids, name=name, program=program, programversion=programversion,
-                          algorithm=algorithm, sourcename=sourcename, sourceversion=sourceversion, sourceuri=sourceuri,
-                          description=description)
-        # from biobarcoding.services.sequences import delete_sequences
-        # for msa in query.all():
-        #     delete_sequences(analysis_id=msa.analysis_id)
-        #     __delete_from_bcs(msa.analysis_id)
+        query = __get_query(id, **kwargs)
+        # from biobarcoding.services.sequences import delete as delete_sequences
+        # _ids = [msa.analysis_id for msa in query.all()]
+        # delete_sequences(filter={'analysis_id':{'op':'in','analysis_id':_ids}})
+        # __delete_from_bcs(_ids)
         resp = query.delete(synchronize_session='fetch')
         issues, status = [Issue(IType.INFO, f'DELETE alignments: The {resp} alignments were successfully removed.')], 200
     except Exception as e:
@@ -76,31 +51,33 @@ def delete_analyses(analysis_id=None, ids=None, name=None, program=None, program
     return issues, content, status
 
 
-def __get_query(analysis_id=None, ids=None, name=None, program=None, programversion=None, algorithm=None, sourcename=None, sourceversion=None, sourceuri=None, description=None, feature_id=None):
-    from biobarcoding.db_models.chado import Analysis
+def __get_query(id=None, **kwargs):
     query = chado_session.query(Analysis)
-    if analysis_id:
-        query = query.filter(Analysis.analysis_id==analysis_id)
-    if ids:
-        query = query.filter(Analysis.analysis_id.in_(ids))
-    if name:
-        query = query.filter(Analysis.name==name)
-    if program:
-        query = query.filter(Analysis.program==program)
-    if programversion:
-        query = query.filter(Analysis.programversion==programversion)
-    if algorithm:
-        query = query.filter(Analysis.algorithm==algorithm)
-    if sourcename:
-        query = query.filter(Analysis.sourcename==sourcename)
-    if sourceversion:
-        query = query.filter(Analysis.sourceversion==sourceversion)
-    if sourceuri:
-        query = query.filter(Analysis.sourceuri==sourceuri)
-    if description:
-        query = query.filter(Analysis.description==description)
-    if feature_id:
+    global count
+    count = 0
+    if id:
+        query = query.filter(Analysis.analysis_id == id)
+    else:
+        if 'filter' in kwargs:
+            query = query.filter(filter_parse(Analysis, kwargs.get('filter'), __aux_own_filter))
+        if 'order' in kwargs:
+            query = __get_query_ordered(query, kwargs.get('order'))
+        if 'pagination' in kwargs:
+            count = query.count()
+            query = paginator(query, kwargs.get('pagination'))
+    return query
+
+
+def __aux_own_filter(filter):
+    clause = []
+    if filter.get('feature_id'):
         from biobarcoding.db_models.chado import AnalysisFeature
-        query = query.join(AnalysisFeature)\
-            .filter(AnalysisFeature.feature_id==feature_id)
+        _ids = chado_session.query(AnalysisFeature.analysis_id)\
+            .filter(filter_parse(AnalysisFeature, {'feature_id':filter.get('feature_id')})).all()
+        clause.append(Analysis.analysis_id.in_(_ids))
+    return clause
+
+
+def __get_query_ordered(query, order):
+    # query = query.order(order_parse(Analysis, kwargs.get('order'), __aux_own_order))
     return query

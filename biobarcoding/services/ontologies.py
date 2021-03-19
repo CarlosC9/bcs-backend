@@ -1,19 +1,19 @@
 from biobarcoding.db_models import DBSessionChado as chado_session
-from biobarcoding.rest import Issue, IType
+from biobarcoding.db_models.chado import Cvterm
+from biobarcoding.rest import Issue, IType, filter_parse, paginator
 
 
-def create_ontologies(name, definition = None, remote_url = None):
+def create(**kwargs):
     issues = [Issue(IType.WARNING, 'CREATE ontologies: dummy completed')]
-    content = { 'name':name, 'definition':definition, 'remote_url':remote_url }
-    return issues, content, 200
+    return issues, None, 200
 
 
-def read_ontologies(ontology_id = None, name = None, definition = None, remote_url = None):
-    content = {'ontology_id':ontology_id, 'name':name, 'definition':definition, 'remote_url':remote_url}
-    content = {k:v for k,v in content.items() if v is not None}
+count = 0
+def read(id=None, **kwargs):
+    content = None
     try:
-        content = __get_query(cv_id=ontology_id, name=name, definition=definition)
-        if ontology_id:
+        content = __get_query(id, **kwargs)
+        if id:
             content = content.first()
         else:
             content = content.all()
@@ -21,24 +21,21 @@ def read_ontologies(ontology_id = None, name = None, definition = None, remote_u
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, 'READ ontologies: The ontologies could not be read.')], 500
-    return issues, content, status
+    return issues, content, count, status
 
 
-def update_ontologies(ontology_id, name = None, definition = None, remote_url = None, input_file = None):
+def update(id, remote_url = None, input_file = None, **kwargs):
     issues = [Issue(IType.WARNING, 'UPDATE ontologies: dummy completed')]
-    content = { 'name':name, 'definition':definition, 'remote_url':remote_url }
-    return issues, content, 200
+    return issues, None, 200
 
 
-def delete_ontologies(ontology_id = None):
+def delete(id = None, **kwargs):
     issues = [Issue(IType.WARNING, 'DELETE ontologies: dummy completed')]
-    content = { 'ontology_id':ontology_id }
-    return issues, content, 200
+    return issues, None, 200
 
 
-def import_ontologies(input_file, format='obo', **kwargs):
-    content = { 'input_file':input_file, 'format':format, **kwargs }
-    content = {k:v for k,v in content.items() if v is not None}
+def import_file(input_file, format='obo', **kwargs):
+    content = None
     try:
         from flask import current_app
         cfg = current_app.config
@@ -76,53 +73,42 @@ def import_ontologies(input_file, format='obo', **kwargs):
     return issues, content, status
 
 
-def export_ontologies(id=None, name=None, definition=None, remote_url=None, format='obo'):
+def export(id=None, format='obo', **kwargs):
     issues = [Issue(IType.WARNING, 'EXPORT ontologies: dummy completed')]
-    content = { 'name':name, 'definition':definition, 'remote_url':remote_url, 'format':format }
-    return issues, content, 200
+    return issues, None, 200
 
 
-def __get_query(**kwargs):
+def __get_query(id=None, **kwargs):
     from biobarcoding.db_models.chado import Cv
-    result = chado_session.query(Cv)
-    if kwargs.get('ontology_id'):
-        result = result.filter(Cv.cv_id==kwargs.get('ontology_id'))
-    if kwargs.get('name'):
-        result = result.filter(Cv.name==kwargs.get('name'))
-    if kwargs.get('definition'):
-        result = result.filter(Cv.definition==kwargs.get('definition'))
-    return result
+    query = chado_session.query(Cv)
+    global count
+    count = 0
+    if id:
+        query = query.filter(Cv.cv_id == id)
+    else:
+        if 'filter' in kwargs:
+            query = query.filter(filter_parse(Cv, kwargs.get('filter'), __aux_own_filter))
+        if 'order' in kwargs:
+            query = __get_query_ordered(query, kwargs.get('order'))
+        if 'pagination' in kwargs:
+            count = query.count()
+            query = paginator(query, kwargs.get('pagination'))
+    return query
+
+def __aux_own_filter(**kwargs):
+    return []
+
+def __get_query_ordered(query, **kwargs):
+    return query
 
 
 # TODO:
 #  featureprop, analysisprop, phylotreeprop ?
 #  phylotree ?
-def read_cvterms(cv_id=None, cvterm_id=None, feature_id=None, analysis_id=None, phylotree_id=None):
-    content = {'cv_id':cv_id, 'cvterm_id':cvterm_id, 'feature_id':feature_id, 'analysis_id':analysis_id, 'phylotree_id':phylotree_id}
-    content = {k:v for k,v in content.items() if v is not None}
+def read_cvterms(cv_id=None, cvterm_id=None, **kwargs):
+    content = None
     try:
-        from biobarcoding.db_models.chado import Cvterm
-        result = chado_session.query(Cvterm)
-        if cvterm_id:
-            result = result.filter(Cvterm.cvterm_id==cvterm_id)
-        if cv_id:
-            result = result.filter(Cvterm.cv_id==cv_id)
-        if feature_id:
-            from biobarcoding.db_models.chado import FeatureCvterm
-            cv_ids = chado_session.query(FeatureCvterm.cvterm_id)\
-                .filter(FeatureCvterm.feature_id==feature_id)
-            result = result.filter(Cvterm.cv_id.in_(cv_ids))
-        if analysis_id:
-            from biobarcoding.db_models.chado import AnalysisCvterm
-            cv_ids = chado_session.query(AnalysisCvterm.cvterm_id)\
-                .filter(AnalysisCvterm.analysis_id==analysis_id)
-            result = result.filter(Cvterm.cv_id.in_(cv_ids))
-        if phylotree_id:
-            # from biobarcoding.db_models.chado import Phylotree
-            # cv_id = chado_session.query(Phylotree.type_id)\
-            #     .filter(Phylotree.phylotree_id==phylotree_id)
-            # result = result.filter(Cvterm.cv_id==cv_id)
-            pass
+        result = __get_cvterm(cv_id, cvterm_id, **kwargs)
         if cvterm_id:
             content = result.first()
         else:
@@ -131,3 +117,52 @@ def read_cvterms(cv_id=None, cvterm_id=None, feature_id=None, analysis_id=None, 
     except Exception as e:
         issues, status = [Issue(IType.ERROR, f'READ ontology terms: The cvterms could not be read.')], 500
     return issues, content, status
+
+
+def __get_cvterm(cv_id=None, cvterm_id=None, **kwargs):
+    query = chado_session.query(Cvterm)
+    if cv_id:
+        query = query.filter(Cvterm.cv_id==cv_id)
+    if cvterm_id:
+        query = query.filter(Cvterm.cvterm_id==cvterm_id)
+    else:
+        if 'filter' in kwargs:
+            query = query.filter(filter_parse(Cvterm, kwargs.get('filter'), __aux_own_filter))
+        if 'order' in kwargs:
+            query = __get_query_ordered(query, kwargs.get('order'))
+        if 'pagination' in kwargs:
+            query = paginator(query, kwargs.get('pagination'))
+    return query
+
+
+def __aux_own_filter(filter):
+    clause = []
+    if filter.get('feature_id'):
+        from biobarcoding.db_models.chado import Feature, Featureprop, FeatureCvterm
+        _ids = chado_session.query(Feature.type_id)\
+            .filter(Feature.feature_id==filter.get('feature_id')).all()
+        _ids += chado_session.query(Featureprop.type_id)\
+            .filter(Featureprop.feature_id==filter.get('feature_id')).all()
+        _ids += chado_session.query(FeatureCvterm.cvterm_id)\
+            .filter(FeatureCvterm.feature_id==filter.get('feature_id')).all()
+        clause.append(Cvterm.cvterm_id.in_(_ids))
+    if filter.get('analysis_id'):
+        from biobarcoding.db_models.chado import Analysisprop, AnalysisCvterm
+        _ids = chado_session.query(Analysisprop.type_id)\
+            .filter(Analysisprop.analysis_id==filter.get('analysis_id')).all()
+        _ids += chado_session.query(AnalysisCvterm.cvterm_id)\
+            .filter(AnalysisCvterm.analysis_id==filter.get('analysis_id')).all()
+        clause.append(Cvterm.cvterm_id.in_(_ids))
+    if filter.get('phylotree_id'):
+        from biobarcoding.db_models.chado import Phylotree, Phylotreeprop
+        _ids = chado_session.query(Phylotree.type_id)\
+            .filter(Phylotree.phylotree_id==filter.get('phylotree_id')).all()
+        _ids += chado_session.query(Phylotreeprop.type_id)\
+            .filter(Phylotreeprop.phylotree_id==filter.get('phylotree_id')).all()
+        clause.append(Cvterm.cvterm_id.in_(_ids))
+    return clause
+
+
+def __get_query_ordered(query, order):
+    # query = query.order(order_parse(Cvterm, kwargs.get('order'), __aux_own_order))
+    return query
