@@ -1,8 +1,9 @@
 import abc
 
-from biobarcoding.jobs.ssh_process_adaptors.SSHTestProcessAdaptor import SSHTestProcessAdaptor
+from biobarcoding.jobs.ssh_process_adaptors.SSHClustalProcessAdaptor import SSHClustalProcessAdaptor
 from biobarcoding.rest import galaxy_tm_processes, ssh_tm_processes
 from abc import ABC
+import os
 
 
 class ProcessAdaptor(ABC):
@@ -16,18 +17,40 @@ class ProcessAdaptor(ABC):
 class SSHProcessAdaptor(ProcessAdaptor, ABC):
     '''The methods of the subinterfaces are all private'''
 
+    ASSETS_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 "ssh_process_adaptors",
+                                 "ssh_process_assets")
+    SCRIPT_KEY = "script"
+    SCRIPT_FILES_KEY = "script_files"
+    SCRIPT_PARAMS_KEY = "script_params"
+    RESULTS_FILES_KEY = "result_files"
+
+    def adapt_job_context(self, job_context):
+        process_parameters = job_context["process_params"]["parameters"]
+        new_process_parameters = {
+            self.SCRIPT_KEY: self.__get_script_filename(),
+            self.SCRIPT_FILES_KEY: self.__get_script_files_list(),
+            self.SCRIPT_PARAMS_KEY: self.__get_script_params_string(process_parameters),
+            self.RESULTS_FILES_KEY: self.__get_results_files_list(),
+        }
+        job_context["process_params"]["parameters"] = new_process_parameters
+        return job_context
+
     @abc.abstractmethod
-    def __complete_input_file_names_list(self, job_context):
+    def __get_script_filename(self):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def __get_script_params_string(self, job_context):
+    def __get_script_files_list(self):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def __get_results_file_names_list(self):
+    def __get_script_params_string(self, process_parameters):
         raise NotImplementedError
 
+    @abc.abstractmethod
+    def __get_results_files_list(self):
+        raise NotImplementedError
 
 class GalaxyProcessAdaptor(ProcessAdaptor, ABC):
     '''The methods of the subinterfaces are all private'''
@@ -50,7 +73,7 @@ class ProcessAdaptorFactory:
     def get_ssh_process_adaptor(self, process_id):
         ssh_process_adaptor = None
         if ssh_tm_processes[process_id] == "SSHTestProcess":
-            ssh_process_adaptor = SSHTestProcessAdaptor()
+            ssh_process_adaptor = SSHClustalProcessAdaptor()
 
         return ssh_process_adaptor
 

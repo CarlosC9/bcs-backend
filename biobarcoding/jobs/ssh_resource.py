@@ -382,6 +382,14 @@ class JobExecutorWithSSH(JobExecutorAtResource):
             print(f"File {local_path} not found in your local system")
             return None
 
+    def get_upload_files_list(self, job_context):
+        return job_context["process"]["inputs"]["data"] +\
+               job_context["process_params"]["parameters"]["script_files"]
+
+    def get_download_files_list(self, job_context):
+        #TODO
+        pass
+
     def check_resource(self):
         """
         Can connect
