@@ -1,5 +1,8 @@
 data_dict = {
     "data": [
+        {
+            "name": "fasta.fasta",
+            "file": [
                 {
                     "bo_type": "collection",
                     "ids": ["jkdjdjdjjdjd"],
@@ -16,6 +19,8 @@ data_dict = {
                     "type": "fasta"
                 }
             ]
+        }
+    ]
 }
 
 def export_files(data):
