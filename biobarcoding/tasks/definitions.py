@@ -246,7 +246,7 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
         del tmp["transfer_state"]
         job_context = json.dumps(tmp)
         return job_context
-    elif job_executor.job_status(pid) == "running":  # Transfer is being executed
+    elif job_executor.job_status(tmp) == "running":  # Transfer is being executed
         print("Transfer executing")
         sleep(5)
         return None, job_context
