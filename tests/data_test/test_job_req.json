@@ -9,7 +9,7 @@
     },
     "data":  [
                     {
-                      "step": "Input dataset",
+                      "remote_name": "Input dataset",
                       "path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta",
                       "type": "fasta"
                     }
