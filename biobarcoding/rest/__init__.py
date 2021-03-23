@@ -768,6 +768,8 @@ def filter_parse(orm, filter, aux_filter=None):
         obj = getattr(orm, field)
         op = condition["op"]
         value, left, right = condition.get("unary"), condition.get("left"), condition.get("right")
+        if op == "out":
+            return obj.notin_(value)
         if op == "in":
             return obj.in_(value)
         elif op == "eq":

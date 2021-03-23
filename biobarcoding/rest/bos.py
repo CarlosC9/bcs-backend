@@ -1,4 +1,6 @@
 import importlib, json
+from urllib.parse import unquote
+
 from flask import Blueprint, request, send_file
 from flask.views import MethodView
 from biobarcoding.authentication import bcs_session
@@ -80,6 +82,22 @@ class BioObjAPI(MethodView):
         self.service = importlib.import_module(f'biobarcoding.services.{bos}')
 
 
+    def _get_decoded(self, data):
+        res = {}
+        for key in data:
+            value = data[key]
+            try:
+                value = unquote(value)
+            except Exception as e:
+                pass
+            try:
+                value = json.loads(value)
+            except Exception as e:
+                pass
+            res[key] = value
+        return res
+
+
     def _check_data(self, data=None):
         if not data:
             self.kwargs = { 'filter' : [], 'order' : {}, 'pagination' : {},
@@ -90,19 +108,10 @@ class BioObjAPI(MethodView):
                 self._check_data(request.values)
         else:
             print(f'DATA: {data}')
-            input = data.copy()
-            from urllib.parse import unquote
+            input = self._get_decoded(data)
             for key in self.kwargs:
-                if input.get(key):
-                    i = input.get(key)
-                    try:
-                        i = unquote(i)
-                    except Exception as e:
-                        pass
-                    try:
-                        i = json.loads(i)
-                    except Exception as e:
-                        pass
+                i = input.get(key)
+                if i:
                     self.kwargs[key] = i
                     input.pop(key)
             self.kwargs['value'].update(input)
