@@ -27,12 +27,11 @@ class SSHProcessAdaptor(ProcessAdaptor, ABC):
     RESULTS_FILES_KEY = "result_files"
 
     def adapt_job_context(self, job_context):
-        input_filename = job_context["data"]["input_dataset"]["path"]
         process_parameters = job_context["process_params"]["parameters"]
         new_process_parameters = {
             self.SCRIPT_KEY: self._get_script_filename(),
             self.SCRIPT_FILES_KEY: self._get_script_files_list(),
-            self.SCRIPT_PARAMS_KEY: self._get_script_params_string(input_filename, process_parameters),
+            self.SCRIPT_PARAMS_KEY: self._get_script_params_string(process_parameters),
             self.RESULTS_FILES_KEY: self._get_results_files_list(),
         }
         job_context["process_params"]["parameters"] = new_process_parameters

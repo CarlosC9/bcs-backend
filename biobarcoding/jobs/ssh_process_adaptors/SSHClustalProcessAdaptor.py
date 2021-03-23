@@ -29,15 +29,17 @@ class SSHClustalProcessAdaptor(SSHProcessAdaptor):
     }
     """
 
+    INPUT_FILENAME = "clustalw.fasta"
+
     def _get_script_filename(self):
         return os.path.join(self.ASSETS_FOLDER, "clustal.sh")
 
     def _get_script_files_list(self):
         return []
 
-    def _get_script_params_string(self, input_filename, process_parameters):
+    def _get_script_params_string(self, process_parameters):
         output_file = self._get_results_files_list()[0].get("name")
-        params_str = f"${input_filename} ${output_file} " +\
+        params_str = f"${self.INPUT_FILENAME} ${output_file} " +\
                      f"${process_parameters['out_order']} ${process_parameters['dnarna']}"
         if process_parameters["mode"] == "part":
             params_str += f" ${process_parameters['seq_range_start']} ${process_parameters['seq_range_end']}"
