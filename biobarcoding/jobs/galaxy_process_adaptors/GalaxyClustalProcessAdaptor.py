@@ -1,4 +1,4 @@
-from biobarcoding.jobs.process_adaptor import GalaxyProcessAdaptor
+from biobarcoding.jobs.galaxy_process_adaptors import  GalaxyProcessAdaptor
 
 
 job_context = {

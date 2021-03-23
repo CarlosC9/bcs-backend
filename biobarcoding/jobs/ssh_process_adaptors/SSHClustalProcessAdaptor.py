@@ -1,5 +1,5 @@
 import os
-from biobarcoding.jobs.process_adaptor import SSHProcessAdaptor
+from biobarcoding.jobs.ssh_process_adaptors import SSHProcessAdaptor
 
 class SSHClustalProcessAdaptor(SSHProcessAdaptor):
     """
