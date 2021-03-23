@@ -1,0 +1,26 @@
+{
+  "resource_id":"0292821a-dd33-450a-bdd8-813b2b95c456",
+  "process_id":"25932546-d26c-4367-8c81-0c682094d117",
+  "process_params":{
+    "parameters":{
+       "dnarna":"DNA",
+       "outform":"fasta",
+       "out_seqnos":"false",
+       "out_order":"ALIGNED",
+       "mode":"complete",
+       "seq_range_start":"1",
+       "seq_range_end":"99999"
+    },
+    "data":[
+       {
+          "remote_name": "clustalw.fasta",
+          "file": "clustalw.fasta",
+          "type":"fasta"
+       }
+    ]
+  },
+  "credentials": {
+    "known_hosts_filepath":"/home/daniel/.ssh/known_hosts",
+    "username":"dreyes"
+  }
+}

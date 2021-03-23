@@ -126,10 +126,8 @@ class JobAPI(MethodView):
         DBSession.remove()
 
         #TODO debuguear esto
-        '''
         process_adaptor = ProcessAdaptorFactory.get(d.resource.jm_type, d.process.name)
         d = process_adaptor.adapt_job_context(d)
-        '''
 
         # Submit job to Celery
         JobManagementAPI().submit(d.to_json())

@@ -5,7 +5,7 @@ class SSHClustalProcessAdaptor(SSHProcessAdaptor):
     """
     {
        "resource_id":"0292821a-dd33-450a-bdd8-813b2b95c456",
-       "process_id":"c8df0c20-9cd5-499b-92d4-5fb35b5a369a",
+       "process_id":"25932546-d26c-4367-8c81-0c682094d117",
        "process_params":{
           "parameters":{
              "dnarna":"DNA",
@@ -16,11 +16,26 @@ class SSHClustalProcessAdaptor(SSHProcessAdaptor):
              "seq_range_start":"1",
              "seq_range_end":"99999"
           },
-          "data":{
-             "input_dataset":{
+          "data":[
+             {
+                "remote_name": clustalw.fasta,
+                "file": [
+                    {
+                        "bo_type": "collection",
+                        "ids": ["jkdjdjdjjdjd"]
+                    },
+                    {
+                        "bo_type": "path",
+                        "ids":["...."]
+                    },
+                    {
+                        "bo_type": "seq",
+                        "bo": ["jkdjdjdjjdjd", "jdjdjdjfjdjdj"]
+                    }
+                ],
                 "type":"fasta"
              }
-          }
+          ]
        },
        "credentials":{
           "known_hosts_filepath":"/home/daniel/.ssh/known_hosts",
@@ -46,7 +61,7 @@ class SSHClustalProcessAdaptor(SSHProcessAdaptor):
 
     def _get_results_files_list(self, data_list):
         [{
-            "name": "clustalw.aln",
+            "remote_name": "clustalw.aln",
             "type": "aln"
         }]
 
