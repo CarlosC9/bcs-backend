@@ -325,7 +325,7 @@ galaxy_tm_processes = {# Preloaded Galaxy processes
 }
 
 ssh_tm_processes = {# Preloaded SSH processes
-    "25932546-d26c-4367-8c81-0c682094d117": "SSHTestProcess"
+    "25932546-d26c-4367-8c81-0c682094d117": "SSHClustalW"
 }
 
 tm_processes = {**ssh_tm_processes, **galaxy_tm_processes}

@@ -1,5 +1,5 @@
+import os
 from biobarcoding.jobs.process_adaptor import SSHProcessAdaptor
-
 
 class SSHClustalProcessAdaptor(SSHProcessAdaptor):
     """
@@ -29,15 +29,24 @@ class SSHClustalProcessAdaptor(SSHProcessAdaptor):
     }
     """
 
-    def __complete_input_file_names_list(self, process_params):
-        print(self.ASSETS_FOLDER)
-        pass
+    def _get_script_filename(self):
+        return os.path.join(self.ASSETS_FOLDER, "clustal.sh")
 
-    def __get_script_params_string(self, job_context):
-        pass
+    def _get_script_files_list(self):
+        return []
 
-    def __get_results_file_names_list(self):
-        pass
+    def _get_script_params_string(self, input_filename, process_parameters):
+        output_file = self._get_results_files_list()[0].get("name")
+        params_str = f"${input_filename} ${output_file} " +\
+                     f"${process_parameters['out_order']} ${process_parameters['dnarna']}"
+        if process_parameters["mode"] == "part":
+            params_str += f" ${process_parameters['seq_range_start']} ${process_parameters['seq_range_end']}"
+
+    def _get_results_files_list(self, data_list):
+        [{
+            "name": "clustalw.aln",
+            "type": "aln"
+        }]
 
 
 

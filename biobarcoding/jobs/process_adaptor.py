@@ -26,30 +26,31 @@ class SSHProcessAdaptor(ProcessAdaptor, ABC):
     RESULTS_FILES_KEY = "result_files"
 
     def adapt_job_context(self, job_context):
+        input_filename = job_context["data"]["input_dataset"]["path"]
         process_parameters = job_context["process_params"]["parameters"]
         new_process_parameters = {
-            self.SCRIPT_KEY: self.__get_script_filename(),
-            self.SCRIPT_FILES_KEY: self.__get_script_files_list(),
-            self.SCRIPT_PARAMS_KEY: self.__get_script_params_string(process_parameters),
-            self.RESULTS_FILES_KEY: self.__get_results_files_list(),
+            self.SCRIPT_KEY: self._get_script_filename(),
+            self.SCRIPT_FILES_KEY: self._get_script_files_list(),
+            self.SCRIPT_PARAMS_KEY: self._get_script_params_string(input_filename, process_parameters),
+            self.RESULTS_FILES_KEY: self._get_results_files_list(),
         }
         job_context["process_params"]["parameters"] = new_process_parameters
         return job_context
 
     @abc.abstractmethod
-    def __get_script_filename(self):
+    def _get_script_filename(self):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def __get_script_files_list(self):
+    def _get_script_files_list(self):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def __get_script_params_string(self, process_parameters):
+    def _get_script_params_string(self, process_parameters):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def __get_results_files_list(self):
+    def _get_results_files_list(self):
         raise NotImplementedError
 
 class GalaxyProcessAdaptor(ProcessAdaptor, ABC):
@@ -64,21 +65,21 @@ class ProcessAdaptorFactory:
     def get(self, jm_type, process_id):
         process_adaptor = None
         if jm_type == "galaxy":
-            process_adaptor = self.getGalaxyProcessAdaptor(process_id)
+            process_adaptor = self._get_galaxy_process_adaptor(process_id)
         elif jm_type == "ssh":
-            process_adaptor = self.getSSHProcessAdaptor(process_id)
+            process_adaptor = self._get_ssh_process_adaptor(process_id)
 
         return process_adaptor
 
-    def get_ssh_process_adaptor(self, process_id):
+    def _get_ssh_process_adaptor(self, process_id):
         ssh_process_adaptor = None
-        if ssh_tm_processes[process_id] == "SSHTestProcess":
+        if ssh_tm_processes[process_id] == "SSHClustalW":
             ssh_process_adaptor = SSHClustalProcessAdaptor()
 
         return ssh_process_adaptor
 
-    def get_galaxy_process_adaptor(self, process_id):
-        galaxy_process_adaptor = None
+    def _get_galaxy_process_adaptor(self, process_id):
+        galaxy_process_adaptor = ""
         if galaxy_tm_processes[process_id] == "klustal-1":
             pass
         # TODO complete with rest of galaxy_tm_processes values

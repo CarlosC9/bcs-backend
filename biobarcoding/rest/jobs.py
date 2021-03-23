@@ -14,6 +14,7 @@ from biobarcoding.common.helpers import is_integer
 from biobarcoding.db_models import DBSession
 from biobarcoding.db_models.jobs import ProcessInComputeResource
 from biobarcoding.jobs import JobManagementAPI
+from biobarcoding.jobs.process_adaptor import ProcessAdaptorFactory
 from biobarcoding.rest import bcs_api_base, register_api, Job, ComputeResource, Process, ResponseObject
 from biobarcoding.authentication import bcs_session
 from biobarcoding.rest import make_simple_rest_crud
@@ -123,6 +124,12 @@ class JobAPI(MethodView):
         session.commit()
         d.job_id = job.id
         DBSession.remove()
+
+        #TODO debuguear esto
+        '''
+        process_adaptor = ProcessAdaptorFactory.get(d.resource.jm_type, d.process.name)
+        d = process_adaptor.adapt_job_context(d)
+        '''
 
         # Submit job to Celery
         JobManagementAPI().submit(d.to_json())
