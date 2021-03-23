@@ -71,7 +71,7 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
     :return:
     """
     tmp = json.loads(job_context)
-    # tmp = change_status(tmp, "transfer_data_to_resource")
+    tmp = change_status(tmp, "transfer_data_to_resource")
     job_executor = JobExecutorAtResourceFactory().get(tmp)
     transfer_state = tmp.get("transfer_state")
     print(f"Transfer state: {transfer_state}")
@@ -83,7 +83,7 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
         i = 0
         pid = None
         n_errors = 0
-        tmp["transfer_state"] = dict(idx=i, pid=None, n_errors=n_errors)
+        tmp["transfer_state"] = dict(idx=i, pid=None, n_errors=n_errors,state = "upload")
 
     # Ith transfer
     files_list = tmp["process"]["inputs"]["data"]
@@ -101,7 +101,7 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
     elif i == len(files_list):  # Transfer finished
         print("Transfer finished")
         del tmp["transfer_state"]
-        job_context = json.dumps(tmp) # cambio pid -> job context
+        job_context = json.dumps(tmp)
         return job_context
     elif job_executor.job_status(tmp) == "running":  # Transfer is being executed
         print("Transfer executing")
@@ -110,14 +110,14 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
     elif job_executor.exists(tmp):  # File i has been transferred successfully
         print(f"File {i} transferred: {local_path} . Moving to next")
         i += 1
-        tmp["transfer_state"] = dict(idx=i, pid=None, n_errors=n_errors)
+        tmp["transfer_state"] = dict(idx=i, pid=None, n_errors=n_errors, state = "upload")
         job_context = json.dumps(tmp)
         return None, job_context
     else:  # Transfer file i
         print(f"Begin transfer {i}: {local_path}")
         pid = job_executor.upload_file(tmp)
         # TODO yo puedo tener un error aquí
-        tmp["transfer_state"] = dict(idx=i, pid=pid, n_errors=n_errors)
+        tmp["transfer_state"] = dict(idx=i, pid=pid, n_errors=n_errors, state = "upload")
         print(tmp['transfer_state'])
         job_context = json.dumps(tmp)
         return None, job_context

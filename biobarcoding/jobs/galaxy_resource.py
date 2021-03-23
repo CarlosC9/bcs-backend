@@ -11,8 +11,7 @@ from biobarcoding.common import ROOT
 from biobarcoding.db_models import DBSession
 from biobarcoding.db_models.jobs import ComputeResource
 from biobarcoding.jobs import JobExecutorAtResource
-from pathlib import Path
-from multiprocessing import Process, Queue
+
 
 import os
 import time
@@ -610,6 +609,21 @@ def invocation_status(gi,job_context):
     else:
         return status['state']
 
+
+def get_stdout_stderr(gi,result,history_name):
+    remote_name = result['remote_name']
+    dataset_id = \
+    gi.histories.show_matching_datasets(history_id=get_history_id(gi, history_name), name_filter=remote_name)[
+        0]['id']
+    provenance = gi.histories.show_dataset_provenance(history_id=get_history_id(gi, history_name),
+                                                      dataset_id=dataset_id)
+    std = dict(stderr = provenance['stderr'],stdout = provenance['stdout']  )
+    # TODO hacer un purge y tmb haer un purge del dataset..... p quizás poner como tarea de mantenimiento del celery??
+    #  todo aquí escribo el archivo stderr y stdout en un archivo o mejor lo paso en modo tecto y fuera lo paso por file API
+    return std
+
+
+
 class JobExecutorAtGalaxy(JobExecutorAtResource):
     def __init__(self):
         self.api_key = None
@@ -635,11 +649,17 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         self.disconnect()
         return history['id']
 
-    def remove_job_workspace(self, workspace):
+    def get_upload_files_list(self,job_context):
+        return job_context["process"]["inputs"]["data"]
+
+    def get_download_files_list(self,job_context):
+        return job_context["results"]
+
+    def remove_job_workspace(self, job_context):
         self.connect()
         gi = self.galaxy_instance
-        # TODO hacer un purge y tmb haer un purge del dataset..... p quizás poner como tarea de mantenimiento del celery??
-        gi.histories.delete_history(get_history_id(gi, workspace))
+        history_name = str(job_context['job_id'])
+        gi.histories.delete_history(get_history_id(gi, history_name),purge = True)
 
     def upload_file(self,job_context):
         """
@@ -695,7 +715,14 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         h_id = get_history_id(gi,history_name= history)
         dataset_info = gi.histories.show_matching_datasets(history_id = h_id , name_filter = label )
         if len(dataset_info)>0:
-            return True
+            # TODO test
+            # check size:
+            local_file = job_context["process"]["inputs"]["data"][i]["path"]
+            local_size = os.path.getsize(local_file)
+            remote_size = dataset_info[0]['file_size']
+            # TODO Test units
+            if local_size == remote_size:
+                return True
         else:
             return False
 
@@ -731,10 +758,10 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         self.connect()
         gi = self.galaxy_instance
         if job_context.get("transfer_state"):
-            if job_context["transfer_state"]["state"] == "upload":
+            if job_context["transfer_state"].get("state") == "upload":
                 status = upload_status(gi,job_context) # i need
                 return status # if error return dict
-            if job_context["transfer_state"]["state"] =="download":
+            if job_context["transfer_state"].get("state") =="download":
                 pid = job_context["transfer_state"]["pid"]
                 return download_status(pid)
         else:
@@ -762,6 +789,12 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         self.connect()
         gi = self.galaxy_instance
         path = os.path.join(DOWNLOAD_PATH,str(job_context['job_id']),local_path)
+        std = get_stdout_stderr(gi, result)
+        # write std for output file
+        # TODO put stdout_output name instead of output_name/stdout ?
+        for k, i in std.items():
+            f = open(os.path.join(path,k) + 'txt', 'w')
+            f.write(i)
         dataset = gi.histories.show_matching_datasets(history_id=get_history_id(gi,history_name), name_filter= remote_name)[0] # todo revisar remote name dar exacto o regex?
         download_url = dataset['download_url'] + '?to_ext=' + file_ext
         url = urljoin(gi.base_url, download_url)
@@ -982,3 +1015,4 @@ def convertToFormly(wf_steps, newpath):
     formly_json = json.dumps([formly], indent=3)
     with open(newpath, 'w') as file:
         file.write(formly_json)
+

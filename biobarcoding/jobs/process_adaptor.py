@@ -1,6 +1,7 @@
 import abc
 
 from biobarcoding.jobs.ssh_process_adaptors.SSHClustalProcessAdaptor import SSHClustalProcessAdaptor
+from biobarcoding.jobs.galaxy_process_adaptors.GalaxyClustalProcessAdaptor import GalaxyClustalAdaptator
 from biobarcoding.rest import galaxy_tm_processes, ssh_tm_processes
 from abc import ABC
 import os
@@ -56,8 +57,20 @@ class SSHProcessAdaptor(ProcessAdaptor, ABC):
 class GalaxyProcessAdaptor(ProcessAdaptor, ABC):
     '''The methods of the subinterfaces are all private'''
 
-    def __init__(self):
-        pass
+    @abc.abstractmethod
+    def __complete_inputs_with_labels(self,job_context):
+        raise NotImplementedError
+    @abc.abstractmethod
+    def __complete_with_outputs_files(self,job_context):
+        raise NotImplementedError
+
+    def __complete_with_errors_files(self, job_context):
+        raise NotImplementedError
+
+    def adapt_job_context(self, job_context):
+        job_context['process']['inputs']['data'] = self.__complete_inputs_with_labels(job_context)
+        job_context['results'] = self.__complete_with_outputs_files(job_context)
+        return job_context
 
 
 class ProcessAdaptorFactory:
@@ -78,10 +91,8 @@ class ProcessAdaptorFactory:
 
         return ssh_process_adaptor
 
-    def _get_galaxy_process_adaptor(self, process_id):
-        galaxy_process_adaptor = ""
-        if galaxy_tm_processes[process_id] == "klustal-1":
-            pass
-        # TODO complete with rest of galaxy_tm_processes values
-
+    def get_galaxy_process_adaptor(self, process_id):
+        galaxy_process_adaptor = None
+        if galaxy_tm_processes[process_id] == "MSA ClustalW":
+            galaxy_process_adaptor = GalaxyClustalAdaptator()
         return galaxy_process_adaptor

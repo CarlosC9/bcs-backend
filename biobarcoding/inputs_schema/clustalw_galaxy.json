@@ -1,1 +1,182 @@
-{"model_class": "Tool", "id": "toolshed.g2.bx.psu.edu/repos/devteam/clustalw/clustalw/2.1", "name": "ClustalW", "version": "2.1", "description": "multiple sequence alignment program for DNA or proteins", "labels": [], "edam_operations": [], "edam_topics": [], "hidden": "", "is_workflow_compatible": true, "xrefs": [], "tool_shed_repository": {"name": "clustalw", "owner": "devteam", "changeset_revision": "d6694932c5e0", "tool_shed": "toolshed.g2.bx.psu.edu"}, "config_file": "/home/paula/Documentos/NEXTGENDEM/galaxy/database/shed_tools/toolshed.g2.bx.psu.edu/repos/devteam/clustalw/d6694932c5e0/clustalw/rgClustalw.xml", "panel_section_id": "phylogenetic", "panel_section_name": "phylogenetic", "form_style": "regular", "inputs": [{"model_class": "DataToolParameter", "name": "input", "argument": null, "type": "data", "label": "FASTA file", "help": "", "refresh_on_change": true, "optional": false, "hidden": false, "is_dynamic": false, "value": {"values": [{"id": "7e9b613206eaaf1e", "src": "hda"}]}, "extensions": ["fasta"], "edam": {"edam_formats": ["format_1929"], "edam_data": ["data_2044"]}, "multiple": false, "options": {"hda": [{"id": "7e9b613206eaaf1e", "hid": 3, "name": "matK_25taxones_Netgendem_SINalinear.fasta", "tags": [], "src": "hda", "keep": false}], "hdca": []}, "default_value": {"values": [{"id": "7e9b613206eaaf1e", "src": "hda"}]}, "text_value": "No dataset."}, {"model_class": "SelectToolParameter", "name": "dnarna", "argument": null, "type": "select", "label": "Data type", "help": "", "refresh_on_change": false, "optional": false, "hidden": false, "is_dynamic": false, "value": "DNA", "options": [["DNA nucleotide sequences", "DNA", true], ["Protein sequences", "PROTEIN", false]], "display": null, "multiple": false, "textable": false, "default_value": "DNA", "text_value": "DNA nucleotide sequences"}, {"model_class": "Conditional", "name": "outcontrol", "type": "conditional", "cases": [{"model_class": "ConditionalWhen", "value": "fasta", "inputs": []}, {"model_class": "ConditionalWhen", "value": "phylip", "inputs": []}, {"model_class": "ConditionalWhen", "value": "clustal", "inputs": [{"model_class": "BooleanToolParameter", "name": "out_seqnos", "argument": null, "type": "boolean", "label": "Show residue numbers in clustal format output", "help": "", "refresh_on_change": false, "optional": false, "hidden": false, "is_dynamic": false, "value": "false", "truevalue": "ON", "falsevalue": "OFF", "default_value": "false", "text_value": "false"}]}], "test_param": {"model_class": "SelectToolParameter", "name": "outform", "argument": null, "type": "select", "label": "Output alignment format", "help": "", "refresh_on_change": true, "optional": false, "hidden": false, "is_dynamic": false, "value": "clustal", "options": [["Native Clustal output format", "clustal", true], ["PHYLIP format", "phylip", false], ["FASTA format", "fasta", false]], "display": null, "multiple": false, "textable": false, "text_value": "Native Clustal output format"}}, {"model_class": "SelectToolParameter", "name": "out_order", "argument": null, "type": "select", "label": "Output order", "help": "", "refresh_on_change": false, "optional": false, "hidden": false, "is_dynamic": false, "value": "ALIGNED", "options": [["Aligned", "ALIGNED", false], ["Same order as input file", "INPUT", false]], "display": null, "multiple": false, "textable": false, "default_value": "ALIGNED", "text_value": "Aligned"}, {"model_class": "Conditional", "name": "range", "type": "conditional", "cases": [{"model_class": "ConditionalWhen", "value": "complete", "inputs": []}, {"model_class": "ConditionalWhen", "value": "part", "inputs": [{"model_class": "IntegerToolParameter", "name": "seq_range_start", "argument": null, "type": "integer", "label": "Start point", "help": "Sequence range to write", "refresh_on_change": false, "min": null, "max": null, "optional": false, "hidden": false, "is_dynamic": false, "value": "1", "area": false, "datalist": [], "default_value": "1", "text_value": "1"}, {"model_class": "IntegerToolParameter", "name": "seq_range_end", "argument": null, "type": "integer", "label": "End point", "help": "", "refresh_on_change": false, "min": null, "max": null, "optional": false, "hidden": false, "is_dynamic": false, "value": "99999", "area": false, "datalist": [], "default_value": "99999", "text_value": "99999"}]}], "test_param": {"model_class": "SelectToolParameter", "name": "mode", "argument": null, "type": "select", "label": "Output complete alignment (or specify part to output)", "help": "", "refresh_on_change": true, "optional": false, "hidden": false, "is_dynamic": false, "value": "complete", "options": [["Complete alignment", "complete", false], ["Only part of the alignment", "part", false]], "display": null, "multiple": false, "textable": false, "text_value": "Complete alignment"}}], "help": "<p><strong>Note<\/strong><\/p>\n<p>This tool allows you to run a multiple sequence alignment with <a class=\"reference external\" href=\"http://www.clustal.org/clustal2/\">ClustalW<\/a> using the default options.<\/p>\n<p>You can align DNA or protein sequences in the input file which should be multiple sequences to be aligned in a FASTA file.<\/p>\n<p>The alignments will appear as a clustal format file or optionally, as PHYLIP or FASTA format files in your history. If you choose FASTA as\nthe output format, you can create a 'Logo' image using the Sequence Logo tool.<\/p>\n<p>If Clustal format is chosen, you have the option of adding basepair counts to the output.<\/p>\n<p>A subsequence of the alignment can be output by setting the Output complete parameter to &quot;Partial&quot; and defining the offset and end of the subsequence to be output.<\/p>\n<hr class=\"docutils\" />\n<p><strong>Attribution<\/strong><\/p>\n<p>The first iteration of this Galaxy wrapper was written by Hans-Rudolf Hotz.<\/p>\n<p>It was modified by Ross Lazarus for the rgenetics project - tests and some additional parameters were added.<\/p>\n<p>This wrapper is released licensed under the <a class=\"reference external\" href=\"https://www.gnu.org/copyleft/lesser.html\">LGPL<\/a>.<\/p>\n", "citations": true, "sharable_url": "https://toolshed.g2.bx.psu.edu/view/devteam/clustalw", "message": "", "warnings": "", "versions": ["2.1"], "requirements": [{"name": "clustalw", "version": "2.1"}], "errors": {}, "tool_errors": null, "state_inputs": {"input": {"values": [{"id": "7e9b613206eaaf1e", "src": "hda"}]}, "dnarna": "DNA", "outcontrol": {"outform": "clustal", "__current_case__": 2, "out_seqnos": "false"}, "out_order": "ALIGNED", "range": {"mode": "complete", "__current_case__": 0}}, "job_id": null, "job_remap": false, "history_id": "d4ba94a00b5aa576", "display": true, "action": "/tool_runner/index", "method": "post", "enctype": "application/x-www-form-urlencoded"}
+{"model_class": "Tool",
+  "id": "toolshed.g2.bx.psu.edu/repos/devteam/clustalw/clustalw/2.1",
+  "name": "ClustalW",
+  "version": "2.1",
+  "description": "multiple sequence alignment program for DNA or proteins",
+  "labels": [],
+  "edam_operations": [],
+  "edam_topics": [],
+  "hidden": "",
+  "is_workflow_compatible": true,
+  "xrefs": [],
+  "tool_shed_repository":
+  {"name": "clustalw",
+    "owner": "devteam",
+    "changeset_revision": "d6694932c5e0",
+    "tool_shed": "toolshed.g2.bx.psu.edu"},
+  "config_file": "/home/paula/Documentos/NEXTGENDEM/galaxy/database/shed_tools/toolshed.g2.bx.psu.edu/repos/devteam/clustalw/d6694932c5e0/clustalw/rgClustalw.xml",
+  "panel_section_id": "phylogenetic",
+  "panel_section_name": "phylogenetic",
+  "form_style": "regular",
+  "inputs":
+  [
+    {"model_class": "DataToolParameter",
+      "name": "input",
+      "argument": null,
+      "type": "data",
+      "label": "FASTA file",
+      "help": "",
+      "refresh_on_change": true,
+      "optional": false,
+      "hidden": false,
+      "is_dynamic": false,
+      "value":
+      {"values":
+      [{"id": "7e9b613206eaaf1e", "src": "hda"}]},
+      "extensions": ["fasta"],
+      "edam": {"edam_formats": ["format_1929"], "edam_data": ["data_2044"]},
+      "multiple": false,
+      "options":
+      {"hda":
+      [
+        {"id": "7e9b613206eaaf1e",
+          "hid": 3, "name": "matK_25taxones_Netgendem_SINalinear.fasta",
+          "tags": [], "src": "hda", "keep": false}
+      ],
+        "hdca": []},
+      "default_value":
+      {"values":
+      [
+        {"id": "7e9b613206eaaf1e", "src": "hda"}
+      ]
+      },
+      "text_value": "No dataset."},
+    {"model_class": "SelectToolParameter",
+      "name": "dnarna",
+      "argument": null,
+      "type": "select",
+      "label": "Data type",
+      "help": "",
+      "refresh_on_change": false,
+      "optional": false,
+      "hidden": false,
+      "is_dynamic": false,
+      "value": "DNA",
+      "options": [
+        ["DNA nucleotide sequences", "DNA", true],
+        ["Protein sequences", "PROTEIN", false]
+      ],
+      "display": null,
+      "multiple": false,
+      "textable": false,
+      "default_value": "DNA",
+      "text_value": "DNA nucleotide sequences"
+    },
+    {"model_class": "Conditional",
+      "name": "outcontrol",
+      "type": "conditional",
+      "cases": [
+        {"model_class": "ConditionalWhen",
+          "value": "fasta", "inputs": []
+        },
+        {"model_class": "ConditionalWhen",
+          "value": "phylip",
+          "inputs": []
+        },
+        {"model_class": "ConditionalWhen",
+          "value": "clustal",
+          "inputs": [
+            {"model_class": "BooleanToolParameter",
+              "name": "out_seqnos",
+              "argument": null,
+              "type": "boolean",
+              "label": "Show residue numbers in clustal format output",
+              "help": "",
+              "refresh_on_change": false,
+              "optional": false,
+              "hidden": false,
+              "is_dynamic": false,
+              "value": "false",
+              "truevalue": "ON",
+              "falsevalue": "OFF",
+              "default_value": "false",
+              "text_value": "false"}]
+        }
+      ],
+      "test_param":
+      {"model_class": "SelectToolParameter",
+        "name": "outform",
+        "argument": null,
+        "type": "select",
+        "label": "Output alignment format",
+        "help": "",
+        "refresh_on_change": true,
+        "optional": false,
+        "hidden": false,
+        "is_dynamic": false,
+        "value": "clustal",
+        "options": [
+          ["Native Clustal output format", "clustal", true],
+          ["PHYLIP format", "phylip", false],
+          ["FASTA format", "fasta", false]],
+        "display": null,
+        "multiple": false,
+        "textable": false,
+        "text_value": "Native Clustal output format"}
+    },
+    {"model_class": "SelectToolParameter",
+      "name": "out_order",
+      "argument": null,
+      "type": "select",
+      "label": "Output order",
+      "help": "",
+      "refresh_on_change": false,
+      "optional": false,
+      "hidden": false,
+      "is_dynamic": false,
+      "value": "ALIGNED",
+      "options": [
+        ["Aligned", "ALIGNED", false],
+        ["Same order as input file", "INPUT", false]
+      ],
+      "display": null,
+      "multiple": false,
+      "textable": false,
+      "default_value": "ALIGNED",
+      "text_value": "Aligned"
+    },
+    {"model_class": "Conditional",
+      "name": "range",
+      "type": "conditional",
+      "cases": [
+        {"model_class": "ConditionalWhen", "value": "complete", "inputs": []},
+        {"model_class": "ConditionalWhen", "value": "part", "inputs":
+        [
+          {"model_class": "IntegerToolParameter",
+            "name": "seq_range_start",
+            "argument": null,
+            "type": "integer",
+            "label": "Start point",
+            "help": "Sequence range to write",
+            "refresh_on_change": false,
+            "min": null,
+            "max": null,
+            "optional": false,
+            "hidden": false,
+            "is_dynamic": false,
+            "value": "1",
+            "area": false,
+            "datalist": [],
+            "default_value": "1",
+            "text_value": "1"
+          },
+          {"model_class": "IntegerToolParameter",
+            "name": "seq_range_end",
+            "argument": null,
+            "type": "integer",
+            "label": "End point",
+            "help": "",
+            "refresh_on_change": false,
+            "min": null,
+            "max": null,
+            "optional": false, "hidden": false, "is_dynamic": false, "value": "99999", "area": false, "datalist": [], "default_value": "99999", "text_value": "99999"}]}], "test_param": {"model_class": "SelectToolParameter", "name": "mode", "argument": null, "type": "select", "label": "Output complete alignment (or specify part to output)", "help": "", "refresh_on_change": true, "optional": false, "hidden": false, "is_dynamic": false, "value": "complete", "options": [["Complete alignment", "complete", false], ["Only part of the alignment", "part", false]], "display": null, "multiple": false, "textable": false, "text_value": "Complete alignment"}}], "help": "<p><strong>Note<\/strong><\/p>\n<p>This tool allows you to run a multiple sequence alignment with <a class=\"reference external\" href=\"http://www.clustal.org/clustal2/\">ClustalW<\/a> using the default options.<\/p>\n<p>You can align DNA or protein sequences in the input file which should be multiple sequences to be aligned in a FASTA file.<\/p>\n<p>The alignments will appear as a clustal format file or optionally, as PHYLIP or FASTA format files in your history. If you choose FASTA as\nthe output format, you can create a 'Logo' image using the Sequence Logo tool.<\/p>\n<p>If Clustal format is chosen, you have the option of adding basepair counts to the output.<\/p>\n<p>A subsequence of the alignment can be output by setting the Output complete parameter to &quot;Partial&quot; and defining the offset and end of the subsequence to be output.<\/p>\n<hr class=\"docutils\" />\n<p><strong>Attribution<\/strong><\/p>\n<p>The first iteration of this Galaxy wrapper was written by Hans-Rudolf Hotz.<\/p>\n<p>It was modified by Ross Lazarus for the rgenetics project - tests and some additional parameters were added.<\/p>\n<p>This wrapper is released licensed under the <a class=\"reference external\" href=\"https://www.gnu.org/copyleft/lesser.html\">LGPL<\/a>.<\/p>\n", "citations": true, "sharable_url": "https://toolshed.g2.bx.psu.edu/view/devteam/clustalw", "message": "", "warnings": "", "versions": ["2.1"], "requirements": [{"name": "clustalw", "version": "2.1"}], "errors": {}, "tool_errors": null, "state_inputs": {"input": {"values": [{"id": "7e9b613206eaaf1e", "src": "hda"}]}, "dnarna": "DNA", "outcontrol": {"outform": "clustal", "__current_case__": 2, "out_seqnos": "false"}, "out_order": "ALIGNED", "range": {"mode": "complete", "__current_case__": 0}}, "job_id": null, "job_remap": false, "history_id": "d4ba94a00b5aa576", "display": true, "action": "/tool_runner/index", "method": "post", "enctype": "application/x-www-form-urlencoded"}
