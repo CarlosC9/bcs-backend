@@ -19,6 +19,49 @@ from biobarcoding.common import ROOT
 # #####################################################################################################################
 from biobarcoding.db_models.jobs import ComputeResource, JobManagementType, Process, ProcessInComputeResource
 
+RESOURCES_DICT = {
+    "8fac3ce8-8796-445f-ac27-4baedadeff3b": {
+        "name": "localhost - galaxy",
+        "job_management_type": "galaxy",
+        "job_management_location": {"url": "http://localhost:8080/"},
+        "job_management_credentials": {"api_key": "fakekey"}
+    },
+    "0292821a-dd33-450a-bdd8-813b2b95c456": {
+        "name": "balder - ssh",
+        "job_management_type": "ssh",
+        "job_management_location": {"host": "balder"},
+        "job_management_credentials": {
+            "known_hosts_filepath": "/home/daniel/.ssh/known_hosts",
+            "username": "dreyes"
+        }
+    }
+}
+
+RESOURCE_PROCESSES_DICT = {
+    "localhost - galaxy": [
+        "klustal-1",
+        "blast",
+        "mrbayes",
+        "pd-1.0",
+        "migrate-3.7.2",
+        "import-sequences",
+        "import-msa",
+        "import-phylotree",
+        "Clustal Omega",
+        "MSA ClustalW",
+        "ClustalW-PhyMl",
+        "MSA ClustalW",
+    ],
+    "balder - ssh": [
+        "MSA ClustalW",
+    ]
+}
+
+PROCESSES_INPUTS = {
+    "ec40143f-ae32-4dac-9cfb-caa047e1adb1": 'biobarcoding/inputs_schema/clustalw_phyml_formly.json',
+    "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": 'biobarcoding/inputs_schema/clustalw_formly.json'
+}
+
 
 def drop_pg_database(sa_str, database_name):
     db_connection_string = sa_str
@@ -127,89 +170,58 @@ def load_many_to_many_table(sf, clazz, lclazz, rclazz, attributes: List[str], va
 
 
 def load_computing_resources(sf):
-    #TODO
     session = sf()
-    local_uuid = "8fac3ce8-8796-445f-ac27-4baedadeff3b"
-    r = session.query(ComputeResource).filter(ComputeResource.uuid == local_uuid).first()
-    if not r:
-        r = ComputeResource()
-        r.uuid = local_uuid
-        r.name = "localhost - galaxy"
-        jm_type = session.query(JobManagementType).filter(JobManagementType.name == "galaxy").first()
-        r.jm_type = jm_type
-        r.jm_location = {"url": "http://localhost:8080/"}
-        r.jm_credentials = {"api_key": "fakekey"}
-        session.add(r)
-        session.commit()
-    local_uuid = "0292821a-dd33-450a-bdd8-813b2b95c456"
-    r = session.query(ComputeResource).filter(ComputeResource.uuid == local_uuid).first()
-    if not r:
-        r = ComputeResource()
-        r.uuid = local_uuid
-        r.name = "balder - ssh"
-        jm_type = session.query(JobManagementType).filter(JobManagementType.name == "ssh").first()
-        r.jm_type = jm_type
-        r.jm_location = {"host": "balder"}
-        r.jm_credentials = {
-            "known_hosts_filepath": "/home/daniel/.ssh/known_hosts",
-            "username": "dreyes"
-        }
-        session.add(r)
-        session.commit()
+    for resource_uuid, resource_dict in RESOURCES_DICT.items():
+        r = session.query(ComputeResource).filter(ComputeResource.uuid == resource_uuid).first()
+        if not r:
+            r = ComputeResource()
+            r.uuid = resource_uuid
+            r.name = resource_dict["name"]
+            jm_type = session.query(JobManagementType).filter(
+                JobManagementType.name == resource_dict["job_management_type"]).first()
+            r.jm_type = jm_type
+            r.jm_location = resource_dict["job_management_location"]
+            r.jm_credentials = resource_dict["job_management_credentials"]
+            session.add(r)
+    session.commit()
     sf.remove()
 
 
 def load_processes_in_computing_resources(sf):
-    '''processes = {
-        "ec40143f-ae32-4dac-9cfb-caa047e1adb1" : "ClustalW-PhyMl",
-        "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": "MSA ClustalW"
-    }
-    TODO parte conflictiva: resource = session.query(ComputeResource).filter(
-            ComputeResource.uuid == "0292821a-dd33-450a-bdd8-813b2b95c456").first()
-    '''
-    processes = {
-        "25932546-d26c-4367-8c81-0c682094d117": "SSHTestProcess"
-    }
-    for k, v in processes.items():
-        session = sf()
-        # local_uuid = "21879d8f-1c0e-4f71-92a9-88bc6a3aa14b"
-        process = session.query(Process).filter(Process.uuid == k).first()#0292821a-dd33-450a-bdd8-813b2b95c456
-        #resource = session.query(ComputeResource).filter(ComputeResource.uuid == "8fac3ce8-8796-445f-ac27-4baedadeff3b").first()
-        resource = session.query(ComputeResource).filter(
-            ComputeResource.uuid == "0292821a-dd33-450a-bdd8-813b2b95c456").first()
-        r = session.query(ProcessInComputeResource).filter(and_(ProcessInComputeResource.process_id==process.id, ProcessInComputeResource.resource_id==resource.id)).first()
-        if not r:
-            r = ProcessInComputeResource()
-            # r.uuid = local_uuid
-            r.native_process_id = v
-            r.process = process
-            r.resource = resource
-            session.add(r)
-            session.commit()
-        sf.remove()
+    from biobarcoding.rest import tm_processes
+    session = sf()
+    for resource_uuid, resource_dict in RESOURCES_DICT.items():
+        for k, v in tm_processes.items():
+            if v in RESOURCE_PROCESSES_DICT[resource_dict["name"]]:
+                process = session.query(Process).filter(Process.uuid == k).first()
+                resource = session.query(ComputeResource).filter(
+                    ComputeResource.uuid == resource_uuid).first()
+                r = session.query(ProcessInComputeResource).filter(
+                    and_(ProcessInComputeResource.process_id == process.id,
+                         ProcessInComputeResource.resource_id == resource.id)).first()
+                if not r:
+                    r = ProcessInComputeResource()
+                    # r.uuid = local_uuid
+                    r.native_process_id = v
+                    r.process = process
+                    r.resource = resource
+                    session.add(r)
+    session.commit()
+    sf.remove()
 
 
 
 def load_process_input_schema(sf):
-    '''
-    processes_inputs = {
-        "ec40143f-ae32-4dac-9cfb-caa047e1adb1": '/biobarcoding/inputs_schema/clustalw_phyml_formly.json',
-        "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": '/biobarcoding/inputs_schema/clustalw_formly.json'
-    }
-    '''
-    processes_inputs = {
-        "25932546-d26c-4367-8c81-0c682094d117": "tests/request_transfer.json",
-    }
-    for k, v in processes_inputs.items():
-        session = sf()
+    session = sf()
+    for k, v in PROCESSES_INPUTS.items():
         process = session.query(Process).filter(Process.uuid == k).first()
         if not process.schema_inputs:
             path = os.path.join(ROOT, v)
             with open(path, 'r') as f:
                 inputs = json.load(f)
                 process.schema_inputs = inputs
-            session.commit()
-        sf.remove()
+    session.commit()
+    sf.remove()
 
 
 def is_testing_enabled(flask_app):

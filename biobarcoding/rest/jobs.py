@@ -63,6 +63,7 @@ class JobAPI(MethodView):
         # Load resource and process
         print(req)
         in_dict = DottedDict(req)
+
         if is_integer(in_dict.resource_id):
             resource = session.query(ComputeResource).get(in_dict.resource_id)
         else:
@@ -126,7 +127,7 @@ class JobAPI(MethodView):
         DBSession.remove()
 
         #TODO debuguear esto
-        process_adaptor = ProcessAdaptorFactory.get(d.resource.jm_type, d.process.name)
+        process_adaptor = ProcessAdaptorFactory().get(d.resource.jm_type, in_dict.process_id)
         d = process_adaptor.adapt_job_context(d)
 
         # Submit job to Celery

@@ -1,13 +1,8 @@
 import abc
+from biobarcoding.rest import tm_processes
 
 
-
-from biobarcoding.rest import galaxy_tm_processes, ssh_tm_processes
-from abc import ABC
-import os
-
-
-class ProcessAdaptor(ABC):
+class ProcessAdaptor(abc.ABC):
     '''The only public method of Process Adaptors'''
 
     @abc.abstractmethod
@@ -28,7 +23,7 @@ class ProcessAdaptorFactory:
 
     def _get_ssh_process_adaptor(self, process_id):
         ssh_process_adaptor = None
-        if ssh_tm_processes[process_id] == "SSHClustalW":
+        if tm_processes[process_id] == "MSA ClustalW":
             from biobarcoding.jobs.ssh_process_adaptors.SSHClustalProcessAdaptor import SSHClustalProcessAdaptor
             ssh_process_adaptor = SSHClustalProcessAdaptor()
 
@@ -36,7 +31,7 @@ class ProcessAdaptorFactory:
 
     def _get_galaxy_process_adaptor(self, process_id):
         galaxy_process_adaptor = None
-        if galaxy_tm_processes[process_id] == "MSA ClustalW":
+        if tm_processes[process_id] == "MSA ClustalW":
             from biobarcoding.jobs.galaxy_process_adaptors.GalaxyClustalProcessAdaptor import GalaxyClustalAdaptator
             galaxy_process_adaptor = GalaxyClustalAdaptator()
         return galaxy_process_adaptor

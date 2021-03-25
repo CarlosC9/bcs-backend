@@ -1,6 +1,6 @@
 {
   "resource_id":"0292821a-dd33-450a-bdd8-813b2b95c456",
-  "process_id":"25932546-d26c-4367-8c81-0c682094d117",
+  "process_id":"c8df0c20-9cd5-499b-92d4-5fb35b5a369a",
   "process_params":{
     "parameters":{
        "dnarna":"DNA",
@@ -14,13 +14,9 @@
     "data":[
        {
           "remote_name": "clustalw.fasta",
-          "file": "clustalw.fasta",
+          "file": "/home/daniel/Documentos/GIT/bcs-backend/tests/ssh_data_test/clustalw.fasta",
           "type":"fasta"
        }
     ]
-  },
-  "credentials": {
-    "known_hosts_filepath":"/home/daniel/.ssh/known_hosts",
-    "username":"dreyes"
   }
 }

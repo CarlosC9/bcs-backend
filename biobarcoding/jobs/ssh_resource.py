@@ -58,7 +58,6 @@ class RemoteSSHClient:
         @param script_params: Parameters of the script
         @return: pid: PID of the executed script process
         """
-        job_id = os.path.basename(os.path.normpath(self.remote_path))
         cmd = f"ssh {self.username}@{self.host} 'cd {self.remote_path} && chmod +x {script_file} && (nohup ./{script_file} {script_params}  >/{self.remote_path}/bcs.stdout.log </dev/null 2>/{self.remote_path}/bcs.err.log & echo $!; wait $!; echo $? >> {self.remote_path}/$!.exit_status)'"
 
         print(cmd)
@@ -68,7 +67,7 @@ class RemoteSSHClient:
         print(f"PID: {pid}")
         return pid
 
-    async def command_status(self, pid):
+    async def remote_command_status(self, pid):
         """
         Get Job status
         @param pid: PID of the process to check status
@@ -76,33 +75,45 @@ class RemoteSSHClient:
         """
         exit_status = ""#This means error
         if pid is not None and pid != "":
-            if self.last_job_remotely:
-                if await self.exists_remotely(f"{self.remote_path}/{pid}.exit_status"):
-                    cmd = f"ssh {self.username}@{self.host} 'cat {self.remote_path}/{pid}.exit_status'"
-                    popen_pipe = os.popen(cmd)
-                    exit_status = popen_pipe.readline().strip()
-                    if exit_status.strip() == "0":
-                        exit_status = "ok"
-                    else:
-                        print(f"Error executing remote job with pid: {pid}. Exit status = {exit_status}; Host = {self.host}")
-                        exit_status = ""#This means error
+            if await self.exists_remotely(f"{self.remote_path}/{pid}.exit_status"):
+                cmd = f"ssh {self.username}@{self.host} 'cat {self.remote_path}/{pid}.exit_status'"
+                popen_pipe = os.popen(cmd)
+                exit_status = popen_pipe.readline().strip()
+                if exit_status.strip() == "0":
+                    exit_status = "ok"
                 else:
-                    exit_status = "running"
+                    print(f"Error executing remote job with pid: {pid}. Exit status = {exit_status}; Host = {self.host}")
+                    exit_status = ""#This means error
             else:
-                if os.path.isfile(f"{self.job_status_dir}/{pid}.exit_status"):
-                    cmd = f"cat {self.job_status_dir}/{pid}.exit_status"
-                    popen_pipe = os.popen(cmd)
-                    exit_status = popen_pipe.readline().strip()
-                    if exit_status.strip() == "0":
-                        exit_status = "ok"
-                    else:
-                        print(f"Error executing local job with pid: {pid}. Exit status = {exit_status}")
-                        exit_status = ""#This means error
-                else:
-                    exit_status = "running"
-            print(f"Exit Status: {exit_status}")
+                exit_status = "running"
+            print(f"Job Status: {exit_status}")
         else:
             print(f"The PID can't be None")
+        return exit_status
+
+    def local_command_status(self, pid):
+        """
+        Get Job status
+        @param pid: PID of the process to check status
+        @return: String defining satus of the pid. "running", "ok" and "" for error.
+        """
+        exit_status = ""  # This means error
+        if pid is not None and pid != "":
+            if os.path.isfile(f"{self.job_status_dir}/{pid}.exit_status"):
+                cmd = f"cat {self.job_status_dir}/{pid}.exit_status"
+                popen_pipe = os.popen(cmd)
+                exit_status = popen_pipe.readline().strip()
+                if exit_status.strip() == "0":
+                    exit_status = "ok"
+                else:
+                    print(f"Error executing local job with pid: {pid}. Exit status = {exit_status}")
+                    exit_status = ""  # This means error
+            else:
+                exit_status = "running"
+            print(f"Job Status: {exit_status}")
+        else:
+            print(f"The PID can't be None")
+
         return exit_status
 
     def kill_process(self, pid):
@@ -280,6 +291,8 @@ class RemoteSSHClient:
 
 class JobExecutorWithSSH(JobExecutorAtResource):
 
+    DOWNLOAD_LOCAL_PATH = "/home/daniel/Documentos/"
+
     def __init__(self, job_id):
         self.host = None
         self.username = None
@@ -333,8 +346,8 @@ class JobExecutorWithSSH(JobExecutorAtResource):
 
     def upload_file(self, job_context):
         i = job_context["transfer_state"]["idx"]
-        local_path = job_context["process"]["inputs"]["data"][i]["path"]
-        remote_path = job_context["process"]["inputs"]["data"][i]["remote_path"]
+        local_path = self.get_upload_files_list(job_context)[i]["file"]
+        remote_path = self.get_upload_files_list(job_context)[i]["remote_name"]
         return self.remote_client.upload_file(local_path, remote_path)
 
     def upload_directory(self, workspace, local_filename, remote_location):
@@ -348,10 +361,15 @@ class JobExecutorWithSSH(JobExecutorAtResource):
 
     def submit(self, process):
         params = process["inputs"]["parameters"]
-        return self.loop.run_until_complete(self.remote_client.run_client(params["script_file"], params["script_params"]))
+        return self.loop.run_until_complete(self.remote_client.run_client(params["script"], params["script_params"]))
 
-    def job_status(self, native_id):
-        return self.loop.run_until_complete(self.remote_client.command_status(native_id))
+    def job_status(self, job_context):
+        pid = job_context["pid"]
+        if "transfer_state" in job_context.keys():
+            return self.remote_client.local_command_status(pid)
+        else:
+            return self.loop.run_until_complete(self.remote_client.remote_command_status(pid))
+
 
     def cancel_job(self, native_id):
         self.remote_client.kill_process(native_id)
@@ -359,17 +377,17 @@ class JobExecutorWithSSH(JobExecutorAtResource):
     # SSH
     def download_file(self, job_context):
         i = job_context["transfer_state"]["idx"]
-        local_path = job_context["process"]["outputs"][i]["path"]
-        remote_path = job_context["process"]["outputs"][i]["remote_path"]
-        self.loop.run_until_complete(self.remote_client.download_file(remote_path, local_path))
+        remote_path = job_context["process"]["inputs"]["parameters"]["result_files"][i]["remote_name"]
+        local_path = os.path.join(self.DOWNLOAD_LOCAL_PATH, job_context["job_id"], os.path.basename(remote_path))
+        return self.loop.run_until_complete(self.remote_client.download_file(remote_path, local_path))
 
     def retrieve_directory(self, remote_dir, local_dir):
         self.loop.run_until_complete(self.remote_client.download_directory(remote_dir, local_dir))
 
     def exists(self, job_context):
         i = job_context["transfer_state"]["idx"]
-        local_path = job_context["process"]["inputs"]["data"][i]["path"]
-        remote_path = job_context["process"]["inputs"]["data"][i]["remote_path"]
+        local_path = self.get_upload_files_list(job_context)[i]["file"]
+        remote_path = self.get_upload_files_list(job_context)[i]["remote_name"]
         if os.path.exists(local_path):
             check = self.loop.run_until_complete(self.remote_client.exists_remotely(remote_path))
 
@@ -384,7 +402,7 @@ class JobExecutorWithSSH(JobExecutorAtResource):
 
     def get_upload_files_list(self, job_context):
         return job_context["process"]["inputs"]["data"] +\
-               job_context["process_params"]["parameters"]["script_files"]
+               job_context["process"]["inputs"]["parameters"]["script_files"]
 
     def get_download_files_list(self, job_context):
         #TODO

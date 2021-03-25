@@ -26,6 +26,8 @@ MAX_ERRORS = 3
 # Refresh queues of jobs (at different computing resources)
 
 def change_status(tmp, status: str):
+    return tmp
+    """
     endpoint_url, job_id = tmp["endpoint_url"], tmp["job_id"]
     # TODO FALLO TypeError: string indices must be integers
     url = f"{endpoint_url}api/jobs/{job_id}"
@@ -39,7 +41,7 @@ def change_status(tmp, status: str):
         tmp["status"] = status
         return tmp
     else:
-        return tmp
+        return tmp"""
 
 @celery_app.task
 def add(x, y):
@@ -135,11 +137,6 @@ def dummy_func(file, secs):
 #                "resource": {"......."},
 #                "job_id": 60}
 
-
-
-
-
-
 @celery_app.task(name="prepare")
 @celery_wf(celery_app, wf1, "prepare")
 def wf1_prepare_workspace(job_context):
@@ -216,28 +213,30 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
     tmp = json.loads(job_context)
     tmp = change_status(tmp, "transfer_data_to_resource")
     job_executor = JobExecutorAtResourceFactory().get(tmp)
+    print(tmp)
     transfer_state = tmp.get("transfer_state")
     print(f"Transfer state: {transfer_state}")
     if transfer_state:  # ya ha empezado la transferencia
         i = transfer_state["idx"]
-        pid = transfer_state["pid"]  # job_id
         n_errors = transfer_state["n_errors"]
     else:
         i = 0
-        pid = None
         n_errors = 0
-        tmp["transfer_state"] = dict(idx=i, pid=None, n_errors=n_errors,state = "upload")
+        tmp["pid"] = None
+        tmp["transfer_state"] = dict(idx=i, n_errors=n_errors,state="upload")
 
     # Ith transfer
-    files_list = tmp["process"]["inputs"]["data"]
+    files_list = job_executor.get_upload_files_list(tmp)
+    print(files_list)
     transfer_at_i = files_list[i] if i < len(files_list) else dict(
         path="")
 
     '''The transfer_at_i keys are unique for each job type. The only field that is mandatory
     is the path that refers to the local path of the file to be transferred'''
-    local_path = transfer_at_i.get("path")
+    local_path = transfer_at_i.get("file")
 
     if i < len(files_list) and not os.path.isfile(local_path):
+        print(f"File {i+1} doesn't exist. Path: {local_path}")
         tmp["transfer_state"] = f"{local_path} doesn't exist"
         job_context = json.dumps(tmp)
         return "error", job_context
@@ -251,16 +250,18 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
         sleep(5)
         return None, job_context
     elif job_executor.exists(tmp):  # File i has been transferred successfully
-        print(f"File {i} transferred: {local_path} . Moving to next")
+        print(f"File {i+1} transferred: {local_path} . Moving to next")
         i += 1
-        tmp["transfer_state"] = dict(idx=i, pid=None, n_errors=n_errors, state = "upload")
+        tmp["pid"] = None
+        tmp["transfer_state"] = dict(idx=i, n_errors=n_errors, state = "upload")
         job_context = json.dumps(tmp)
         return None, job_context
     else:  # Transfer file i
         print(f"Begin transfer {i}: {local_path}")
         pid = job_executor.upload_file(tmp)
         # TODO yo puedo tener un error aquí
-        tmp["transfer_state"] = dict(idx=i, pid=pid, n_errors=n_errors, state = "upload")
+        tmp["pid"] = pid
+        tmp["transfer_state"] = dict(idx=i, n_errors=n_errors, state="upload")
         print(tmp['transfer_state'])
         job_context = json.dumps(tmp)
         return None, job_context
@@ -295,13 +296,13 @@ def wf1_wait_until_execution_starts(job_context: str):
     """
     tmp = json.loads(job_context)
     job_executor = JobExecutorAtResourceFactory().get(tmp)
-    status = job_executor.job_status(tmp["pid"])
+    status = job_executor.job_status(tmp)
     if isinstance(status, dict): # todo esto sirve a los dos?
         append_text(f"wait_for_execution_end: status: {status}")
         tmp['process']['error'] = status
         job_context = json.dumps(tmp)
         return 'error', job_context
-    elif status == 'running':
+    elif status == 'running' or status == 'ok':
         append_text(f"wait_for_execution_end: status: {status}")
         return job_context
     else:
@@ -321,7 +322,7 @@ def wf1_wait_for_execution_end(job_context: str):
     """
     tmp = json.loads(job_context)
     job_executor = JobExecutorAtResourceFactory().get(tmp)
-    status = job_executor.job_status(tmp["pid"])
+    status = job_executor.job_status(tmp)
     if isinstance(status, dict):
         append_text(f"wait_for_execution_end: status: {status}")
         tmp['process']['error'] = status
@@ -357,12 +358,11 @@ def wf1_transfer_data_from_resource(job_context: str):
     print(f"Transfer state: {transfer_state}")
     if transfer_state:  # ya ha empezado la transferencia
         i = transfer_state["idx"]
-        pid = transfer_state["pid"]  # job_id
     else:
         i = 0
-        pid = None
         os.mkdir(f"{base_path_to_results}/{tmp['job_id']}/")
-        tmp["transfer_state"] = dict(idx=i, pid=None, state = "download")
+        tmp["pid"] = None
+        tmp["transfer_state"] = dict(idx=i, state="download")
 
     # Ith transfer
     files_list = tmp["process"]["inputs"]["results"]
@@ -380,22 +380,23 @@ def wf1_transfer_data_from_resource(job_context: str):
         del tmp["transfer_state"]
         job_context = json.dumps(tmp)
         return job_context
-    elif job_executor.job_status(pid) == "running":  # Transfer is being executed
+    elif job_executor.job_status(tmp) == "running":  # Transfer is being executed
         print("Transfer executing")
         sleep(5)
         return None, job_context
     elif os.path.isfile(local_path):  # File i has been transferred successfully
         print(f"File {i} transferred: {local_path} -> Moving to next")
-        FilesAPI.put(local_path)
+        #FilesAPI.put(local_path)
         i += 1
-        tmp["transfer_state"] = dict(idx=i, pid=None, state = "download")
+        tmp["pid"] = None
+        tmp["transfer_state"] = dict(idx=i, state="download")
         job_context = json.dumps(tmp)
         return None, job_context
     else:  # Transfer file i
         print(f"Begin transfer {i}: {local_path}")
         pid = job_executor.download_file(tmp)
-        tmp["transfer_state"] = dict(idx=i, pid=pid, state = "download")
-        print(tmp['transfer_state'])
+        tmp["pid"] = pid
+        tmp["transfer_state"] = dict(idx=i, state="download")
         job_context = json.dumps(tmp)
         return None, job_context
 
