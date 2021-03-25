@@ -5,8 +5,10 @@ import os
 import asyncio
 import asyncssh
 
-#TODO revise this
+# TODO revise this
 ROOT_DIR = "/home/dreyes"
+STDOUT_FILE = "bcs.stdout.log"
+STDERR_FILE = "bcs.stderr.log"
 
 
 class RemoteSSHClient:
@@ -36,7 +38,7 @@ class RemoteSSHClient:
                 }
                 self.conn, self.client = await asyncssh.create_connection(asyncssh.SSHClient, self.host, **kwargs)
                 self.sftp = await self.conn.start_sftp_client()
-                if not os.path.isdir(self.job_status_dir): #create folder for saving local jobs exit status
+                if not os.path.isdir(self.job_status_dir):  # create folder for saving local jobs exit status
                     os.mkdir(self.job_status_dir)
             except Exception as error:
                 print(f'Connection failed: \
@@ -58,7 +60,7 @@ class RemoteSSHClient:
         @param script_params: Parameters of the script
         @return: pid: PID of the executed script process
         """
-        cmd = f"ssh {self.username}@{self.host} 'cd {self.remote_path} && chmod +x {script_file} && (nohup ./{script_file} {script_params}  >/{self.remote_path}/bcs.stdout.log </dev/null 2>/{self.remote_path}/bcs.err.log & echo $!; wait $!; echo $? >> {self.remote_path}/$!.exit_status)'"
+        cmd = f"ssh {self.username}@{self.host} 'cd {self.remote_path} && chmod +x {script_file} && (nohup ./{script_file} {script_params}  >/{self.remote_path}/{STDOUT_FILE} </dev/null 2>/{self.remote_path}/{STDERR_FILE} & echo $!; wait $!; echo $? >> {self.remote_path}/$!.exit_status)'"
 
         print(cmd)
         popen_pipe = os.popen(cmd)
@@ -73,22 +75,20 @@ class RemoteSSHClient:
         @param pid: PID of the process to check status
         @return: String defining satus of the pid. "running", "ok" and "" for error.
         """
-        exit_status = ""#This means error
-        if pid is not None and pid != "":
-            if await self.exists_remotely(f"{self.remote_path}/{pid}.exit_status"):
-                cmd = f"ssh {self.username}@{self.host} 'cat {self.remote_path}/{pid}.exit_status'"
-                popen_pipe = os.popen(cmd)
-                exit_status = popen_pipe.readline().strip()
-                if exit_status.strip() == "0":
-                    exit_status = "ok"
-                else:
-                    print(f"Error executing remote job with pid: {pid}. Exit status = {exit_status}; Host = {self.host}")
-                    exit_status = ""#This means error
+        if await self.exists_remotely(f"{self.remote_path}/{pid}.exit_status"):
+            cmd = f"ssh {self.username}@{self.host} 'cat {self.remote_path}/{pid}.exit_status'"
+            popen_pipe = os.popen(cmd)
+            exit_status = popen_pipe.readline().strip()
+            if exit_status.strip() == "0":
+                exit_status = "ok"
             else:
-                exit_status = "running"
-            print(f"Job Status: {exit_status}")
+                print(
+                    f"Error executing remote job with pid: {pid}. Exit status = {exit_status}; Host = {self.host}")
+                exit_status = ""  # This means error
         else:
-            print(f"The PID can't be None")
+            exit_status = "running"
+        print(f"Job Status: {exit_status}")
+
         return exit_status
 
     def local_command_status(self, pid):
@@ -97,23 +97,19 @@ class RemoteSSHClient:
         @param pid: PID of the process to check status
         @return: String defining satus of the pid. "running", "ok" and "" for error.
         """
-        exit_status = ""  # This means error
-        if pid is not None and pid != "":
-            if os.path.isfile(f"{self.job_status_dir}/{pid}.exit_status"):
-                cmd = f"cat {self.job_status_dir}/{pid}.exit_status"
-                popen_pipe = os.popen(cmd)
-                exit_status = popen_pipe.readline().strip()
-                if exit_status.strip() == "0":
-                    exit_status = "ok"
-                else:
-                    print(f"Error executing local job with pid: {pid}. Exit status = {exit_status}")
-                    exit_status = ""  # This means error
+        if os.path.isfile(f"{self.job_status_dir}/{pid}.exit_status"):
+            cmd = f"cat {self.job_status_dir}/{pid}.exit_status"
+            popen_pipe = os.popen(cmd)
+            exit_status = popen_pipe.readline().strip()
+            if exit_status.strip() == "0":
+                exit_status = "ok"
             else:
-                exit_status = "running"
-            print(f"Job Status: {exit_status}")
+                print(f"Error executing local job with pid: {pid}. Exit status = {exit_status}")
+                exit_status = ""  # This means error
         else:
-            print(f"The PID can't be None")
+            exit_status = "running"
 
+        print(f"Job Status: {exit_status}")
         return exit_status
 
     def kill_process(self, pid):
@@ -129,27 +125,27 @@ class RemoteSSHClient:
             print("No command has been executed")
 
     def upload_directory(self, local_path, remote_path):
-            """
+        """
             Upload directory to remote_path.
 
             @param local_path: path to local folder.
             @param remote_path: path to remote folder relative to self.remote_path.
             @return: PID of the process uploading the directory
             """
-            remote_path = os.path.join(self.remote_path, remote_path, "")#ensure it always ends with / (the separator)
-            remote_dir = os.path.join(self.remote_path, os.path.split(remote_path)[0])
-            if remote_dir != "" and False:
-                create_remote_dir_cmd = f"--rsync-path='mkdir -p {remote_dir} & rsync'"
-            else:
-                create_remote_dir_cmd = ""
-            #-a for folders
-            cmd = f"(nohup bash -c \"rsync -a {create_remote_dir_cmd} {local_path} {self.username}@{self.host}:{remote_path}\" >/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!; wait $!; echo $? >> {self.job_status_dir}/$!.exit_status)"
-            print(cmd)
-            popen_pipe = os.popen(cmd)
-            self.last_job_remotely = False
-            pid = popen_pipe.readline().rstrip()
-            print(f"PID: {pid}")
-            return pid
+        remote_path = os.path.join(self.remote_path, remote_path, "")  # ensure it always ends with / (the separator)
+        remote_dir = os.path.join(self.remote_path, os.path.split(remote_path)[0])
+        if remote_dir != "" and False:
+            create_remote_dir_cmd = f"--rsync-path='mkdir -p {remote_dir} & rsync'"
+        else:
+            create_remote_dir_cmd = ""
+        # -a for folders
+        cmd = f"(nohup bash -c \"rsync -a {create_remote_dir_cmd} {local_path} {self.username}@{self.host}:{remote_path}\" >/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!; wait $!; echo $? >> {self.job_status_dir}/$!.exit_status)"
+        print(cmd)
+        popen_pipe = os.popen(cmd)
+        self.last_job_remotely = False
+        pid = popen_pipe.readline().rstrip()
+        print(f"PID: {pid}")
+        return pid
 
     async def download_directory(self, remote_dir, local_dir):
         """
@@ -160,9 +156,10 @@ class RemoteSSHClient:
         """
         pid = None
         if self.sftp is not None:
-            remote_dir = os.path.normpath(os.path.join(self.remote_path, remote_dir)) #ensure it doesn't finish with / (separator)
+            remote_dir = os.path.normpath(
+                os.path.join(self.remote_path, remote_dir))  # ensure it doesn't finish with / (separator)
             if self.sftp.isdir(os.path.join(self.remote_path, remote_dir)):
-                local_dir = os.path.join(local_dir, "")#ensure that it ends with / (separator)
+                local_dir = os.path.join(local_dir, "")  # ensure that it ends with / (separator)
                 cmd = f"(nohup \"scp -r {self.username}@{self.host}:{remote_dir} {local_dir}\" (>/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!; wait $!; echo $? >> {self.job_status_dir}/$!.exit_status))"
                 print(cmd)
                 popen_pipe = os.popen(cmd)
@@ -176,26 +173,26 @@ class RemoteSSHClient:
         return pid
 
     def upload_file(self, local_path, remote_path):
-            """
+        """
             Upload file to remote_path.
 
             @param local_path: path to local file.
             @param remote_path: the remote path to file relative to self.remote_path.
             @return: PID of the process uploading the file.
             """
-            remote_path = os.path.join(self.remote_path, remote_path)
-            remote_dir = os.path.join(self.remote_path, os.path.split(remote_path)[0])
-            if remote_dir != "" and False:
-                create_remote_dir_cmd = f"--rsync-path='mkdir -p {remote_dir} & rsync'"
-            else:
-                create_remote_dir_cmd = ""
-            cmd = f"(nohup bash -c \"rsync {create_remote_dir_cmd} {local_path} {self.username}@{self.host}:{remote_path}\" >/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!; wait $!; echo $? >> {self.job_status_dir}/$!.exit_status)"
-            print(cmd)
-            popen_pipe = os.popen(cmd)
-            self.last_job_remotely = False
-            pid = popen_pipe.readline().rstrip()
-            print(f"PID: {pid}")
-            return pid
+        remote_path = os.path.join(self.remote_path, remote_path)
+        remote_dir = os.path.join(self.remote_path, os.path.split(remote_path)[0])
+        if remote_dir != "" and False:
+            create_remote_dir_cmd = f"--rsync-path='mkdir -p {remote_dir} & rsync'"
+        else:
+            create_remote_dir_cmd = ""
+        cmd = f"(nohup bash -c \"rsync {create_remote_dir_cmd} {local_path} {self.username}@{self.host}:{remote_path}\" >/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!; wait $!; echo $? >> {self.job_status_dir}/$!.exit_status)"
+        print(cmd)
+        popen_pipe = os.popen(cmd)
+        self.last_job_remotely = False
+        pid = popen_pipe.readline().rstrip()
+        print(f"PID: {pid}")
+        return pid
 
     async def download_file(self, remote_file, local_file):
         """Download file from remote host.
@@ -207,7 +204,7 @@ class RemoteSSHClient:
         if self.sftp is not None:
             remote_file = os.path.join(self.remote_path, remote_file)
             if self.sftp.isfile(remote_file):
-                cmd = f"(nohup \"scp {self.username}@{self.host}:{remote_file} {local_file}\" (>/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!; wait $!; echo $? >> {self.job_status_dir}/$!.exit_status))"
+                cmd = f"(nohup scp {self.username}@{self.host}:{remote_file} {local_file} >/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!; wait $!; echo $? >> {self.job_status_dir}/$!.exit_status)"
                 print(cmd)
                 popen_pipe = os.popen(cmd)
                 self.last_job_remotely = False
@@ -262,7 +259,7 @@ class RemoteSSHClient:
         @param dir_path: Remote directory path relative to self.remote_path
         """
         if self.sftp is not None:
-            if self.sftp.isdir(os.path.join(self.remote_path, dir_path)):
+            if await self.sftp.isdir(os.path.join(self.remote_path, dir_path)):
                 await self.sftp.rmtree(os.path.join(self.remote_path, dir_path))
             else:
                 print(f"The path {os.path.join(self.remote_path, dir_path)} doesn't correspond to a remote directory.")
@@ -286,11 +283,13 @@ class RemoteSSHClient:
         @param remote_name: Remote Path
         @return: Boolean value indicating that they have the same size
         """
-        return os.path.getsize(local_name) == await self.sftp.getsize(os.path.join(self.remote_path, remote_name))
+        same_size = os.path.getsize(local_name) == await self.sftp.getsize(os.path.join(self.remote_path, remote_name))
+        if not same_size:
+            print(f"The files {local_name} and {remote_name} don't have the same size")
+        return same_size
 
 
 class JobExecutorWithSSH(JobExecutorAtResource):
-
     DOWNLOAD_LOCAL_PATH = "/home/daniel/Documentos/"
 
     def __init__(self, job_id):
@@ -306,8 +305,6 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         self.host = resource_params["jm_location"]['host']
         self.username = resource_params["jm_credentials"]['username']
         self.known_hosts_filepath = resource_params["jm_credentials"]['known_hosts_filepath']
-
-
 
     def check(self):
         not_accessible = os.system(f"nc -z {self.host} 22")
@@ -365,11 +362,14 @@ class JobExecutorWithSSH(JobExecutorAtResource):
 
     def job_status(self, job_context):
         pid = job_context["pid"]
-        if "transfer_state" in job_context.keys():
+        if pid is None:
+            return "none"
+        elif pid == "":
+            return ""  # error
+        elif "transfer_state" in job_context.keys():
             return self.remote_client.local_command_status(pid)
         else:
             return self.loop.run_until_complete(self.remote_client.remote_command_status(pid))
-
 
     def cancel_job(self, native_id):
         self.remote_client.kill_process(native_id)
@@ -377,8 +377,10 @@ class JobExecutorWithSSH(JobExecutorAtResource):
     # SSH
     def download_file(self, job_context):
         i = job_context["transfer_state"]["idx"]
-        remote_path = job_context["process"]["inputs"]["parameters"]["result_files"][i]["remote_name"]
-        local_path = os.path.join(self.DOWNLOAD_LOCAL_PATH, job_context["job_id"], os.path.basename(remote_path))
+        results_dir = job_context["transfer_state"]["results_dir"]
+        remote_path = self.get_download_files_list(job_context)[i]["remote_name"]
+        filename = self.get_download_files_list(job_context)[i]["file"]
+        local_path = os.path.join(results_dir, filename)
         return self.loop.run_until_complete(self.remote_client.download_file(remote_path, local_path))
 
     def retrieve_directory(self, remote_dir, local_dir):
@@ -386,27 +388,46 @@ class JobExecutorWithSSH(JobExecutorAtResource):
 
     def exists(self, job_context):
         i = job_context["transfer_state"]["idx"]
-        local_path = self.get_upload_files_list(job_context)[i]["file"]
-        remote_path = self.get_upload_files_list(job_context)[i]["remote_name"]
+        if job_context["transfer_state"]["state"] == "upload":
+            local_path = self.get_upload_files_list(job_context)[i]["file"]
+            remote_path = self.get_upload_files_list(job_context)[i]["remote_name"]
+        else:
+            results_dir = job_context["transfer_state"]["results_dir"]
+            filename = self.get_download_files_list(job_context)[i]["file"]
+            local_path = os.path.join(results_dir, filename)
+            remote_path = self.get_download_files_list(job_context)[i]["remote_name"]
+
         if os.path.exists(local_path):
             check = self.loop.run_until_complete(self.remote_client.exists_remotely(remote_path))
-
             if check:
-                #the same_size method works ONLY with files and empty directories
+                # the same_size method works ONLY with files and empty directories
                 check &= self.loop.run_until_complete(
                     self.remote_client.same_size(local_path, remote_path))
+            else:
+                print(f"File {remote_path} not found in the remote system")
             return check
         else:
             print(f"File {local_path} not found in your local system")
             return None
 
     def get_upload_files_list(self, job_context):
-        return job_context["process"]["inputs"]["data"] +\
+        return job_context["process"]["inputs"]["data"] + \
                job_context["process"]["inputs"]["parameters"]["script_files"]
 
     def get_download_files_list(self, job_context):
-        #TODO
-        pass
+        return job_context["process"]["inputs"]["parameters"]["result_files"] + \
+               [
+                   {
+                       "remote_name": STDOUT_FILE,
+                       "file": STDOUT_FILE,
+                       "type": "stdout"
+                   },
+                   {
+                       "remote_name": STDERR_FILE,
+                       "file": STDERR_FILE,
+                       "type": "stderr"
+                   }
+               ]
 
     def check_resource(self):
         """
