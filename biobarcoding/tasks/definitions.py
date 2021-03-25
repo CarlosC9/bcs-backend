@@ -232,7 +232,7 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
         print(f"File {i + 1} doesn't exist.")
         tmp["transfer_state"] = f"File {i + 1} doesn't exist"
         job_context = json.dumps(tmp)
-        return "error", job_context
+        return 3, job_context
     elif i == n_files:  # Transfer finished
         print("Transfer finished")
         del tmp["transfer_state"]
