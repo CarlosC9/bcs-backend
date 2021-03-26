@@ -1,8 +1,7 @@
 from abc import ABC
-from celery import chain
+import abc
 from typing import Dict
 
-# from biobarcoding.tasks.definitions import *
 from biobarcoding.tasks import celery_app
 
 
@@ -42,57 +41,62 @@ class JobManagementAPI:
 
 class JobExecutorAtResource(ABC):
     # RESOURCE
+    @abc.abstractmethod
     def set_resource(self, params):
-        pass
+        raise NotImplementedError
 
+    @abc.abstractmethod
     def check(self):
-        pass
+        raise NotImplementedError
 
+    @abc.abstractmethod
     def connect(self):
-        pass
+        raise NotImplementedError
 
+    @abc.abstractmethod
     def disconnect(self):
-        pass
+        raise NotImplementedError
 
     # JOB EXECUTION
-    def set_credentials(self, credentials):
-        """ Different from connecting to the resource, job submission may require identifying user, to check
-            priority and the like
-            """
-        pass
-
-    def get_quotas_for_current_credentials(self):
-        pass
-
+    @abc.abstractmethod
     def create_job_workspace(self, name):
-        pass
+        raise NotImplementedError
 
+    @abc.abstractmethod
     def remove_job_workspace(self, name):  # After Job is completed (or if Job was not started)
-        pass
+        raise NotImplementedError
 
+    @abc.abstractmethod
     def exists(self, job_context):
-        pass
+        raise NotImplementedError
 
+    @abc.abstractmethod
     def upload_file(self, job_context):
-        pass
+        raise NotImplementedError
 
+    @abc.abstractmethod
     def download_file(self, job_context):
-        pass
+        raise NotImplementedError
 
-    def move_file(self, remote_source, remote_destination):
-        pass
-
-    def remove_file(self, remote_filename):
-        pass
-
+    @abc.abstractmethod
     def submit(self, job_context):
-        pass
+        raise NotImplementedError
 
-    def job_status(self, job_context): # Todo intentar cambiar
-        pass
+    @abc.abstractmethod
+    def job_status(self, job_context):
+        raise NotImplementedError
 
+    @abc.abstractmethod
     def cancel_job(self, native_id):
-        pass
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_upload_files_list(self, job_context):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_download_files_list(self, job_context):
+        raise NotImplementedError
 
 
 class JobExecutorAtResourceFactory:
@@ -105,7 +109,7 @@ class JobExecutorAtResourceFactory:
         k = (job_executor_name, resource_param["name"])
         job_id = job_context.get("job_id")
         if k not in self.execs:
-            self.execs[k] = JobExecutorAtResourceFactory._create(job_executor_name, resource_param, job_id= job_id)
+            self.execs[k] = JobExecutorAtResourceFactory._create(job_executor_name, resource_param, job_id=job_id)
         return self.execs[k]
 
     @staticmethod
