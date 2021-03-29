@@ -455,3 +455,6 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         """
         # TODO: same as remove_job_workspace?
         pass
+
+    def get_export_path(self,job_context):
+        pass

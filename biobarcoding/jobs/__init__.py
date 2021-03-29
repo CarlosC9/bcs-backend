@@ -56,6 +56,10 @@ class JobExecutorAtResource(ABC):
     @abc.abstractmethod
     def disconnect(self):
         raise NotImplementedError
+    # EXPORT
+    @abc.abstractmethod
+    def get_export_path(self,job_context):
+        raise NotImplementedError
 
     # JOB EXECUTION
     @abc.abstractmethod
