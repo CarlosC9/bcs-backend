@@ -1,7 +1,9 @@
+import os
 from abc import ABC
 import abc
 from typing import Dict
 
+from biobarcoding.rest.file_manager import FilesAPI
 from biobarcoding.tasks import celery_app
 
 
@@ -96,6 +98,10 @@ class JobExecutorAtResource(ABC):
 
     @abc.abstractmethod
     def get_download_files_list(self, job_context):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_store_path(self, job_context):
         raise NotImplementedError
 
 

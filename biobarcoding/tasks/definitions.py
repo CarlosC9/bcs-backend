@@ -1,19 +1,14 @@
 import json
 import os
-
 import requests
-from billiard.context import Process
+import subprocess
 
-from biobarcoding.rest.file_manager import FilesAPI
 from biobarcoding.tasks import celery_app
-from time import sleep, time
+from time import sleep
 
 from biobarcoding.common.decorators import celery_wf
-from biobarcoding.common import check_pid_running
 from biobarcoding.jobs import JobExecutorAtResourceFactory
-from biobarcoding.db_models.jobs import Job
 from biobarcoding.common import ROOT
-from biobarcoding.rest import bcs_api_base
 
 """
 Celery tasks CANNOT be debugged in Celery!! (the code is run in a separate process; of course they can be debugged "off-line")
@@ -26,8 +21,6 @@ MAX_ERRORS = 3
 # Refresh queues of jobs (at different computing resources)
 
 def change_status(tmp, status: str):
-    return tmp
-    """
     endpoint_url, job_id = tmp["endpoint_url"], tmp["job_id"]
     # TODO FALLO TypeError: string indices must be integers
     url = f"{endpoint_url}api/jobs/{job_id}"
@@ -36,12 +29,27 @@ def change_status(tmp, status: str):
         cmd = ["curl", "-c", "cookies.txt", "-X", "PUT", "http://localhost:5000/api/authn?user=test_user", "&&", "curl",
                "-b", "cookies.txt", "-X", "PUT", "-H", "Content-Type: application/json", "-d",
                '{"status":"preparing_workspace"}', url]
-        import subprocess
+
         print(subprocess.run(cmd))
         tmp["status"] = status
         return tmp
     else:
-        return tmp"""
+        return tmp
+
+
+def check_file_is_stored_in_backend(filename, job_id):
+    api_base_url = os.getenv("API_BASE_URL")
+    cookies_file_path = os.getenv("COOKIES_FILE_PATH")
+    print(f"Env. variable API_BASE_URL: {api_base_url}")
+    print(f"Env. variable COOKIES_FILE_PATH: {cookies_file_path}")
+    cmd = ["curl", "--cookie-jar", cookies_file_path, "--cookie",
+           cookies_file_path, f"{api_base_url}/files/jobs/{job_id}/{filename}"]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    process_return_dict = json.loads(proc.stdout)
+    if process_return_dict.get("content"):
+        return True
+    else:
+        return False
 
 
 @celery_app.task
@@ -88,24 +96,13 @@ wf1 = {
         "error": "error"
 
     },
-    "transfer_data_from": {"": "import"},
-    "import": {"": "cleanup"},
+    "transfer_data_from": {"": "store_result_in_backend"},
+    "store_result_in_backend": {"": "cleanup"},
     "cleanup": {"": "success"},
     # "success"
     # "error"
     # "cancel"
 }
-
-
-def dummy_func(file, secs):
-    print(f"Dummy {file}, {secs}")
-    start = time()
-    endc = start
-    while (endc - start) < secs:
-        append_text(f"elapsed {endc - start} of {secs}")
-        sleep(6)
-        endc = time()
-    os.exit(0)
 
 
 # job_context = {"endpoint_url": "http//:localhost:5000/",
@@ -204,7 +201,7 @@ def wf1_export_to_supported_file_formats(job_context: str):
 
 @celery_app.task(name="transfer_data")
 @celery_wf(celery_app, wf1, "transfer_data")
-def wf1_transfer_data_to_resource(job_context: object) -> object:
+def wf1_transfer_data_to_resource(job_context: str) -> object:
     """
     Transfer data to the compute resource
     :param job_context:
@@ -232,7 +229,7 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
         print(f"File {i + 1} doesn't exist.")
         tmp["transfer_state"] = f"File {i + 1} doesn't exist"
         job_context = json.dumps(tmp)
-        return 3, job_context
+        return "error", job_context
     elif i == n_files:  # Transfer finished
         print("Transfer finished")
         del tmp["transfer_state"]
@@ -240,8 +237,7 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
         return job_context
     elif job_executor.job_status(tmp) == "running":  # Transfer is being executed
         print("Transfer executing")
-        sleep(1)
-        return None, job_context
+        return 1, job_context
     elif job_executor.job_status(tmp) == "":  # Transfer error
         print(f"Transfer error: File {i + 1}")
         tmp["pid"] = None
@@ -259,7 +255,7 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
         print(f"Begin transfer {i + 1}.")
         pid = job_executor.upload_file(tmp)
         tmp["pid"] = pid
-        tmp["transfer_state"] = dict(idx=i, n_errors=0, state="upload")
+        tmp["transfer_state"] = dict(idx=i, n_errors=n_errors, state="upload")
         print(tmp['transfer_state'])
         job_context = json.dumps(tmp)
         return None, job_context
@@ -350,7 +346,8 @@ def wf1_transfer_data_from_resource(job_context: str):
     else:
         i = 0
         n_errors = 0
-        os.mkdir(results_dir)
+        if not os.path.exists(results_dir):
+            os.mkdir(results_dir)
         tmp["pid"] = None
         tmp["transfer_state"] = dict(idx=i, n_errors=n_errors, state="download", results_dir=results_dir)
 
@@ -360,7 +357,7 @@ def wf1_transfer_data_from_resource(job_context: str):
     if i < n_files and n_errors >= MAX_ERRORS:
         print(f"Transfer error: File {i + 1}")
         job_context = json.dumps(tmp)
-        return 3, job_context
+        return "error", job_context
     if i == n_files:  # Transfer finished
         print("Transfer finished")
         del tmp["transfer_state"]
@@ -368,8 +365,7 @@ def wf1_transfer_data_from_resource(job_context: str):
         return job_context
     elif job_executor.job_status(tmp) == "running":  # Transfer is being executed
         print("Transfer executing")
-        sleep(1)
-        return None, job_context
+        return 1, job_context
     elif job_executor.job_status(tmp) == "":
         tmp["pid"] = None
         tmp["transfer_state"] = dict(idx=i, n_errors=n_errors + 1, state="download", results_dir=results_dir)
@@ -377,7 +373,6 @@ def wf1_transfer_data_from_resource(job_context: str):
         return None, job_context
     elif job_executor.exists(tmp):  # File i has been transferred successfully
         print(f"File {i + 1} transferred -> Moving to next")
-        # FilesAPI.put(local_path)
         i += 1
         tmp["pid"] = None
         tmp["transfer_state"] = dict(idx=i, n_errors=n_errors, state="download", results_dir=results_dir)
@@ -387,22 +382,77 @@ def wf1_transfer_data_from_resource(job_context: str):
         print(f"Begin transfer {i + 1}")
         pid = job_executor.download_file(tmp)
         tmp["pid"] = pid
-        tmp["transfer_state"] = dict(idx=i, n_errors=0, state="download", results_dir=results_dir)
+        tmp["transfer_state"] = dict(idx=i, n_errors=n_errors, state="download", results_dir=results_dir)
         job_context = json.dumps(tmp)
         return None, job_context
 
 
-@celery_app.task(name="import")
-@celery_wf(celery_app, wf1, "import")
-def wf1_import_into_database(job_context: str):
-    """
-    Import resulting files into the database
+@celery_app.task(name="store_result_in_backend")
+@celery_wf(celery_app, wf1, "store_result_in_backend")
+def wf1_store_result_in_backend(job_context: str):
+    tmp = json.loads(job_context)
+    job_executor = JobExecutorAtResourceFactory().get(tmp)
+    store_result_state = tmp.get("store_result_state")
+    # TODO acordar el path con Rafa
+    base_path_to_results = '/tmp/'
+    status_dir = os.path.join(base_path_to_results, str(tmp['job_id']))
+    print(f"Store result in backend state: {store_result_state}")
+    if store_result_state:  # ya ha empezado la transferencia
+        i = store_result_state["idx"]
+        n_errors = store_result_state["n_errors"]
+    else:
+        i = 0
+        n_errors = 0
+        if not os.path.exists(status_dir):
+            os.mkdir(status_dir)
+        tmp["pid"] = None
+        tmp["store_result_state"] = dict(idx=i, n_errors=n_errors, status_dir=status_dir, state="store_in_db")
 
-    :param job_context:
-    :return:
-    """
-    append_text("import_into_database")
-    sleep(2)
+    # Number of files to transfer
+    n_files = len(job_executor.get_download_files_list(tmp))
+    if i < n_files:
+        file_path = job_executor.get_store_path(tmp)
+
+    if i < n_files and n_errors >= MAX_ERRORS:
+        print(f"Store result in backend error: File {file_path}")
+        job_context = json.dumps(tmp)
+        return "error", job_context
+    if i == n_files:  # Transfer finished
+        print("Store result in backend finished")
+        del tmp["store_result_state"]
+        job_context = json.dumps(tmp)
+        return job_context
+    elif job_executor.job_status(tmp) == "running":  # Transfer is being executed
+        print("Store result in backend executing")
+        return 1, job_context
+    elif job_executor.job_status(tmp) == "":
+        tmp["pid"] = None
+        tmp["store_result_state"] = dict(idx=i, n_errors=n_errors + 1, status_dir=status_dir, state="store_in_db")
+        job_context = json.dumps(tmp)
+        return None, job_context
+    elif check_file_is_stored_in_backend(file_path, tmp["job_id"]):  # File i has been transferred successfully
+        print(f"File {file_path} stored -> Moving to next")
+        job_executor.put_file_in_db(tmp)
+        i += 1
+        tmp["pid"] = None
+        tmp["store_result_state"] = dict(idx=i, n_errors=n_errors, status_dir=status_dir, state="store_in_db")
+        job_context = json.dumps(tmp)
+        return None, job_context
+    else:  # Transfer file i
+        print(f"Beginning to store result in backend of file {i + 1}")
+        cookies_file_path = os.getenv("COOKIES_FILE_PATH")
+        api_base_url = os.getenv("API_BASE_URL")
+        filename = os.path.basename(file_path)
+        curl_cmd = f"curl -s --cookie-jar {cookies_file_path} --cookie {cookies_file_path} -H \"Content-Type: application/x-fasta\" -XPUT --data-binary @\"{file_path}\" \"{api_base_url}/files/jobs/{tmp['job_id']}/{filename}.content\""
+        cmd = f"curl -s -c {cookies_file_path} -X PUT {api_base_url}/authn?user=test_user > /dev/null && (nohup bash -c \'{curl_cmd} \' >/tmp/mtest </dev/null 2>/tmp/mtest.err & echo $!; wait $!; echo $? >> /tmp/{tmp['job_id']}/$!.exit_status)"
+        print(cmd)
+        popen_pipe = os.popen(cmd)
+        pid = popen_pipe.readline().rstrip()
+        print(f"PID: {pid}")
+        tmp["pid"] = pid
+        tmp["store_result_state"] = dict(idx=i+1, n_errors=n_errors, status_dir=status_dir, state="store_in_db")
+        job_context = json.dumps(tmp)
+        return None, job_context
 
 
 @celery_app.task(name="cleanup")

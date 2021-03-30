@@ -1,5 +1,3 @@
-import psutil
-
 from biobarcoding.jobs import JobExecutorAtResource
 import os
 import asyncio
@@ -14,13 +12,13 @@ STDERR_FILE = "bcs.stderr.log"
 class RemoteSSHClient:
     """Client to interact with a remote host via SSH & SCP."""
 
-    def __init__(self, host, username, known_hosts_filepath, remote_path):
+    def __init__(self, host, username, known_hosts_filepath, remote_path, job_status_dir):
         super()
         self.host = host
         self.username = username
         self.known_hosts_filepath = known_hosts_filepath
         self.remote_path = remote_path
-        self.job_status_dir = os.path.join("/tmp", username + "_jobs_status")
+        self.job_status_dir = job_status_dir
         self.client = None
         self.sftp = None
         self.conn = None
@@ -38,7 +36,7 @@ class RemoteSSHClient:
                 }
                 self.conn, self.client = await asyncssh.create_connection(asyncssh.SSHClient, self.host, **kwargs)
                 self.sftp = await self.conn.start_sftp_client()
-                if not os.path.isdir(self.job_status_dir):  # create folder for saving local jobs exit status
+                if not os.path.exists(self.job_status_dir):  # create folder for saving local jobs exit status
                     os.mkdir(self.job_status_dir)
             except Exception as error:
                 print(f'Connection failed: \
@@ -97,7 +95,7 @@ class RemoteSSHClient:
         @param pid: PID of the process to check status
         @return: String defining satus of the pid. "running", "ok" and "" for error.
         """
-        if os.path.isfile(f"{self.job_status_dir}/{pid}.exit_status"):
+        if os.path.exists(f"{self.job_status_dir}/{pid}.exit_status"):
             cmd = f"cat {self.job_status_dir}/{pid}.exit_status"
             popen_pipe = os.popen(cmd)
             exit_status = popen_pipe.readline().strip()
@@ -297,6 +295,7 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         self.username = None
         self.known_hosts_filepath = None
         self.remote_path = os.path.join(ROOT_DIR, job_id)
+        self.job_status_dir = os.path.join("/tmp", job_id)
         self.remote_client = None
         self.loop = asyncio.get_event_loop()
 
@@ -314,7 +313,9 @@ class JobExecutorWithSSH(JobExecutorAtResource):
             return True
 
     def connect(self):
-        self.remote_client = RemoteSSHClient(self.host, self.username, self.known_hosts_filepath, self.remote_path)
+        self.remote_client = RemoteSSHClient(self.host, self.username,
+                                             self.known_hosts_filepath, self.remote_path,
+                                             self.job_status_dir)
         self.loop.run_until_complete(self.remote_client.connect())
         return self.remote_client
 
@@ -323,68 +324,12 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         self.loop.close()
 
     # JOB EXECUTION
-    def set_credentials(self, credentials):  # set username and password OR known_hosts
-        """ Different from connecting to the resource, job submission may require identifying user, to check
-            priority and the like
-            """
-        # TODO
-        pass
-
-    def get_quotas_for_current_credentials(self):
-        # TODO
-        pass
-
     def create_job_workspace(self, name):
         # the name is the job_id
         self.loop.run_until_complete(self.remote_client.make_directory(os.path.join(ROOT_DIR, name)))
 
     def remove_job_workspace(self, name):
         self.loop.run_until_complete(self.remote_client.remove_directory(os.path.join(ROOT_DIR, name)))
-
-    def upload_file(self, job_context):
-        i = job_context["transfer_state"]["idx"]
-        local_path = self.get_upload_files_list(job_context)[i]["file"]
-        remote_path = self.get_upload_files_list(job_context)[i]["remote_name"]
-        return self.remote_client.upload_file(local_path, remote_path)
-
-    def upload_directory(self, workspace, local_filename, remote_location):
-        return self.remote_client.upload_directory(local_filename, remote_location)
-
-    def move_file(self, remote_source, remote_destination):
-        self.loop.run_until_complete(self.remote_client.move_file(remote_source, remote_destination))
-
-    def remove_file(self, remote_filename):
-        self.loop.run_until_complete(self.remote_client.remove_file(remote_filename))
-
-    def submit(self, process):
-        params = process["inputs"]["parameters"]
-        return self.loop.run_until_complete(self.remote_client.run_client(params["script"], params["script_params"]))
-
-    def job_status(self, job_context):
-        pid = job_context["pid"]
-        if pid is None:
-            return "none"
-        elif pid == "":
-            return ""  # error
-        elif "transfer_state" in job_context.keys():
-            return self.remote_client.local_command_status(pid)
-        else:
-            return self.loop.run_until_complete(self.remote_client.remote_command_status(pid))
-
-    def cancel_job(self, native_id):
-        self.remote_client.kill_process(native_id)
-
-    # SSH
-    def download_file(self, job_context):
-        i = job_context["transfer_state"]["idx"]
-        results_dir = job_context["transfer_state"]["results_dir"]
-        remote_path = self.get_download_files_list(job_context)[i]["remote_name"]
-        filename = self.get_download_files_list(job_context)[i]["file"]
-        local_path = os.path.join(results_dir, filename)
-        return self.loop.run_until_complete(self.remote_client.download_file(remote_path, local_path))
-
-    def retrieve_directory(self, remote_dir, local_dir):
-        self.loop.run_until_complete(self.remote_client.download_directory(remote_dir, local_dir))
 
     def exists(self, job_context):
         i = job_context["transfer_state"]["idx"]
@@ -410,6 +355,53 @@ class JobExecutorWithSSH(JobExecutorAtResource):
             print(f"File {local_path} not found in your local system")
             return None
 
+    def upload_file(self, job_context):
+        i = job_context["transfer_state"]["idx"]
+        local_path = self.get_upload_files_list(job_context)[i]["file"]
+        remote_path = self.get_upload_files_list(job_context)[i]["remote_name"]
+        return self.remote_client.upload_file(local_path, remote_path)
+
+    def download_file(self, job_context):
+        i = job_context["transfer_state"]["idx"]
+        remote_path = self.get_download_files_list(job_context)[i]["remote_name"]
+        results_dir = job_context["transfer_state"]["results_dir"]
+        filename = self.get_download_files_list(job_context)[i]["file"]
+        local_path = os.path.join(results_dir, filename)
+        return self.loop.run_until_complete(self.remote_client.download_file(remote_path, local_path))
+
+    """
+    def upload_directory(self, workspace, local_filename, remote_location):
+        return self.remote_client.upload_directory(local_filename, remote_location)
+
+    def move_file(self, remote_source, remote_destination):
+        self.loop.run_until_complete(self.remote_client.move_file(remote_source, remote_destination))
+
+    def remove_file(self, remote_filename):
+        self.loop.run_until_complete(self.remote_client.remove_file(remote_filename))
+    """
+    def submit(self, process):
+        params = process["inputs"]["parameters"]
+        return self.loop.run_until_complete(self.remote_client.run_client(params["script"], params["script_params"]))
+
+    def job_status(self, job_context):
+        pid = job_context["pid"]
+        if pid is None:
+            return "none"
+        elif pid == "":
+            return ""  # error
+        elif "transfer_state" in job_context.keys() or "store_result_state" in job_context.keys():
+            return self.remote_client.local_command_status(pid)
+        else:
+            return self.loop.run_until_complete(self.remote_client.remote_command_status(pid))
+
+    def cancel_job(self, native_id):
+        self.remote_client.kill_process(native_id)
+
+    """
+    def retrieve_directory(self, remote_dir, local_dir):
+        self.loop.run_until_complete(self.remote_client.download_directory(remote_dir, local_dir))
+    """
+
     def get_upload_files_list(self, job_context):
         return job_context["process"]["inputs"]["data"] + \
                job_context["process"]["inputs"]["parameters"]["script_files"]
@@ -429,6 +421,12 @@ class JobExecutorWithSSH(JobExecutorAtResource):
                    }
                ]
 
+    def get_store_path(self, job_context):
+        i = job_context["store_result_state"]["idx"]
+        results_dir = job_context["store_result_state"]["status_dir"]
+        filename = self.get_download_files_list(job_context)[i]["file"]
+        return os.path.join(results_dir, filename)
+
     def check_resource(self):
         """
         Can connect
@@ -438,20 +436,4 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         :return:
         """
         # TODO:
-        pass
-
-    def prepare_execution_directory(self):
-        # TODO: same as create_job_workspace?
-        pass
-
-    def check_executing_process(self):
-
-        pass
-
-    def remove_execution_directory(self, name):
-        """
-        Include parameters to keep intermediate files at some common directory (intermediate/<originating_job_id>/<file>
-        :return:
-        """
-        # TODO: same as remove_job_workspace?
         pass

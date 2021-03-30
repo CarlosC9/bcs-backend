@@ -10,22 +10,6 @@ check_error()
   fi
 }
 
-: '
-get_output_filename()
-{
-  # Split str by point. IFS is a special shell variable
-  # save original IFS value so we can restore it later
-  oIFS="$IFS"
-  IFS="."
-  declare -a fields=($1)
-  IFS="$oIFS"
-  unset oIFS
-  output_filename="${fields[0]}.$2"
-}
-
-get_output_filename "$1" "aln"
-'
-
 if [[ $# -eq 4 ]]
 then
   #./clustalw.sh "matK_25taxones_Netgendem_SINalinear.fasta" "clustalw.aln" ALIGNED DNA
