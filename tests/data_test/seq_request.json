@@ -1,0 +1,1 @@
+{"filter": [{"feature_id": {"op": "in", "unary": [1, 2]}}]}
