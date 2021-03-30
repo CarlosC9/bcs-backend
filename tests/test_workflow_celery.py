@@ -61,8 +61,8 @@ def export(data,file) -> object:
     selection_json = json.dumps(selection_dict)
     endpoint = "http://localhost:5000"
     url = f"{endpoint}{bcs_api_base}/bos/{bos_type}.{extension}"
-    curl = f"curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt -X GET -d \'{selection_json}\' -H \"Content-Type:application/json\" {url} -o {tmp_path}"
-    cmd = f"{curl} >/tmp/mtest </dev/null 2>/tmp/mtest.err & echo $!; wait $!; echo $?  >> {TEST_JOB_STATUS_DIR}/$!.exit_status" # TODO curl works but cmd doesnt
+    curl = f"curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt -X GET -d \'{selection_json}\' -H \'Content-Type:application/json\' {url} -o {tmp_path}"
+    cmd = f"(nohup bash -c &quot;{curl}&quot; >/tmp/mtest </dev/null 2>/tmp/mtest.err & echo $!; wait $!; echo $?  >> {TEST_JOB_STATUS_DIR}/$!.exit_status)"
     print(cmd)
     popen_pipe = os.popen(cmd)
     pid = popen_pipe.readline().rstrip()
