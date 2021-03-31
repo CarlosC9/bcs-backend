@@ -1,3 +1,5 @@
+import os
+
 from biobarcoding.db_models import DBSession as db_session
 from biobarcoding.db_models import DBSessionChado as chado_session
 from biobarcoding.rest import IType, Issue, filter_parse, paginator
@@ -111,6 +113,8 @@ def import_file(input_file, format='fasta', **kwargs):
             kwargs['program']='Multiple Sequence Alignment'
         if not kwargs.get('programversion'):
             kwargs['programversion']='(Imported file)'
+        if not kwargs.get('name'):
+            kwargs['name']=os.path.basename(input_file)
         msa = Analysis(**kwargs)
         chado_session.add(msa)
         chado_session.flush()
