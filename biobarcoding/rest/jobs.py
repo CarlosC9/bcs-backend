@@ -107,7 +107,6 @@ class JobAPI(MethodView):
         d.status = "created"
         d.process.inputs = process_params
         d.process.name = process_in_resource.native_process_id
-        d.endpoint_url = "http://localhost:5000" #TODO esto debe de salir del config file. cómo?
         # RESOURCE
         d.resource = DottedDict()
         d.resource.name = resource.name
@@ -126,7 +125,6 @@ class JobAPI(MethodView):
         d.job_id = job.id
         DBSession.remove()
 
-        #TODO debuguear esto
         process_adaptor = ProcessAdaptorFactory().get(d.resource.jm_type, in_dict.process_id)
         d = process_adaptor.adapt_job_context(d)
 

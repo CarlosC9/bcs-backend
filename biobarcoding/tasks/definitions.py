@@ -3,6 +3,7 @@ import os
 import requests
 import subprocess
 
+from biobarcoding.rest import bcs_api_base
 from biobarcoding.tasks import celery_app
 from time import sleep
 
@@ -15,35 +16,58 @@ Celery tasks CANNOT be debugged in Celery!! (the code is run in a separate proce
 """
 
 MAX_ERRORS = 3
-TMP_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),'tmp')
+TMP_PATH = "/tmp"
 
 
 # Send messages
 # Refresh queues of jobs (at different computing resources)
 
 def change_status(tmp, status: str):
-    endpoint, job_id = tmp["endpoint"], tmp["job_id"]
+    endpoint_url = os.getenv("ENDPOINT_URL")
+    cookies_file_path = os.getenv("COOKIES_FILE_PATH")
+    print(f"Env. variable ENDPOINT_URL: {endpoint_url}")
+    print(f"Env. variable COOKIES_FILE_PATH: {cookies_file_path}")
+    job_id = tmp["job_id"]
     # TODO comprobar existencia de
-    url = f"{endpoint}{bcs_api_base}/jobs/{job_id}"
+    url = f"{endpoint_url}{bcs_api_base}/jobs/{job_id}"
     if tmp["status"] != status:
-        cmd = [ "curl","--cookie-jar","bcs-cookies.txt", "-c", "cookies.txt", "-X", "PUT", "-H", "Content-Type: application/json", "-d",
-               '{"status":"preparing_workspace"}', url]
-
+        api_login()
+        #TODO: este comando hace que se borre la sesión. Hay que revisar que esté funcionando bien.
+        cmd = ["curl", "--cookie-jar", cookies_file_path, "-c", cookies_file_path, "-X", "PUT", "-H",
+               "Content-Type: application/json", "-d", '{"status":"preparing_workspace"}', url]
         print(subprocess.run(cmd))
+        print_file(cookies_file_path)
         tmp["status"] = status
         return tmp
     else:
         return tmp
 
+def print_file(filename):
+    with open(filename, 'r') as file:
+        lines = file.readlines()
+        for line in lines:
+            print(line)
+
+def api_login():
+    endpoint_url = os.getenv("ENDPOINT_URL")
+    cookies_file_path = os.getenv("COOKIES_FILE_PATH")
+    url = f"{endpoint_url}{bcs_api_base}/authn?user=test_user"
+    cmd = ["curl", "--cookie-jar", cookies_file_path, "-X", "PUT", url]
+    subprocess.run(cmd)
+    print_file(cookies_file_path)
+
+
 
 def check_file_is_stored_in_backend(filename, job_id):
-    api_base_url = os.getenv("API_BASE_URL")
+    endpoint_url = os.getenv("ENDPOINT_URL")
     cookies_file_path = os.getenv("COOKIES_FILE_PATH")
-    print(f"Env. variable API_BASE_URL: {api_base_url}")
+    print(f"Env. variable ENDPOINT_URL: {endpoint_url}")
     print(f"Env. variable COOKIES_FILE_PATH: {cookies_file_path}")
+    api_login()
     cmd = ["curl", "--cookie-jar", cookies_file_path, "--cookie",
-           cookies_file_path, f"{api_base_url}/files/jobs/{job_id}/{filename}"]
+           cookies_file_path, f"{endpoint_url}{bcs_api_base}/files/jobs/{job_id}/{filename}"]
     proc = subprocess.run(cmd, capture_output=True, text=True)
+    print_file(cookies_file_path)
     process_return_dict = json.loads(proc.stdout)
     if process_return_dict.get("content"):
         return True
@@ -51,47 +75,34 @@ def check_file_is_stored_in_backend(filename, job_id):
         return False
 
 
-def export(job_context,file) -> object:
+def export(file_dict, results_dir) -> object:
     """
     Execute remote client script
     @param url: url of the get
     @param path: local path of the file gotten with curl
     @return: pid: PID of the executed script process
     """
-    data = job_context['process']['data']
-    tmp_path = os.path.join(TMP_PATH, file) # TODO revisar
-    extension = data['type']
-    bos_type = data['bo_type']
-    selection_dict = {"filter": [{"feature_id": {"op": "in", "unary": data['selection']}}]}
+    tmp_path = os.path.join(results_dir, file_dict["file"])
+    extension = file_dict['type']
+    bos_type = file_dict['bo_type']
+    selection_dict = {"filter": [{"feature_id": {"op": "in", "unary": file_dict['selection']}}]}
     selection_json = json.dumps(selection_dict)
-    endpoint = job_context['endpoint']
+    endpoint = os.getenv("ENDPOINT_URL")
+    cookies_file_path = os.getenv("COOKIES_FILE_PATH")
+    api_login()
     url = f"{endpoint}{bcs_api_base}/bos/{bos_type}.{extension}"
-    curl = f"curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt -X GET -d \'{selection_json}\' -H \'Content-Type:application/json\' {url} -o {tmp_path}"
-    cmd = f"(nohup bash -c &quot;{curl}&quot; >/tmp/mtest </dev/null 2>/tmp/mtest.err & echo $!; wait $!; echo $?  >> {TMP_PATH}/$!.exit_status)"
+    curl = f"curl --cookie-jar {cookies_file_path} --cookie {cookies_file_path} -X GET -d \'{selection_json}\' -H \'Content-Type:application/json\' {url} -o {tmp_path}"
+    cmd = f"(nohup bash -c &quot;{curl}&quot; >/tmp/mtest </dev/null 2>/tmp/mtest.err & echo $!; wait $!; echo $?  >> {results_dir}/$!.exit_status)"
     print(cmd)
     popen_pipe = os.popen(cmd)
+    print_file(cookies_file_path)
     pid = popen_pipe.readline().rstrip()
     print(f"PID: {pid}")
     return pid
 
-def export_status(pid):
-    exit_status = "none"
-    if pid:
-        if os.path.isfile(f"{TMP_PATH}/{pid}.exit_status"):
-            with open(f"{TMP_PATH}/{pid}.exit_status", "r") as f:
-                exit_status = f.readline().strip()
-                if exit_status.strip() == "0":
-                    exit_status = "ok"
-                else:
-                    print(f"Error executing get with pid: {pid}. Exit status = {exit_status}")
-                    exit_status = ""  # This means error
-        else:
-            exit_status = "running"
-
-    return exit_status
 
 def is_bos_file(input_file):
-    if os.path.exists(input_file): #and check that it is not an error file:
+    if os.path.exists(input_file):  # and check that it is not an error file:
         return True
     else:
         return False
@@ -151,35 +162,6 @@ wf1 = {
 }
 
 
-# job_context = {"endpoint_url": "http//:localhost:5000/",
-#                "process":
-#                    {"inputs":
-#                         {"parameters": "...."},
-#                          "data": [
-#                              {
-#                          "name": "fasta.fasta",
-#                          "file" : {
-#                                 {"bo_type": "collection",
-#                                 "ids": ["jkdjdjdjjdjd"],
-#                                 "type": "fasta"},
-#                                   {
-#                                     "bo_type": "path",
-#                                       "ids":["...."],
-#                                       "type":"fasta"
-#                                   },
-#                                  {"bo_type": "seq",
-#                                   "bo": ["jkdjdjdjjdjd", "jdjdjdjfjdjdj"],
-#                                 "type": "fasta"}
-#                                 }
-#                              }
-#                          ]
-#                     },
-#                     "name": {"........"},
-#                "outputs":[{"....."}],
-#                "status": "created",
-#                "resource": {"......."},
-#                "job_id": 60}
-
 @celery_app.task(name="prepare")
 @celery_wf(celery_app, wf1, "prepare")
 def wf1_prepare_workspace(job_context):
@@ -188,17 +170,13 @@ def wf1_prepare_workspace(job_context):
     :param job_context:
     :return:
     """
+    '''cookies_file_path = os.getenv("COOKIES_FILE_PATH")
+    endpoint_url = os.getenv("ENDPOINT_URL")
+    cmd = ["curl", "--cookie-jar", cookies_file_path, f"'{endpoint_url}{bcs_api_base}/authn?user=test_user'"]
+    subprocess.run(cmd)'''
     tmp = json.loads(job_context)
     tmp = change_status(tmp, "preparing_workspace")
 
-    # Example access RESTful endpoint of "bcs-backend"
-    # requests.get(job_context["endpoint_url"]+f"/api/jobs/{job_context['job_id']}")
-
-    # TODO update Job status to "preparing_workspace"
-    #  requests.put(job_context["endpoint_url"] + f"/api/jobs/{job_context['job_id']}/status", "preparing_workspace")
-
-    # Get resource manager: ssh, galaxy, other
-    # job_executor = JobExecutorAtResourceFactory()
     job_executor = JobExecutorAtResourceFactory().get(tmp)
     job_executor.create_job_workspace(str(tmp["job_id"]))
     job_context = json.dumps(tmp)
@@ -223,59 +201,61 @@ def wf1_export_to_supported_file_formats(job_context: str):
     # "unary": [1, 2]}}]}' -H "Content-Type:application/json"  http://localhost:5000/api/bos/sequences.fasta -o $TEST_FILES_PATH/test.fasta
     tmp = json.loads(job_context)
     job_executor = JobExecutorAtResourceFactory().get(tmp)
-    transfer_state = tmp.get("transfer_state")
-    # TODO acordar el path con Rafa
-    base_path_to_tmp = TMP_PATH
-    inputs_dir = os.path.join(base_path_to_tmp, str(tmp['job_id']))
-    print(f"Transfer state: {transfer_state}")
-    if transfer_state:  # ya ha empezado la transferencia
-        i = transfer_state["idx"]
-        n_errors = transfer_state["n_errors"]
+    state_dict = tmp.get("state_dict")
+
+    print(f"Export state: {state_dict}")
+
+    if state_dict:  # ya ha empezado la transferencia
+        i = state_dict["idx"]
+        n_errors = state_dict["n_errors"]
+        results_dir = state_dict["results_dir"]
     else:
         i = 0
         n_errors = 0
-        # os.mkdir(inputs_dir)
+        results_dir = os.path.join(job_executor.LOCAL_WORKSPACE, str(tmp['job_id']))
+        if not os.path.exists(results_dir):
+            os.mkdir(results_dir)
         tmp["pid"] = None
-        tmp["transfer_state"] = dict(idx=i, n_errors=n_errors, state="download", results_dir=inputs_dir)
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors, state="export", results_dir=results_dir)
 
-    # Number of files to transfer
-    n_files = len(tmp['process']['data'])
+    # Files to transfer
+    files = tmp['process']['inputs']['data']
+    file_dict = files[i] if i < len(files) else {"file": "", "remote_name": "", "type": ""}
 
-    if i < n_files and n_errors >= MAX_ERRORS:
-        print(f"Transfer error: File {i + 1}")
+    if i < len(files) and n_errors >= MAX_ERRORS:
+        print(f"Export error: File {i + 1} {file_dict['file']}")
         job_context = json.dumps(tmp)
         return 3, job_context
-    if i == n_files:  # Transfer finished
-        print("Transfer finished")
-        del tmp["transfer_state"]
+    if i == len(files):  # Transfer finished
+        print("Export finished")
+        del tmp["state_dict"]
         job_context = json.dumps(tmp)
         return job_context
-    elif export_status(tmp['pid']) == "running":  # Transfer is being executed
-        print("Transfer executing")
+    elif job_executor.job_status(tmp) == "running":  # Transfer is being executed
+        print("Export executing")
         return 1, job_context
-    elif export_status(tmp['pid']) == "":
+    elif job_executor.job_status(tmp) == "":
         tmp["pid"] = None
-        tmp["transfer_state"] = dict(idx=i, n_errors=n_errors + 1, state="download", results_dir=inputs_dir)
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors + 1, state="export", results_dir=results_dir)
         job_context = json.dumps(tmp)
         return None, job_context
-    elif is_bos_file(os.path.join(TMP_PATH, job_executor.get_export_path(tmp))):
-        print(f"File {i + 1} transferred -> Moving to next")
-        tmp['process']['data'][i]['path'] = job_executor.get_export_path(tmp)
-        del tmp['process']['data'][i]['selection']
-        i += 1
+    elif is_bos_file(os.path.join(results_dir, file_dict["file"])):
+        print(f"File {file_dict['file']} transferred -> Moving to next")
+        tmp['process']['inputs']['data'][i]['file'] = os.path.join(results_dir, file_dict["file"])
+        del tmp['process']['inputs']['data'][i]['selection']
         tmp["pid"] = None
-        tmp["transfer_state"] = dict(idx=i, n_errors=n_errors, state="download", results_dir=inputs_dir)
+        tmp["state_dict"] = dict(idx=i + 1, n_errors=n_errors, state="export", results_dir=results_dir)
         job_context = json.dumps(tmp)
         return None, job_context
     else:  # Transfer file i
-        print(f"Begin transfer {i + 1}")
-        file = job_executor.get_export_path(tmp)
-        data = tmp['process']['data'][i]
-        pid = export(data, file)
+        print(f"Begin export {i + 1}: {file_dict['file']}")
+        data = tmp['process']['inputs']['data'][i]
+        pid = export(file_dict, results_dir)
         tmp["pid"] = pid
-        tmp["transfer_state"] = dict(idx=i, n_errors=0, state="download", results_dir=inputs_dir)
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors, state="export", results_dir=results_dir)
         job_context = json.dumps(tmp)
         return None, job_context
+
 
 # job_context = {"endpoint_url": "http//:localhost:5000/",
 #                "process":
@@ -304,28 +284,28 @@ def wf1_transfer_data_to_resource(job_context: str) -> object:
     tmp = change_status(tmp, "transfer_data_to_resource")
     job_executor = JobExecutorAtResourceFactory().get(tmp)
     print(tmp)
-    transfer_state = tmp.get("transfer_state")
-    print(f"Transfer state: {transfer_state}")
-    if transfer_state:  # ya ha empezado la transferencia
-        i = transfer_state["idx"]
-        n_errors = transfer_state["n_errors"]
+    state_dict = tmp.get("state_dict")
+    print(f"Transfer state: {state_dict}")
+    if state_dict:  # ya ha empezado la transferencia
+        i = state_dict["idx"]
+        n_errors = state_dict["n_errors"]
     else:
         i = 0
         n_errors = 0
         tmp["pid"] = None
-        tmp["transfer_state"] = dict(idx=i, n_errors=n_errors, state="upload")
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors, state="upload")
 
-    # Number of files to transfer
-    n_files = len(job_executor.get_upload_files_list(tmp))
+    # Files to transfer
+    files = job_executor.get_upload_files_list(tmp)
+    file_dict = files[i] if i < len(files) else {"file": "", "remote_name": "", "type": ""}
 
-    if i < n_files and n_errors >= MAX_ERRORS:
-        print(f"File {i + 1} doesn't exist.")
-        tmp["transfer_state"] = f"File {i + 1} doesn't exist"
+    if i < len(files) and n_errors >= MAX_ERRORS:
+        print(f"File {file_dict['file']} doesn't exist.")
         job_context = json.dumps(tmp)
         return "error", job_context
-    elif i == n_files:  # Transfer finished
+    elif i == len(files):  # Transfer finished
         print("Transfer finished")
-        del tmp["transfer_state"]
+        del tmp["state_dict"]
         job_context = json.dumps(tmp)
         return job_context
     elif job_executor.job_status(tmp) == "running":  # Transfer is being executed
@@ -334,22 +314,22 @@ def wf1_transfer_data_to_resource(job_context: str) -> object:
     elif job_executor.job_status(tmp) == "":  # Transfer error
         print(f"Transfer error: File {i + 1}")
         tmp["pid"] = None
-        tmp["transfer_state"] = dict(idx=i, n_errors=n_errors + 1, state="upload")
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors + 1, state="upload")
         job_context = json.dumps(tmp)
         return None, job_context
     elif job_executor.exists(tmp):  # File i has been transferred successfully
-        print(f"File {i + 1} transferred -> Moving to next")
+        print(f"File {file_dict['file']} transferred -> Moving to next")
         i += 1
         tmp["pid"] = None
-        tmp["transfer_state"] = dict(idx=i, n_errors=n_errors, state="upload")
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors, state="upload")
         job_context = json.dumps(tmp)
         return None, job_context
     else:  # Transfer file i
-        print(f"Begin transfer {i + 1}.")
+        print(f"Begin transfer {i + 1}: {file_dict['file']}")
         pid = job_executor.upload_file(tmp)
         tmp["pid"] = pid
-        tmp["transfer_state"] = dict(idx=i, n_errors=n_errors, state="upload")
-        print(tmp['transfer_state'])
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors, state="upload")
+        print(tmp['state_dict'])
         job_context = json.dumps(tmp)
         return None, job_context
 
@@ -428,32 +408,33 @@ def wf1_transfer_data_from_resource(job_context: str):
     """
     tmp = json.loads(job_context)
     job_executor = JobExecutorAtResourceFactory().get(tmp)
-    transfer_state = tmp.get("transfer_state")
-    # TODO acordar el path con Rafa
-    base_path_to_results = '/tmp/'
-    results_dir = os.path.join(base_path_to_results, str(tmp['job_id']))
-    print(f"Transfer state: {transfer_state}")
-    if transfer_state:  # ya ha empezado la transferencia
-        i = transfer_state["idx"]
-        n_errors = transfer_state["n_errors"]
+    state_dict = tmp.get("state_dict")
+
+    print(f"Transfer state: {state_dict}")
+    if state_dict:  # ya ha empezado la transferencia
+        i = state_dict["idx"]
+        n_errors = state_dict["n_errors"]
+        results_dir = state_dict["results_dir"]
     else:
         i = 0
         n_errors = 0
+        results_dir = os.path.join(job_executor.LOCAL_WORKSPACE, str(tmp['job_id']))
         if not os.path.exists(results_dir):
             os.mkdir(results_dir)
         tmp["pid"] = None
-        tmp["transfer_state"] = dict(idx=i, n_errors=n_errors, state="download", results_dir=results_dir)
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors, state="download", results_dir=results_dir)
 
-    # Number of files to transfer
-    n_files = len(job_executor.get_download_files_list(tmp))
+    # Files to transfer
+    files = job_executor.get_download_files_list(tmp)
+    file_dict = files[i] if i < len(files) else {"file": "", "remote_name": "", "type": ""}
 
-    if i < n_files and n_errors >= MAX_ERRORS:
+    if i < len(files) and n_errors >= MAX_ERRORS:
         print(f"Transfer error: File {i + 1}")
         job_context = json.dumps(tmp)
         return "error", job_context
-    if i == n_files:  # Transfer finished
+    if i == len(files):  # Transfer finished
         print("Transfer finished")
-        del tmp["transfer_state"]
+        del tmp["state_dict"]
         job_context = json.dumps(tmp)
         return job_context
     elif job_executor.job_status(tmp) == "running":  # Transfer is being executed
@@ -461,21 +442,20 @@ def wf1_transfer_data_from_resource(job_context: str):
         return 1, job_context
     elif job_executor.job_status(tmp) == "":
         tmp["pid"] = None
-        tmp["transfer_state"] = dict(idx=i, n_errors=n_errors + 1, state="download", results_dir=results_dir)
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors + 1, state="download", results_dir=results_dir)
         job_context = json.dumps(tmp)
         return None, job_context
     elif job_executor.exists(tmp):  # File i has been transferred successfully
-        print(f"File {i + 1} transferred -> Moving to next")
-        i += 1
+        print(f"File {file_dict['file']} transferred -> Moving to next")
         tmp["pid"] = None
-        tmp["transfer_state"] = dict(idx=i, n_errors=n_errors, state="download", results_dir=results_dir)
+        tmp["state_dict"] = dict(idx=i + 1, n_errors=n_errors, state="download", results_dir=results_dir)
         job_context = json.dumps(tmp)
         return None, job_context
     else:  # Transfer file i
-        print(f"Begin transfer {i + 1}")
+        print(f"Begin transfer {i + 1}: {file_dict['file']}")
         pid = job_executor.download_file(tmp)
         tmp["pid"] = pid
-        tmp["transfer_state"] = dict(idx=i, n_errors=n_errors, state="download", results_dir=results_dir)
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors, state="download", results_dir=results_dir)
         job_context = json.dumps(tmp)
         return None, job_context
 
@@ -485,34 +465,33 @@ def wf1_transfer_data_from_resource(job_context: str):
 def wf1_store_result_in_backend(job_context: str):
     tmp = json.loads(job_context)
     job_executor = JobExecutorAtResourceFactory().get(tmp)
-    store_result_state = tmp.get("store_result_state")
-    # TODO acordar el path con Rafa
-    base_path_to_results = '/tmp/'
-    status_dir = os.path.join(base_path_to_results, str(tmp['job_id']))
-    print(f"Store result in backend state: {store_result_state}")
-    if store_result_state:  # ya ha empezado la transferencia
-        i = store_result_state["idx"]
-        n_errors = store_result_state["n_errors"]
+    state_dict = tmp.get("state_dict")
+
+    print(f"Store result in backend state: {state_dict}")
+    if state_dict:  # ya ha empezado la transferencia
+        i = state_dict["idx"]
+        n_errors = state_dict["n_errors"]
+        results_dir = state_dict["results_dir"]
     else:
         i = 0
         n_errors = 0
-        if not os.path.exists(status_dir):
-            os.mkdir(status_dir)
+        results_dir = os.path.join(job_executor.LOCAL_WORKSPACE, str(tmp['job_id']))
+        if not os.path.exists(results_dir):
+            os.mkdir(results_dir)
         tmp["pid"] = None
-        tmp["store_result_state"] = dict(idx=i, n_errors=n_errors, status_dir=status_dir, state="store_in_db")
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors, results_dir=results_dir, state="store")
 
-    # Number of files to transfer
-    n_files = len(job_executor.get_download_files_list(tmp))
-    if i < n_files:
-        file_path = job_executor.get_store_path(tmp)
+    # Files to transfer
+    files = job_executor.get_download_files_list(tmp)
+    file_dict = files[i] if i < len(files) else {"file": "", "remote_name": "", "type": ""}
 
-    if i < n_files and n_errors >= MAX_ERRORS:
-        print(f"Store result in backend error: File {file_path}")
+    if i < len(files) and n_errors >= MAX_ERRORS:
+        print(f"Store result in backend error: File {file_dict['file']}")
         job_context = json.dumps(tmp)
         return "error", job_context
-    if i == n_files:  # Transfer finished
+    elif i == len(files):  # Transfer finished
         print("Store result in backend finished")
-        del tmp["store_result_state"]
+        del tmp["state_dict"]
         job_context = json.dumps(tmp)
         return job_context
     elif job_executor.job_status(tmp) == "running":  # Transfer is being executed
@@ -520,30 +499,32 @@ def wf1_store_result_in_backend(job_context: str):
         return 1, job_context
     elif job_executor.job_status(tmp) == "":
         tmp["pid"] = None
-        tmp["store_result_state"] = dict(idx=i, n_errors=n_errors + 1, status_dir=status_dir, state="store_in_db")
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors + 1, results_dir=results_dir, state="store")
         job_context = json.dumps(tmp)
         return None, job_context
-    elif check_file_is_stored_in_backend(file_path, tmp["job_id"]):  # File i has been transferred successfully
-        print(f"File {file_path} stored -> Moving to next")
-        job_executor.put_file_in_db(tmp)
+    elif check_file_is_stored_in_backend(file_dict["file"], tmp["job_id"]):  # File i has been transferred successfully
+        print(f"File {file_dict['file']} stored -> Moving to next")
         i += 1
         tmp["pid"] = None
-        tmp["store_result_state"] = dict(idx=i, n_errors=n_errors, status_dir=status_dir, state="store_in_db")
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors, results_dir=results_dir, state="store")
         job_context = json.dumps(tmp)
         return None, job_context
     else:  # Transfer file i
-        print(f"Beginning to store result in backend of file {i + 1}")
+        print(f"Beginning to store result in backend of file {file_dict['file']}")
         cookies_file_path = os.getenv("COOKIES_FILE_PATH")
-        api_base_url = os.getenv("API_BASE_URL")
-        filename = os.path.basename(file_path)
-        curl_cmd = f"curl -s --cookie-jar {cookies_file_path} --cookie {cookies_file_path} -H \"Content-Type: application/x-fasta\" -XPUT --data-binary @\"{file_path}\" \"{api_base_url}/files/jobs/{tmp['job_id']}/{filename}.content\""
-        cmd = f"curl -s -c {cookies_file_path} -X PUT {api_base_url}/authn?user=test_user > /dev/null && (nohup bash -c \'{curl_cmd} \' >/tmp/mtest </dev/null 2>/tmp/mtest.err & echo $!; wait $!; echo $? >> /tmp/{tmp['job_id']}/$!.exit_status)"
+        endpoint_url = os.getenv("ENDPOINT_URL")
+        local_path = os.path.join(job_executor.LOCAL_WORKSPACE, file_dict["file"])
+        api_login()
+        curl_cmd = f"curl -s --cookie-jar {cookies_file_path} --cookie {cookies_file_path} -H \"Content-Type: application/x-fasta\" -XPUT --data-binary @\"{local_path}\" \"{endpoint_url}{bcs_api_base}/files/jobs/{tmp['job_id']}/{file_dict['file']}.content\""
+        # cmd = f"curl -s -c {cookies_file_path} -X PUT {endpoint_url}{bcs_api_base}/authn?user=test_user > /dev/null && (nohup bash -c \'{curl_cmd} \' >/tmp/mtest </dev/null 2>/tmp/mtest.err & echo $!; wait $!; echo $? >> /tmp/{tmp['job_id']}/$!.exit_status)"
+        cmd = f"(nohup bash -c \'{curl_cmd} \' >/tmp/mtest </dev/null 2>/tmp/mtest.err & echo $!; wait $!; echo $? >> /tmp/{tmp['job_id']}/$!.exit_status)"
         print(cmd)
         popen_pipe = os.popen(cmd)
+        print_file(cookies_file_path)
         pid = popen_pipe.readline().rstrip()
         print(f"PID: {pid}")
         tmp["pid"] = pid
-        tmp["store_result_state"] = dict(idx=i+1, n_errors=n_errors, status_dir=status_dir, state="store_in_db")
+        tmp["state_dict"] = dict(idx=i + 1, n_errors=n_errors, results_dir=results_dir, state="store_in_db")
         job_context = json.dumps(tmp)
         return None, job_context
 
@@ -622,4 +603,3 @@ def wf1_cancelled(job_context: str):
     job_executor.remove_job_workspace(tmp)
     append_text(f"cancelled")
     return job_context
-

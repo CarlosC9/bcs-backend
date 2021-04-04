@@ -201,7 +201,7 @@ class RemoteSSHClient:
         pid = None
         if self.sftp is not None:
             remote_file = os.path.join(self.remote_path, remote_file)
-            if self.sftp.isfile(remote_file):
+            if await self.sftp.isfile(remote_file):
                 cmd = f"(nohup scp {self.username}@{self.host}:{remote_file} {local_file} >/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!; wait $!; echo $? >> {self.job_status_dir}/$!.exit_status)"
                 print(cmd)
                 popen_pipe = os.popen(cmd)
@@ -295,7 +295,7 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         self.username = None
         self.known_hosts_filepath = None
         self.remote_path = os.path.join(ROOT_DIR, job_id)
-        self.job_status_dir = os.path.join("/tmp", job_id)
+        self.job_status_dir = os.path.join(self.LOCAL_WORKSPACE, job_id)
         self.remote_client = None
         self.loop = asyncio.get_event_loop()
 
@@ -323,6 +323,11 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         self.remote_client.disconnect()
         self.loop.close()
 
+    def get_export_path(self, job_context):
+        i = job_context.get('export_state')['idx']
+        file = job_context['process']['inputs']['data'][i]['file']
+        return file
+
     # JOB EXECUTION
     def create_job_workspace(self, name):
         # the name is the job_id
@@ -332,12 +337,12 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         self.loop.run_until_complete(self.remote_client.remove_directory(os.path.join(ROOT_DIR, name)))
 
     def exists(self, job_context):
-        i = job_context["transfer_state"]["idx"]
-        if job_context["transfer_state"]["state"] == "upload":
+        i = job_context["state_dict"]["idx"]
+        if job_context["state_dict"]["state"] == "upload":
             local_path = self.get_upload_files_list(job_context)[i]["file"]
             remote_path = self.get_upload_files_list(job_context)[i]["remote_name"]
         else:
-            results_dir = job_context["transfer_state"]["results_dir"]
+            results_dir = job_context["state_dict"]["results_dir"]
             filename = self.get_download_files_list(job_context)[i]["file"]
             local_path = os.path.join(results_dir, filename)
             remote_path = self.get_download_files_list(job_context)[i]["remote_name"]
@@ -356,15 +361,15 @@ class JobExecutorWithSSH(JobExecutorAtResource):
             return None
 
     def upload_file(self, job_context):
-        i = job_context["transfer_state"]["idx"]
+        i = job_context["state_dict"]["idx"]
         local_path = self.get_upload_files_list(job_context)[i]["file"]
         remote_path = self.get_upload_files_list(job_context)[i]["remote_name"]
         return self.remote_client.upload_file(local_path, remote_path)
 
     def download_file(self, job_context):
-        i = job_context["transfer_state"]["idx"]
+        i = job_context["state_dict"]["idx"]
         remote_path = self.get_download_files_list(job_context)[i]["remote_name"]
-        results_dir = job_context["transfer_state"]["results_dir"]
+        results_dir = job_context["state_dict"]["results_dir"]
         filename = self.get_download_files_list(job_context)[i]["file"]
         local_path = os.path.join(results_dir, filename)
         return self.loop.run_until_complete(self.remote_client.download_file(remote_path, local_path))
@@ -389,8 +394,8 @@ class JobExecutorWithSSH(JobExecutorAtResource):
             return "none"
         elif pid == "":
             return ""  # error
-        elif "transfer_state" in job_context.keys() or "store_result_state" in job_context.keys():
-            return self.remote_client.local_command_status(pid)
+        elif "state_dict" in job_context.keys():
+            return self.local_job_status(job_context["job_id"], pid)
         else:
             return self.loop.run_until_complete(self.remote_client.remote_command_status(pid))
 

@@ -42,6 +42,9 @@ class JobManagementAPI:
 
 
 class JobExecutorAtResource(ABC):
+    # TODO acordar el path con Rafa
+    LOCAL_WORKSPACE = "/tmp"
+
     # RESOURCE
     @abc.abstractmethod
     def set_resource(self, params):
@@ -107,6 +110,23 @@ class JobExecutorAtResource(ABC):
     @abc.abstractmethod
     def get_store_path(self, job_context):
         raise NotImplementedError
+
+    def local_job_status(self, job_id, pid):
+        exit_status = "none"
+        if pid:
+            job_workspace = os.path.join(self.LOCAL_WORKSPACE, str(job_id))
+            if os.path.exists(f"{job_workspace}/{pid}.exit_status"):
+                with open(f"{job_workspace}/{pid}.exit_status", "r") as f:
+                    exit_status = f.readline().strip()
+                    if exit_status.strip() == "0":
+                        exit_status = "ok"
+                    else:
+                        print(f"Error executing get with pid: {pid}. Exit status = {exit_status}")
+                        exit_status = ""  # This means error
+            else:
+                exit_status = "running"
+
+        return exit_status
 
 
 class JobExecutorAtResourceFactory:

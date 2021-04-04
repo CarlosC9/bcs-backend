@@ -14,7 +14,9 @@
     "data":[
        {
           "remote_name": "clustalw.fasta",
-          "file": "/home/daniel/Documentos/GIT/bcs-backend/tests/ssh_data_test/clustalw.fasta",
+          "file": "clustalw.fasta",
+          "selection": [1, 2],
+          "bo_type": "sequences",
           "type":"fasta"
        }
     ]
