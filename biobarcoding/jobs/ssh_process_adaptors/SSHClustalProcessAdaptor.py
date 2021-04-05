@@ -11,18 +11,19 @@ class SSHClustalProcessAdaptor(SSHProcessAdaptor):
     def _get_script_files_list(self):
         return [
             {
-                "remote_name": "clustalw.sh",
-                "file": os.path.join(self.ASSETS_FOLDER, "clustalw.sh"),
+                "remote_name": self._get_script_filename(),
+                "file": os.path.join(self.ASSETS_FOLDER, self._get_script_filename()),
                 "type": "sh"
-            }
+            },
         ]
 
     def _get_script_params_string(self, process_parameters):
+        clustalw_parameters = process_parameters["clustalw"]
         output_file = self._get_results_files_list()[0].get("remote_name")
         params_str = f"{self.INPUT_FILENAME} {output_file} " +\
-                     f"{process_parameters['out_order']} {process_parameters['dnarna']}"
-        if process_parameters["mode"] == "part":
-            params_str += f" {process_parameters['seq_range_start']} {process_parameters['seq_range_end']}"
+                     f"{clustalw_parameters['out_order']} {clustalw_parameters['dnarna']}"
+        if clustalw_parameters["mode"] == "part":
+            params_str += f" {clustalw_parameters['seq_range_start']} {clustalw_parameters['seq_range_end']}"
 
         return params_str
 

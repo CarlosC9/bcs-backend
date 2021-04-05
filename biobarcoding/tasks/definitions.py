@@ -75,6 +75,10 @@ def check_file_is_stored_in_backend(filename, job_id):
         return False
 
 
+#TODO: Hay que prepararlo para las colecciones y los ficheros que suba el usuario de manera
+# que se puedan concatenar si se refieren al mismo fichero.
+# Mirar: https://stackoverflow.com/questions/40359012/how-to-append-a-file-with-the-existing-one-using-curl
+
 def export(file_dict, results_dir) -> object:
     """
     Execute remote client script
@@ -225,7 +229,7 @@ def wf1_export_to_supported_file_formats(job_context: str):
     if i < len(files) and n_errors >= MAX_ERRORS:
         print(f"Export error: File {i + 1} {file_dict['file']}")
         job_context = json.dumps(tmp)
-        return 3, job_context
+        return "error", job_context
     if i == len(files):  # Transfer finished
         print("Export finished")
         del tmp["state_dict"]
@@ -249,7 +253,6 @@ def wf1_export_to_supported_file_formats(job_context: str):
         return None, job_context
     else:  # Transfer file i
         print(f"Begin export {i + 1}: {file_dict['file']}")
-        data = tmp['process']['inputs']['data'][i]
         pid = export(file_dict, results_dir)
         tmp["pid"] = pid
         tmp["state_dict"] = dict(idx=i, n_errors=n_errors, state="export", results_dir=results_dir)
@@ -524,7 +527,7 @@ def wf1_store_result_in_backend(job_context: str):
         pid = popen_pipe.readline().rstrip()
         print(f"PID: {pid}")
         tmp["pid"] = pid
-        tmp["state_dict"] = dict(idx=i + 1, n_errors=n_errors, results_dir=results_dir, state="store_in_db")
+        tmp["state_dict"] = dict(idx=i + 1, n_errors=n_errors, results_dir=results_dir, state="store")
         job_context = json.dumps(tmp)
         return None, job_context
 
