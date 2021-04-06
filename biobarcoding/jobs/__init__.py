@@ -146,7 +146,7 @@ class JobExecutorAtResourceFactory:
     def _create(job_executor_name: str, resource_param: Dict, **kwargs):
         if job_executor_name.lower() == "galaxy":
             from biobarcoding.jobs.galaxy_resource import JobExecutorAtGalaxy
-            tmp = JobExecutorAtGalaxy()
+            tmp = JobExecutorAtGalaxy(str(kwargs["job_id"]))
             tmp.set_resource(resource_param)
             return tmp
         elif job_executor_name.lower() == "ssh":
