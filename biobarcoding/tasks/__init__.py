@@ -4,8 +4,6 @@ from celery import Celery
 
 import biobarcoding
 from .celeryconfig import celery_config
-from ..rest import bcs_api_base
-
 
 def is_port_open(host="localhost", port=6379):
     a_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
