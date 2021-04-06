@@ -14,7 +14,7 @@ def main(host):
     engine = create_engine('postgresql://postgres:postgres@' + host + ':5432/')
     with engine.connect().execution_options(autocommit=True) as conn:
         edam_id = conn.execute(text("select db_id from db where name=\'EDAM\'")).fetchone()
-        if (edam_id == None):
+        if edam_id is None:
             meta = MetaData()
             meta.reflect(engine, only=["db", "cvterm"])#this get information about the db and cvterm tables in the existing database
             #CREATE db_relationship table to relate EDAM submodules with EDAM itself
