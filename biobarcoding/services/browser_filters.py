@@ -1,0 +1,96 @@
+from biobarcoding.db_models import DBSession as bcs_session
+from biobarcoding.db_models.sysadmin import BrowserFilterForm, BrowserFilter
+from biobarcoding.rest import Issue, IType, filter_parse, paginator
+
+
+def create(**kwargs):
+    try:
+        if not kwargs.get('name'):
+            raise
+        bcs_session.add(BrowserFilter(**kwargs))
+        issues, status = [Issue(IType.INFO, f'CREATE browser_filters: It was created successfully.')], 201
+    except Exception as e:
+        print(e)
+        issues, status = [Issue(IType.ERROR, f'CREATE browser_filters: It could not be created.')], 500
+    return issues, None, status
+
+
+count = 0
+def read(id=None, **kwargs):
+    content = None
+    try:
+        content = __get_query(id, **kwargs)
+        if id:
+            content = content.first()
+        else:
+            content = content.all()
+        issues, status = [Issue(IType.INFO, 'READ browser_filters: The browser_filters were read successfully.')], 200
+    except Exception as e:
+        print(e)
+        issues, status = [Issue(IType.ERROR, 'READ browser_filters: The browser_filters could not be read.')], 500
+    return issues, content, count, status
+
+
+def update(id, **kwargs):
+    try:
+        __get_query(id).update(kwargs)
+        issues, status = [Issue(IType.INFO, f'UPDATE browser_filters: It was updated successfully.')], 201
+    except Exception as e:
+        print(e)
+        issues, status = [Issue(IType.ERROR, f'UPDATE browser_filters: It could not be updated.')], 500
+    return issues, None, status
+
+
+def delete(id=None, **kwargs):
+    content = None
+    try:
+        resp = __get_query(id, **kwargs).delete(synchronize_session='fetch')
+        issues, status = [Issue(IType.INFO, f'DELETE browser_filters: The {resp} browser_filters were successfully removed.')], 200
+    except Exception as e:
+        print(e)
+        issues, status = [Issue(IType.ERROR, 'DELETE browser_filters: The browser_filters could not be removed.')], 500
+    return issues, content, status
+
+
+def __get_query(id=None, **kwargs):
+    query = bcs_session.query(BrowserFilter)
+    global count
+    count = 0
+    if id:
+        query = query.filter(BrowserFilter.id == id)
+    else:
+        if 'filter' in kwargs:
+            query = query.filter(filter_parse(BrowserFilter, kwargs.get('filter'), __aux_own_filter))
+        if 'order' in kwargs:
+            query = __get_query_ordered(query, kwargs.get('order'))
+        if 'pagination' in kwargs:
+            count = query.count()
+            query = paginator(query, kwargs.get('pagination'))
+    return query
+
+
+def __aux_own_filter(filter):
+    clause = []
+    # if filter.get('feature_id'):
+    #     from biobarcoding.db_models.chado import AnalysisFeature
+    #     _ids = bcs_session.query(AnalysisFeature.analysis_id)\
+    #         .filter(filter_parse(AnalysisFeature, {'feature_id':filter.get('feature_id')})).all()
+    #     clause.append(BrowserFilter.analysis_id.in_(_ids))
+    return clause
+
+
+def __get_query_ordered(query, order):
+    # query = query.order(order_parse(BrowserFilter, kwargs.get('order'), __aux_own_order))
+    return query
+
+
+def read_form(datatype):
+    content = None
+    try:
+        from biobarcoding.forms.filter_forms import getFilterSchema
+        content = getFilterSchema(datatype)
+        issues, status = [Issue(IType.INFO, 'READ browser_filter forms: successfully read.')], 200
+    except Exception as e:
+        print(e)
+        issues, status = [Issue(IType.ERROR, 'READ browser_filter forms: could not be read.')], 500
+    return issues, content, status

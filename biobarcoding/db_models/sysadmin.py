@@ -1,5 +1,7 @@
 import datetime
 import uuid
+
+import sqlalchemy
 from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, JSON, Boolean
 from sqlalchemy.orm import relationship, backref
 
@@ -199,3 +201,32 @@ class Task(ORMBase):  # Celery task
     status = Column(Integer, ForeignKey(TaskStatus.id))
     log = Column(Text)
 
+
+# BROWSER FILTER
+
+prefix = "sa_browser_"
+
+
+class BrowserFilterForm(ORMBase):
+    __tablename__ = f"{prefix}filter_forms"
+
+    id = Column(Integer, ForeignKey(ObjectType.id), primary_key=True)
+    # id = Column(Integer, primary_key=True, autoincrement=True)
+    # bo_type_id = Column(Integer, ForeignKey(ObjectType.id), nullable=False, unique=True)
+    uuid = Column(GUID, unique=True)
+    form = Column(Text)
+
+
+class BrowserFilter(ORMBase):
+    __tablename__ = f"{prefix}filters"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(GUID, unique=True)
+    name = Column(String(80), nullable=False)
+    value = Column(JSON)
+    user_id = Column(Integer, ForeignKey(Identity.id), nullable=False)
+    form_id = Column(Integer, ForeignKey(BrowserFilterForm.id), nullable=False)
+
+    __table_args__ = (
+        sqlalchemy.UniqueConstraint(name, user_id, form_id, name=__tablename__+'_c1'),
+    )
