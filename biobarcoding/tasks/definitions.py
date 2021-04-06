@@ -33,8 +33,8 @@ def change_status(tmp, status: str):
     if tmp["status"] != status:
         api_login()
         #TODO: este comando hace que se borre la sesión. Hay que revisar que esté funcionando bien.
-        cmd = ["curl", "--cookie-jar", cookies_file_path, "-c", cookies_file_path, "-X", "PUT", "-H",
-               "Content-Type: application/json", "-d", '{"status":"preparing_workspace"}', url]
+        cmd = ["curl", "--cookie-jar", cookies_file_path, "--cookie", cookies_file_path, "-H",
+               "Content-Type: application/json", "-XPUT", "--data-binary", '{"status":"preparing_workspace"}', url]
         print(subprocess.run(cmd))
         print_file(cookies_file_path)
         tmp["status"] = status
