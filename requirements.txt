@@ -4,7 +4,7 @@ Flask_Cors==3.0.8
 
 pronto>=2.3.1
 
-alchemyjsonschema==0.6.1
+alchemyjsonschema==0.7.0
 marshmallow==3.9.1
 marshmallow-sqlalchemy==0.24.1
 marshmallow-jsonschema==0.10.0
