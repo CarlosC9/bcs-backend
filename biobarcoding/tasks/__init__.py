@@ -1,13 +1,13 @@
 import socket
 
 from celery import Celery
-from sqlalchemy import and_
+# from sqlalchemy import and_
 
 import biobarcoding
 from .celeryconfig import celery_config
-from ..db_models import DBSession
-from ..db_models.sysadmin import Identity,Authenticator,IdentityAuthenticator
-from ..rest import bcs_api_base
+#from ..db_models import DBSession
+#from ..db_models.sysadmin import Identity,Authenticator,IdentityAuthenticator
+#from ..rest import bcs_api_base
 
 
 def is_port_open(host="localhost", port=6379):
