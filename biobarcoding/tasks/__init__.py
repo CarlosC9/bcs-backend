@@ -1,12 +1,9 @@
 import socket
 
 from celery import Celery
-from sqlalchemy import and_
 
 import biobarcoding
 from .celeryconfig import celery_config
-from ..db_models import DBSession
-from ..db_models.sysadmin import Identity,Authenticator,IdentityAuthenticator
 from ..rest import bcs_api_base
 
 
@@ -21,26 +18,6 @@ def is_port_open(host="localhost", port=6379):
 
     return result_of_check == 0
 
-def create_celery_user():
-    pass
-
-
-def change_status(status,job_context):
-    import json
-    import requests
-    tmp = json.loads(job_context)
-    job_id = tmp["job_id"]
-    if tmp["status"] != status:
-        url = tmp["endpoint"]
-        s = requests.Session()
-        # todo permisos propios para celery
-        response = s.put(f"{url}{bcs_api_base}/authn?user=test_user")
-        print(f"status code: {response.status_code}")
-        response = s.put(f'{url}{bcs_api_base}/jobs/{job_id}', json={'status': status})
-        print(f"status code: {response.status_code}")
-        return response.status_code
-    else:
-        return None
 
 
 def get_redis_host():
