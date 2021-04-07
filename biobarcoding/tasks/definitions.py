@@ -1,25 +1,21 @@
 import json
 import os
-import requests
 import subprocess
-
 from biobarcoding.rest import bcs_api_base
 from biobarcoding.tasks import celery_app
-from time import sleep
-
 from biobarcoding.common.decorators import celery_wf
 from biobarcoding.jobs import JobExecutorAtResourceFactory
 from biobarcoding.common import ROOT
 
 """
-Celery tasks CANNOT be debugged in Celery!! (the code is run in a separate process; of course they can be debugged "off-line")
+Celery tasks CANNOT be debugged in Celery!! (the code is run in a separate process; 
+of course they can be debugged "off-line")
 """
 
 MAX_ERRORS = 3
 TMP_PATH = "/tmp"
 
-os.environ['ENDPOINT_URL'] = 'http://localhost:5000'
-os.environ['COOKIES_FILE_PATH'] = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/bcs-cookies.txt'
+
 # Send messages
 # Refresh queues of jobs (at different computing resources)
 
@@ -33,8 +29,7 @@ def change_status(tmp, status: str):
     url = f"{endpoint_url}{bcs_api_base}/jobs/{job_id}"
     if tmp["status"] != status:
         api_login()
-        status_request = json.dumps(dict(status = status))
-        #TODO: este comando hace que se borre la sesión. Hay que revisar que esté funcionando bien.
+        status_request = json.dumps(dict(status=status))
         cmd = ["curl", "--cookie-jar", cookies_file_path, "--cookie", cookies_file_path, "-H",
                "Content-Type: application/json", "-XPUT", "--data-binary", status_request, url]
         print(subprocess.run(cmd))
@@ -45,11 +40,13 @@ def change_status(tmp, status: str):
     else:
         return tmp
 
+
 def print_file(filename):
     with open(filename, 'r') as file:
         lines = file.readlines()
         for line in lines:
             print(line)
+
 
 def api_login():
     endpoint_url = os.getenv("ENDPOINT_URL")
@@ -58,7 +55,6 @@ def api_login():
     cmd = ["curl", "--cookie-jar", cookies_file_path, "-X", "PUT", url]
     subprocess.run(cmd)
     print_file(cookies_file_path)
-
 
 
 def check_file_is_stored_in_backend(filename, job_id):
@@ -78,15 +74,15 @@ def check_file_is_stored_in_backend(filename, job_id):
         return False
 
 
-#TODO: Hay que prepararlo para las colecciones y los ficheros que suba el usuario de manera
+# TODO: Hay que prepararlo para las colecciones y los ficheros que suba el usuario de manera
 # que se puedan concatenar si se refieren al mismo fichero.
 # Mirar: https://stackoverflow.com/questions/40359012/how-to-append-a-file-with-the-existing-one-using-curl
 
 def export(file_dict, results_dir) -> object:
     """
     Execute remote client script
-    @param url: url of the get
-    @param path: local path of the file gotten with curl
+    @param file_dict: Dictionary of the file to be exported
+    @param results_dir: Local directory where the file exported is saved
     @return: pid: PID of the executed script process
     """
     tmp_path = os.path.join(results_dir, file_dict["file"])
@@ -185,6 +181,10 @@ def wf1_prepare_workspace(job_context):
     tmp = change_status(tmp, "preparing_workspace")
 
     job_executor = JobExecutorAtResourceFactory().get(tmp)
+    if not job_executor.check():
+        print("Connection to the server has been lost")
+        job_context = json.dumps(tmp)
+        return "error", job_context
     job_executor.create_job_workspace(str(tmp["job_id"]))
     job_context = json.dumps(tmp)
     return job_context
@@ -230,7 +230,9 @@ def wf1_export_to_supported_file_formats(job_context: str):
     file_dict = files[i] if i < len(files) else {"file": "", "remote_name": "", "type": ""}
 
     if i < len(files) and n_errors >= MAX_ERRORS:
-        print(f"Export error: File {i + 1} {file_dict['file']}")
+        error_str = f"Export error: File {i + 1} {file_dict['file']}"
+        print(error_str)
+        tmp['error'] = error_str
         job_context = json.dumps(tmp)
         return "error", job_context
     if i == len(files):  # Transfer finished
@@ -289,6 +291,12 @@ def wf1_transfer_data_to_resource(job_context: str) -> object:
     tmp = json.loads(job_context)
     tmp = change_status(tmp, "transfer_data_to_resource")
     job_executor = JobExecutorAtResourceFactory().get(tmp)
+    if not job_executor.check():
+        error_str = "Connection to the server has been lost"
+        print(error_str)
+        tmp['error'] = error_str
+        job_context = json.dumps(tmp)
+        return "error", job_context
     print(tmp)
     state_dict = tmp.get("state_dict")
     print(f"Transfer state: {state_dict}")
@@ -306,7 +314,9 @@ def wf1_transfer_data_to_resource(job_context: str) -> object:
     file_dict = files[i] if i < len(files) else {"file": "", "remote_name": "", "type": ""}
 
     if i < len(files) and n_errors >= MAX_ERRORS:
-        print(f"File {file_dict['file']} doesn't exist.")
+        error_str = f"Transfer of file {file_dict['file']} to resource failed."
+        print(error_str)
+        tmp['error'] = error_str
         job_context = json.dumps(tmp)
         return "error", job_context
     elif i == len(files):  # Transfer finished
@@ -367,11 +377,21 @@ def wf1_wait_until_execution_starts(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
+    tmp = change_status(tmp, "wait_until_execution_starts")
     job_executor = JobExecutorAtResourceFactory().get(tmp)
+    if not job_executor.check():
+        error_str = "Connection to the server has been lost"
+        print(error_str)
+        tmp['error'] = error_str
+        job_context = json.dumps(tmp)
+        return "error", job_context
     status = job_executor.job_status(tmp)
     append_text(f"wait_until_execution_starts: status: {status}")
     if isinstance(status, dict):
         tmp['process']['error'] = status
+        error_str = f"The process failed to start with status: {status}."
+        print(error_str)
+        tmp['error'] = error_str
         job_context = json.dumps(tmp)
         return 'error', job_context
     elif status == 'running' or status == 'ok':
@@ -391,7 +411,14 @@ def wf1_wait_for_execution_end(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
+    tmp = change_status(tmp, "wait_for_execution_end")
     job_executor = JobExecutorAtResourceFactory().get(tmp)
+    if not job_executor.check():
+        error_str = "Connection to the server has been lost"
+        print(error_str)
+        tmp['error'] = error_str
+        job_context = json.dumps(tmp)
+        return "error", job_context
     status = job_executor.job_status(tmp)
     append_text(f"wait_for_execution_end: status: {status}")
     if isinstance(status, dict):
@@ -413,9 +440,16 @@ def wf1_transfer_data_from_resource(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
+    tmp = change_status(tmp, "transfer_data_from_resource")
     job_executor = JobExecutorAtResourceFactory().get(tmp)
-    state_dict = tmp.get("state_dict")
+    if not job_executor.check():
+        error_str = "Connection to the server has been lost"
+        print(error_str)
+        tmp['error'] = error_str
+        job_context = json.dumps(tmp)
+        return "error", job_context
 
+    state_dict = tmp.get("state_dict")
     print(f"Transfer state: {state_dict}")
     if state_dict:  # ya ha empezado la transferencia
         i = state_dict["idx"]
@@ -435,7 +469,9 @@ def wf1_transfer_data_from_resource(job_context: str):
     file_dict = files[i] if i < len(files) else {"file": "", "remote_name": "", "type": ""}
 
     if i < len(files) and n_errors >= MAX_ERRORS:
-        print(f"Transfer error: File {i + 1}")
+        error_str = f"Transfer from resource error: File {file_dict['file']}"
+        print(error_str)
+        tmp['error'] = error_str
         job_context = json.dumps(tmp)
         return "error", job_context
     if i == len(files):  # Transfer finished
@@ -492,7 +528,9 @@ def wf1_store_result_in_backend(job_context: str):
     file_dict = files[i] if i < len(files) else {"file": "", "remote_name": "", "type": ""}
 
     if i < len(files) and n_errors >= MAX_ERRORS:
-        print(f"Store result in backend error: File {file_dict['file']}")
+        error_str = f"Store result in backend error: File {file_dict['file']}"
+        print(error_str)
+        tmp['error'] = error_str
         job_context = json.dumps(tmp)
         return "error", job_context
     elif i == len(files):  # Transfer finished
@@ -522,7 +560,6 @@ def wf1_store_result_in_backend(job_context: str):
         local_path = os.path.join(job_executor.LOCAL_WORKSPACE, file_dict["file"])
         api_login()
         curl_cmd = f"curl -s --cookie-jar {cookies_file_path} --cookie {cookies_file_path} -H \"Content-Type: application/x-fasta\" -XPUT --data-binary @\"{local_path}\" \"{endpoint_url}{bcs_api_base}/files/jobs/{tmp['job_id']}/{file_dict['file']}.content\""
-        # cmd = f"curl -s -c {cookies_file_path} -X PUT {endpoint_url}{bcs_api_base}/authn?user=test_user > /dev/null && (nohup bash -c \'{curl_cmd} \' >/tmp/mtest </dev/null 2>/tmp/mtest.err & echo $!; wait $!; echo $? >> /tmp/{tmp['job_id']}/$!.exit_status)"
         cmd = f"(nohup bash -c \'{curl_cmd} \' >/tmp/mtest </dev/null 2>/tmp/mtest.err & echo $!; wait $!; echo $? >> /tmp/{tmp['job_id']}/$!.exit_status)"
         print(cmd)
         popen_pipe = os.popen(cmd)
@@ -548,6 +585,12 @@ def wf1_cleanup_workspace(job_context: str):
     tmp = json.loads(job_context)
     tmp = change_status(tmp, "cleanup")
     job_executor = JobExecutorAtResourceFactory().get(tmp)
+    if not job_executor.check():
+        error_str = "Connection to the server has been lost"
+        print(error_str)
+        tmp['error'] = error_str
+        job_context = json.dumps(tmp)
+        return "error", job_context
     job_executor.remove_job_workspace(str(tmp["job_id"]))
     del tmp['pid']
     job_context = json.dumps(tmp)
@@ -585,6 +628,10 @@ def wf1_completed_error(job_context: str):
     tmp = json.loads(job_context)
     tmp = change_status(tmp, "error")
     job_executor = JobExecutorAtResourceFactory().get(tmp)
+    if not job_executor.check():
+        print(f"The Remote workspace of job {tmp['job_id']} could not be deleted")
+        job_context = json.dumps(tmp)
+        return job_context
     # los errores ya están en tmp o se descargaría en download
     #  para qué usaría la información en status?
     job_executor.remove_job_workspace(str(tmp['job_id']))

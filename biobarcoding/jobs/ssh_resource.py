@@ -244,7 +244,6 @@ class RemoteSSHClient:
         """
         if self.sftp is not None:
             if not await self.sftp.isdir(os.path.join(self.remote_path, dir_name)):
-                # TODO: Se le puede asignar permisos, por ejemplo al working directory
                 await self.sftp.mkdir(os.path.join(self.remote_path, dir_name))
             else:
                 print("folder already exists")

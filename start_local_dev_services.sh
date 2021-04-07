@@ -20,6 +20,18 @@ function init_chado {
   ./init.sh
 }
 
+
+if [ "$(whoami)" == "rnebot" ] && [ "$#" -gt 0 ] ; then
+  echo "TODO: INICIALIZAR VARIABLES DE ENTORNO!"
+elif [ "$(whoami)" == "acurbelo" ] ; then
+  echo "TODO: INICIALIZAR VARIABLES DE ENTORNO!"
+elif [ "$(whoami)" == "paula" ] ; then
+  echo "TODO: INICIALIZAR VARIABLES DE ENTORNO!"
+elif [ "$(whoami)" == "daniel" ] ; then
+  export ENDPOINT_URL="http://localhost:5000"
+  export COOKIES_FILE_PATH="/home/daniel/Documentos/Projects/curl/bcs-cookies.txt"
+fi
+
 # PostgreSQL
 if [ ! "$(docker ps -q -f name=postgres_devel)" ] ; then
   echo Starting PostgreSQL-Chado
