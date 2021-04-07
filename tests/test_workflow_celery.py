@@ -118,6 +118,8 @@ def wf1_export_to_supported_file_formats(job_context: str):
     MAX_ERRORS = 3
     tmp = json.loads(job_context)
     job_executor = JobExecutorAtResourceFactory().get(tmp)
+    response = job_executor.check()
+    print(response)
     transfer_state = tmp.get("transfer_state")
     # TODO acordar el path con Rafa
     base_path_to_tmp = TEST_INPUTS_FOLDER

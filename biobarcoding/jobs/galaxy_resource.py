@@ -26,7 +26,7 @@ def get(url, path) -> object:
     @param path: local path of the file gotten with curl
     @return: pid: PID of the executed script process
     """
-    path = os.path.join(DOWNLOAD_PATH,path)
+
     cmd = f"(nohup bash -c \"curl -o {path} {url} \" >/tmp/mtest </dev/null 2>/tmp/mtest.err & echo $!; wait $!; echo $? >> {JOB_STATUS_DIR}/$!.exit_status)"
 
     print(cmd)
@@ -36,21 +36,21 @@ def get(url, path) -> object:
     return pid
 
 
-def download_status(pid):
-    exit_status = "none"
-    if pid:
-        if os.path.isfile(f"{JOB_STATUS_DIR}/{pid}.exit_status"):
-            with open(f"{JOB_STATUS_DIR}/{pid}.exit_status", "r") as f:
-                exit_status = f.readline().strip()
-                if exit_status.strip() == "0":
-                    exit_status = "ok"
-                else:
-                    print(f"Error executing get with pid: {pid}. Exit status = {exit_status}")
-                    exit_status = ""  # This means error
-        else:
-            exit_status = "running"
-
-    return exit_status
+# def download_status(pid):
+#     exit_status = "none"
+#     if pid:
+#         if os.path.isfile(f"{JOB_STATUS_DIR}/{pid}.exit_status"):
+#             with open(f"{JOB_STATUS_DIR}/{pid}.exit_status", "r") as f:
+#                 exit_status = f.readline().strip()
+#                 if exit_status.strip() == "0":
+#                     exit_status = "ok"
+#                 else:
+#                     print(f"Error executing get with pid: {pid}. Exit status = {exit_status}")
+#                     exit_status = ""  # This means error
+#         else:
+#             exit_status = "running"
+#
+#     return exit_status
 
 # no tiene sentido que haga esto xq galaxy ya es este objeto
 class instance():
@@ -637,11 +637,18 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         self.api_key = params['jm_credentials']['api_key']
         self.url = params['jm_location']['url']
 
-    def check(self):
-        pass
 
     def connect(self):
         self.galaxy_instance = login(self.api_key, self.url)
+
+    def check(self):
+        self.connect()
+        gi = self.galaxy_instance
+        try:
+            gi.config.get_config()
+        except:
+            return False
+        return True
 
     def disconnect(self):
         # todo
@@ -726,22 +733,22 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
             h_id = get_history_id(gi,history_name= history)
             dataset_info = gi.histories.show_matching_datasets(history_id = h_id , name_filter = label )
             if len(dataset_info) > 0:
-                local_path = self.get_upload_files_list(job_context)[i]["file"]
+                file_local_path = os.path.join(self.LOCAL_WORKSPACE,self.workspace,self.get_upload_files_list(job_context)[i]["file"])
                 try:
-                    local_size = os.path.getsize(os.path.join(DOWNLOAD_PATH,local_path))
+                    local_size = os.path.getsize(file_local_path)
                 except FileNotFoundError:
-                    print(f"File {local_path} not found in your local system")
+                    print(f"File {file_local_path} not found in your local system")
                     return None
                 remote_size = dataset_info[0]['file_size']
                 # TODO not implemented: there is a little difference between sized
                 # if local_size == remote_size:
                 return True
         if job_context["state_dict"]["state"] == "download":
-            local_path = self.get_download_files_list(job_context)[i]["file"]
-            if os.path.exists(os.path.join(DOWNLOAD_PATH,local_path)):
+            file_local_path = os.path.join(self.LOCAL_WORKSPACE,self.workspace,self.get_download_files_list(job_context)[i]["file"])
+            if os.path.exists(os.path.join(file_local_path)):
                 return True
             else:
-                print(f"File {local_path} not found in your local system")
+                print(f"File {file_local_path} not found in your local system")
                 return None
 
 
@@ -814,25 +821,26 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         i = job_context['state_dict'].get('idx')
         result =  job_context['results'][i] # TODO esto hay que cambiarlo porque voy a cambiar la carpeta de results
         remote_name = result.get('remote_name') # TODO o remote_name lo jusnto sería poner todo según el punto de vista de galaxy?
-        result_path = result.get('file')
+        download_path = os.path.join(self.LOCAL_WORKSPACE,self.workspace,result.get('file'))
+        job_dir = os.path.join(self.LOCAL_WORKSPACE,self.workspace)
         file_ext = result.get('type')
         history_name = self.workspace
         self.connect()
         gi = self.galaxy_instance
-        std_local_path = os.path.join(DOWNLOAD_PATH,result_path).split(sep='.')[0]
-        try:
-            os.mkdir(std_local_path)
-        finally:
-            std = get_stdout_stderr(gi, result, history_name)
-            # TODO put stdout_output name instead of output_name/stdout ?
-            for k, i in std.items():
-                f = open(os.path.join(std_local_path,k) + '.log', 'w')
-                f.write(i)
-            dataset = gi.histories.show_matching_datasets(history_id=get_history_id(gi,history_name), name_filter= remote_name)[0] # todo revisar remote name dar exacto o regex?
-            download_url = dataset['download_url'] + '?to_ext=' + file_ext
-            url = urljoin(gi.base_url, download_url)
-            pid = get(url,result_path)
-            return pid
+        std = get_stdout_stderr(gi, result, history_name)
+        for k, i in std.items():
+            f = open(os.path.join(job_dir,k) + f"_{file_ext}.log", 'w')
+            f.write(i)
+        dataset = gi.histories.show_matching_datasets(history_id=get_history_id(gi,history_name), name_filter= remote_name)[0] # todo revisar remote name dar exacto o regex?
+        download_url = dataset['download_url'] + '?to_ext=' + file_ext
+        url = urljoin(gi.base_url, download_url)
+        cmd = f"(nohup bash -c \"curl -o {download_path} {url} \" >/tmp/mtest </dev/null 2>/tmp/mtest.err & echo $!; wait $!; echo $? >> {job_dir}/$!.exit_status)"
+        print(cmd)
+        popen_pipe = os.popen(cmd)
+        pid = popen_pipe.readline().rstrip()
+        print(f"PID: {pid}")
+        return pid
+
 
 def convert_workflows_to_formly():
     workflow_files_list = os.listdir(os.path.join(ROOT,'biobarcoding/workflows'))

@@ -152,11 +152,9 @@ class GalaxyClustalAdaptator(GalaxyProcessAdaptor):
     def _complete_with_outputs_files(self,job_context):
         extension = job_context['process']['inputs']['parameters']["clustalw"].get("outform")
         output_1 = dict(type = extension, remote_name = f"ClustalW on data 1: clustal", file = '.'.join(["clustal",extension]) )
-        output_2 = dict(type = 'nhx', remote_name = f"ClustalW on data 1: dnd", file = '.'.join(['dnd','nhx'])) # TODO generalizar cpm regex
+        output_2 = dict(type = 'nhx', remote_name = f"ClustalW on data 1: dnd", file = '.'.join(['dnd','nhx'])) # TODO generalizar con regex
         return [output_1,output_2]
 
     def _complete_with_worlflow_name(self):
         name = self.worflow_dict['name']
         return name
-
-
