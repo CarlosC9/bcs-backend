@@ -25,7 +25,6 @@ def change_status(tmp, status: str):
     print(f"Env. variable ENDPOINT_URL: {endpoint_url}")
     print(f"Env. variable COOKIES_FILE_PATH: {cookies_file_path}")
     job_id = tmp["job_id"]
-    # TODO comprobar existencia de
     url = f"{endpoint_url}{bcs_api_base}/jobs/{job_id}"
     if tmp["status"] != status:
         api_login()
