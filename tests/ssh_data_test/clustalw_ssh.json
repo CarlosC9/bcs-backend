@@ -5,7 +5,7 @@
     "parameters": {
       "clustalw": {
         "dnarna": "DNA",
-        "outform": "fasta",
+        "outform": "phylip",
         "out_seqnos": "false",
         "out_order": "ALIGNED",
         "mode": "complete",
@@ -15,8 +15,8 @@
     },
     "data":[
        {
-          "remote_name": "clustalw.fasta",
-          "file": "clustalw.fasta",
+          "remote_name": "input_dataset",
+          "file": "input_dataset",
           "selection": [1, 2],
           "bo_type": "sequences",
           "type":"fasta"

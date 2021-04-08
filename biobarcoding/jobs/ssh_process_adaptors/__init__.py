@@ -17,11 +17,17 @@ class SSHProcessAdaptor(ProcessAdaptor, abc.ABC):
 
     def adapt_job_context(self, job_context):
         process_parameters = job_context["process"]["inputs"]["parameters"]
+        print(process_parameters)
         new_process_parameters = {
             SCRIPT_KEY: self._get_script_filename(),
-            SCRIPT_FILES_KEY: self._get_script_files_list(),
+            SCRIPT_FILES_KEY: self._get_script_files_list() +
+                              [{
+                                  "remote_name": self._get_script_filename(),
+                                  "file": os.path.join(self.ASSETS_FOLDER, self._get_script_filename()),
+                                  "type": "sh"
+                              }],
             SCRIPT_PARAMS_KEY: self._get_script_params_string(process_parameters),
-            RESULTS_FILES_KEY: self._get_results_files_list(),
+            RESULTS_FILES_KEY: self._get_results_files_list(process_parameters),
         }
         job_context["process"]["inputs"]["parameters"] = new_process_parameters
         return job_context
@@ -39,5 +45,5 @@ class SSHProcessAdaptor(ProcessAdaptor, abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def _get_results_files_list(self):
+    def _get_results_files_list(self, process_parameters):
         raise NotImplementedError

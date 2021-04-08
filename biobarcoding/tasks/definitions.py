@@ -386,9 +386,12 @@ def wf1_wait_until_execution_starts(job_context: str):
         return "error", job_context
     status = job_executor.step_status(tmp)
     append_text(f"wait_until_execution_starts: status: {status}")
-    if isinstance(status, dict):
-        tmp['process']['error'] = status
-        error_str = f"The process failed to start with status: {status}."
+    if isinstance(status, dict) or status == "":
+        if status != "":
+            tmp['process']['error'] = status
+            error_str = f"The process failed to start with status: {status}."
+        else:
+            error_str = "The process failed to start."
         print(error_str)
         tmp['error'] = error_str
         job_context = json.dumps(tmp)
