@@ -630,13 +630,6 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         # necessary?
         pass
 
-    def get_export_path(self):
-        pass
-
-    def get_store_path(self):
-        pass
-
-
     def get_upload_files_list(self, job_context):
         return job_context["process"]["inputs"]["data"]
 
