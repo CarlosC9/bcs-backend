@@ -61,10 +61,6 @@ class JobExecutorAtResource(ABC):
     @abc.abstractmethod
     def disconnect(self):
         raise NotImplementedError
-    # EXPORT
-    @abc.abstractmethod
-    def get_export_path(self,job_context):
-        raise NotImplementedError
 
     # JOB EXECUTION
     @abc.abstractmethod
@@ -105,10 +101,6 @@ class JobExecutorAtResource(ABC):
 
     @abc.abstractmethod
     def get_download_files_list(self, job_context):
-        raise NotImplementedError
-
-    @abc.abstractmethod
-    def get_store_path(self, job_context):
         raise NotImplementedError
 
     def local_job_status(self, job_id, pid):

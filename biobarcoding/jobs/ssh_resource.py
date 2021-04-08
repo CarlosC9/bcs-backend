@@ -4,7 +4,7 @@ import asyncio
 import asyncssh
 
 # TODO revise this
-ROOT_DIR = "/home/dreyes"
+REMOTE_ROOT_DIR = "/home/dreyes"
 STDOUT_FILE = "bcs.stdout.log"
 STDERR_FILE = "bcs.stderr.log"
 
@@ -293,7 +293,7 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         self.host = None
         self.username = None
         self.known_hosts_filepath = None
-        self.remote_path = os.path.join(ROOT_DIR, job_id)
+        self.remote_path = os.path.join(REMOTE_ROOT_DIR, job_id)
         self.job_status_dir = os.path.join(self.LOCAL_WORKSPACE, job_id)
         self.remote_client = None
         self.loop = asyncio.get_event_loop()
@@ -322,18 +322,13 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         self.remote_client.disconnect()
         self.loop.close()
 
-    def get_export_path(self, job_context):
-        i = job_context.get('export_state')['idx']
-        file = job_context['process']['inputs']['data'][i]['file']
-        return file
-
     # JOB EXECUTION
     def create_job_workspace(self, name):
         # the name is the job_id
-        self.loop.run_until_complete(self.remote_client.make_directory(os.path.join(ROOT_DIR, name)))
+        self.loop.run_until_complete(self.remote_client.make_directory(os.path.join(REMOTE_ROOT_DIR, name)))
 
     def remove_job_workspace(self, name):
-        self.loop.run_until_complete(self.remote_client.remove_directory(os.path.join(ROOT_DIR, name)))
+        self.loop.run_until_complete(self.remote_client.remove_directory(os.path.join(REMOTE_ROOT_DIR, name)))
 
     def exists(self, job_context):
         i = job_context["state_dict"]["idx"]
@@ -424,12 +419,6 @@ class JobExecutorWithSSH(JobExecutorAtResource):
                        "type": "stderr"
                    }
                ]
-
-    def get_store_path(self, job_context):
-        i = job_context["store_result_state"]["idx"]
-        results_dir = job_context["store_result_state"]["status_dir"]
-        filename = self.get_download_files_list(job_context)[i]["file"]
-        return os.path.join(results_dir, filename)
 
     def check_resource(self):
         """

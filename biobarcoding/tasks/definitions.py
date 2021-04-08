@@ -68,7 +68,7 @@ def check_file_is_stored_in_backend(filename, job_id):
     print_file(cookies_file_path)
     process_return_dict = json.loads(proc.stdout)
     if process_return_dict.get("content"):
-        return True
+        return process_return_dict["content"].get("size") != 0
     else:
         return False
 
@@ -558,7 +558,7 @@ def wf1_store_result_in_backend(job_context: str):
         endpoint_url = os.getenv("ENDPOINT_URL")
         local_path = os.path.join(job_executor.LOCAL_WORKSPACE, file_dict["file"])
         api_login()
-        curl_cmd = f"curl -s --cookie-jar {cookies_file_path} --cookie {cookies_file_path} -H \"Content-Type: application/x-fasta\" -XPUT --data-binary @\"{local_path}\" \"{endpoint_url}{bcs_api_base}/files/jobs/{tmp['job_id']}/{file_dict['file']}.content\""
+        curl_cmd = f"curl -s --cookie-jar {cookies_file_path} --cookie {cookies_file_path} -H \"Content-Type: application/x-fasta\" -XPUT --data-binary @\"{local_path}\" \"{endpoint_url}{bcs_api_base}/files/jobs/{str(tmp['job_id'])}/{file_dict['file']}.content\""
         cmd = f"(nohup bash -c \'{curl_cmd} \' >/tmp/mtest </dev/null 2>/tmp/mtest.err & echo $!; wait $!; echo $? >> /tmp/{tmp['job_id']}/$!.exit_status)"
         print(cmd)
         popen_pipe = os.popen(cmd)

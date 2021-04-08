@@ -14,7 +14,7 @@ class SSHClustalProcessAdaptor(SSHProcessAdaptor):
                 "remote_name": self._get_script_filename(),
                 "file": os.path.join(self.ASSETS_FOLDER, self._get_script_filename()),
                 "type": "sh"
-            },
+            }
         ]
 
     def _get_script_params_string(self, process_parameters):
@@ -27,6 +27,7 @@ class SSHClustalProcessAdaptor(SSHProcessAdaptor):
 
         return params_str
 
+    #TODO: mirar tipos de ficheros de output
     def _get_results_files_list(self):
         return [
             {
