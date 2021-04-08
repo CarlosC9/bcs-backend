@@ -382,7 +382,7 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         params = process["inputs"]["parameters"]
         return self.loop.run_until_complete(self.remote_client.run_client(params["script"], params["script_params"]))
 
-    def job_status(self, job_context):
+    def step_status(self, job_context):
         pid = job_context["pid"]
         if pid is None:
             return "none"

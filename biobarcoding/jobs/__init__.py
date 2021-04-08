@@ -43,7 +43,7 @@ class JobManagementAPI:
 
 class JobExecutorAtResource(ABC):
     # TODO acordar el path con Rafa
-    LOCAL_WORKSPACE = "/tmp"
+    LOCAL_WORKSPACE = "/tmp" # TODO leer desde config file
 
     # RESOURCE
     @abc.abstractmethod
@@ -88,7 +88,7 @@ class JobExecutorAtResource(ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def job_status(self, job_context):
+    def step_status(self, job_context):
         raise NotImplementedError
 
     @abc.abstractmethod

@@ -13,7 +13,7 @@ of course they can be debugged "off-line")
 """
 
 MAX_ERRORS = 3
-TMP_PATH = "/tmp"
+
 
 
 # Send messages
@@ -239,10 +239,10 @@ def wf1_export_to_supported_file_formats(job_context: str):
         del tmp["state_dict"]
         job_context = json.dumps(tmp)
         return job_context
-    elif job_executor.job_status(tmp) == "running":  # Transfer is being executed
+    elif job_executor.step_status(tmp) == "running":  # Transfer is being executed
         print("Export executing")
         return 1, job_context
-    elif job_executor.job_status(tmp) == "":
+    elif job_executor.step_status(tmp) == "":
         tmp["pid"] = None
         tmp["state_dict"] = dict(idx=i, n_errors=n_errors + 1, state="export", results_dir=results_dir)
         job_context = json.dumps(tmp)
@@ -323,10 +323,10 @@ def wf1_transfer_data_to_resource(job_context: str) -> object:
         del tmp["state_dict"]
         job_context = json.dumps(tmp)
         return job_context
-    elif job_executor.job_status(tmp) == "running":  # Transfer is being executed
+    elif job_executor.step_status(tmp) == "running":  # Transfer is being executed
         print("Transfer executing")
         return 1, job_context
-    elif job_executor.job_status(tmp) == "":  # Transfer error
+    elif job_executor.step_status(tmp) == "":  # Transfer error
         print(f"Transfer error: File {i + 1}")
         tmp["pid"] = None
         tmp["state_dict"] = dict(idx=i, n_errors=n_errors + 1, state="upload")
@@ -384,7 +384,7 @@ def wf1_wait_until_execution_starts(job_context: str):
         tmp['error'] = error_str
         job_context = json.dumps(tmp)
         return "error", job_context
-    status = job_executor.job_status(tmp)
+    status = job_executor.step_status(tmp)
     append_text(f"wait_until_execution_starts: status: {status}")
     if isinstance(status, dict):
         tmp['process']['error'] = status
@@ -418,7 +418,7 @@ def wf1_wait_for_execution_end(job_context: str):
         tmp['error'] = error_str
         job_context = json.dumps(tmp)
         return "error", job_context
-    status = job_executor.job_status(tmp)
+    status = job_executor.step_status(tmp)
     append_text(f"wait_for_execution_end: status: {status}")
     if isinstance(status, dict):
         tmp['process']['error'] = status
@@ -478,10 +478,10 @@ def wf1_transfer_data_from_resource(job_context: str):
         del tmp["state_dict"]
         job_context = json.dumps(tmp)
         return job_context
-    elif job_executor.job_status(tmp) == "running":  # Transfer is being executed
+    elif job_executor.step_status(tmp) == "running":  # Transfer is being executed
         print("Transfer executing")
         return 1, job_context
-    elif job_executor.job_status(tmp) == "":
+    elif job_executor.step_status(tmp) == "":
         tmp["pid"] = None
         tmp["state_dict"] = dict(idx=i, n_errors=n_errors + 1, state="download", results_dir=results_dir)
         job_context = json.dumps(tmp)
@@ -505,6 +505,7 @@ def wf1_transfer_data_from_resource(job_context: str):
 @celery_wf(celery_app, wf1, "store_result_in_backend")
 def wf1_store_result_in_backend(job_context: str):
     tmp = json.loads(job_context)
+    tmp = change_status(tmp, "cleanup")
     job_executor = JobExecutorAtResourceFactory().get(tmp)
     state_dict = tmp.get("state_dict")
 
@@ -537,10 +538,10 @@ def wf1_store_result_in_backend(job_context: str):
         del tmp["state_dict"]
         job_context = json.dumps(tmp)
         return job_context
-    elif job_executor.job_status(tmp) == "running":  # Transfer is being executed
+    elif job_executor.step_status(tmp) == "running":  # Transfer is being executed
         print("Store result in backend executing")
         return 1, job_context
-    elif job_executor.job_status(tmp) == "":
+    elif job_executor.step_status(tmp) == "":
         tmp["pid"] = None
         tmp["state_dict"] = dict(idx=i, n_errors=n_errors + 1, results_dir=results_dir, state="store")
         job_context = json.dumps(tmp)
@@ -556,7 +557,7 @@ def wf1_store_result_in_backend(job_context: str):
         print(f"Beginning to store result in backend of file {file_dict['file']}")
         cookies_file_path = os.getenv("COOKIES_FILE_PATH")
         endpoint_url = os.getenv("ENDPOINT_URL")
-        local_path = os.path.join(job_executor.LOCAL_WORKSPACE, file_dict["file"])
+        local_path = os.path.join(job_executor.LOCAL_WORKSPACE,str(tmp['job_id']),file_dict["file"])
         api_login()
         curl_cmd = f"curl -s --cookie-jar {cookies_file_path} --cookie {cookies_file_path} -H \"Content-Type: application/x-fasta\" -XPUT --data-binary @\"{local_path}\" \"{endpoint_url}{bcs_api_base}/files/jobs/{str(tmp['job_id'])}/{file_dict['file']}.content\""
         cmd = f"(nohup bash -c \'{curl_cmd} \' >/tmp/mtest </dev/null 2>/tmp/mtest.err & echo $!; wait $!; echo $? >> /tmp/{tmp['job_id']}/$!.exit_status)"

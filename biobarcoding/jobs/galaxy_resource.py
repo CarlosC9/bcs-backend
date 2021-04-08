@@ -14,10 +14,7 @@ from biobarcoding.jobs import JobExecutorAtResource
 
 
 import os
-import time
 
-DOWNLOAD_PATH = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/download'
-JOB_STATUS_DIR = os.path.join(DOWNLOAD_PATH)
 
 def get(url, path) -> object:
     """
@@ -36,23 +33,6 @@ def get(url, path) -> object:
     return pid
 
 
-# def download_status(pid):
-#     exit_status = "none"
-#     if pid:
-#         if os.path.isfile(f"{JOB_STATUS_DIR}/{pid}.exit_status"):
-#             with open(f"{JOB_STATUS_DIR}/{pid}.exit_status", "r") as f:
-#                 exit_status = f.readline().strip()
-#                 if exit_status.strip() == "0":
-#                     exit_status = "ok"
-#                 else:
-#                     print(f"Error executing get with pid: {pid}. Exit status = {exit_status}")
-#                     exit_status = ""  # This means error
-#         else:
-#             exit_status = "running"
-#
-#     return exit_status
-
-# no tiene sentido que haga esto xq galaxy ya es este objeto
 class instance():
     def __init__(self, name, file):
         self.name = name
@@ -583,7 +563,6 @@ def upload_status(gi,job_context):
     if status['state'] == 'ok' and status['state_details']['ok'] < len(i):
         # "in this case we can say that galaxy does not know about de nwe job"
         status['state'] = "queued"
-        # TODO check if I really need to do this
         print(f"changing {i} UPLOAD status from ok to queued this should happend only a few times")
 
     if status['state'] == 'error':
@@ -604,7 +583,6 @@ def invocation_status(gi,job_context):
     if status['state'] == 'ok' and status['state_details']['ok'] == len(files_list):
         # galaxy is still displaying status for the upload process
         status['state'] = "queued"
-        # TODO check if I really need to do this
         print(f"changing PROCESS status from ok to queued this should happend only a few times")
     if status['state'] == 'error':
         return status['state_details']
@@ -620,8 +598,6 @@ def get_stdout_stderr(gi,result,history_name):
     provenance = gi.histories.show_dataset_provenance(history_id=get_history_id(gi, history_name),
                                                       dataset_id=dataset_id)
     std = dict(stderr = provenance['stderr'],stdout = provenance['stdout'] )
-    # TODO hacer un purge y tmb haer un purge del dataset..... p quizás poner como tarea de mantenimiento del celery??
-    #  todo aquí escribo el archivo stderr y stdout en un archivo o mejor lo paso en modo tecto y fuera lo paso por file API
     return std
 
 
@@ -646,18 +622,26 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         gi = self.galaxy_instance
         try:
             gi.config.get_config()
-        except:
+        except: # ConnectionError dosnt work
             return False
         return True
 
     def disconnect(self):
-        # todo
+        # necessary?
         pass
 
-    def get_export_path(self,job_context):
-        i = job_context.get('state_dict')['idx']
-        file = job_context['process']['data'][i]['file']
-        return file
+    def get_export_path(self):
+        pass
+
+    def get_store_path(self):
+        pass
+
+
+    def get_upload_files_list(self, job_context):
+        return job_context["process"]["inputs"]["data"]
+
+    def get_download_files_list(self, job_context):
+        return job_context["results"]
 
     def create_job_workspace(self, name):
         self.connect()
@@ -667,12 +651,6 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         self.disconnect()
         return history['id']
 
-    def get_upload_files_list(self, job_context):
-        return job_context["process"]["inputs"]["data"]
-
-    def get_download_files_list(self, job_context):
-        return job_context["results"]
-
     def remove_job_workspace(self, job_context):
         self.connect()
         gi = self.galaxy_instance
@@ -680,32 +658,6 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         gi.histories.delete_history(get_history_id(gi, history_name),purge = True)
 
     def upload_file(self,job_context):
-        """
-            Loads file in the inputs yaml to the Galaxy instance given. Returns
-            datasets dictionary with names and histories. It associates existing datasets on Galaxy given by dataset_id
-            to the input where they should be used.
-
-            This setup currently doesn't support collections as inputs.
-
-            Input yaml file should be formatted as:
-
-            input_label_a:
-              path: /path/to/file_a
-              type:
-            input_label_b:
-              path: /path/to/file_b
-              type:
-            input_label_c:
-              dataset_id:
-
-            this makes it extensible to support
-            :param gi: the galaxy instance (API object)
-            :param inputs: dictionary of inputs as read from the inputs YAML file
-            :param workflow: workflow object produced by gi.workflows.show_workflow
-            :param history: the history object to where the files should be uploaded
-            :return: inputs object for invoke_workflow
-            """
-
         self.connect()
         gi = self.galaxy_instance
         i = job_context["state_dict"]["idx"]
@@ -728,22 +680,28 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
             return False
         i = job_context["state_dict"]["idx"]
         if job_context["state_dict"]["state"] == "upload":
-            label = self.get_upload_files_list(job_context)[i]["remote_name"] # si esto es 0 es el primer data set
-            history = self.workspace
-            h_id = get_history_id(gi,history_name= history)
+            # check if exists locally
+            file_local_path = os.path.join(self.LOCAL_WORKSPACE, self.workspace,
+                                           self.get_upload_files_list(job_context)[i]["file"])
+            try:
+                local_size = os.path.getsize(file_local_path)
+            except FileNotFoundError:
+                print(f"File {file_local_path} not found in your local system")
+                return None
+            # check if exists remotely
+            label = self.get_upload_files_list(job_context)[i]["remote_name"]
+            h_id = get_history_id(gi,history_name= self.workspace)
             dataset_info = gi.histories.show_matching_datasets(history_id = h_id , name_filter = label )
+            # check that are the same
             if len(dataset_info) > 0:
-                file_local_path = os.path.join(self.LOCAL_WORKSPACE,self.workspace,self.get_upload_files_list(job_context)[i]["file"])
-                try:
-                    local_size = os.path.getsize(file_local_path)
-                except FileNotFoundError:
-                    print(f"File {file_local_path} not found in your local system")
-                    return None
                 remote_size = dataset_info[0]['file_size']
-                # TODO not implemented: there is a little difference between sized
+                # TODO not implemented: there is a little difference between sizes
                 # if local_size == remote_size:
                 return True
         if job_context["state_dict"]["state"] == "download":
+            #chack that exists remotely
+            ##
+            #check that exists locally
             file_local_path = os.path.join(self.LOCAL_WORKSPACE,self.workspace,self.get_download_files_list(job_context)[i]["file"])
             if os.path.exists(os.path.join(file_local_path)):
                 return True
@@ -752,32 +710,17 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
                 return None
 
 
-    def get_store_path(self, job_context):
-        i = job_context["store_result_state"]["idx"]
-        results_dir = job_context["store_result_state"]["status_dir"]
-        filename = self.get_download_files_list(job_context)[i]["file"]
-        return os.path.join(results_dir, filename)
-
-
 
     def submit(self, job_context):
         self.connect()
         gi = self.galaxy_instance
         input_params = job_context['inputs']['parameters']
         inputs = job_context['inputs']['data']
-        # TODO cambiar el nombre del proceso y ponerlo dentro de process
         workflow = job_context['workflow_name']
         w_id = workflow_id(gi, workflow)
         workspace = self.workspace
-        print(workspace)
-        print(workflow)
-        print(inputs)
-        print(input_params)
         datamap, parameters = params_input_creation(gi, workflow, inputs, input_params,
-                                                    history_name=workspace)  # catch error
-        print(datamap)
-        print(parameters)
-        # TODO revisar la forma del data map, quizás me pueda ahorrar toda esa función xq esto ya está comprobadoo desde el gui
+                                                    history_name=workspace)
         history_id = gi.histories.get_histories(name=workspace)[0]['id']
         invocation = gi.workflows.invoke_workflow(workflow_id=w_id,
                                                   inputs=datamap,
@@ -786,7 +729,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         return invocation['id']
 
 
-    def job_status(self,job_context):
+    def step_status(self, job_context):
         """
            :return: state of the given job among the following values: `new`,
              `queued`, `running`, `waiting`, `ok`. If the state cannot be
@@ -819,8 +762,8 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
 
     def download_file(self,job_context):
         i = job_context['state_dict'].get('idx')
-        result =  job_context['results'][i] # TODO esto hay que cambiarlo porque voy a cambiar la carpeta de results
-        remote_name = result.get('remote_name') # TODO o remote_name lo jusnto sería poner todo según el punto de vista de galaxy?
+        result =  job_context['results'][i]
+        remote_name = result.get('remote_name')
         download_path = os.path.join(self.LOCAL_WORKSPACE,self.workspace,result.get('file'))
         job_dir = os.path.join(self.LOCAL_WORKSPACE,self.workspace)
         file_ext = result.get('type')
@@ -831,7 +774,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         for k, i in std.items():
             f = open(os.path.join(job_dir,k) + f"_{file_ext}.log", 'w')
             f.write(i)
-        dataset = gi.histories.show_matching_datasets(history_id=get_history_id(gi,history_name), name_filter= remote_name)[0] # todo revisar remote name dar exacto o regex?
+        dataset = gi.histories.show_matching_datasets(history_id=get_history_id(gi,history_name), name_filter= remote_name)[0]
         download_url = dataset['download_url'] + '?to_ext=' + file_ext
         url = urljoin(gi.base_url, download_url)
         cmd = f"(nohup bash -c \"curl -o {download_path} {url} \" >/tmp/mtest </dev/null 2>/tmp/mtest.err & echo $!; wait $!; echo $? >> {job_dir}/$!.exit_status)"
@@ -848,7 +791,7 @@ def convert_workflows_to_formly():
     wfdict1 = {'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json',
                'phyml': ROOT + '/biobarcoding/inputs_schema/phyml_galaxy.json',
                'fname' : 'clustalw_phyml_formly.json'
-               } # lo hago todo a mano
+               }
     wfdict2 = {'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json',
                'fname' : 'clustalw_formly.json'}
     path = ROOT + '/biobarcoding/inputs_schema/'
@@ -956,12 +899,12 @@ class ToFormlyConverter:
                     l.append(forms)
         return l
 
-class getInputs(ToFormlyConverter):
-    def __init__(self):
-        super(getInputs, self).__init__(step_label)
+# class getInputs(ToFormlyConverter):
+#     def __init__(self):
+#         super(getInputs, self).__init__(step_label)
 
 
-class convertBooleanToolParameter(ToFormlyConverter): #TODO hay algún fallo al poner el valor por defecto!
+class convertBooleanToolParameter(ToFormlyConverter):
     def __init__(self,step_label):
         super(convertBooleanToolParameter, self).__init__(step_label)
 

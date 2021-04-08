@@ -237,7 +237,7 @@ def wf1_transfer_data_to_resource(job_context: object) -> object:
         del tmp["transfer_state"]
         job_context = json.dumps(tmp)
         return job_context
-    elif job_executor.job_status(tmp) == "running":  # Transfer is being executed
+    elif job_executor.step_status(tmp) == "running":  # Transfer is being executed
         print("Transfer executing")
         sleep(5)
         return None, job_context
@@ -281,7 +281,7 @@ def wf1_wait_until_execution_starts(job_context: str):
      """
     tmp = json.loads(job_context)
     job_executor = JobExecutorAtResourceFactory().get(tmp)
-    status = job_executor.job_status(tmp)
+    status = job_executor.step_status(tmp)
     if isinstance(status, dict):  # todo esto sirve a los dos?
         print(f"wait_for_execution_end: status: {status}")
         tmp['process']['error'] = status
@@ -304,7 +304,7 @@ def wf1_wait_for_execution_end(job_context: str):
     """
     tmp = json.loads(job_context) # solo para test
     job_executor = JobExecutorAtResourceFactory().get(tmp)
-    status = job_executor.job_status(tmp)
+    status = job_executor.step_status(tmp)
     if isinstance(status, dict):
         print(f"wait_for_execution_end: status: {status}")
         return 'error', job_context
@@ -353,10 +353,10 @@ def wf1_transfer_data_from_resource(job_context: str):
         del tmp["transfer_state"]
         job_context = json.dumps(tmp)
         return job_context
-    elif job_executor.job_status(tmp) == "running":  # Transfer is being executed
+    elif job_executor.step_status(tmp) == "running":  # Transfer is being executed
         print("Transfer executing")
         return 1, job_context
-    elif job_executor.job_status(tmp) == "": #hay un error de descarga y lo vuelvo a intentar otra vez
+    elif job_executor.step_status(tmp) == "": #hay un error de descarga y lo vuelvo a intentar otra vez
         tmp["pid"] = None
         tmp["transfer_state"] = dict(idx=i, n_errors=n_errors + 1, state="download", results_dir=results_dir)
         job_context = json.dumps(tmp)
