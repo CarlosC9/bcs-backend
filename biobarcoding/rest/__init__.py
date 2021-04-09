@@ -416,7 +416,7 @@ def initialize_database_data():
     load_computing_resources(DBSession)
     load_processes_in_computing_resources(DBSession)
     load_process_input_schema(DBSession)
-    load_table_extended(DBSession, BrowserFilterForm, tm_browser_filter_form_fields, tm_browser_filter_forms)
+    # load_table_extended(DBSession, BrowserFilterForm, tm_browser_filter_form_fields, tm_browser_filter_forms)
 
     # Load default authentication for "test_user"
     session = DBSession()
@@ -759,6 +759,8 @@ def check_request_params(data=None):
             if i:
                 kwargs[key] = i
                 input.pop(key)
+            else:
+                kwargs[key] = {}
         kwargs['value'].update(input)
     print(f'KWARGS: {kwargs}')
     return kwargs
