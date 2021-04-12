@@ -87,7 +87,7 @@ def export(file_dict, results_dir) -> object:
     tmp_path = os.path.join(results_dir, file_dict["file"])
     extension = file_dict['type']
     bos_type = file_dict['bo_type']
-    selection_dict = {"filter": [{"feature_id": {"op": "in", "unary": file_dict['selection']}}]}
+    selection_dict = file_dict['selection']
     selection_json = json.dumps(selection_dict)
     endpoint = os.getenv("ENDPOINT_URL")
     cookies_file_path = os.getenv("COOKIES_FILE_PATH")
