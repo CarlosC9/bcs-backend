@@ -2,6 +2,8 @@ import logging
 import os
 import sys
 from enum import Enum
+import json
+from urllib.parse import unquote
 
 import redis
 import sqlalchemy
@@ -716,43 +718,20 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
     return bp_entity, CrudAPI
 
 
-# def filter_parse(filter_str: str) -> filter_chado, filter_bcs:
-#     """
-#     [{"campo1": "<condicion>", "campo2": "<condicion>"}, {"campo1": "<condicion"}]
-#     <condicion>: {"op": "<operador", "left": "<valor>", "right": <valor>, "unary": <valor>}
-#
-#     :param filter_str:
-#     :return:
-#     """
-#     def append_bcs_condition(bcs_and_clause, field, condition):
-#         if field == "...":
-#             obj = ...
-#         elif field == "...":
-#             obj = ...
-#         op = condition["op"]
-#         if condition == "in":
-#             v = condition["unary"]
-#             cond = obj.in_(v)
-#         elif condition == "eq":
-#             cond = obj == v
-#         elif condition == "between":
-#             left = condition["left"]
-#             right = condition["right"]
-#             cond = obj.between_(left, right)
-#
-#     filter = json.loads(filter_str)
-#     bcs_where = ...
-#     chado_where = ...
-#     for and_clause in filter:
-#         bcs_and_clause = ...
-#         chado_and_clause = ...
-#         for field, condition in and_clause.items():
-#             if field in (...): # Chado fields
-#                 append_chado_condition(chado_and_clause, field, condition)
-#             else: # BCS
-#                 append_bcs_condition(bcs_and_clause, field, condition)
-#         concatenate_
-#     return filter(bcs_where), filter(chado_where)
+def get_decoded_params(data):
+    res = {}
+    for key in data:
+        value = data[key]
+        try:
+            value = unquote(value)
+        except Exception as e:
+            pass
+        try:
+            value = json.loads(value)
+        except Exception as e:
+            pass
+        res[key] = value
+    return res
 
 def filter_parse(orm, filter, aux_filter=None):
     """
