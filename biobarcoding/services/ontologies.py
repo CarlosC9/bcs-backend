@@ -127,7 +127,7 @@ def __get_cvterm(cv_id=None, cvterm_id=None, **kwargs):
         query = query.filter(Cvterm.cvterm_id==cvterm_id)
     else:
         if 'filter' in kwargs:
-            query = query.filter(filter_parse(Cvterm, kwargs.get('filter'), __aux_own_filter))
+            query = query.filter(filter_parse(Cvterm, kwargs.get('filter'), __aux_cvterms_filter))
         if 'order' in kwargs:
             query = __get_query_ordered(query, kwargs.get('order'))
         if 'pagination' in kwargs:
@@ -135,7 +135,7 @@ def __get_cvterm(cv_id=None, cvterm_id=None, **kwargs):
     return query
 
 
-def __aux_own_filter(filter):
+def __aux_cvterms_filter(filter):
     clause = []
     if filter.get('feature_id'):
         from biobarcoding.db_models.chado import Feature, Featureprop, FeatureCvterm

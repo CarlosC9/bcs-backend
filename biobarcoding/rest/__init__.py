@@ -1,7 +1,9 @@
+import json
 import logging
 import os
 import sys
 from enum import Enum
+from urllib.parse import unquote
 
 import redis
 import sqlalchemy
@@ -74,7 +76,7 @@ class ResponseObject:
     issues = attrib(default=[])  # type: List[Issue]
     # Mimetype.
     content_type = attrib(default="text/json")  # type: str
-    # HTTTP response status code
+    # HTTP response status code
     status = attrib(default=200)  # type: int
 
     def get_response(self) -> Response:
@@ -341,11 +343,17 @@ tm_system_functions = {
 
 }
 
+tm_browser_filter_form_fields = ("id", "uuid")
+tm_browser_filter_forms = [
+    (bio_object_type_id["sequence"], "6bb4cbbe-d6cd-4c2e-bb59-782e3c9e9f6c"),
+    (bio_object_type_id["multiple-sequence-alignment"], "44363784-d304-4e7e-a507-8bae48598e50"),
+    (bio_object_type_id["phylogenetic-tree"], "8b62f4aa-d32a-4841-89f5-9ed50da44121"),
+]
 
 #
-# 6bb4cbbe-d6cd-4c2e-bb59-782e3c9e9f6c
-# 44363784-d304-4e7e-a507-8bae48598e50
-# 8b62f4aa-d32a-4841-89f5-9ed50da44121
+#
+#
+#
 # 5a01d289-8534-40c0-9f56-dc116b609afd
 # c87f58b6-cb06-4d39-a0b3-72c2705c5ae1
 # c55280d0-f916-4401-a1a4-bb26d8179fd7
@@ -408,6 +416,7 @@ def initialize_database_data():
     load_computing_resources(DBSession)
     load_processes_in_computing_resources(DBSession)
     load_process_input_schema(DBSession)
+    # load_table_extended(DBSession, BrowserFilterForm, tm_browser_filter_form_fields, tm_browser_filter_forms)
 
     # Load default authentication for "test_user"
     session = DBSession()
@@ -717,43 +726,45 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
     return bp_entity, CrudAPI
 
 
-# def filter_parse(filter_str: str) -> filter_chado, filter_bcs:
-#     """
-#     [{"campo1": "<condicion>", "campo2": "<condicion>"}, {"campo1": "<condicion"}]
-#     <condicion>: {"op": "<operador", "left": "<valor>", "right": <valor>, "unary": <valor>}
-#
-#     :param filter_str:
-#     :return:
-#     """
-#     def append_bcs_condition(bcs_and_clause, field, condition):
-#         if field == "...":
-#             obj = ...
-#         elif field == "...":
-#             obj = ...
-#         op = condition["op"]
-#         if condition == "in":
-#             v = condition["unary"]
-#             cond = obj.in_(v)
-#         elif condition == "eq":
-#             cond = obj == v
-#         elif condition == "between":
-#             left = condition["left"]
-#             right = condition["right"]
-#             cond = obj.between_(left, right)
-#
-#     filter = json.loads(filter_str)
-#     bcs_where = ...
-#     chado_where = ...
-#     for and_clause in filter:
-#         bcs_and_clause = ...
-#         chado_and_clause = ...
-#         for field, condition in and_clause.items():
-#             if field in (...): # Chado fields
-#                 append_chado_condition(chado_and_clause, field, condition)
-#             else: # BCS
-#                 append_bcs_condition(bcs_and_clause, field, condition)
-#         concatenate_
-#     return filter(bcs_where), filter(chado_where)
+# GENERIC REST FUNCTIONS
+
+def get_decoded_params(data):
+        res = {}
+        for key in data:
+            value = data[key]
+            try:
+                value = unquote(value)
+            except Exception as e:
+                pass
+            try:
+                value = json.loads(value)
+            except Exception as e:
+                pass
+            res[key] = value
+        return res
+
+
+def check_request_params(data=None):
+    kwargs = {}
+    if not data:
+        if request.json:
+            kwargs.update(check_request_params(request.json))
+        if request.values:
+            kwargs.update(check_request_params(request.values))
+    else:
+        print(f'DATA: {data}')
+        input = get_decoded_params(data)
+        for key in ('filter', 'order', 'pagination', 'value', 'searchValue'):
+            i = input.get(key)
+            if i:
+                kwargs[key] = i
+                input.pop(key)
+            else:
+                kwargs[key] = {}
+        kwargs['value'].update(input)
+    print(f'KWARGS: {kwargs}')
+    return kwargs
+
 
 def filter_parse(orm, filter, aux_filter=None):
     """
