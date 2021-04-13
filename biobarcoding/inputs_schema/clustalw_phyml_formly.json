@@ -8,15 +8,6 @@
          },
             "fieldGroup": [
                {
-                  "key": "selection",
-                  "type": "input",
-                  "templateOptions": {
-                     "label": "input",
-                     "placeholder": "[id selection separated by commas]",
-                     "required": true
-                  }
-               },
-               {
                   "key": "remote_name",
                   "type": "input",
                   "templateOptions": {
