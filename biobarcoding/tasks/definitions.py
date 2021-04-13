@@ -1,24 +1,113 @@
 import json
 import os
-
-import requests
-from billiard.context import Process
-
+import subprocess
+from biobarcoding.rest import bcs_api_base
 from biobarcoding.tasks import celery_app
-from time import sleep, time
-
 from biobarcoding.common.decorators import celery_wf
-from biobarcoding.common import check_pid_running
 from biobarcoding.jobs import JobExecutorAtResourceFactory
-from biobarcoding.db_models.jobs import Job
 from biobarcoding.common import ROOT
 
 """
-Celery tasks CANNOT be debugged in Celery!! (the code is run in a separate process; of course they can be debugged "off-line")
+Celery tasks CANNOT be debugged in Celery!! (the code is run in a separate process; 
+of course they can be debugged "off-line")
 """
+
+MAX_ERRORS = 3
+
+
 
 # Send messages
 # Refresh queues of jobs (at different computing resources)
+
+def change_status(tmp, status: str):
+    endpoint_url = os.getenv("ENDPOINT_URL")
+    cookies_file_path = os.getenv("COOKIES_FILE_PATH")
+    print(f"Env. variable ENDPOINT_URL: {endpoint_url}")
+    print(f"Env. variable COOKIES_FILE_PATH: {cookies_file_path}")
+    job_id = tmp["job_id"]
+    url = f"{endpoint_url}{bcs_api_base}/jobs/{job_id}"
+    if tmp["status"] != status:
+        api_login()
+        status_request = json.dumps(dict(status=status))
+        cmd = ["curl", "--cookie-jar", cookies_file_path, "--cookie", cookies_file_path, "-H",
+               "Content-Type: application/json", "-XPUT", "--data-binary", status_request, url]
+        print(subprocess.run(cmd))
+        print_file(cookies_file_path)
+        print(status)
+        tmp["status"] = status
+        return tmp
+    else:
+        return tmp
+
+
+def print_file(filename):
+    with open(filename, 'r') as file:
+        lines = file.readlines()
+        for line in lines:
+            print(line)
+
+
+def api_login():
+    endpoint_url = os.getenv("ENDPOINT_URL")
+    cookies_file_path = os.getenv("COOKIES_FILE_PATH")
+    url = f"{endpoint_url}{bcs_api_base}/authn?user=test_user"
+    cmd = ["curl", "--cookie-jar", cookies_file_path, "-X", "PUT", url]
+    subprocess.run(cmd)
+    print_file(cookies_file_path)
+
+
+def check_file_is_stored_in_backend(filename, job_id):
+    endpoint_url = os.getenv("ENDPOINT_URL")
+    cookies_file_path = os.getenv("COOKIES_FILE_PATH")
+    print(f"Env. variable ENDPOINT_URL: {endpoint_url}")
+    print(f"Env. variable COOKIES_FILE_PATH: {cookies_file_path}")
+    api_login()
+    cmd = ["curl", "--cookie-jar", cookies_file_path, "--cookie",
+           cookies_file_path, f"{endpoint_url}{bcs_api_base}/files/jobs/{job_id}/{filename}"]
+    proc = subprocess.run(cmd, capture_output=True, text=True)
+    print_file(cookies_file_path)
+    process_return_dict = json.loads(proc.stdout)
+    if process_return_dict.get("content"):
+        return process_return_dict["content"].get("size") != 0
+    else:
+        return False
+
+
+# TODO: Hay que prepararlo para las colecciones y los ficheros que suba el usuario de manera
+# que se puedan concatenar si se refieren al mismo fichero.
+# Mirar: https://stackoverflow.com/questions/40359012/how-to-append-a-file-with-the-existing-one-using-curl
+
+def export(file_dict, results_dir) -> object:
+    """
+    Execute remote client script
+    @param file_dict: Dictionary of the file to be exported
+    @param results_dir: Local directory where the file exported is saved
+    @return: pid: PID of the executed script process
+    """
+    tmp_path = os.path.join(results_dir, file_dict["file"])
+    extension = file_dict['type']
+    bos_type = file_dict['bo_type']
+    selection_dict = file_dict['selection']
+    selection_json = json.dumps(selection_dict)
+    endpoint = os.getenv("ENDPOINT_URL")
+    cookies_file_path = os.getenv("COOKIES_FILE_PATH")
+    api_login()
+    url = f"{endpoint}{bcs_api_base}/bos/{bos_type}.{extension}"
+    curl = f"curl --cookie-jar {cookies_file_path} --cookie {cookies_file_path} -X GET -d \'{selection_json}\' -H \'Content-Type:application/json\' {url} -o {tmp_path}"
+    cmd = f"(nohup bash -c &quot;{curl}&quot; >/tmp/mtest </dev/null 2>/tmp/mtest.err & echo $!; wait $!; echo $?  >> {results_dir}/$!.exit_status)"
+    print(cmd)
+    popen_pipe = os.popen(cmd)
+    print_file(cookies_file_path)
+    pid = popen_pipe.readline().rstrip()
+    print(f"PID: {pid}")
+    return pid
+
+
+def is_bos_file(input_file):
+    if os.path.exists(input_file):  # and check that it is not an error file:
+        return True
+    else:
+        return False
 
 
 @celery_app.task
@@ -32,9 +121,10 @@ def periodic_sum(x, y):
     print(f"PERIODIC CELERY TASK: {x}+{y}={x + y}")
     return x + y
 
+
 # ----------------------------------------------------------------
 
-def append_text( s: str):
+def append_text(s: str):
     file = ROOT + "/tests/data_test/celery_log.txt"
     with open(file, "a+") as f:
         f.write(f"{s}\n")
@@ -44,10 +134,12 @@ def append_text( s: str):
 # - Run "bcs-backend" in the IDE
 # - Open three shells in the "bcs-backend" directory:
 #   - ./start_local_dev_services.sh
+#   - python3 biobarcoding/rest/main.py
 #   - celery -A biobarcoding.tasks.definitions flower [OPTIONAL: to see tasks, http://localhost:5555]
 #   - curl -i -XPOST http://localhost:5000/api/jobs/ --data-urlencode "{}" --> (should return immediately)
-#     - (to see messages generated by tasks of this workflow) tail -f <project folder>/tests/data_test/celery_log.txt
-
+#     - (to see messages generated by tasks of this workflow) tail -f /home/rnebot/Downloads/borrame/log.txt
+#   - curl -i -XPOST http://localhost:5000/api/jobs/ -H "Content-Type: application/json" -d @"/home/daniel/Documentos/GIT/bcs-backend/tests/request_transfer.json"
+#   - curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt -XPOST http://localhost:5000/api/jobs/ -H "Content-Type: application/json" -d @"/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/new_galaxy_request.json"
 wf1 = {
     "prepare": {"": "export"},
     "export": {"": "transfer_data"},
@@ -63,43 +155,14 @@ wf1 = {
         "error": "error"
 
     },
-    "transfer_data_from": {"": "import"},
-    "import": {"": "cleanup"},
+    "transfer_data_from": {"": "store_result_in_backend"},
+    "store_result_in_backend": {"": "cleanup"},
     "cleanup": {"": "success"},
     # "success"
     # "error"
     # "cancel"
 }
 
-
-def dummy_func(file, secs):
-    print(f"Dummy {file}, {secs}")
-    start = time()
-    endc = start
-    while (endc - start) < secs:
-        append_text(f"elapsed {endc - start} of {secs}")
-        sleep(6)
-        endc = time()
-    os.exit(0)
-
-
-# "job_context" for Celery tasks:
-#
-# "job_id": ...,
-# "endpoint_url": ...
-# "resource": {
-#     "name": "",
-#     "jm_type": "",
-#     "jm_location": {
-#     },
-#     "jm_credentials": {
-#     }
-# }
-# "process": {
-#     "name": "",
-#     "inputs": {
-#     }
-# }
 
 @celery_app.task(name="prepare")
 @celery_wf(celery_app, wf1, "prepare")
@@ -109,39 +172,21 @@ def wf1_prepare_workspace(job_context):
     :param job_context:
     :return:
     """
-    # tmp = json.loads(job_context)
+    '''cookies_file_path = os.getenv("COOKIES_FILE_PATH")
+    endpoint_url = os.getenv("ENDPOINT_URL")
+    cmd = ["curl", "--cookie-jar", cookies_file_path, f"'{endpoint_url}{bcs_api_base}/authn?user=test_user'"]
+    subprocess.run(cmd)'''
+    tmp = json.loads(job_context)
+    tmp = change_status(tmp, "preparing_workspace")
 
-    # Example access RESTful endpoint of "bcs-backend"
-    # requests.get(job_context["endpoint_url"]+f"/api/jobs/{job_context['job_id']}")
-
-    # TODO update Job status to "preparing_workspace"
-    #  requests.put(job_context["endpoint_url"] + f"/api/jobs/{job_context['job_id']}/status", "preparing_workspace")
-
-    # Get resource manager: ssh, galaxy, other
-    # job_executor = JobExecutorAtResourceFactory()
-    # job_executor = JobExecutorAtResourceFactory.get(tmp["resource"]["jm_type"], tmp["process"])
-
-    # Launch subprocess if needed
-    # if "_pid" not in tmp:
-    #     p = Process(target=dummy_func, args=(outfile, 13))
-    #     p.start()
-    #     tmp["_pid"] = p.pid
-    #     append_text(outfile, f"prepare_workspace. PID: {p.pid}")
-    #     job_context = json.dumps(tmp)
-    #
-    # # TODO Task "work"
-    # append_text(outfile, "prepare_workspace")
-    #
-    # # Wait for subprocess to finish (if needed)
-    # if check_pid_running(tmp["_pid"]):
-    #     append_text(outfile, "retrying task ...")
-    #     return 3, job_context  # Return a tuple with first element <seconds to wait>, <context> to repeat the task
-    # else:  # Clear "_pid" if subprocess was launched
-    #     del tmp["_pid"]
-    #     job_context = json.dumps(tmp)
-    #     append_text(outfile, "prepare_workspace FINISHED")
-    #     return job_context  # Return nothing (None) or <context> (if context changed) to move to the default next task
-    pass
+    job_executor = JobExecutorAtResourceFactory().get(tmp)
+    if not job_executor.check():
+        print("Connection to the server has been lost")
+        job_context = json.dumps(tmp)
+        return "error", job_context
+    job_executor.create_job_workspace(str(tmp["job_id"]))
+    job_context = json.dumps(tmp)
+    return job_context
 
 
 @celery_app.task(name="export")
@@ -154,30 +199,155 @@ def wf1_export_to_supported_file_formats(job_context: str):
     :return:
     """
     # tmp = json.loads(job_context)
+    # tmp = change_status(tmp, "preparing_workspace")
 
     # Example access RESTful endpoint of "bcs-backend"
-    # requests.get(job_context["endpoint_url"]+f"/api/jobs/{job_context['job_id']}")
+    # request files from bos ID: 1,2 and save it in local folder
+    # curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt -X GET -d '{"filter": [{"feature_id": {"op": "in",
+    # "unary": [1, 2]}}]}' -H "Content-Type:application/json"  http://localhost:5000/api/bos/sequences.fasta -o $TEST_FILES_PATH/test.fasta
+    tmp = json.loads(job_context)
+    job_executor = JobExecutorAtResourceFactory().get(tmp)
+    state_dict = tmp.get("state_dict")
 
-    # TODO update Job status to "preparing_workspace"
-    #  requests.put(job_context["endpoint_url"] + f"/api/jobs/{job_context['job_id']}/status", "preparing_workspace")
+    print(f"Export state: {state_dict}")
 
-    # Get resource manager: ssh, galaxy, other
-    # job_executor = JobExecutorAtResourceFactory.get(tmp["resource"]["jm_type"], tmp["process"])
+    if state_dict:  # ya ha empezado la transferencia
+        i = state_dict["idx"]
+        n_errors = state_dict["n_errors"]
+        results_dir = state_dict["results_dir"]
+    else:
+        i = 0
+        n_errors = 0
+        results_dir = os.path.join(job_executor.LOCAL_WORKSPACE, str(tmp['job_id']))
+        if not os.path.exists(results_dir):
+            os.mkdir(results_dir)
+        tmp["pid"] = None
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors, state="export", results_dir=results_dir)
 
-    append_text("export_to_supported_file_formats")
-    sleep(2)
+    # Files to transfer
+    files = tmp['process']['inputs']['data']
+    file_dict = files[i] if i < len(files) else {"file": "", "remote_name": "", "type": ""}
+
+    if i < len(files) and n_errors >= MAX_ERRORS:
+        error_str = f"Export error: File {i + 1} {file_dict['file']}"
+        print(error_str)
+        tmp['error'] = error_str
+        job_context = json.dumps(tmp)
+        return "error", job_context
+    if i == len(files):  # Transfer finished
+        print("Export finished")
+        del tmp["state_dict"]
+        job_context = json.dumps(tmp)
+        return job_context
+    elif job_executor.step_status(tmp) == "running":  # Transfer is being executed
+        print("Export executing")
+        return 1, job_context
+    elif job_executor.step_status(tmp) == "":
+        tmp["pid"] = None
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors + 1, state="export", results_dir=results_dir)
+        job_context = json.dumps(tmp)
+        return None, job_context
+    elif is_bos_file(os.path.join(results_dir, file_dict["file"])):
+        print(f"File {file_dict['file']} transferred -> Moving to next")
+        tmp['process']['inputs']['data'][i]['file'] = os.path.join(results_dir, file_dict["file"])
+        del tmp['process']['inputs']['data'][i]['selection']
+        tmp["pid"] = None
+        tmp["state_dict"] = dict(idx=i + 1, n_errors=n_errors, state="export", results_dir=results_dir)
+        job_context = json.dumps(tmp)
+        return None, job_context
+    else:  # Transfer file i
+        print(f"Begin export {i + 1}: {file_dict['file']}")
+        pid = export(file_dict, results_dir)
+        tmp["pid"] = pid
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors, state="export", results_dir=results_dir)
+        job_context = json.dumps(tmp)
+        return None, job_context
+
+
+# job_context = {"endpoint_url": "http//:localhost:5000/",
+#                "process":
+#                    {"inputs":
+#                         {"parameters": {"ClustalW": {"darna": "PROTEIN"}},
+#                          "data": [
+#                              {"path": "...."},
+#                              { "path": "path"},
+#                              {"type": "fasta"}
+#                          ]},
+#                     "name": "MSA ClustalW"},
+#                "status": "created",
+#                "resource": {".........."},
+#                "job_id": 60}
 
 
 @celery_app.task(name="transfer_data")
 @celery_wf(celery_app, wf1, "transfer_data")
-def wf1_transfer_data_to_resource(job_context: str):
+def wf1_transfer_data_to_resource(job_context: str) -> object:
     """
     Transfer data to the compute resource
     :param job_context:
     :return:
     """
-    append_text("transfer_data_to_resource")
-    sleep(2)
+    tmp = json.loads(job_context)
+    tmp = change_status(tmp, "transfer_data_to_resource")
+    job_executor = JobExecutorAtResourceFactory().get(tmp)
+    if not job_executor.check():
+        error_str = "Connection to the server has been lost"
+        print(error_str)
+        tmp['error'] = error_str
+        job_context = json.dumps(tmp)
+        return "error", job_context
+    print(tmp)
+    state_dict = tmp.get("state_dict")
+    print(f"Transfer state: {state_dict}")
+    if state_dict:  # ya ha empezado la transferencia
+        i = state_dict["idx"]
+        n_errors = state_dict["n_errors"]
+    else:
+        i = 0
+        n_errors = 0
+        tmp["pid"] = None
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors, state="upload")
+
+    # Files to transfer
+    files = job_executor.get_upload_files_list(tmp)
+    file_dict = files[i] if i < len(files) else {"file": "", "remote_name": "", "type": ""}
+
+    if i < len(files) and n_errors >= MAX_ERRORS:
+        error_str = f"Transfer of file {file_dict['file']} to resource failed."
+        print(error_str)
+        tmp['error'] = error_str
+        job_context = json.dumps(tmp)
+        return "error", job_context
+    elif i == len(files):  # Transfer finished
+        print("Transfer finished")
+        del tmp["state_dict"]
+        job_context = json.dumps(tmp)
+        return job_context
+    elif job_executor.step_status(tmp) == "running":  # Transfer is being executed
+        print("Transfer executing")
+        return 1, job_context
+    elif job_executor.step_status(tmp) == "":  # Transfer error
+        print(f"Transfer error: File {i + 1}")
+        tmp["pid"] = None
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors + 1, state="upload")
+        job_context = json.dumps(tmp)
+        return None, job_context
+    elif job_executor.exists(tmp):  # File i has been transferred successfully
+        print(f"File {file_dict['file']} transferred -> Moving to next")
+        i += 1
+        tmp["pid"] = None
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors, state="upload")
+        job_context = json.dumps(tmp)
+        return None, job_context
+    else:  # Transfer file i
+        print(f"Begin transfer {i + 1}: {file_dict['file']}")
+        pid = job_executor.upload_file(tmp)
+        tmp["pid"] = pid
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors, state="upload")
+        print(tmp['state_dict'])
+        job_context = json.dumps(tmp)
+        return None, job_context
+
 
 @celery_app.task(name="submit")
 @celery_wf(celery_app, wf1, "submit")
@@ -188,13 +358,12 @@ def wf1_submit(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory()
-    job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp['resource'])
-    inputs = tmp["process"]
-    inv_id = job_executor.submit(str(tmp['job_id']), inputs)
-    tmp['g_id'] = inv_id
+    tmp = change_status(tmp, "submit")
+    job_executor = JobExecutorAtResourceFactory().get(tmp)
+    pid = job_executor.submit(tmp["process"])
+    tmp['pid'] = pid
     job_context = json.dumps(tmp)
-    append_text(f"submit. workspace: {tmp['g_id']}")
+    append_text(f"submit. workspace: {tmp['pid']}")
     return job_context
 
 
@@ -207,17 +376,26 @@ def wf1_wait_until_execution_starts(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory()
-    job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp['resource'])
-    status = job_executor.job_status(tmp["g_id"])
-    if status == 'running':  # pasa siempre or running?
-        append_text(f"wait_until_execution_starts: status: {status}")
-        return job_context
-    if status == 'error':
-        append_text(f"wait_until_execution_starts: status: {status}")
+    tmp = change_status(tmp, "wait_until_execution_starts")
+    job_executor = JobExecutorAtResourceFactory().get(tmp)
+    if not job_executor.check():
+        error_str = "Connection to the server has been lost"
+        print(error_str)
+        tmp['error'] = error_str
+        job_context = json.dumps(tmp)
+        return "error", job_context
+    status = job_executor.step_status(tmp)
+    append_text(f"wait_until_execution_starts: status: {status}")
+    if isinstance(status, dict):
+        tmp['process']['error'] = status
+        error_str = f"The process failed to start with status: {status}."
+        print(error_str)
+        tmp['error'] = error_str
+        job_context = json.dumps(tmp)
         return 'error', job_context
+    elif status == 'running' or status == 'ok':
+        return job_context
     else:
-        append_text(f"wait_until_execution_starts: status: {status}")
         return 3, job_context
 
 
@@ -232,17 +410,23 @@ def wf1_wait_for_execution_end(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
-    job = JobExecutorAtResourceFactory()
-    job_executor = job.get(tmp["resource"]["jm_type"], tmp["resource"])
-    status = job_executor.job_status(tmp["g_id"])
+    tmp = change_status(tmp, "wait_for_execution_end")
+    job_executor = JobExecutorAtResourceFactory().get(tmp)
+    if not job_executor.check():
+        error_str = "Connection to the server has been lost"
+        print(error_str)
+        tmp['error'] = error_str
+        job_context = json.dumps(tmp)
+        return "error", job_context
+    status = job_executor.step_status(tmp)
+    append_text(f"wait_for_execution_end: status: {status}")
     if isinstance(status, dict):
-        append_text(f"wait_for_execution_end: status: {status}")
+        tmp['process']['error'] = status
+        job_context = json.dumps(tmp)
         return 'error', job_context
-    if status == 'ok':
-        append_text(f"wait_for_execution_end: status: {status}")
+    elif status == 'ok':
         return job_context
     else:
-        append_text(f"wait_for_execution_end: status: {status}")
         return 3, job_context
 
 
@@ -255,26 +439,137 @@ def wf1_transfer_data_from_resource(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory()
-    job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp["resource"])
-    r = job_executor.get_results(tmp["g_id"])
-    tmp['results'] = r
-    job_context = json.dumps(tmp)
-    append_text(f"transfer_data_from: results: {r}")
-    return job_context
+    tmp = change_status(tmp, "transfer_data_from_resource")
+    job_executor = JobExecutorAtResourceFactory().get(tmp)
+    if not job_executor.check():
+        error_str = "Connection to the server has been lost"
+        print(error_str)
+        tmp['error'] = error_str
+        job_context = json.dumps(tmp)
+        return "error", job_context
+
+    state_dict = tmp.get("state_dict")
+    print(f"Transfer state: {state_dict}")
+    if state_dict:  # ya ha empezado la transferencia
+        i = state_dict["idx"]
+        n_errors = state_dict["n_errors"]
+        results_dir = state_dict["results_dir"]
+    else:
+        i = 0
+        n_errors = 0
+        results_dir = os.path.join(job_executor.LOCAL_WORKSPACE, str(tmp['job_id']))
+        if not os.path.exists(results_dir):
+            os.mkdir(results_dir)
+        tmp["pid"] = None
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors, state="download", results_dir=results_dir)
+
+    # Files to transfer
+    files = job_executor.get_download_files_list(tmp)
+    file_dict = files[i] if i < len(files) else {"file": "", "remote_name": "", "type": ""}
+
+    if i < len(files) and n_errors >= MAX_ERRORS:
+        error_str = f"Transfer from resource error: File {file_dict['file']}"
+        print(error_str)
+        tmp['error'] = error_str
+        job_context = json.dumps(tmp)
+        return "error", job_context
+    if i == len(files):  # Transfer finished
+        print("Transfer finished")
+        del tmp["state_dict"]
+        job_context = json.dumps(tmp)
+        return job_context
+    elif job_executor.step_status(tmp) == "running":  # Transfer is being executed
+        print("Transfer executing")
+        return 1, job_context
+    elif job_executor.step_status(tmp) == "":
+        tmp["pid"] = None
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors + 1, state="download", results_dir=results_dir)
+        job_context = json.dumps(tmp)
+        return None, job_context
+    elif job_executor.exists(tmp):  # File i has been transferred successfully
+        print(f"File {file_dict['file']} transferred -> Moving to next")
+        tmp["pid"] = None
+        tmp["state_dict"] = dict(idx=i + 1, n_errors=n_errors, state="download", results_dir=results_dir)
+        job_context = json.dumps(tmp)
+        return None, job_context
+    else:  # Transfer file i
+        print(f"Begin transfer {i + 1}: {file_dict['file']}")
+        pid = job_executor.download_file(tmp)
+        tmp["pid"] = pid
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors, state="download", results_dir=results_dir)
+        job_context = json.dumps(tmp)
+        return None, job_context
 
 
-@celery_app.task(name="import")
-@celery_wf(celery_app, wf1, "import")
-def wf1_import_into_database(job_context: str):
-    """
-    Import resulting files into the database
+@celery_app.task(name="store_result_in_backend")
+@celery_wf(celery_app, wf1, "store_result_in_backend")
+def wf1_store_result_in_backend(job_context: str):
+    tmp = json.loads(job_context)
+    tmp = change_status(tmp, "cleanup")
+    job_executor = JobExecutorAtResourceFactory().get(tmp)
+    state_dict = tmp.get("state_dict")
 
-    :param job_context:
-    :return:
-    """
-    append_text("import_into_database")
-    sleep(2)
+    print(f"Store result in backend state: {state_dict}")
+    if state_dict:  # ya ha empezado la transferencia
+        i = state_dict["idx"]
+        n_errors = state_dict["n_errors"]
+        results_dir = state_dict["results_dir"]
+    else:
+        i = 0
+        n_errors = 0
+        results_dir = os.path.join(job_executor.LOCAL_WORKSPACE, str(tmp['job_id']))
+        if not os.path.exists(results_dir):
+            os.mkdir(results_dir)
+        tmp["pid"] = None
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors, results_dir=results_dir, state="store")
+
+    # Files to transfer
+    files = job_executor.get_download_files_list(tmp)
+    file_dict = files[i] if i < len(files) else {"file": "", "remote_name": "", "type": ""}
+
+    if i < len(files) and n_errors >= MAX_ERRORS:
+        error_str = f"Store result in backend error: File {file_dict['file']}"
+        print(error_str)
+        tmp['error'] = error_str
+        job_context = json.dumps(tmp)
+        return "error", job_context
+    elif i == len(files):  # Transfer finished
+        print("Store result in backend finished")
+        del tmp["state_dict"]
+        job_context = json.dumps(tmp)
+        return job_context
+    elif job_executor.step_status(tmp) == "running":  # Transfer is being executed
+        print("Store result in backend executing")
+        return 1, job_context
+    elif job_executor.step_status(tmp) == "":
+        tmp["pid"] = None
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors + 1, results_dir=results_dir, state="store")
+        job_context = json.dumps(tmp)
+        return None, job_context
+    elif check_file_is_stored_in_backend(file_dict["file"], tmp["job_id"]):  # File i has been transferred successfully
+        print(f"File {file_dict['file']} stored -> Moving to next")
+        i += 1
+        tmp["pid"] = None
+        tmp["state_dict"] = dict(idx=i, n_errors=n_errors, results_dir=results_dir, state="store")
+        job_context = json.dumps(tmp)
+        return None, job_context
+    else:  # Transfer file i
+        print(f"Beginning to store result in backend of file {file_dict['file']}")
+        cookies_file_path = os.getenv("COOKIES_FILE_PATH")
+        endpoint_url = os.getenv("ENDPOINT_URL")
+        local_path = os.path.join(job_executor.LOCAL_WORKSPACE,str(tmp['job_id']),file_dict["file"])
+        api_login()
+        curl_cmd = f"curl -s --cookie-jar {cookies_file_path} --cookie {cookies_file_path} -H \"Content-Type: application/x-fasta\" -XPUT --data-binary @\"{local_path}\" \"{endpoint_url}{bcs_api_base}/files/jobs/{str(tmp['job_id'])}/{file_dict['file']}.content\""
+        cmd = f"(nohup bash -c \'{curl_cmd} \' >/tmp/mtest </dev/null 2>/tmp/mtest.err & echo $!; wait $!; echo $? >> /tmp/{tmp['job_id']}/$!.exit_status)"
+        print(cmd)
+        popen_pipe = os.popen(cmd)
+        print_file(cookies_file_path)
+        pid = popen_pipe.readline().rstrip()
+        print(f"PID: {pid}")
+        tmp["pid"] = pid
+        tmp["state_dict"] = dict(idx=i + 1, n_errors=n_errors, results_dir=results_dir, state="store")
+        job_context = json.dumps(tmp)
+        return None, job_context
 
 
 @celery_app.task(name="cleanup")
@@ -288,14 +583,19 @@ def wf1_cleanup_workspace(job_context: str):
     """
 
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory()
-    job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp["resource"])
+    tmp = change_status(tmp, "cleanup")
+    job_executor = JobExecutorAtResourceFactory().get(tmp)
+    if not job_executor.check():
+        error_str = "Connection to the server has been lost"
+        print(error_str)
+        tmp['error'] = error_str
+        job_context = json.dumps(tmp)
+        return "error", job_context
     job_executor.remove_job_workspace(str(tmp["job_id"]))
-    del tmp['g_id']
+    del tmp['pid']
     job_context = json.dumps(tmp)
     append_text(f"cleanup:")
     return job_context
-
 
 
 @celery_app.task(name="success")
@@ -307,8 +607,12 @@ def wf1_complete_succesfully(job_context: str):
     :param job_context:
     :return:
     """
+    tmp = json.loads(job_context)
+    tmp = change_status(tmp, "success")
     append_text("complete_successfully")
-    sleep(2)
+    job_context = json.dumps(tmp)
+    append_text(f"cleanup:")
+    return job_context
 
 
 @celery_app.task(name="error")
@@ -322,10 +626,14 @@ def wf1_completed_error(job_context: str):
     """
 
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory()
-    job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp["resource"])
-    status = job_executor.job_status(job_executor["g_id"])
-    tmp['error'] = status
+    tmp = change_status(tmp, "error")
+    job_executor = JobExecutorAtResourceFactory().get(tmp)
+    if not job_executor.check():
+        print(f"The Remote workspace of job {tmp['job_id']} could not be deleted")
+        job_context = json.dumps(tmp)
+        return job_context
+    # los errores ya están en tmp o se descargaría en download
+    #  para qué usaría la información en status?
     job_executor.remove_job_workspace(str(tmp['job_id']))
     job_context = json.dumps(tmp)
     append_text(f"error: {tmp['error']}")
@@ -342,9 +650,9 @@ def wf1_cancelled(job_context: str):
     :return:
     """
     tmp = json.loads(job_context)
-    job_executor = JobExecutorAtResourceFactory()
-    job_executor = job_executor.get(tmp["resource"]["jm_type"], tmp["resource"])
-    job_executor.cancel_job(tmp['g_id'])
-    job_executor.remove_job_workspace(str(tmp['job_id']))
+    tmp = change_status(tmp, "cancel")
+    job_executor = JobExecutorAtResourceFactory().get(tmp)
+    job_executor.cancel_job(tmp['pid'])
+    job_executor.remove_job_workspace(tmp)
     append_text(f"cancelled")
     return job_context

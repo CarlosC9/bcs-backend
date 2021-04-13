@@ -2,6 +2,38 @@
    {
       "type": "stepper",
       "fieldGroup": [
+         {  "key": "input",
+            "templateOptions": {
+            "label": "input"
+         },
+            "fieldGroup": [
+               {
+                  "key": "remote_name",
+                  "type": "input",
+                  "templateOptions": {
+                     "label": "input name"
+                  },
+                  "defaultValue": "input_dataset"
+               },
+               {
+                  "key": "type",
+                  "type": "input",
+                  "templateOptions": {
+                     "label": "type"
+                  },
+                  "defaultValue": "fasta"
+               },
+            {
+                  "key": "bo_type",
+                  "type": "input",
+                  "templateOptions": {
+                     "label": "bo type"
+                  },
+                  "defaultValue": "sequences"
+               }
+
+            ]
+         },
          {
             "templateOptions": {
                "label": "clustalw"

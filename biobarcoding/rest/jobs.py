@@ -14,7 +14,8 @@ from biobarcoding.common.helpers import is_integer
 from biobarcoding.db_models import DBSession
 from biobarcoding.db_models.jobs import ProcessInComputeResource
 from biobarcoding.jobs import JobManagementAPI
-from biobarcoding.rest import bcs_api_base, register_api, Job, ComputeResource, Process, ResponseObject
+from biobarcoding.jobs.process_adaptor import ProcessAdaptorFactory
+from biobarcoding.rest import bcs_api_base, register_api, Job, ComputeResource, Process, ResponseObject,get_decoded_params
 from biobarcoding.authentication import bcs_session
 from biobarcoding.rest import make_simple_rest_crud
 
@@ -58,10 +59,12 @@ class JobAPI(MethodView):
         session = DBSession()
         # Start JSON for processing
         d = DottedDict()
-        req = request.get_json()
-        d.endpoint_url = ""
+        uncoded_req = request.get_json()
+        req = get_decoded_params(uncoded_req.get('params'))
         # Load resource and process
-        in_dict = DottedDict(req['params'])
+        print(req)
+        in_dict = DottedDict(req)
+
         if is_integer(in_dict.resource_id):
             resource = session.query(ComputeResource).get(in_dict.resource_id)
         else:
@@ -105,7 +108,6 @@ class JobAPI(MethodView):
         d.status = "created"
         d.process.inputs = process_params
         d.process.name = process_in_resource.native_process_id
-        d.endpoint_url = "http//:localhost:5000/" #TODO esto debe de salir del config file. cómo?
         # RESOURCE
         d.resource = DottedDict()
         d.resource.name = resource.name
@@ -123,6 +125,9 @@ class JobAPI(MethodView):
         session.commit()
         d.job_id = job.id
         DBSession.remove()
+
+        process_adaptor = ProcessAdaptorFactory().get(d.resource.jm_type, in_dict.process_id)
+        d = process_adaptor.adapt_job_context(d)
 
         # Submit job to Celery
         JobManagementAPI().submit(d.to_json())

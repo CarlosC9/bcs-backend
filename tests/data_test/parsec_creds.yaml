@@ -1,7 +1,7 @@
 __default: local
 
 local:
-  key: "af107bf81f146b6746944b9488986822"
+  key: "fakekey"
   url: "http://localhost:8080/"
   
   

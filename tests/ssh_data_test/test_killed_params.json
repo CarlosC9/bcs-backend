@@ -1,0 +1,7 @@
+{
+  "script_file": "test_killed.sh",
+  "remote_workspace": "/home/dreyes/ssh_kill_test",
+  "host": "balder",
+  "username": "dreyes",
+  "known_hosts_filepath": "/home/daniel/.ssh/known_hosts"
+}

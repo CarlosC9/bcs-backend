@@ -1,8 +1,9 @@
+import os
 from abc import ABC
-from celery import chain
+import abc
 from typing import Dict
 
-# from biobarcoding.tasks.definitions import *
+from biobarcoding.rest.file_manager import FilesAPI
 from biobarcoding.tasks import celery_app
 
 
@@ -41,69 +42,108 @@ class JobManagementAPI:
 
 
 class JobExecutorAtResource(ABC):
+    # TODO acordar el path con Rafa
+    LOCAL_WORKSPACE = "/tmp" # TODO leer desde config file
+
     # RESOURCE
+    @abc.abstractmethod
     def set_resource(self, params):
-        pass
+        raise NotImplementedError
 
+    @abc.abstractmethod
     def check(self):
-        pass
+        raise NotImplementedError
 
+    @abc.abstractmethod
     def connect(self):
-        pass
+        raise NotImplementedError
 
+    @abc.abstractmethod
     def disconnect(self):
-        pass
+        raise NotImplementedError
 
     # JOB EXECUTION
-    def set_credentials(self, credentials):
-        """ Different from connecting to the resource, job submission may require identifying user, to check
-            priority and the like
-            """
-        pass
-
-    def get_quotas_for_current_credentials(self):
-        pass
-
+    @abc.abstractmethod
     def create_job_workspace(self, name):
-        pass
+        raise NotImplementedError
 
+    @abc.abstractmethod
     def remove_job_workspace(self, name):  # After Job is completed (or if Job was not started)
-        pass
+        raise NotImplementedError
 
-    def upload_file(self, workspace, local_filename, remote_location):
-        pass
+    @abc.abstractmethod
+    def exists(self, job_context):
+        raise NotImplementedError
 
-    def move_file(self, remote_source, remote_destination):
-        pass
+    @abc.abstractmethod
+    def upload_file(self, job_context):
+        raise NotImplementedError
 
-    def remove_file(self, remote_filename):
-        pass
+    @abc.abstractmethod
+    def download_file(self, job_context):
+        raise NotImplementedError
 
-    def submit(self, workspace, params):
-        pass
+    @abc.abstractmethod
+    def submit(self, job_context):
+        raise NotImplementedError
 
-    def job_status(self, native_id):
-        pass
+    @abc.abstractmethod
+    def step_status(self, job_context):
+        raise NotImplementedError
 
+    @abc.abstractmethod
     def cancel_job(self, native_id):
-        pass
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_upload_files_list(self, job_context):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def get_download_files_list(self, job_context):
+        raise NotImplementedError
+
+    def local_job_status(self, job_id, pid):
+        exit_status = "none"
+        if pid:
+            job_workspace = os.path.join(self.LOCAL_WORKSPACE, str(job_id))
+            if os.path.exists(f"{job_workspace}/{pid}.exit_status"):
+                with open(f"{job_workspace}/{pid}.exit_status", "r") as f:
+                    exit_status = f.readline().strip()
+                    if exit_status.strip() == "0":
+                        exit_status = "ok"
+                    else:
+                        print(f"Error executing get with pid: {pid}. Exit status = {exit_status}")
+                        exit_status = ""  # This means error
+            else:
+                exit_status = "running"
+
+        return exit_status
 
 
 class JobExecutorAtResourceFactory:
     def __init__(self):
         self.execs = dict()
 
-    def get(self, job_executor_name, resource_param: Dict):
+    def get(self, job_context):
+        job_executor_name = job_context["resource"].get("jm_type")
+        resource_param = job_context["resource"]
         k = (job_executor_name, resource_param["name"])
+        job_id = job_context.get("job_id")
         if k not in self.execs:
-            self.execs[k] = JobExecutorAtResourceFactory._create(job_executor_name, resource_param)
-
+            self.execs[k] = JobExecutorAtResourceFactory._create(job_executor_name, resource_param, job_id=job_id)
         return self.execs[k]
 
     @staticmethod
-    def _create(job_executor_name: str, resource_param: Dict):
+    def _create(job_executor_name: str, resource_param: Dict, **kwargs):
         if job_executor_name.lower() == "galaxy":
             from biobarcoding.jobs.galaxy_resource import JobExecutorAtGalaxy
-            tmp = JobExecutorAtGalaxy()
+            tmp = JobExecutorAtGalaxy(str(kwargs["job_id"]))
             tmp.set_resource(resource_param)
+            return tmp
+        elif job_executor_name.lower() == "ssh":
+            from biobarcoding.jobs.ssh_resource import JobExecutorWithSSH
+            tmp = JobExecutorWithSSH(str(kwargs["job_id"]))
+            tmp.set_resource(resource_param)
+            tmp.connect()
             return tmp
