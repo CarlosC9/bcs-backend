@@ -86,6 +86,8 @@ def __getOrganisms(type):
 def __getAnalyses(type):
   if type == 'sequence' or type == 'sequences':
     from biobarcoding.db_models.chado import AnalysisFeature as ORM
+  elif type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
+    from biobarcoding.db_models.chado import Analysis as ORM
   elif type == 'phylotree' or type == 'phylotrees':
     from biobarcoding.db_models.chado import Phylotree as ORM
   else:
@@ -104,5 +106,12 @@ def getFilterSchema(type):
   kwargs['dbxref'] = __getDbxref(type)
   kwargs['organisms'] = __getOrganisms(type)
   kwargs['analyses'] = __getAnalyses(type)
+  if kwargs.get('analyses'):
+    kwargs['programs'] = [ {'program':a.program,'programversion':a.programversion} for a in kwargs.get('analyses') ]
+    kwargs['programs'] = [dict(t) for t in {tuple(p.items()) for p in kwargs['programs']}]
+    kwargs['algorithms'] = [ {'algorithm':a.algorithm} for a in kwargs.get('analyses') ]
+    kwargs['algorithms'] = [dict(t) for t in {tuple(p.items()) for p in kwargs['algorithms']}]
+    if type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
+      kwargs['analyses']=[]
   from biobarcoding.forms.filter_json import getJSONFilterSchema
   return getJSONFilterSchema(**kwargs)

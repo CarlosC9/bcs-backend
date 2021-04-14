@@ -3,28 +3,28 @@ datetime = [{'key': 'added-from',
              'type': 'input',
              'templateOptions': {
                  'type': 'date',
-                 'label': 'Añadido antes de',
+                 'label': 'Añadido después de',
              },
              }, {
                 'key': 'added-to',
                 'type': 'input',
                 'templateOptions': {
                     'type': 'date',
-                    'label': 'Añadido después de',
+                    'label': 'Añadido antes de',
                 }
             }, {
                 'key': 'lastmodified-from',
                 'type': 'input',
                 'templateOptions': {
                     'type': 'date',
-                    'label': 'Modificado antes de',
+                    'label': 'Modificado después de',
                 },
             }, {
                 'key': 'lastmodified-to',
                 'type': 'input',
                 'templateOptions': {
                     'type': 'date',
-                    'label': 'Modificado después de',
+                    'label': 'Modificado antes de',
                 }}]
 
 
@@ -38,7 +38,7 @@ def getJSONFilterSchema(**kwargs):
 
 
 formly = {'types':
-               {'key': 'types',
+               {'key': 'type_id',
                 'type': 'select',
                 'templateOptions': {
                     'label': 'Tipo',
@@ -49,7 +49,7 @@ formly = {'types':
                     'labelProp': 'name',
                 }},
            'cvterms':
-               {'key': 'cvterms',
+               {'key': 'cvterm_id',
                 'type': 'select',
                 'templateOptions': {
                     'label': 'Términos',
@@ -61,7 +61,7 @@ formly = {'types':
                 }},
            'props':
            # TODO: prop-value-selector. how?
-               {'key': 'properties',
+               {'key': 'prop_cvterm_id',
                 'type': 'select',
                 'templateOptions': {
                     'label': 'Propiedades',
@@ -71,8 +71,8 @@ formly = {'types':
                     'valueProp': 'cvterm_id',
                     'labelProp': 'name',
                 }},
-           'dbxref':
-               {'key': 'dbxref',
+           'dbxrefs':
+               {'key': 'dbxref_id',
                 'type': 'select',
                 'templateOptions': {
                     'label': 'Referencias',
@@ -84,7 +84,7 @@ formly = {'types':
                 }},
            'organisms':
            # TODO: avoid clearing search after choosing
-               {'key': 'organisms',
+               {'key': 'organism_id',
                 'type': 'select',
                 'templateOptions': {
                     'label': 'Taxones',
@@ -96,7 +96,7 @@ formly = {'types':
                     'labelProp': 'species',
                 }},
            'analyses':
-               {'key': 'analyses',
+               {'key': 'analysis_id',
                 'type': 'select',
                 'templateOptions': {
                     'label': 'Análisis',
@@ -108,7 +108,7 @@ formly = {'types':
                     'labelProp': 'name',
                 }},
            'programs':
-               {'key': 'programs',
+               {'key': 'program',
                 'type': 'select',
                 'templateOptions': {
                     'label': 'Programa',
@@ -119,7 +119,7 @@ formly = {'types':
                     'valueProp': 'programversion',
                     'labelProp': 'programversion',
                 }},
-           'algorithm':
+           'algorithms':
                {'key': 'algorithm',
                 'type': 'select',
                 'templateOptions': {
