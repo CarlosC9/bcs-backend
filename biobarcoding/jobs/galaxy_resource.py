@@ -1,59 +1,16 @@
-from typing import List, Any
 from urllib.parse import urljoin
 
 from bioblend import galaxy
 import json
-import yaml
-import os
-import re
 
 from biobarcoding.common import ROOT
 from biobarcoding.db_models import DBSession
 from biobarcoding.db_models.jobs import ComputeResource
 from biobarcoding.jobs import JobExecutorAtResource
 
-
 import os
 
-#
-# def get(url, path) -> object:
-#     """
-#     Execute remote client script
-#     @param url: url of the get
-#     @param path: local path of the file gotten with curl
-#     @return: pid: PID of the executed script process
-#     """
-#
-#     cmd = f"(nohup bash -c \"curl -o {path} {url} \" >/tmp/mtest </dev/null 2>/tmp/mtest.err & echo $!; wait $!; echo $? >> {JOB_STATUS_DIR}/$!.exit_status)"
-#
-#     print(cmd)
-#     popen_pipe = os.popen(cmd)
-#     pid = popen_pipe.readline().rstrip()
-#     print(f"PID: {pid}")
-#     return pid
-
-
-# class instance():
-#     def __init__(self, name, file):
-#         self.name = name
-#         self.file = file
-#
-#     def connect(self):  # esta función es la que debería crearme la instance
-#         gi = galaxy_instance(self.file, name=self.name)
-#         return gi
-
-
-# def galaxy_instance(path, name='__default'):
-#     data = read_yaml_file(path)
-#     assert name in data, 'unknown instance'
-#     gal = data[name]
-#     if isinstance(gal, dict):
-#         return gal
-#     else:
-#         return data[gal]
-
-
-# HELPERS
+# GALAXY HELPERS
 
 def login(api_key: 'str', url: 'str') -> object:
     user_key = api_key
@@ -94,40 +51,28 @@ def workflow_list(gi):
 def workflow_id(gi, name: 'str'):
     workflows = gi.workflows.get_workflows()
     try:
-        work = next(item for item in workflows if item["name"] == name)
+        workflow = next(item for item in workflows if item["name"] == name)
     except StopIteration:
         return 'there is no workflow named{}'.format(name)
     else:
 
-        return work['id']
+        return workflow['id']
 
 
-def get_workflow_from_file(gi, workflow_file):
-    import_workflow = [gi.workflows.import_workflow_from_local_path(file_local_path=workflow_file)]
-    return import_workflow
+def import_workflow_from_file(gi, workflow_file):
+    imported_workflow = [gi.workflows.import_workflow_from_local_path(file_local_path=workflow_file)]
+    return imported_workflow
 
 
 def get_workflow_from_name(gi, workflow_name):
-    wf = gi.workflows.get_workflows(name=workflow_name)
-    return wf
+    workflow = gi.workflows.get_workflows(name=workflow_name)
+    return workflow
 
 
 def get_workflow_id(wf):
     for wf_dic in wf:
         wf_id = wf_dic['id']
     return wf_id
-
-
-# def read_yaml_file(yaml_path):
-#     """
-#     Reads a YAML file safely.
-#
-#     :param yaml_path:
-#     :return: dictionary object from YAML content.
-#     """
-#     with open(yaml_path, 'r') as f:
-#         stream = f.read()
-#     return yaml.safe_load(stream)
 
 
 def dataset_list(gi):
@@ -137,38 +82,8 @@ def dataset_list(gi):
 
 def dataset_id(gi, name: 'str'):
     datasets = dataset_list(gi)
-    dat = next(item for item in datasets if item["name"] == name)
-    return dat['id']
-
-
-# def parse_input(input: 'str', ext: 'str'):
-#     '''
-#     :param gi:
-#     :param input:
-#     :return:
-#     '''
-#     str = input.split(".")
-#     if str[1] != ext:
-#         return 'wrong input file'
-
-
-# def create_library(gi, library_name: 'str'):
-#     '''
-#     look for a library or creates a new library if it do not exists.
-#     Returns the library id of the first library found with that name
-#     :param gi: Galaxy Instance
-#     :param library_name:
-#     :return: library Id
-#     '''
-#     libraries = library_list(gi)
-#     if library_name in [l['name'] for l in libraries]:
-#         return library_id(library_name)
-#     else:
-#         gi.libraries.create_library(library_name)
-#         return library_id(library_name)
-
-# def delete_history(gi, history):
-#     gi.histories.delete_histoy(history['id'])
+    dataset = next(item for item in datasets if item["name"] == name)
+    return dataset['id']
 
 
 def set_params(json_wf, param_data):
@@ -218,133 +133,20 @@ def get_datamap(gi, inputs, workflow, history):
                 }
     return inputs_for_invoke
 
+def validate_file_exists(inputs): # TODO pasar a méthod?
+    """
+    Checks that paths exists in the local file system.
 
-# def set_params_json(json_wf, param_data):
-#     """
-#     Associate parameters to workflow steps via the step label. The result is a dictionary
-#     of parameters that can be passed to invoke_workflow.
-#
-#     :param json_wf:
-#     :param param_data:
-#     :return:
-#     """
-#     params = {}
-#     for param_step_name in param_data:
-#         step_ids = (key for key, value in json_wf['steps'].items() if value['label'] == str(param_step_name))
-#         for step_id in step_ids:
-#             params.update({step_id: param_data[param_step_name]})
-#         for param_name in param_data[param_step_name]:
-#             if '|' in param_name:
-#                 print("Workflow using Galaxy <repeat /> "
-#                       "param. type for {} / {}. "
-#                       "Make sure that workflow has as many entities of that repeat "
-#                       "as they are being set in the parameters file.".format(param_step_name, param_name))
-#                 break
-#     return params
-
-
-# def validate_labels(wf_from_json, param_data, exit_on_error=True): # TODO borrar
-#     """
-#     Checks that all workflow steps have labels (although if not the case, it will only
-#     warn that those steps won't be configurable for parameters) and that all step labels
-#     in the parameter files exist in the workflow file. If the second case is not true,
-#     the offending parameter is shown and the program exists.
-#
-#     :param wf_from_json:
-#     :param param_data:
-#     :param exit_on_error:
-#     :return:
-#     """
-#     step_labels_wf = []
-#     for step_id, step_content in wf_from_json['steps'].items():
-#         if step_content['label'] is None:
-#             print(
-#                 "Step No {} in json workflow does not have a label, parameters are not mappable there.".format(step_id))
-#         step_labels_wf.append(step_content['label'])
-#     errors = 0
-#     for step_label_p, params in param_data.items():
-#         if step_label_p not in step_labels_wf:
-#             if exit_on_error:
-#                 raise ValueError(
-#                     " '{}' parameter step label is not present in the workflow definition".format(step_label_p))
-#             errors += 1
-#     if errors == 0:
-#         print("Validation of labels: OK")
-
-
-# def validate_dataset_id_exists(gi, inputs):
-#     """
-#     Checks that dataset_id exists in the Galaxy instance when dataset_id are specified. Raises an error if the dataset
-#     id doesn't exists in the instance.
-#
-#     :param gi:
-#     :param inputs:
-#     :return:
-#     """
-#     warned = False
-#     for input_key, input_content in inputs.items():
-#         if 'dataset_id' in input_content:
-#             ds_in_instance = gi.datasets.show_dataset(dataset_id=input_content['dataset_id'])
-#             if not warned:
-#                 print("You are using direct dataset identifiers for inputs, "
-#                       "this execution is not portable accross instances.")
-#                 warned = True
-#             if not isinstance(ds_in_instance, dict):
-#                 raise ValueError("Input dataset_id {} does not exist in the Galaxy instance."
-#                                  .format(input_content['dataset_id']))
-
-
-# def validate_input_labels(wf_json, inputs):
-#     """
-#     Check that all input datasets in the workflow have labels, and that those labels are available in the inputs yaml.
-#     Raises an exception if those cases are not fulfilled.
-#
-#     :param wf_json:
-#     :param inputs:
-#     :return: the number of input labels.
-#     """
-#
-#     number_of_inputs = 0
-#     for step, step_content in wf_json['steps'].items():
-#         if step_content['type'] == 'data_input':
-#             number_of_inputs += 1
-#             if step_content['label'] is None:
-#                 raise ValueError("Input step {} in workflow has no label set.".format(str(step)))
-#
-#             if step_content['label'] not in inputs:
-#                 raise ValueError("Input step {} label {} is not present in the inputs YAML file provided."
-#                                  .format(str(step), step_content['label']))
-#     return number_of_inputs
-
-
-# def validate_file_exists(inputs): # TODO pasar a métohd
-#     """
-#     Checks that paths exists in the local file system.
-#
-#     :param inputs: dictionary with inputs
-#     :return:
-#     """
-#     for input_key, input_content in inputs.items():
-#         if 'path' in input_content and not os.path.isfile(input_content['path']):
-#             raise ValueError("Input file {} does not exist for input label {}".format(input_content['path'], input_key))
-
-
-# def create_input(step: 'str', source: 'str', id: 'str'):
-#     '''
-#     Create a workflow input
-#     :param step:  step input
-#     :param source: 'hdda' (history); 'lbda' (library)
-#     :param id: dataset id
-#     :return: Input dictionary
-#     '''
-#     datamap = dict()
-#     datamap[step] = {'id': id, 'src': source}
-#     return datamap
-
+    :param inputs: dictionary with inputs
+    :return:
+    """
+    for input_key, input_content in inputs.items():
+        if 'path' in input_content and not os.path.isfile(input_content['path']):
+            raise ValueError("Input file {} does not exist for input label {}".format(input_content['path'], input_key))
 
 def params_input_creation(gi, workflow_name, inputs_data, param_data, history_id=None, history_name=None): # TODO SEPARAR ESRTÁ DUNCIÓN DE GET_DATAMAP
     '''
-        set and chel params dictionaty and load data and set datamap
+        set and chel params dictionary and load data and set datamap
 
     '''
     w_id = workflow_id(gi, workflow_name)
@@ -360,57 +162,9 @@ def params_input_creation(gi, workflow_name, inputs_data, param_data, history_id
         inputs_data[pk] = param_data[pk]
     history = gi.histories.get_histories(history_id)[0]
     datamap = get_datamap(gi, inputs=inputs_data, workflow=show_wf, history=history)
-    # TODO check that input parameters are correct by form
     print('Set parameters ...')
     params = set_params(wf_dict, param_data)
     return datamap, params
-
-
-# def params_creation(gi, workflow_name, param_data):  # TODO test
-#     w_id = workflow_id(gi, workflow_name)
-#     wf_dict = gi.workflows.export_workflow_dict(w_id)
-#     params_to_move = []
-#     for pk, pv in param_data.items():
-#         if not isinstance(pv, dict):
-#             params_to_move.append(pk)
-#
-#     validate_labels(wf_dict, param_data)
-#     params = set_params(wf_dict, param_data)
-#     return params
-
-
-# def input_creation(gi, workflow_name, history_name, inputs_data):  # TODO test
-#     w_id = workflow_id(gi, workflow_name)
-#     wf_dict = gi.workflows.export_workflow_dict(w_id)
-#     show_wf = gi.workflows.show_workflow(w_id)
-#     num_inputs = validate_input_labels(wf_json=wf_dict, inputs=inputs_data)
-#     if num_inputs > 0:
-#         validate_file_exists(inputs_data)
-#
-#     validate_dataset_id_exists(gi, inputs_data)
-#
-#     print('Create new history to run workflow ...')
-#     history = gi.histories.create_history(name=history_name)
-#     #dict step : data id
-#     datamap = load_input_files(gi, inputs=inputs_data,
-#                                workflow=show_wf, history=history)
-#     # TODO check that input parameters are correct
-#     return datamap
-
-
-# def run_workflow_files(gi, wf_name, input_file: 'str', param_file: 'str', history_name):
-#     param_data = read_yaml_file(param_file)
-#     inputs_data = read_yaml_file(input_file)
-#     w_id = workflow_id(gi, wf_name)
-#     show_wf = gi.workflows.show_workflow(w_id)
-#     datamap, parameters = params_creation(gi, wf_name, inputs_data, param_data)
-#     print('Running workflow {}...'.format(show_wf['name']))
-#     invocation = gi.workflows.invoke_workflow(workflow_id=w_id,
-#                                               inputs=datamap,
-#                                               params=parameters,
-#                                               history_name=history_name)
-#     return invocation
-
 
 def get_history_id_by_invocation(gi, h_id):
     invocations = gi.invocations.get_invocations()
@@ -433,7 +187,7 @@ def invocation_errors(gi, invocation_id) -> 'dict':
         return state
 
 
-def get_job_from_invocation(gi, invocation, step): # TODO no se usa?
+def get_job_from_invocation(gi, invocation, step):
     '''
     Job information from an invocation given the step of interest. A job is the execution of a step (in a workflow)
     An invocation is the result of calling a pre-defined workflow. So an invocation is composed of several jobs.
@@ -443,7 +197,6 @@ def get_job_from_invocation(gi, invocation, step): # TODO no se usa?
     '''
     step = gi.invocations.show_invocation(invocation['id'])['steps'][int(step)]
     #TODO repasar este metodo
-    state = step['state']
     job_id = step['job_id']
     job = gi.jobs.show_job(job_id)
     return job
@@ -464,26 +217,6 @@ def list_invocation_results(gi, invocation_id: 'str'):
             return results
         else:
             return gi.histories.get_status(h_id)
-
-# def download_result(gi, results: 'list', path: 'str'):
-#     '''
-#     Download invocation result
-#     :param gi:
-#     :param results:
-#     :param path:
-#     :return:
-#     '''
-#
-#     #url:
-#     # dataset = dataset_dict
-#     # file_ext = dataset.get('file_ext')
-#     # download_url = dataset['download_url'] + '?to_ext=' + file_ext
-#     if isinstance(results, list):
-#         for r in results:
-#             gi.datasets.download_dataset(r['id'], file_path=path)
-#     else:
-#         print(results)
-#     # TODO delete history after successfully download
 
 
 def export_workflow(instance, wf_name):
@@ -516,43 +249,6 @@ def check_tools(wf1_dic, wf2_dic):
 
 
 
-
-def upload_status(gi,job_context):
-    i = job_context["state_dict"]["idx"]
-    if i == 0:
-        # todavía no he empezado
-        return None
-    status = gi.histories.get_status(get_history_id(gi,job_context['pid']))
-    if status['state'] == 'ok' and status['state_details']['ok'] < len(i):
-        # "in this case we can say that galaxy does not know about de nwe job"
-        status['state'] = "queued"
-        print(f"changing {i} UPLOAD status from ok to queued this should happend only a few times")
-
-    if status['state'] == 'error':
-        return status['state_details']
-    else:
-        return status['state']
-
-
-
-def invocation_status(gi,job_context):
-    pid = job_context.get('pid')
-    invocation = gi.invocations.show_invocation(pid)
-    status = gi.histories.get_status(invocation['history_id'])
-    "the first call to state cab be ok just because is the state of previous job. "
-    print(f"{status['state']} job in job_status function")
-    # "the first call to state cab be ok just because is the state of previous job."
-    files_list = job_context['process']['inputs']['data']
-    if status['state'] == 'ok' and status['state_details']['ok'] == len(files_list):
-        # galaxy is still displaying status for the upload process
-        status['state'] = "queued"
-        print(f"changing PROCESS status from ok to queued this should happend only a few times")
-    if status['state'] == 'error':
-        return status['state_details']
-    else:
-        return status['state']
-
-
 def get_stdout_stderr(gi,result,history_name):
     remote_name = result['remote_name']
     dataset_id = \
@@ -560,7 +256,7 @@ def get_stdout_stderr(gi,result,history_name):
         0]['id']
     provenance = gi.histories.show_dataset_provenance(history_id=get_history_id(gi, history_name),
                                                       dataset_id=dataset_id)
-    std = dict(stderr = provenance['stderr'],stdout = provenance['stdout'] )
+    std = dict(stderr = provenance['stderr'],stdout = provenance['stdout'])
     return std
 
 
@@ -684,6 +380,41 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
                                                   history_id=history_id)
         return invocation['id']
 
+    def __invocation_status(self, job_context):
+        pid = job_context.get('pid')
+        gi = self.galaxy_instance
+        invocation = gi.invocations.show_invocation(pid)
+        status = gi.histories.get_status(invocation['history_id'])
+        "the first call to state cab be ok just because is the state of previous job. "
+        print(f"{status['state']} job in job_status function")
+        # "the first call to state cab be ok just because is the state of previous job."
+        files_list = job_context['process']['inputs']['data']
+        if status['state'] == 'ok' and status['state_details']['ok'] == len(files_list):
+            # galaxy is still displaying status for the upload process
+            status['state'] = "queued"
+            print(f"changing PROCESS status from ok to queued this should happend only a few times")
+        if status['state'] == 'error':
+            return status['state_details']
+        else:
+            return status['state']
+
+    def __upload_status(self,job_context):
+        gi = self.galaxy_instance
+        i = job_context["state_dict"]["idx"]
+        if i == 0:
+            # todavía no he empezado
+            return None
+        status = gi.histories.get_status(get_history_id(gi, job_context['pid']))
+        if status['state'] == 'ok' and status['state_details']['ok'] < len(i):
+            # "in this case we can say that galaxy does not know about de nwe job"
+            status['state'] = "queued"
+            print(f"changing {i} UPLOAD status from ok to queued this should happend only a few times")
+
+        if status['state'] == 'error':
+            return status['state_details']
+        else:
+            return status['state']
+
 
     def step_status(self, job_context):
         """
@@ -692,10 +423,9 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
              retrieved, an empty string is returned.
            """
         self.connect()
-        gi = self.galaxy_instance
         if job_context.get("state_dict"):
             if job_context["state_dict"].get("state") == "upload":
-                status = upload_status(gi,job_context) # i need
+                status = self.__upload_status(job_context) # i need
                 return status # if error return dict
             if job_context["state_dict"].get("state") =="download":
                 pid = job_context["pid"]
@@ -706,7 +436,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
             if not pid:
                 return None
             else:
-                status = invocation_status(gi,job_context)
+                status = self.__invocation_status(job_context)
                 return status
 
 
