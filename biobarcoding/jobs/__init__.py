@@ -43,7 +43,31 @@ class JobManagementAPI:
 
 class JobExecutorAtResource(ABC):
     # TODO acordar el path con Rafa
-    LOCAL_WORKSPACE = "/tmp" # TODO leer desde config file
+    LOCAL_WORKSPACE = os.sep + "tmp"# TODO leer desde config file
+    LOG_FILENAMES_DICT = {
+        "prepare_stdout": "bcs.prepare.stdout.log",
+        "prepare_stderr": "bcs.prepare.stderr.log",
+        "export_stdout": "bcs.export.stdout.log",
+        "export_stderr": "bcs.export.stderr.log",
+        "upload_stdout": "bcs.upload.stdout.log",
+        "upload_stderr": "bcs.upload.stderr.log",
+        "submit_stdout": "bcs.submit.stdout.log",
+        "submit_stderr": "bcs.submit.stderr.log",
+        "download_stdout": "bcs.download.stdout.log",
+        "download_stderr": "bcs.download.stderr.log",
+        "store_stdout": "bcs.store.stdout.log",
+        "store_stderr": "bcs.store.stderr.log",
+        "cleanup_stdout": "bcs.cleanup.stdout.log",
+        "cleanup_stderr": "bcs.cleanup.stderr.log",
+    }
+
+    def __init__(self, job_id):
+        self.local_workspace = os.path.join(self.LOCAL_WORKSPACE, job_id)
+        if not os.path.exists(self.local_workspace):
+            os.mkdir(self.local_workspace)
+        self.log_filenames_dict = {}
+        for k, v in self.LOG_FILENAMES_DICT.items():
+            self.log_filenames_dict[k] = os.path.join(self.local_workspace, v)
 
     # RESOURCE
     @abc.abstractmethod
@@ -65,6 +89,10 @@ class JobExecutorAtResource(ABC):
     # JOB EXECUTION
     @abc.abstractmethod
     def create_job_workspace(self, name):
+        raise NotImplementedError
+
+    @abc.abstractmethod
+    def job_workspace_exists(self, job_id):
         raise NotImplementedError
 
     @abc.abstractmethod

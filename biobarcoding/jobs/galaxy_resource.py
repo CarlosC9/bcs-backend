@@ -604,6 +604,7 @@ def get_stdout_stderr(gi,result,history_name):
 
 class JobExecutorAtGalaxy(JobExecutorAtResource):
     def __init__(self, job_id):
+        super().__init__(job_id)
         self.api_key = None
         self.url = None
         self.galaxy_instance = None
