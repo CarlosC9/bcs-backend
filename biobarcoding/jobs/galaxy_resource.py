@@ -133,18 +133,9 @@ def get_datamap(gi, inputs, workflow, history):
                 }
     return inputs_for_invoke
 
-def validate_file_exists(inputs): # TODO pasar a méthod?
-    """
-    Checks that paths exists in the local file system.
 
-    :param inputs: dictionary with inputs
-    :return:
-    """
-    for input_key, input_content in inputs.items():
-        if 'path' in input_content and not os.path.isfile(input_content['path']):
-            raise ValueError("Input file {} does not exist for input label {}".format(input_content['path'], input_key))
-
-def params_input_creation(gi, workflow_name, inputs_data, param_data, history_id=None, history_name=None): # TODO SEPARAR ESRTÁ DUNCIÓN DE GET_DATAMAP
+def params_input_creation(gi, workflow_name, inputs_data, param_data, history_id=None, history_name=None):
+    # TODO SEPARAR ESRTÁ DUNCIÓN DE GET_DATAMAP Y PASAR AL ADAPTOR
     '''
         set and chel params dictionary and load data and set datamap
 
