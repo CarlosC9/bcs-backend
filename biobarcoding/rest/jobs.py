@@ -15,7 +15,7 @@ from biobarcoding.db_models import DBSession
 from biobarcoding.db_models.jobs import ProcessInComputeResource
 from biobarcoding.jobs import JobManagementAPI
 from biobarcoding.jobs.process_adaptor import ProcessAdaptorFactory
-from biobarcoding.rest import bcs_api_base, register_api, Job, ComputeResource, Process, ResponseObject
+from biobarcoding.rest import bcs_api_base, register_api, Job, ComputeResource, Process, ResponseObject,get_decoded_params
 from biobarcoding.authentication import bcs_session
 from biobarcoding.rest import make_simple_rest_crud
 
@@ -59,7 +59,8 @@ class JobAPI(MethodView):
         session = DBSession()
         # Start JSON for processing
         d = DottedDict()
-        req = request.get_json()
+        uncoded_req = request.get_json()
+        req = get_decoded_params(uncoded_req.get('params'))
         # Load resource and process
         print(req)
         in_dict = DottedDict(req)

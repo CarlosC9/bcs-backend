@@ -18,7 +18,7 @@
     "data":[
 
     {
-      "remote_name":"Input_dataset",
+      "remote_name":"input_dataset",
       "type":"fasta",
       "selection": [1, 2],
       "bo_type": "sequences"
