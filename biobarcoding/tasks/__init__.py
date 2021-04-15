@@ -1,14 +1,9 @@
 import socket
 
 from celery import Celery
-# from sqlalchemy import and_
 
 import biobarcoding
 from .celeryconfig import celery_config
-#from ..db_models import DBSession
-#from ..db_models.sysadmin import Identity,Authenticator,IdentityAuthenticator
-#from ..rest import bcs_api_base
-
 
 def is_port_open(host="localhost", port=6379):
     a_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -21,8 +16,7 @@ def is_port_open(host="localhost", port=6379):
 
     return result_of_check == 0
 
-def create_celery_user():
-    pass
+
 
 def get_redis_host():
     if is_port_open("localhost", 6379):

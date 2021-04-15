@@ -6,6 +6,8 @@ from biobarcoding.rest import Issue, IType, filter_parse, paginator
 def create(**kwargs):
     content = None
     try:
+        if not kwargs.get('name'):
+            kwargs['name']= f"{kwargs['program']} {kwargs['programversion']}"
         chado_session.add(Analysis(**kwargs))
         issues, status = [Issue(IType.INFO, f'CREATE analyses: The analysis "{kwargs.get("program")} {kwargs.get("programversion")}" created successfully.')], 201
     except Exception as e:
