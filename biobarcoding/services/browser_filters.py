@@ -75,17 +75,10 @@ def __get_query(type=None, id=None, **kwargs):
 
 
 def __aux_own_filter(filter):
-    clause = []
-    # if filter.get('feature_id'):
-    #     from biobarcoding.db_models.chado import AnalysisFeature
-    #     _ids = bcs_session.query(AnalysisFeature.analysis_id)\
-    #         .filter(filter_parse(AnalysisFeature, {'feature_id':filter.get('feature_id')})).all()
-    #     clause.append(BrowserFilter.analysis_id.in_(_ids))
-    return clause
+    return []
 
 
 def __get_query_ordered(query, order):
-    # query = query.order(order_parse(BrowserFilter, kwargs.get('order'), __aux_own_order))
     return query
 
 

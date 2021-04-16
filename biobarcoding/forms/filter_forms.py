@@ -107,8 +107,10 @@ def getFilterSchema(type):
   kwargs['organisms'] = __getOrganisms(type)
   kwargs['analyses'] = __getAnalyses(type)
   if kwargs.get('analyses'):
-    kwargs['programs'] = [ {'program':a.program,'programversion':a.programversion} for a in kwargs.get('analyses') ]
+    kwargs['programs'] = [ {'program':a.program} for a in kwargs.get('analyses') ]
     kwargs['programs'] = [dict(t) for t in {tuple(p.items()) for p in kwargs['programs']}]
+    kwargs['programversions'] = [ {'program':a.program, 'programversion':a.programversion} for a in kwargs.get('analyses') ]
+    kwargs['programversions'] = [dict(t) for t in {tuple(p.items()) for p in kwargs['programversions']}]
     kwargs['algorithms'] = [ {'algorithm':a.algorithm} for a in kwargs.get('analyses') ]
     kwargs['algorithms'] = [dict(t) for t in {tuple(p.items()) for p in kwargs['algorithms']}]
     if type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':

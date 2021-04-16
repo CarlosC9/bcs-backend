@@ -206,10 +206,44 @@ def __get_query(id = None, **kwargs):
 
 def __aux_own_filter(filter):
     clause=[]
+
     if 'feature_id' in filter:
         _ids = chado_session.query(Phylonode.phylotree_id)\
-            .filter(filter_parse(Phylonode, [{'feature_id': filter.get('feature_id')}])).all()
+            .filter(filter_parse(Phylonode, [{'feature_id': filter.get('feature_id')}]))
         clause.append(Phylotree.phylotree_id.in_(_ids))
+
+    if 'organism_id' in filter:
+        from biobarcoding.db_models.chado import Feature
+        _ids = chado_session.query(Feature.feature_id)\
+            .filter(filter_parse(Feature, [{'organism_id': filter.get('organism_id')}]))
+        _ids = chado_session.query(Phylonode.phylotree_id)\
+            .filter(Phylonode.feature_id.in_(_ids))
+        clause.append(Phylotree.phylotree_id.in_(_ids))
+
+    if "prop_cvterm_id" in filter:
+        from biobarcoding.db_models.chado import Phylotreeprop
+        _ids = chado_session.query(Phylotreeprop.phylotree_id)\
+            .filter(filter_parse(Phylotreeprop, [{'type_id': filter.get('prop_cvterm_id')}]))
+        clause.append(Phylotree.phylotree_id.in_(_ids))
+
+    if "program" in filter:
+        from biobarcoding.db_models.chado import Analysis
+        _ids = chado_session.query(Analysis.analysis_id) \
+            .filter(filter_parse(Analysis, [{'program': filter.get('program')}]))
+        clause.append(Phylotree.analysis_id.in_(_ids))
+
+    if "programversion" in filter:
+        from biobarcoding.db_models.chado import Analysis
+        _ids = chado_session.query(Analysis.analysis_id) \
+            .filter(filter_parse(Analysis, [{'programversion': filter.get('programversion')}]))
+        clause.append(Phylotree.analysis_id.in_(_ids))
+
+    if "algorithm" in filter:
+        from biobarcoding.db_models.chado import Analysis
+        _ids = chado_session.query(Analysis.analysis_id) \
+            .filter(filter_parse(Analysis, [{'algorithm': filter.get('algorithm')}]))
+        clause.append(Phylotree.analysis_id.in_(_ids))
+
     return clause
 
 

@@ -1,31 +1,33 @@
 
-datetime = [{'key': 'added-from',
-             'type': 'input',
-             'templateOptions': {
-                 'type': 'date',
-                 'label': 'Añadido después de',
-             },
-             }, {
-                'key': 'added-to',
-                'type': 'input',
-                'templateOptions': {
-                    'type': 'date',
-                    'label': 'Añadido antes de',
-                }
-            }, {
-                'key': 'lastmodified-from',
-                'type': 'input',
-                'templateOptions': {
-                    'type': 'date',
-                    'label': 'Modificado después de',
-                },
-            }, {
-                'key': 'lastmodified-to',
-                'type': 'input',
-                'templateOptions': {
-                    'type': 'date',
-                    'label': 'Modificado antes de',
-                }}]
+datetime = [{
+    'key': 'added-from',
+    'type': 'input',
+    'templateOptions': {
+        'type': 'date',
+        'label': 'Añadido después de',
+    },
+}, {
+    'key': 'added-to',
+    'type': 'input',
+    'templateOptions': {
+        'type': 'date',
+        'label': 'Añadido antes de',
+    }
+}, {
+    'key': 'lastmodified-from',
+    'type': 'input',
+    'templateOptions': {
+        'type': 'date',
+        'label': 'Modificado después de',
+    },
+}, {
+    'key': 'lastmodified-to',
+    'type': 'input',
+    'templateOptions': {
+        'type': 'date',
+        'label': 'Modificado antes de',
+    }
+}]
 
 
 def getJSONFilterSchema(**kwargs):
@@ -113,6 +115,17 @@ formly = {'types':
                 'templateOptions': {
                     'label': 'Programa',
                     'placeholder': 'Programa de interés',
+                    'multiple': True,
+                    'options': [],
+                    'valueProp': 'program',
+                    'labelProp': 'program',
+                }},
+           'programversions':
+               {'key': 'programversion',
+                'type': 'select',
+                'templateOptions': {
+                    'label': 'Programa versión',
+                    'placeholder': 'Versiones de interés',
                     'multiple': True,
                     'options': [],
                     'groupProp': 'program',

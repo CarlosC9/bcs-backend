@@ -134,29 +134,34 @@ def __aux_own_filter(filter):
     if 'analysis_id' in filter:
         from biobarcoding.db_models.chado import AnalysisFeature
         _ids = chado_session.query(AnalysisFeature.feature_id)\
-                .filter(
-                    filter_parse(AnalysisFeature, [{'analysis_id': filter.get('analysis_id')}]))
+            .filter(filter_parse(AnalysisFeature, [{'analysis_id': filter.get('analysis_id')}]))
         clause.append(Feature.feature_id.in_(_ids))
 
     if 'phylotree_id' in filter:
         from biobarcoding.db_models.chado import Phylonode
         _ids = chado_session.query(Phylonode.feature_id)\
-                .filter(
-                    filter_parse(Phylonode, [{'phylotree_id': filter.get('phylotree_id')}]))
+            .filter(filter_parse(Phylonode, [{'phylotree_id': filter.get('phylotree_id')}]))
         clause.append(Feature.feature_id.in_(_ids))
 
     if "prop_cvterm_id" in filter:
         from biobarcoding.db_models.chado import Featureprop
         _ids = chado_session.query(Featureprop.feature_id)\
-                .filter(
-                    filter_parse(Featureprop, [{'cvterm_id': filter.get('prop_cvterm_id')}]))
+            .filter(filter_parse(Featureprop, [{'type_id': filter.get('prop_cvterm_id')}]))
         clause.append(Feature.feature_id.in_(_ids))
 
     if "program" in filter:
         from biobarcoding.db_models.chado import Analysis
         _ids = chado_session.query(Analysis.analysis_id) \
-            .filter(
-            filter_parse(Analysis, [{'program': filter.get('program')}]))
+            .filter(filter_parse(Analysis, [{'program': filter.get('program')}]))
+        from biobarcoding.db_models.chado import AnalysisFeature
+        _ids = chado_session.query(AnalysisFeature.feature_id) \
+            .filter(AnalysisFeature.analysis_id.in_(_ids))
+        clause.append(Feature.feature_id.in_(_ids))
+
+    if "programversion" in filter:
+        from biobarcoding.db_models.chado import Analysis
+        _ids = chado_session.query(Analysis.analysis_id) \
+            .filter(filter_parse(Analysis, [{'programversion': filter.get('programversion')}]))
         from biobarcoding.db_models.chado import AnalysisFeature
         _ids = chado_session.query(AnalysisFeature.feature_id) \
             .filter(AnalysisFeature.analysis_id.in_(_ids))
@@ -165,8 +170,7 @@ def __aux_own_filter(filter):
     if "algorithm" in filter:
         from biobarcoding.db_models.chado import Analysis
         _ids = chado_session.query(Analysis.analysis_id) \
-            .filter(
-            filter_parse(Analysis, [{'algorithm': filter.get('algorithm')}]))
+            .filter(filter_parse(Analysis, [{'algorithm': filter.get('algorithm')}]))
         from biobarcoding.db_models.chado import AnalysisFeature
         _ids = chado_session.query(AnalysisFeature.feature_id) \
             .filter(AnalysisFeature.analysis_id.in_(_ids))
