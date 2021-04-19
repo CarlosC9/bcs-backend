@@ -130,18 +130,74 @@ def __get_query(id=None, **kwargs):
 
 def __aux_own_filter(filter):
     clause=[]
+
     if 'analysis_id' in filter:
         from biobarcoding.db_models.chado import AnalysisFeature
         _ids = chado_session.query(AnalysisFeature.feature_id)\
-                .filter(
-                    filter_parse(AnalysisFeature, [{'analysis_id': filter.get('analysis_id')}]))
+            .filter(filter_parse(AnalysisFeature, [{'analysis_id': filter.get('analysis_id')}]))
         clause.append(Feature.feature_id.in_(_ids))
+
     if 'phylotree_id' in filter:
         from biobarcoding.db_models.chado import Phylonode
         _ids = chado_session.query(Phylonode.feature_id)\
-                .filter(
-                    filter_parse(Phylonode, [{'phylotree_id': filter.get('phylotree_id')}]))
+            .filter(filter_parse(Phylonode, [{'phylotree_id': filter.get('phylotree_id')}]))
         clause.append(Feature.feature_id.in_(_ids))
+
+    if "prop_cvterm_id" in filter:
+        from biobarcoding.db_models.chado import Featureprop
+        _ids = chado_session.query(Featureprop.feature_id)\
+            .filter(filter_parse(Featureprop, [{'type_id': filter.get('prop_cvterm_id')}]))
+        clause.append(Feature.feature_id.in_(_ids))
+
+    if "program" in filter:
+        from biobarcoding.db_models.chado import Analysis
+        _ids = chado_session.query(Analysis.analysis_id) \
+            .filter(filter_parse(Analysis, [{'program': filter.get('program')}]))
+        from biobarcoding.db_models.chado import AnalysisFeature
+        _ids = chado_session.query(AnalysisFeature.feature_id) \
+            .filter(AnalysisFeature.analysis_id.in_(_ids))
+        clause.append(Feature.feature_id.in_(_ids))
+
+    if "programversion" in filter:
+        from biobarcoding.db_models.chado import Analysis
+        _ids = chado_session.query(Analysis.analysis_id) \
+            .filter(filter_parse(Analysis, [{'programversion': filter.get('programversion')}]))
+        from biobarcoding.db_models.chado import AnalysisFeature
+        _ids = chado_session.query(AnalysisFeature.feature_id) \
+            .filter(AnalysisFeature.analysis_id.in_(_ids))
+        clause.append(Feature.feature_id.in_(_ids))
+
+    if "algorithm" in filter:
+        from biobarcoding.db_models.chado import Analysis
+        _ids = chado_session.query(Analysis.analysis_id) \
+            .filter(filter_parse(Analysis, [{'algorithm': filter.get('algorithm')}]))
+        from biobarcoding.db_models.chado import AnalysisFeature
+        _ids = chado_session.query(AnalysisFeature.feature_id) \
+            .filter(AnalysisFeature.analysis_id.in_(_ids))
+        clause.append(Feature.feature_id.in_(_ids))
+
+    from datetime import datetime
+    if "added-from" in filter:
+        filter["added-from"]['unary'] = datetime.strptime(filter.get("added-from")['unary'], '%Y-%m-%d')
+        _ids = chado_session.query(Feature.feature_id) \
+            .filter(filter_parse(Feature, {'timeaccessioned':filter.get("added-from")}))
+        clause.append(Feature.feature_id.in_(_ids))
+    if "added-to" in filter:
+        filter["added-to"]['unary'] = datetime.strptime(filter.get("added-to")['unary'], '%Y-%m-%d')
+        _ids = chado_session.query(Feature.feature_id) \
+            .filter(filter_parse(Feature, {'timeaccessioned':filter.get("added-to")}))
+        clause.append(Feature.feature_id.in_(_ids))
+    if "lastmodified-from" in filter:
+        filter["lastmodified-from"]['unary'] = datetime.strptime(filter.get("lastmodified-from")['unary'], '%Y-%m-%d')
+        _ids = chado_session.query(Feature.feature_id) \
+            .filter(filter_parse(Feature, {'timelastmodified':filter.get("lastmodified-from")}))
+        clause.append(Feature.feature_id.in_(_ids))
+    if "lastmodified-to" in filter:
+        filter["lastmodified-to"]['unary'] = datetime.strptime(filter.get("lastmodified-to")['unary'], '%Y-%m-%d')
+        _ids = chado_session.query(Feature.feature_id) \
+            .filter(filter_parse(Feature, {'timelastmodified':filter.get("lastmodified-to")}))
+        clause.append(Feature.feature_id.in_(_ids))
+
     return clause
 
 

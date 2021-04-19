@@ -787,6 +787,10 @@ def filter_parse(orm, filter, aux_filter=None):
             return obj == value
         elif op == "between":
             return obj.between_(left, right)
+        elif op == "le":
+            return obj <= value
+        elif op == "ge":
+            return obj >= value
         return True
 
     try:

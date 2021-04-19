@@ -72,11 +72,52 @@ def __get_query(id=None, **kwargs):
 
 def __aux_own_filter(filter):
     clause = []
+
     if filter.get('feature_id'):
         from biobarcoding.db_models.chado import AnalysisFeature
         _ids = chado_session.query(AnalysisFeature.analysis_id)\
-            .filter(filter_parse(AnalysisFeature, {'feature_id':filter.get('feature_id')})).all()
+            .filter(filter_parse(AnalysisFeature, {'feature_id': filter.get('feature_id')}))
         clause.append(Analysis.analysis_id.in_(_ids))
+
+    if filter.get('organism_id'):
+        from biobarcoding.db_models.chado import Feature
+        _ids = chado_session.query(Feature.feature_id)\
+            .filter(filter_parse(Feature, {'organism_id': filter.get('organism_id')}))
+        from biobarcoding.db_models.chado import AnalysisFeature
+        _ids = chado_session.query(AnalysisFeature.analysis_id)\
+            .filter(AnalysisFeature.feature_id.in_(_ids))
+        clause.append(Analysis.analysis_id.in_(_ids))
+
+    if 'phylotree_id' in filter:
+        from biobarcoding.db_models.chado import Phylotree
+        _ids = chado_session.query(Phylotree.analysis_id) \
+            .filter(filter_parse(Phylotree, [{'phylotree_id': filter.get('phylotree_id')}]))
+        clause.append(Analysis.analysis_id.in_(_ids))
+
+    if "cvterm_id" in filter:
+        from biobarcoding.db_models.chado import AnalysisCvterm
+        _ids = chado_session.query(AnalysisCvterm.analysis_id) \
+            .filter(filter_parse(AnalysisCvterm, [{'cvterm_id': filter.get('cvterm_id')}]))
+        clause.append(Analysis.analysis_id.in_(_ids))
+
+    if "prop_cvterm_id" in filter:
+        from biobarcoding.db_models.chado import Analysisprop
+        _ids = chado_session.query(Analysisprop.analysis_id) \
+            .filter(filter_parse(Analysisprop, [{'type_id': filter.get('prop_cvterm_id')}]))
+        clause.append(Analysis.analysis_id.in_(_ids))
+
+    from datetime import datetime
+    if "added-from" in filter:
+        filter["added-from"]['unary'] = datetime.strptime(filter.get("added-from")['unary'], '%Y-%m-%d')
+        _ids = chado_session.query(Analysis.analysis_id) \
+            .filter(filter_parse(Analysis, {'timeexecuted':filter.get("added-from")}))
+        clause.append(Analysis.analysis_id.in_(_ids))
+    if "added-to" in filter:
+        filter["added-to"]['unary'] = datetime.strptime(filter.get("added-to")['unary'], '%Y-%m-%d')
+        _ids = chado_session.query(Analysis.analysis_id) \
+            .filter(filter_parse(Analysis, {'timeexecuted':filter.get("added-to")}))
+        clause.append(Analysis.analysis_id.in_(_ids))
+
     return clause
 
 
