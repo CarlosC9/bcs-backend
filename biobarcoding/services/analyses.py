@@ -117,6 +117,7 @@ def __aux_own_filter(filter):
         _ids = chado_session.query(Analysis.analysis_id) \
             .filter(filter_parse(Analysis, {'timeexecuted':filter.get("added-to")}))
         clause.append(Analysis.analysis_id.in_(_ids))
+
     return clause
 
 
