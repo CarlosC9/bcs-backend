@@ -30,7 +30,7 @@ class RemoteSSHClient:
         """
         if self.conn is None:
             try:
-                kwargs = {  # necesito known_hosts y los argumentos del constructor de RemoteSSHClient
+                kwargs = {  # I need known_hosts and the arguments in the constructor of RemoteSSHClient
                     'known_hosts': self.known_hosts_filepath,
                 }
                 self.conn, self.client = await asyncssh.create_connection(asyncssh.SSHClient, self.host, **kwargs)
@@ -140,57 +140,6 @@ class RemoteSSHClient:
         else:
             print("No command has been executed")
 
-    def upload_directory(self, local_path, remote_path):
-        """
-            Upload directory to remote_path.
-
-            @param local_path: path to local folder.
-            @param remote_path: path to remote folder relative to self.remote_workspace.
-            @return: PID of the process uploading the directory
-            """
-        remote_path = os.path.join(self.remote_workspace, remote_path,
-                                   "")  # ensure it always ends with / (the separator)
-        remote_dir = os.path.join(self.remote_workspace, os.path.split(remote_path)[0])
-        if remote_dir != "" and False:
-            create_remote_dir_cmd = f"--rsync-path='mkdir -p {remote_dir} & rsync'"
-        else:
-            create_remote_dir_cmd = ""
-        # -a for folders
-        cmd = f"(nohup bash -c \"rsync -a {create_remote_dir_cmd} {local_path} {self.username}@{self.host}:{remote_path}\" >/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!; wait $!; echo $? >> {self.local_workspace}/$!.exit_status)"
-        print(cmd)
-        popen_pipe = os.popen(cmd)
-        self.last_job_remotely = False
-        pid = popen_pipe.readline().rstrip()
-        print(f"PID: {pid}")
-        return pid
-
-    async def download_directory(self, remote_dir, local_dir):
-        """
-        Download directory from remote host.
-        @param remote_dir: path to remote folder relative to self.remote_workspace.
-        @param local_dir: local path name of downloaded folder.
-        @return: PID of the process downloading the directory.
-        """
-        pid = None
-        if self.sftp is not None:
-            remote_dir = os.path.normpath(
-                os.path.join(self.remote_workspace, remote_dir))  # ensure it doesn't finish with / (separator)
-            if self.sftp.isdir(os.path.join(self.remote_workspace, remote_dir)):
-                local_dir = os.path.join(local_dir, "")  # ensure that it ends with / (separator)
-                cmd = (f"(nohup \"scp -r {self.username}@{self.host}:{remote_dir} {local_dir}\" " +
-                       f"(>/tmp/mtest2 </dev/null 2>/tmp/mtest2.err & echo $!; wait $!; echo $? " +
-                       f">> {self.local_workspace}/$!.exit_status))")
-                print(cmd)
-                popen_pipe = os.popen(cmd)
-                self.last_job_remotely = False
-                pid = popen_pipe.readline().rstrip()
-                print(f"PID: {pid}")
-            else:
-                print("The remote directory doesn't exist")
-        else:
-            print("SSH connection not created")
-        return pid
-
     def upload_file(self, local_path, remote_path):
         """
         Upload file to remote_path.
@@ -206,8 +155,8 @@ class RemoteSSHClient:
         else:
             create_remote_dir_cmd = ""
         cmd = (f"(nohup bash -c \"rsync {create_remote_dir_cmd} {local_path} " +
-               f"{self.username}@{self.host}:{remote_path}\" >{self.logs_dict['upload_stdout']} " +
-               f"</dev/null 2>{self.logs_dict['upload_stderr']} & echo $!; wait $!; echo $? >> " +
+               f"{self.username}@{self.host}:{remote_path}\" >>{self.logs_dict['upload_stdout']} " +
+               f"</dev/null 2>>{self.logs_dict['upload_stderr']} & echo $!; wait $!; echo $? >> " +
                f"{self.local_workspace}/$!.exit_status)")
         print(cmd)
         popen_pipe = os.popen(cmd)
@@ -227,7 +176,7 @@ class RemoteSSHClient:
             remote_file = os.path.join(self.remote_workspace, remote_file)
             if await self.sftp.isfile(remote_file):
                 cmd = (f"(nohup scp {self.username}@{self.host}:{remote_file} {local_file} " +
-                       f">{self.logs_dict['download_stdout']} </dev/null 2>{self.logs_dict['download_stderr']} " +
+                       f">>{self.logs_dict['download_stdout']} </dev/null 2>>{self.logs_dict['download_stderr']} " +
                        f"& echo $!; wait $!; echo $? >> {self.local_workspace}/$!.exit_status)")
 
                 print(cmd)
@@ -295,7 +244,8 @@ class RemoteSSHClient:
                 await self.sftp.rmtree(os.path.join(self.remote_workspace, dir_path))
             else:
                 print(
-                    f"The path {os.path.join(self.remote_workspace, dir_path)} doesn't correspond to a remote directory.")
+                    (f"The path {os.path.join(self.remote_workspace, dir_path)} " +
+                     "doesn't correspond to a remote directory."))
         else:
             print("SSH connection not created")
 
@@ -335,7 +285,7 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         self.loop = asyncio.get_event_loop()
 
     # RESOURCE
-    def set_resource(self, resource_params):  # coger y procesar el json
+    def set_resource(self, resource_params):
         self.host = resource_params["jm_location"]['host']
         self.username = resource_params["jm_credentials"]['username']
         self.known_hosts_filepath = resource_params["jm_credentials"]['known_hosts_filepath']

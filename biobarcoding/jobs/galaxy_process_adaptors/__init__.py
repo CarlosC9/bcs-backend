@@ -19,7 +19,7 @@ class GalaxyProcessAdaptor(ProcessAdaptor, ABC):
         raise NotImplementedError
 
     def adapt_job_context(self, job_context):
-        job_context= self._complete_inputs_with_labels(job_context)
+        job_context = self._complete_inputs_with_labels(job_context)
         job_context['results'] = self._complete_with_outputs_files(job_context)
         job_context['process']['workflow_name'] = self._complete_with_worlflow_name()
         return job_context
