@@ -64,40 +64,6 @@ def check_file_is_stored_in_backend(filename, job_id):
         return False
 
 
-def prepare_logs_for_store(job_context, job_executor):
-    stdout = open(job_executor.log_filenames_dict["stdout"], "w")
-    stderr = open(job_executor.log_filenames_dict["stderr"], "w")
-    for basename, full_path in job_executor.log_filenames_dict.items():
-        if basename == "stdout" or not os.path.exists(full_path):
-            break
-        elif re.search(r"bcs\..+\.stdout\.log", full_path):
-            with open(full_path, "r") as file:
-                stdout.write("\n")
-                stdout.write(file.read())
-
-        elif re.search(r"bcs\..+\.stderr\.log", full_path):
-            with open(os.path.join(job_executor.local_workspace, full_path), "r") as file:
-                stderr.write("\n")
-                stderr.write(file.read())
-
-    stdout.close()
-    stderr.close()
-
-    job_context["process"]["inputs"]["parameters"]["result_files"] += [
-        {
-            "remote_name": "",
-            "file": job_executor.log_filenames_dict["stdout"],
-            "type": "stdout"
-        },
-        {
-            "remote_name": "",
-            "file": job_executor.log_filenames_dict["stderr"],
-            "type": "stderr"
-        },
-    ]
-    return job_context
-
-
 def clean_failed_results(result_files, local_workspace):
     clean_results = []
     for f in result_files:
@@ -124,6 +90,21 @@ def check_exit_status_from_local_workspace_is_cleaned(local_workspace, result_fi
     else:
         cleaned = False
     return cleaned
+
+
+def write_to_universal_log_and_truncate(step_stdout, step_stderr, universal_log):
+    stdout_file = open(step_stdout, 'r+')
+    stderr_file = open(step_stderr, 'r+')
+    stdout = stdout_file.read()
+    stderr = stderr_file.read()
+    stdout_file.truncate(0)
+    stderr_file.truncate(0)
+    stdout_file.close()
+    stderr_file.close()
+
+    step_log = f"\n{stdout}\nNEXTGENDEM_STDERR\n{stderr}NEXTGENDEM_STDERR\n"
+    with open(universal_log, "a+") as universal_log_file:
+        universal_log_file.write(step_log)
 
 
 # TODO: Hay que prepararlo para las colecciones y los ficheros que suba el usuario de manera
@@ -232,14 +213,16 @@ def wf1_prepare_workspace(job_context):
         n_attempts = 0
         write_to_file(job_executor.log_filenames_dict["prepare_stdout"],
                       "#" * 25 + " PREPARE WORKSPACE STEP " + "#" * 25)
-        write_to_file(job_executor.log_filenames_dict["prepare_stderr"],
-                      "#" * 25 + " PREPARE WORKSPACE STEP " + "#" * 25)
+        open(job_executor.log_filenames_dict["prepare_stderr"], "x")
         tmp["state_dict"] = dict(n_attempts=n_attempts, state="prepare")
 
     if not job_executor.check():
         error_str = "Connection to the server has been lost"
         tmp["error"] = error_str
         write_to_file(job_executor.log_filenames_dict["prepare_stderr"], error_str)
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["prepare_stdout"],
+                                            job_executor.log_filenames_dict["prepare_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         job_context = json.dumps(tmp)
         return "error", job_context
     elif n_attempts >= MAX_ATTEMPTS:
@@ -247,11 +230,17 @@ def wf1_prepare_workspace(job_context):
                     f"Maybe it could be due to some disk space or credentials issue."
         tmp["error"] = error_str
         write_to_file(job_executor.log_filenames_dict["prepare_stderr"], error_str)
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["prepare_stdout"],
+                                            job_executor.log_filenames_dict["prepare_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         job_context = json.dumps(tmp)
         return "error", job_context
     elif job_executor.job_workspace_exists(str(tmp["job_id"])):
         write_to_file(job_executor.log_filenames_dict["prepare_stdout"],
                       f"Job {tmp['job_id']} workspace prepared")
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["prepare_stdout"],
+                                            job_executor.log_filenames_dict["prepare_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         del tmp["state_dict"]
         job_context = json.dumps(tmp)
         return job_context
@@ -293,8 +282,7 @@ def wf1_export_to_supported_file_formats(job_context: str):
     else:
         write_to_file(job_executor.log_filenames_dict["export_stdout"],
                       "#" * 20 + " EXPORT TO SUPPORTED FILE FORMATS STEP " + "#" * 20)
-        write_to_file(job_executor.log_filenames_dict["export_stderr"],
-                      "#" * 20 + " EXPORT TO SUPPORTED FILE FORMATS STEP " + "#" * 20)
+        open(job_executor.log_filenames_dict["export_stderr"], "x")
         i = 0
         n_attempts = 0
         tmp["pid"] = None
@@ -308,12 +296,18 @@ def wf1_export_to_supported_file_formats(job_context: str):
     if i < len(files) and n_attempts >= MAX_ATTEMPTS:
         error_str = f"Export error: File {i + 1} {file_dict['remote_name']}"
         write_to_file(job_executor.log_filenames_dict["export_stderr"], error_str)
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["export_stdout"],
+                                            job_executor.log_filenames_dict["prepare_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         tmp['error'] = error_str
         job_context = json.dumps(tmp)
         return "error", job_context
     if i == len(files):  # Transfer finished
         print("Export finished")
         write_to_file(job_executor.log_filenames_dict["export_stdout"], "Export finished successfully")
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["export_stdout"],
+                                            job_executor.log_filenames_dict["export_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         del tmp["state_dict"]
         job_context = json.dumps(tmp)
         return job_context
@@ -328,6 +322,9 @@ def wf1_export_to_supported_file_formats(job_context: str):
         print(f"File {file_dict['remote_name']} transferred -> Moving to next")
         write_to_file(job_executor.log_filenames_dict["export_stdout"],
                       f"File {file_dict['remote_name']} exported -> Moving to next")
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["export_stdout"],
+                                            job_executor.log_filenames_dict["export_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         tmp['process']['inputs']['data'][i]['file'] = os.path.join(job_executor.local_workspace,
                                                                    file_dict["remote_name"])
         del tmp['process']['inputs']['data'][i]['selection']
@@ -339,6 +336,9 @@ def wf1_export_to_supported_file_formats(job_context: str):
         print(f"Begin export {i + 1}: {file_dict['remote_name']}. Attempt: {n_attempts + 1}")
         write_to_file(job_executor.log_filenames_dict["export_stdout"],
                       f"Begin export {i + 1}: {file_dict['remote_name']}. Attempt: {n_attempts + 1}")
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["export_stdout"],
+                                            job_executor.log_filenames_dict["export_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         pid = export(file_dict, job_executor)
         tmp["pid"] = pid
         tmp["state_dict"] = dict(idx=i, n_attempts=n_attempts + 1, state="export")
@@ -380,8 +380,7 @@ def wf1_transfer_data_to_resource(job_context: str) -> object:
     else:
         write_to_file(job_executor.log_filenames_dict["upload_stdout"],
                       "#" * 20 + " TRANSFER DATA TO SOURCE STEP " + "#" * 20)
-        write_to_file(job_executor.log_filenames_dict["upload_stderr"],
-                      "#" * 20 + " TRANSFER DATA TO SOURCE STEP " + "#" * 20)
+        open(job_executor.log_filenames_dict["upload_stderr"], "x")
         i = 0
         n_attempts = 0
         tmp["pid"] = None
@@ -395,12 +394,18 @@ def wf1_transfer_data_to_resource(job_context: str) -> object:
         error_str = "Connection to the server has been lost"
         print(error_str)
         write_to_file(job_executor.log_filenames_dict["upload_stderr"], error_str)
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["upload_stdout"],
+                                            job_executor.log_filenames_dict["upload_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         tmp['error'] = error_str
         job_context = json.dumps(tmp)
         return "error", job_context
     elif i < len(files) and n_attempts >= MAX_ATTEMPTS:
         error_str = f"Transfer of file {os.path.basename(file_dict['file'])} to resource failed."
         write_to_file(job_executor.log_filenames_dict["upload_stderr"], error_str)
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["upload_stdout"],
+                                            job_executor.log_filenames_dict["upload_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         print(error_str)
         tmp['error'] = error_str
         job_context = json.dumps(tmp)
@@ -409,6 +414,9 @@ def wf1_transfer_data_to_resource(job_context: str) -> object:
         print("Transfer finished")
         write_to_file(job_executor.log_filenames_dict["upload_stdout"],
                       "Upload finished successfully")
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["upload_stdout"],
+                                            job_executor.log_filenames_dict["upload_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         del tmp["state_dict"]
         job_context = json.dumps(tmp)
         return job_context
@@ -425,6 +433,9 @@ def wf1_transfer_data_to_resource(job_context: str) -> object:
         write_to_file(job_executor.log_filenames_dict["upload_stdout"],
                       (f"File {os.path.basename(file_dict['file'])} transferred -> "
                        f"Moving to next. Attempt: {n_attempts + 1}"))
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["upload_stdout"],
+                                            job_executor.log_filenames_dict["upload_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         i += 1
         tmp["pid"] = None
         tmp["state_dict"] = dict(idx=i, n_attempts=0, state="upload")
@@ -454,7 +465,7 @@ def wf1_submit(job_context: str):
     tmp = change_status(tmp, "submit")
     job_executor = JobExecutorAtResourceFactory().get(tmp)
     write_to_file(job_executor.log_filenames_dict["submit_stdout"], "#" * 25 + " SUBMIT STEP " + "#" * 25)
-    write_to_file(job_executor.log_filenames_dict["submit_stderr"], "#" * 25 + " SUBMIT STEP " + "#" * 25)
+    open(job_executor.log_filenames_dict["submit_stderr"], "x")
     pid = job_executor.submit(tmp["process"])
     tmp['pid'] = pid
     tmp['state_dict'] = dict(state="submit", substep="submit")
@@ -480,6 +491,9 @@ def wf1_wait_until_execution_starts(job_context: str):
     if not job_executor.check():
         error_str = "Connection to the server has been lost"
         write_to_file(job_executor.log_filenames_dict["submit_stderr"], error_str)
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["submit_stdout"],
+                                            job_executor.log_filenames_dict["submit_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         print(error_str)
         tmp['error'] = error_str
         job_context = json.dumps(tmp)
@@ -496,6 +510,9 @@ def wf1_wait_until_execution_starts(job_context: str):
             error_str = "The process failed to start."
         print(error_str)
         write_to_file(job_executor.log_filenames_dict["submit_stderr"], error_str)
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["submit_stdout"],
+                                            job_executor.log_filenames_dict["submit_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         tmp['error'] = error_str
         job_context = json.dumps(tmp)
         return 'error', job_context
@@ -525,6 +542,9 @@ def wf1_wait_for_execution_end(job_context: str):
         error_str = "Connection to the server has been lost"
         print(error_str)
         write_to_file(job_executor.log_filenames_dict["submit_stderr"], error_str)
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["submit_stdout"],
+                                            job_executor.log_filenames_dict["submit_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         tmp['error'] = error_str
         job_context = json.dumps(tmp)
         return "error", job_context
@@ -537,12 +557,18 @@ def wf1_wait_for_execution_end(job_context: str):
         del tmp["state_dict"]
         write_to_file(job_executor.log_filenames_dict["submit_stdout"],
                       "Job execution finished successfully.")
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["submit_stdout"],
+                                            job_executor.log_filenames_dict["submit_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         job_context = json.dumps(tmp)
         return job_context
     elif status == "":
         job_executor.write_submit_logs()
         write_to_file(job_executor.log_filenames_dict["submit_stdout"],
                       "Job execution finished in error.")
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["submit_stdout"],
+                                            job_executor.log_filenames_dict["submit_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         return 'error', job_context
     else:
         return 3, job_context
@@ -568,8 +594,7 @@ def wf1_transfer_data_from_resource(job_context: str):
     else:
         write_to_file(job_executor.log_filenames_dict["download_stdout"],
                       "#" * 20 + " TRANSFER DATA FROM RESOURCE STEP " + "#" * 20)
-        write_to_file(job_executor.log_filenames_dict["download_stderr"],
-                      "#" * 20 + " TRANSFER DATA FROM RESOURCE STEP " + "#" * 20)
+        open(job_executor.log_filenames_dict["download_stderr"], "x")
         i = 0
         n_attempts = 0
         tmp["pid"] = None
@@ -583,12 +608,18 @@ def wf1_transfer_data_from_resource(job_context: str):
         error_str = "Connection to the server has been lost"
         print(error_str)
         write_to_file(job_executor.log_filenames_dict["download_stderr"], error_str)
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["download_stdout"],
+                                            job_executor.log_filenames_dict["download_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         tmp['error'] = error_str
         job_context = json.dumps(tmp)
         return "error", job_context
     elif i < len(files) and n_attempts >= MAX_ATTEMPTS:
         error_str = f"Transfer from resource error: File {file_dict['file']}"
         write_to_file(job_executor.log_filenames_dict["download_stderr"], error_str)
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["download_stdout"],
+                                            job_executor.log_filenames_dict["download_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         print(error_str)
         tmp['error'] = error_str
         job_context = json.dumps(tmp)
@@ -596,6 +627,9 @@ def wf1_transfer_data_from_resource(job_context: str):
     if i == len(files):  # Transfer finished
         print("Transfer finished")
         write_to_file(job_executor.log_filenames_dict["download_stdout"], "Download finished successfully")
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["download_stdout"],
+                                            job_executor.log_filenames_dict["download_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         del tmp["state_dict"]
         job_context = json.dumps(tmp)
         return job_context
@@ -610,6 +644,9 @@ def wf1_transfer_data_from_resource(job_context: str):
         print(f"File {file_dict['file']} transferred -> Moving to next")
         write_to_file(job_executor.log_filenames_dict["download_stdout"],
                       f"File {file_dict['file']} transferred -> Moving to next. Attempts: {n_attempts}")
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["download_stdout"],
+                                            job_executor.log_filenames_dict["download_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         tmp["pid"] = None
         tmp["state_dict"] = dict(idx=i + 1, n_attempts=0, state="download")
         job_context = json.dumps(tmp)
@@ -640,8 +677,7 @@ def wf1_store_result_in_backend(job_context: str):
     else:
         write_to_file(job_executor.log_filenames_dict["store_stdout"],
                       "#" * 20 + " STORE RESULT IN BACKEND STEP " + "#" * 20)
-        write_to_file(job_executor.log_filenames_dict["store_stderr"],
-                      "#" * 20 + " STORE RESULT IN BACKEND STEP " + "#" * 20)
+        open(job_executor.log_filenames_dict["store_stderr"], "x")
         i = 0
         n_attempts = 0
         tmp["pid"] = None
@@ -654,18 +690,31 @@ def wf1_store_result_in_backend(job_context: str):
     if i < len(files) and n_attempts >= MAX_ATTEMPTS:
         error_str = f"Store result in backend error: File {file_dict['file']}"
         write_to_file(job_executor.log_filenames_dict["store_stderr"], error_str)
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["store_stdout"],
+                                            job_executor.log_filenames_dict["store_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         print(error_str)
         tmp['error'] = error_str
         job_context = json.dumps(tmp)
         return "error", job_context
     elif i == len(files):  # Transfer finished
-        if files[-1]["file"] != job_executor.log_filenames_dict["stderr"]:
-            tmp = prepare_logs_for_store(tmp, job_executor)
+        if files[-1]["file"] != job_executor.log_filenames_dict["universal_log"]:
+            write_to_file(job_executor.log_filenames_dict["store_stdout"],
+                          "Store result in backend finished successfully")
+            write_to_universal_log_and_truncate(job_executor.log_filenames_dict["store_stdout"],
+                                                job_executor.log_filenames_dict["store_stderr"],
+                                                job_executor.log_filenames_dict["universal_log"])
+            tmp["process"]["inputs"]["parameters"]["result_files"].append(
+                {
+                    "remote_name": "",
+                    "file": job_executor.log_filenames_dict["universal_log"],
+                    "type": "log"
+                },
+            )
             job_context = json.dumps(tmp)
             return None, job_context
 
         print("Store result in backend finished")
-        write_to_file(job_executor.log_filenames_dict["store_stdout"], "Store result in backend finished successfully")
         del tmp["state_dict"]
         job_context = json.dumps(tmp)
         return job_context
@@ -680,6 +729,9 @@ def wf1_store_result_in_backend(job_context: str):
         print(f"File {file_dict['file']} stored -> Moving to next")
         write_to_file(job_executor.log_filenames_dict["store_stdout"],
                       f"File {file_dict['file']} stored -> Moving to next. Attempts: {n_attempts}")
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["store_stdout"],
+                                            job_executor.log_filenames_dict["store_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
         tmp["pid"] = None
         tmp["state_dict"] = dict(idx=i + 1, n_attempts=0, state="store")
         job_context = json.dumps(tmp)
@@ -730,10 +782,8 @@ def wf1_cleanup_workspace(job_context: str):
         n_attempts = state_dict["n_attempts"]
     else:
         n_attempts = 0
-        write_to_file(job_executor.log_filenames_dict["cleanup_stdout"],
-                      "#" * 20 + " CLEANUP WORKSPACE STEP " + "#" * 20)
-        write_to_file(job_executor.log_filenames_dict["cleanup_stderr"],
-                      "#" * 20 + " CLEANUP WORKSPACE STEP " + "#" * 20)
+        #TODO: el cleanup no puede tener logs porque va después del store y por lo tanto
+        # no se puede guardar
         tmp["state_dict"] = dict(n_attempts=n_attempts)
 
     if not job_executor.check():
@@ -747,20 +797,16 @@ def wf1_cleanup_workspace(job_context: str):
         error_str = f"It was impossible to prepare the working directory of Job {tmp['job_id']}." + \
                     f"Maybe it could be due to some disk space or credentials issue."
         tmp["error"] = error_str
-        write_to_file(job_executor.log_filenames_dict["cleanup_stderr"], error_str)
+        #write_to_file(job_executor.log_filenames_dict["cleanup_stderr"], error_str)
         job_context = json.dumps(tmp)
         return "error", job_context
     elif (not job_executor.job_workspace_exists(str(tmp["job_id"])) and
           check_exit_status_from_local_workspace_is_cleaned(job_executor.local_workspace, result_files)):
-        write_to_file(job_executor.log_filenames_dict["cleanup_stdout"],
-                      f"Job {tmp['job_id']} workspace cleaned up")
         del tmp["state_dict"]
         write_to_file(CELERY_LOG, f"cleanup:")
         job_context = json.dumps(tmp)
         return job_context
     else:
-        write_to_file(job_executor.log_filenames_dict["cleanup_stdout"],
-                      f"Cleaning Job {tmp['job_id']} workspace: Attempt: {n_attempts + 1}")
         job_executor.remove_job_workspace(str(tmp["job_id"]))
         clean_files_not_in_results(job_executor.local_workspace, result_files)
         tmp["state_dict"] = dict(n_attempts=n_attempts + 1)

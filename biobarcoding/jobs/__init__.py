@@ -59,7 +59,7 @@ class JobExecutorAtResource(ABC):
         "store_stderr": "bcs.store.stderr.log",
         "cleanup_stdout": "bcs.cleanup.stdout.log",
         "cleanup_stderr": "bcs.cleanup.stderr.log",
-        "log": "bcs.stdout.log",
+        "universal_log": "bcs.stdout.log",
     }
 
     def __init__(self, job_id):
