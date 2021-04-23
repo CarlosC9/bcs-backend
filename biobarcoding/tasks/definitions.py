@@ -141,9 +141,18 @@ def export(file_dict, job_executor) -> object:
 
 def is_bos_file(input_file):
     if os.path.exists(input_file):  # and check that it is not an error file:
-        return True
+        with open(input_file) as file:
+            file_content = file.read()
+            file.close()
+        if not re.search(r'\b<!DOCTYPE HTML PUBLIC\b', file_content):
+            return True
+        else:
+            print(f"print {input_file} is a html file")
+            return False
     else:
+        print(f"print {input_file} does not exists")
         return False
+
 
 
 @celery_app.task
@@ -509,7 +518,7 @@ def wf1_wait_until_execution_starts(job_context: str):
         else:
             error_str = "The process failed to start."
         print(error_str)
-        write_to_file(job_executor.log_filenames_dict["submit_stderr"], error_str)
+        write_to_file(job_executor.log_filenames_dict["submit_stderr"], json.dumps(error_str))
         write_to_universal_log_and_truncate(job_executor.log_filenames_dict["submit_stdout"],
                                             job_executor.log_filenames_dict["submit_stderr"],
                                             job_executor.log_filenames_dict["universal_log"])
@@ -550,7 +559,7 @@ def wf1_wait_for_execution_end(job_context: str):
         return "error", job_context
     elif isinstance(status, dict):
         tmp['process']['error'] = status
-        # TODO GALAXY: write_to_file(job_executor.log_filenames_dict["submit_stderr"], status)
+        write_to_file(job_executor.log_filenames_dict["submit_stderr"], json.dumps(status))
         job_context = json.dumps(tmp)
         return 'error', job_context
     elif status == 'ok':
@@ -666,7 +675,7 @@ def wf1_transfer_data_from_resource(job_context: str):
 @celery_wf(celery_app, wf1, "store_result_in_backend")
 def wf1_store_result_in_backend(job_context: str):
     tmp = json.loads(job_context)
-    tmp = change_status(tmp, "cleanup")
+    tmp = change_status(tmp, "store_result_in_backend")
     job_executor = JobExecutorAtResourceFactory().get(tmp)
     state_dict = tmp.get("state_dict")
 

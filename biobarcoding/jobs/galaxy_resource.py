@@ -1,3 +1,4 @@
+import time
 from urllib.parse import urljoin
 
 from bioblend import galaxy
@@ -11,6 +12,8 @@ from biobarcoding.jobs import JobExecutorAtResource
 import os
 
 # GALAXY HELPERS
+from biobarcoding.tasks.definitions import write_to_file
+
 
 def login(api_key: 'str', url: 'str') -> object:
     user_key = api_key
@@ -38,7 +41,7 @@ def get_history_id(gi, history_name: 'str'):
     try:
         hist = next(item for item in histories if item["name"] == history_name)
     except StopIteration:
-        return 'there is no library named{}'.format(history_name)
+        return None
     else:
         return hist['id']
 
@@ -53,7 +56,7 @@ def workflow_id(gi, name: 'str'):
     try:
         workflow = next(item for item in workflows if item["name"] == name)
     except StopIteration:
-        return 'there is no workflow named{}'.format(name)
+        return None
     else:
 
         return workflow['id']
@@ -135,9 +138,9 @@ def get_datamap(gi, inputs, workflow, history):
 
 
 def params_input_creation(gi, workflow_name, inputs_data, param_data, history_id=None, history_name=None):
-    # TODO SEPARAR ESRTÁ DUNCIÓN DE GET_DATAMAP Y PASAR AL ADAPTOR
+    # TODO SEPARAR LA FUNCIÓN DE GET_DATAMAP Y PASAR AL ADAPTOR
     '''
-        set and chel params dictionary and load data and set datamap
+        set and check params dictionary and load data and set datamap
 
     '''
     w_id = workflow_id(gi, workflow_name)
@@ -295,6 +298,15 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         self.disconnect()
         return history['id']
 
+    def job_workspace_exists(self, job_id):
+        self.connect()
+        gi = self.galaxy_instance
+        history_id = get_history_id(gi,str(job_id))
+        if history_id:
+            return True
+        else:
+            return False
+
     def remove_job_workspace(self, job_context):
         self.connect()
         gi = self.galaxy_instance
@@ -308,13 +320,10 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         label = job_context["process"]["inputs"]["data"][i]["remote_name"]
         local_path = job_context["process"]["inputs"]["data"][i]["file"]
         history = self.workspace
-        try:
-            upload_info = gi.tools.upload_file(path=local_path,
-                                               history_id=get_history_id(gi,history),
-                                               file_name=label)
-            pid = upload_info['jobs'][0]['id']
-        except:
-            pid = "error"
+        upload_info = gi.tools.upload_file(path=local_path,
+                                           history_id=get_history_id(gi,history),
+                                           file_name=label)
+        pid = upload_info['jobs'][0]['id']
         return pid
 
     def exists(self,job_context):
@@ -338,14 +347,12 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
             dataset_info = gi.histories.show_matching_datasets(history_id = h_id , name_filter = label )
             # check that are the same
             if len(dataset_info) > 0:
+                self.write_logs(job_context)
                 remote_size = dataset_info[0]['file_size']
                 # TODO not implemented: there is a little difference between sizes
                 # if local_size == remote_size:
                 return True
         if job_context["state_dict"]["state"] == "download":
-            #chack that exists remotely
-            ##
-            #check that exists locally
             file_local_path = os.path.join(self.LOCAL_WORKSPACE,self.workspace,self.get_download_files_list(job_context)[i]["file"])
             if os.path.exists(os.path.join(file_local_path)):
                 return True
@@ -373,22 +380,35 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         return invocation['id']
 
     def __invocation_status(self, job_context):
-        pid = job_context.get('pid')
+        """
+        Returns the state of this history
+
+        :type history_id: str
+        :param history_id: Encoded history ID
+
+        :rtype: dict
+        :return: A dict documenting the current state of the history. Has the following keys:
+            'state' = This is the current state of the history, such as ok, error, new etc.
+            'state_details' = Contains individual statistics for various dataset states.
+            'percent_complete' = The overall number of datasets processed to completion.
+        """
         gi = self.galaxy_instance
-        invocation = gi.invocations.show_invocation(pid)
-        status = gi.histories.get_status(invocation['history_id'])
+        status = gi.histories.get_status(get_history_id(gi,str(self.workspace)))
+        write_to_file(self.log_filenames_dict['submit_stdout'],json.dumps(status['state_details']))
+        write_to_file(self.log_filenames_dict['submit_stdout'], 'percent complete: ' + json.dumps(status['percent_complete']))
         "the first call to state cab be ok just because is the state of previous job. "
-        print(f"{status['state']} job in job_status function")
-        # "the first call to state cab be ok just because is the state of previous job."
+        print(f"{status} job in job_status function")
         files_list = job_context['process']['inputs']['data']
         if status['state'] == 'ok' and status['state_details']['ok'] == len(files_list):
             # galaxy is still displaying status for the upload process
             status['state'] = "queued"
             print(f"changing PROCESS status from ok to queued this should happend only a few times")
-        if status['state'] == 'error':
+        elif status['state'] == 'error':
+            self.write_logs(job_context)
             return status['state_details']
-        else:
-            return status['state']
+        elif status['state'] =='ok':
+            self.write_logs(job_context)
+        return status['state']
 
     def __upload_status(self,job_context):
         gi = self.galaxy_instance
@@ -403,8 +423,12 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
             print(f"changing {i} UPLOAD status from ok to queued this should happend only a few times")
 
         if status['state'] == 'error':
+            print('writing log....')
+            self.write_logs(job_context) # me da que puede ser lo mismo
             return status['state_details']
         else:
+            print('writing log....')
+            self.write_logs(job_context)
             return status['state']
 
 
@@ -421,15 +445,12 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
                 return status # if error return dict
             if job_context["state_dict"].get("state") =="download":
                 pid = job_context["pid"]
-                # return download_status(pid)
                 return self.local_job_status(self.workspace,pid)
-        else:
-            pid = job_context.get('pid')
-            if not pid:
-                return None
-            else:
+            if job_context["state_dict"].get("state") == "submit":
                 status = self.__invocation_status(job_context)
                 return status
+        else:
+            return None
 
 
     def cancel_job(self, native_id):
@@ -437,6 +458,53 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         gi = self.galaxy_instance
         gi.invocations.cancel_invocation(native_id)
         # job here refers to invocation
+
+
+    def write_logs(self,job_context):
+        '''
+        write stdout and stderr  in <state>_staout and stderr files:
+        when state = upload stdout will be always empty
+        when state = submit stdout is retrieved several times to check whether there is a latency to retriece std
+        from galaxy.
+        output dictionary when asking for upload tool job
+        'outputs': {'
+            {'output0':
+                {'id': 'f2db41e1fa331b3e',
+               'src': 'hda',
+               'uuid': '789cf547-a1a6-489d-8cb5-ab159ba9c384'}}
+
+       Output dictionary when job id refers to an invocation
+        'outputs': {'
+            dnd': {'id': 'd5bb7278791be519',
+                   'src': 'hda',
+                   'uuid': '5e072cfd-45a5-4bf0-b17e-9e3ad7f72cc1'},
+            'output': {'id': 'bf726321666e2d4e',
+                       'src': 'hda',
+                       'uuid': 'e4e15313-d355-4071-903e-24456c0c98cb'}}}
+
+        '''
+        print("..WRITING LOGS..")
+        gi = self.galaxy_instance
+        galaxy_pid = job_context['pid']
+        state = job_context['state_dict']['state']
+        # check that stdout is not empty
+        for n in range(5):
+            job = gi.jobs.show_job(galaxy_pid)
+            outputs = job['outputs']
+            print(outputs)
+            for _,dataset in outputs.items():
+                dataset_info = gi.datasets.show_dataset(dataset['id'])
+                provenance = gi.histories.show_dataset_provenance(history_id=get_history_id(gi,str(self.workspace)), dataset_id= dataset['id'])
+                if len(provenance['stdout']) != 0 or state == 'upload':
+                    break
+                else:
+                    print("waiting....")
+                    time.sleep(1)
+        for std,file in dict(stderr = state + '_stderr' , stdout = state + '_stdout' ).items():
+            print(f"writing galaxy {std}...in {file} for job {galaxy_pid}" )
+            print(f"provenance: {json.dumps(provenance)}")
+            write_to_file(self.log_filenames_dict[file],
+                          'galaxy file name: ' + dataset_info['name'] + ' in job: ' + galaxy_pid + '\n' + provenance[std] + '\n' + dataset_info['name'] + '\n')
 
     def download_file(self,job_context):
         i = job_context['state_dict'].get('idx')
@@ -448,10 +516,6 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         history_name = self.workspace
         self.connect()
         gi = self.galaxy_instance
-        std = get_stdout_stderr(gi, result, history_name)
-        for k, i in std.items():
-            f = open(os.path.join(job_dir,k) + f"_{file_ext}.log", 'w')
-            f.write(i)
         dataset = gi.histories.show_matching_datasets(history_id=get_history_id(gi,history_name), name_filter= remote_name)[0]
         download_url = dataset['download_url'] + '?to_ext=' + file_ext
         url = urljoin(gi.base_url, download_url)

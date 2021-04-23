@@ -1,28 +1,40 @@
 
-{
-  "resource_id":"8fac3ce8-8796-445f-ac27-4baedadeff3b",
-  "process_id":"c8df0c20-9cd5-499b-92d4-5fb35b5a369a",
-  "process_params":{
-    "parameters":
-    {"clustalw":
+{"params":{
+    "resource_id": "8fac3ce8-8796-445f-ac27-4baedadeff3b",
+    "process_id": "c8df0c20-9cd5-499b-92d4-5fb35b5a369a",
+    "process_params": {
+      "data": [
         {
+          "remote_name": "input_dataset",
+          "type": "fasta",
+          "bo_type": "sequences",
+          "selection": {
+            "filter": {
+              "feature_id": {
+                "op": "in",
+                "unary": [
+                  1,
+                  2
+                ]
+              }
+            }
+          }
+        }
+      ],
+      "parameters": {
+        "clustalw": {
           "dnarna": "DNA",
-          "outform": "fasta",
-          "out_seqnos": "false",
+          "outform": "clustal",
+          "out_seqnos": "OFF",
           "out_order": "ALIGNED",
           "mode": "complete",
           "seq_range_start": "1",
           "seq_range_end": "99999"
         }
+      }
     },
-    "data":[
-
-    {
-      "remote_name":"input_dataset",
-      "type":"fasta",
-      "selection": [1, 2],
-      "bo_type": "sequences"
+    "credentials": {
+      "api_key": "fakekey"
     }
-    ]
-  }
+}
 }
