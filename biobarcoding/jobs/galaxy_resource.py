@@ -347,7 +347,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
             dataset_info = gi.histories.show_matching_datasets(history_id = h_id , name_filter = label )
             # check that are the same
             if len(dataset_info) > 0:
-                self.write_logs(job_context)
+                self.__write_logs(job_context)
                 remote_size = dataset_info[0]['file_size']
                 # TODO not implemented: there is a little difference between sizes
                 # if local_size == remote_size:
@@ -404,10 +404,10 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
             status['state'] = "queued"
             print(f"changing PROCESS status from ok to queued this should happend only a few times")
         elif status['state'] == 'error':
-            self.write_logs(job_context)
+            self.__write_logs(job_context)
             return status['state_details']
         elif status['state'] =='ok':
-            self.write_logs(job_context)
+            self.__write_logs(job_context)
         return status['state']
 
     def __upload_status(self,job_context):
@@ -424,11 +424,11 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
 
         if status['state'] == 'error':
             print('writing log....')
-            self.write_logs(job_context) # me da que puede ser lo mismo
+            self.__write_logs(job_context)  # me da que puede ser lo mismo
             return status['state_details']
         else:
             print('writing log....')
-            self.write_logs(job_context)
+            self.__write_logs(job_context)
             return status['state']
 
 
@@ -460,7 +460,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         # job here refers to invocation
 
 
-    def write_logs(self,job_context):
+    def __write_logs(self,job_context):
         '''
         write stdout and stderr  in <state>_staout and stderr files:
         when state = upload stdout will be always empty
