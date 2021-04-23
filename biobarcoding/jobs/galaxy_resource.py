@@ -488,23 +488,25 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         galaxy_pid = job_context['pid']
         state = job_context['state_dict']['state']
         # check that stdout is not empty
-        for n in range(5):
-            job = gi.jobs.show_job(galaxy_pid)
-            outputs = job['outputs']
-            print(outputs)
-            for _,dataset in outputs.items():
+        job = gi.jobs.show_job(galaxy_pid)
+        outputs = job['outputs']
+        print(outputs)
+        for _,dataset in outputs.items():
+            for n in range(5):
                 dataset_info = gi.datasets.show_dataset(dataset['id'])
                 provenance = gi.histories.show_dataset_provenance(history_id=get_history_id(gi,str(self.workspace)), dataset_id= dataset['id'])
                 if len(provenance['stdout']) != 0 or state == 'upload':
-                    break
+                    for std, file in dict(stderr=state + '_stderr', stdout=state + '_stdout').items():
+                        print(f"writing galaxy {std}...in {file} for job {galaxy_pid}")
+                        print(f"provenance: {json.dumps(provenance)}")
+                        write_to_file(self.log_filenames_dict[file],
+                                      'galaxy file name: ' + dataset_info['name'] + ' in job: ' + galaxy_pid + '\n' +
+                                      provenance[std] + '\n' + dataset_info['name'] + '\n')
                 else:
                     print("waiting....")
                     time.sleep(1)
-        for std,file in dict(stderr = state + '_stderr' , stdout = state + '_stdout' ).items():
-            print(f"writing galaxy {std}...in {file} for job {galaxy_pid}" )
-            print(f"provenance: {json.dumps(provenance)}")
-            write_to_file(self.log_filenames_dict[file],
-                          'galaxy file name: ' + dataset_info['name'] + ' in job: ' + galaxy_pid + '\n' + provenance[std] + '\n' + dataset_info['name'] + '\n')
+                    break
+
 
     def download_file(self,job_context):
         i = job_context['state_dict'].get('idx')
