@@ -555,21 +555,27 @@ def install_tools(gi, tools):
 
 
 def convert_workflows_to_formly():
-    workflow_files_list = os.listdir(os.path.join(ROOT,'biobarcoding/workflows'))
+    # workflow_files_list = os.listdir(os.path.join(ROOT,'biobarcoding/workflows'))
 
-    wfdict1 = {'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json',
-               'phyml': ROOT + '/biobarcoding/inputs_schema/phyml_galaxy.json',
-               'fname' : 'clustalw_phyml_formly.json'
+    wfdict1 = {'steps': {'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json',
+                         'phyml': ROOT + '/biobarcoding/inputs_schema/phyml_galaxy.json'}
+               ,
+               'fname' : 'clustalw_phyml_formly.json',
+               'workflow_path': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/workflows/Galaxy-Workflow-ClustalW-PhyMl.ga'
                }
-    wfdict2 = {'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json',
-               'fname' : 'clustalw_formly.json'}
+    wfdict2 = {'steps':
+                   [{'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json'}
+                    ],
+               'fname' : 'clustalw_formly.json',
+               'workflow_path': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/workflows/Galaxy-Workflow-MSA_ClustalW.ga'
+               }
+
     path = ROOT + '/biobarcoding/inputs_schema/'
     lwdict = [wfdict1, wfdict2]
     for wfdict in lwdict:
         if wfdict['fname'] not in os.listdir(path):
-            newpath = path + wfdict['fname']
-            del wfdict['fname']
-            convertToFormly(wfdict,newpath)
+            wfdict['fname'] = path + wfdict['fname']
+            convertToFormly(wfdict['steps'],wfdict['workflow_path'],wfdict['fname'])
 
 def initialize_galaxy(flask_app):
     if {'GALAXY_API_KEY', 'GALAXY_LOCATION'} <= flask_app.config.keys():
@@ -668,11 +674,6 @@ class ToFormlyConverter:
                     l.append(forms)
         return l
 
-# class getInputs(ToFormlyConverter):
-#     def __init__(self):
-#         super(getInputs, self).__init__(step_label)
-
-
 class convertBooleanToolParameter(ToFormlyConverter):
     def __init__(self,step_label):
         super(convertBooleanToolParameter, self).__init__(step_label)
@@ -751,12 +752,77 @@ class converterConditional(ToFormlyConverter):
                     form.append(case_form)
         return form
 
+class inputCreation:
 
-def convertToFormly(wf_steps, newpath):
+    def __init__(self, workflow_path):
+        self.workflow = workflow_path
+
+    @property
+    def workflow(self):
+        return self.__workflow
+
+    @workflow.setter
+    def workflow(self, workflow_path):
+        with open(workflow_path) as jsonfile:
+            self.__workflow = json.load(jsonfile)
+
+    def __get_inputs(self):
+        input = []
+        workflow = self.workflow
+        steps = workflow.get("steps")
+        for _,step in steps.items():
+            if len(step.get("input_connections")) == 0:
+                for step_input in step["inputs"]:
+                    input.append({"name": step_input.get("name"),
+                                  "bo_type": step_input.get("bo_type","no specified"), # TODO DONDE ESTA ESTA INFORMACIÓN
+                                  "bo_format": step_input.get("bo_format","no specified")
+                                  }
+                                 )
+
+        return input
+
+    def convert(self):
+        inputs = self.__get_inputs()
+        inputs_fieldGroups = list()
+        for input in inputs:
+            form = dict()
+            form["key"] = "input"
+            form["templateOptions"] = {"label": "input"}
+            form['fieldGroup'] = [{
+                "key": "remote_name",
+                "type": "input",
+                "templateOptions": {
+                    "label": "input name"
+                },
+                "defaultValue": input["name"]
+            },
+            {
+                "key": "type",
+                "type": "input",
+                "templateOptions": {
+                    "label": "type"
+                },
+                "defaultValue": input["bo_format"]
+            },
+        {
+            "key": "bo_type",
+            "type": "input",
+            "templateOptions": {
+                "label": "bo type"
+            },
+            "defaultValue": input["bo_type"]
+        }]
+            inputs_fieldGroups.append(form)
+        # a esto le tengo que hacer el append de los parámetros de los algoritmos
+        return inputs_fieldGroups
+
+
+def convertToFormly(wf_steps, path_to_workflow, newpath):
     '''
     dictionary step_label: form_path
     '''
-    fieldGroup = list()
+    creator = inputCreation(path_to_workflow)
+    fieldGroup = creator.convert()
     formly = dict()
     formly['type'] = 'stepper'
     for k, v in wf_steps.items():
@@ -771,6 +837,7 @@ def convertToFormly(wf_steps, newpath):
         fieldGroup.append(form)
     formly['fieldGroup'] = fieldGroup
     formly_json = json.dumps([formly], indent=3)
-    with open(newpath, 'w') as file:
-        file.write(formly_json)
+    file =  open(newpath, 'w')
+    file.write(formly_json)
+    file.close()
 

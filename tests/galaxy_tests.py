@@ -172,10 +172,12 @@ class MyTestCase(unittest.TestCase):
                   }
         wfdict2 = {'clustalW': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/clustalw_galaxy.json'}
         new_form_path = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/inputs_schema/clustalw_phyml_formly.json'
-        lwdict = [wfdict1,wfdict2]
+        new_form_path = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/clustalw_phyml_formly.json'
+        # lwdict = [wfdict1,wfdict2]
         lwdict = [wfdict1]
+        wf_path = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/workflows/Galaxy-Workflow-ClustalW-PhyMl.ga'
         for wfdict in lwdict:
-            convertToFormly(wfdict,new_form_path)
+            convertToFormly(wfdict, wf_path, new_form_path)
 
 
 
