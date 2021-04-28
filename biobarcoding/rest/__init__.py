@@ -770,8 +770,8 @@ def filter_parse(orm, filter, aux_filter=None):
     """
     @param orm: <ORMSqlAlchemy>
     @param filter:
-        [{"campo1": "<condicion>", "campo2": "<condicion>"}, {"campo1": "<condicion"}]
-        <condicion>: {"op": "<operador", "left": "<valor>", "right": <valor>, "unary": <valor>}
+        [{"field1": "<condition>", "field2": "<condition>"}, {"field1": "<condition"}]
+        <condition>: {"op": "<operador", "left": "<valor>", "right": <valor>, "unary": <valor>}
     @param aux_filter: <callable function(filter)>
     @return: <orm_clause_filter>
     """
@@ -783,13 +783,13 @@ def filter_parse(orm, filter, aux_filter=None):
             return obj.notin_(value)
         if op == "in":
             return obj.in_(value)
-        elif op == "eq":
+        if op == "eq":
             return obj == value
-        elif op == "between":
+        if op == "between":
             return obj.between_(left, right)
-        elif op == "le":
+        if op == "le":
             return obj <= value
-        elif op == "ge":
+        if op == "ge":
             return obj >= value
         return True
 
@@ -811,6 +811,38 @@ def filter_parse(orm, filter, aux_filter=None):
     except Exception as e:
         print(e)
         return False
+
+
+def order_parse(orm, sort, aux_order=None):
+    """
+    @param orm: <ORMSqlAlchemy>
+    @param sort: [{"order": "<asc|desc>", "field": "<name>"}]
+    @param aux_order: <callable function(order)>
+    @return: <orm_clause_order>
+    """
+    def get_condition(orm, clause):
+        obj = getattr(orm, clause.field)
+        if clause.order == "asc":
+            return obj.asc()
+        if clause.order == "desc":
+            return obj.desc()
+        return True
+
+    try:
+        if not isinstance(sort, (list, tuple)):
+            order=[sort]
+        ord_clause = []
+        for clause in order:
+            if hasattr(orm, clause.field):
+                ord_clause.append(get_condition(orm, clause))
+            else:
+                print(f'Unknown column "{clause.field}" for the given tables.')
+                if aux_order:
+                    ord_clause+=aux_order(clause)
+        return ord_clause
+    except Exception as e:
+        print(e)
+        return None
 
 
 def paginator(query, pagination):
