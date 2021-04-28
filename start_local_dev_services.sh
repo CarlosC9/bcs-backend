@@ -83,7 +83,7 @@ if [ ! geoserver_started ] ; then
   if [ "$(whoami)" == "rnebot" ] ; then
     ssh rnebot@balder docker run --name geoserver_devel_rnebot -d -p 9180:80 --rm -v /home/rnebot/DATOS/geoserver_storage/:/export  bgruening/galaxy-stable
   elif [ "$(whoami)" == "acurbelo" ] ; then
-    docker run --name galaxy_devel -d -p 8080:80 -p 8021:21 -p 8022:22 --rm -v /var/lib/nextgendem/galaxy_storage/:/export  bgruening/galaxy-stable
+    docker run --name geoserver_devel -d -p 8080:80 -p 8021:21 -p 8022:22 --rm -v /var/lib/nextgendem/geoserver_storage/:/export  bgruening/galaxy-stable
   elif [ "$(whoami)" == "paula" ] ; then
     docker run --name galaxy_devel -d -p 8080:80 -p 8021:21 -p 8022:22 --rm -v /home/paula/galaxy_storage/:/export  bgruening/galaxy-stable
   elif [ "$(whoami)" == "daniel" ] ; then
