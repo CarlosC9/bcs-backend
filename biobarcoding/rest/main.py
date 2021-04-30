@@ -50,7 +50,7 @@ def create_app(debug, cfg_dict=None):
     FlaskSessionServerSide(app)
 
     # CORS
-    CORS(app,
+    cors = CORS(app,
          resources={r"/api/*": {"origins": "*"}},
          supports_credentials=True
          )

@@ -12,5 +12,6 @@ if [ ! $? ]; then
   rm /tmp/chado_src.zip /tmp/chado_project -r
   sudo cpan Bio::Chado::Schema
 fi
+# TODO: migrate to biobarcoding/rest/__init__.py
 python3 python_scripts/edam_insertion.py -h localhost
 ./init_taxonomy_loader.sh

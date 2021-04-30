@@ -102,25 +102,9 @@ class ResponseObject:
 
 def prepare_default_configuration(create_directories):
     def default_directories(path, tmp_path):
-        REDIS_HOST = "redis"
-        REDIS_PORT = 6379
-        BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
-        BACKEND_URL = BROKER_URL
         return {
-            "DB_CONNECTION_STRING": f'postgres://postgres:postgres@localhost:5432/',
             "CACHE_FILE_LOCATION": f"{tmp_path}/cache",
-            "CELERY_BROKER_URL": BROKER_URL,
-            "CELERY_BACKEND_URL": BACKEND_URL,
             "REDIS_HOST_FILESYSTEM_DIR": f"{tmp_path}/sessions",
-            "GOOGLE_APPLICATION_CREDENTIALS": f"{path}/firebase-key.json",
-            "CHADO_DATABASE": "postgres",
-            "CHADO_HOST": "localhost",
-            "CHADO_PORT": "5432",
-            "CHADO_USER": "postgres",
-            "CHADO_PASSWORD": "postgres",
-            "CHADO_SCHEMA": "public",
-            "GALAXY_API_KEY": "fakekey",
-            "GALAXY_LOCATION": "http://localhost:8080"
         }
 
     from appdirs import AppDirs
@@ -140,12 +124,29 @@ def prepare_default_configuration(create_directories):
             if create_directories:
                 os.makedirs(v, exist_ok=True)
 
+    REDIS_HOST = "redis"
+    REDIS_PORT = 6379
+    BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
+    BACKEND_URL = BROKER_URL
+
     # Default configuration
     return f"""{os.linesep.join([f'{k}="{v}"' for k, v in dirs.items()])}
 # Flask Session (server side session)
 REDIS_HOST="filesystem:local_session"
 TESTING="True"
 SELF_SCHEMA=""
+DB_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432/"
+CELERY_BROKER_URL="{BROKER_URL}"
+CELERY_BACKEND_URL="{BACKEND_URL}"
+GOOGLE_APPLICATION_CREDENTIALS="{data_path}/firebase-key.json"
+CHADO_DATABASE="postgres"
+CHADO_HOST="localhost"
+CHADO_PORT="5432"
+CHADO_USER="postgres"
+CHADO_PASSWORD="postgres"
+CHADO_SCHEMA="public"
+GALAXY_API_KEY="fakekey"
+GALAXY_LOCATION="http://localhost:8080"
 """, data_path + os.sep + "bcs_local.conf"
 
 
@@ -504,7 +505,7 @@ def initialize_database_chado(flask_app):
     if 'CHADO_CONNECTION_STRING' in flask_app.config:
         db_connection_string = cfg["CHADO_CONNECTION_STRING"]
     elif 'CHADO_DATABASE' in flask_app.config:
-        db_connection_string = f'postgres://{cfg["CHADO_USER"]}:{cfg["CHADO_PASSWORD"]}@{cfg["CHADO_HOST"]}:{cfg["CHADO_PORT"]}/{cfg["CHADO_DATABASE"]}'
+        db_connection_string = f'postgresql://{cfg["CHADO_USER"]}:{cfg["CHADO_PASSWORD"]}@{cfg["CHADO_HOST"]}:{cfg["CHADO_PORT"]}/{cfg["CHADO_DATABASE"]}'
         print("Connecting to Chado database server")
         print(db_connection_string)
         print("-----------------------------")
@@ -537,7 +538,7 @@ def initialize_chado_edam(flask_app):
         databases housing cross-references may have sub databases such as NCBI (e.g. Taxonomy, SRA, etc).
         This table can use a \'part_of\' record to link all of them to NCBI."""
 
-        db_connection_string = f'postgres://{cfg["CHADO_USER"]}:{cfg["CHADO_PASSWORD"]}@{cfg["CHADO_HOST"]}:{cfg["CHADO_PORT"]}/{cfg["CHADO_DATABASE"]}'
+        db_connection_string = f'postgresql://{cfg["CHADO_USER"]}:{cfg["CHADO_PASSWORD"]}@{cfg["CHADO_HOST"]}:{cfg["CHADO_PORT"]}/{cfg["CHADO_DATABASE"]}'
         print("Connecting to Chado database server to insert EDAM")
         print(db_connection_string)
         print("-----------------------------")

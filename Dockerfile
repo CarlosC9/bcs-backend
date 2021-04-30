@@ -41,8 +41,9 @@ FROM python:3.8.4-slim-buster
 # PRODUCTION SERVER (NGD server):
 #
 # docker create --name bcs-local --network=ngd-net -l ngd-postgis -l ngd-redis -v /srv/docker/ngd/data/bcs:/srv
+#   -v /home/ngd/bcs.conf:/root/bcs_docker_server.conf
 #   -e VIRTUAL_HOST=bcs.nextgendem.eu -e VIRTUAL_PORT=80 -e LETSENCRYPT_HOST=bcs.nextgendem.eu
-#   -e LETSENCRYPT_EMAIL=<email address> -e BCS_CONFIG_FILE="bcs_docker_server.conf"
+#   -e LETSENCRYPT_EMAIL=<email address> -e BCS_CONFIG_FILE="/root/bcs_docker_server.conf"
 #   -e MOD_WSGI_REQUEST_TIMEOUT=1500 -e MOD_WSGI_SOCKET_TIMEOUT=1500
 #   nextgendem-mac/ngd-bcs-backend:latest
 #
@@ -87,6 +88,24 @@ WORKDIR /app
 
 ENV BCS_CONFIG_FILE=""
 
+# Chado Perl "Bio" module
+
+# ? BioPerl Bio::Chado::Schema Bio::GMOD::Config
+RUN cpan force install GO::Parser Bundle::GMOD
+RUN cpanm -f Bio::GMOD DBIx::DBSchema DBIx::DBStag
+#RUN cpan install Bundle::GMOD && \
+#    cpanm DBD::Pg DBIx::DBSchema GO::Utils Bio::GMOD DBIx::DBStag
+#
+#RUN bio_path=`perl -MV=Bio::GMOD | tail -1 | awk '{$1=$1};1' | cut -f 1 -d ":"` && \
+#    bio_path=`dirname ${bio_path}` && \
+#    export bio_path=`dirname ${bio_path}`
+#
+#RUN wget https://github.com/GMOD/Chado/archive/master.zip -O /tmp/chado_src.zip && \
+#    unzip -o /tmp/chado_src.zip -d /tmp/chado_project && \
+#    cp -r /tmp/chado_project/Chado-master/chado/lib/Bio ${bio_path}/ && \
+#    rm /tmp/chado_src.zip /tmp/chado_project -r && \
+#    cpan Bio::Chado::Schema
+
 # NOTE: "requirements.txt" can be generated from scratch with "pipreqs --force ."
 COPY requirements.txt /app
 
@@ -104,21 +123,6 @@ VOLUME /srv
 ENV C_FORCE_ROOT=1
 
 #Docker initialization configuration
-
-# Chado Perl "Bio" module
-
-RUN cpan install Bundle::GMOD && \
-    cpanm DBD::Pg DBIx::DBSchema GO::Utils Bio::GMOD DBIx::DBStag
-
-RUN bio_path=`perl -MV=Bio::GMOD | tail -1 | awk '{$1=$1};1' | cut -f 1 -d ":"` && \
-    bio_path=`dirname ${bio_path}` && \
-    export bio_path=`dirname ${bio_path}`
-
-RUN wget https://github.com/GMOD/Chado/archive/master.zip -O /tmp/chado_src.zip && \
-    unzip -o /tmp/chado_src.zip -d /tmp/chado_project && \
-    cp -r /tmp/chado_project/Chado-master/chado/lib/Bio ${bio_path}/ && \
-    rm /tmp/chado_src.zip /tmp/chado_project -r && \
-    cpan Bio::Chado::Schema
 
 # gunicorn --workers=1 --log-level=debug --timeout=2000 --bind 0.0.0.0:80 biobarcoding.rest.main:app
 #CMD ["/usr/local/bin/gunicorn", "--workers=3", "--log-level=debug", "--timeout=2000", "--bind", "0.0.0.0:80", "biobarcoding.rest.main:app"]
