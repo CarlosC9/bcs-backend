@@ -24,7 +24,7 @@ def expand_paths(key: str, value: str) -> str:
         return value
 
 
-def get_global_configuration_variable(key: str) -> str:
+def get_global_configuration_variable(key: str, default=None) -> str:
     def read_configuration() -> Dict[str, str]:
         """
         If environment variable "MAGIC_NIS_SERVICE_CONFIG_FILE" is defined, and the contents is the name of an existing file,
@@ -45,4 +45,4 @@ def get_global_configuration_variable(key: str) -> str:
     global global_configuration
     if global_configuration is None:
         global_configuration = read_configuration()
-    return global_configuration.get(key.lower())
+    return global_configuration.get(key.lower(), default)

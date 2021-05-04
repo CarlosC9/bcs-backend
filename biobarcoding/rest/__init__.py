@@ -133,6 +133,8 @@ def prepare_default_configuration(create_directories):
     return f"""{os.linesep.join([f'{k}="{v}"' for k, v in dirs.items()])}
 # Flask Session (server side session)
 REDIS_HOST="filesystem:local_session"
+# Set to not "True" in production 
+SAMESITE_NONE="True"
 TESTING="True"
 SELF_SCHEMA=""
 DB_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432/"

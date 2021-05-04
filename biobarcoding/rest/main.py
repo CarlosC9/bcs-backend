@@ -133,6 +133,12 @@ def after_a_request(response):
     # ... except when Invalidation requested
     if "__invalidate__" in flask_session:
         response.delete_cookie(current_app.session_cookie_name)
+    else:
+        # Allow Cross Site usage when debugging
+        if biobarcoding.get_global_configuration_variable("SAMESITE_NONE", "False") == "True":
+            for i, h in enumerate(response.headers):
+                if h[0].lower() == "set-cookie" and h[1].startswith(f"{current_app.session_cookie_name}="):
+                    response.headers[i] = (h[0], f"{h[1]}; SameSite=None")
 
     return response
 
