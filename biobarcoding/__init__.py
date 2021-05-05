@@ -45,4 +45,7 @@ def get_global_configuration_variable(key: str, default=None) -> str:
     global global_configuration
     if global_configuration is None:
         global_configuration = read_configuration()
+    if default is None:
+        from biobarcoding.rest import get_default_configuration_dict
+        default = get_default_configuration_dict().get(key)
     return global_configuration.get(key.lower(), default)

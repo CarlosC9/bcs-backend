@@ -100,12 +100,41 @@ class ResponseObject:
         return Response(obj, mimetype=self.content_type, status=self.status)
 
 
+def get_default_configuration_dict():
+    from appdirs import AppDirs
+    app_dirs = AppDirs("bcs-backend")
+    # Default directories, multi-platform
+    data_path = app_dirs.user_data_dir
+    cache_path = app_dirs.user_cache_dir
+
+    REDIS_HOST = "redis"
+    REDIS_PORT = 6379
+    BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
+    BACKEND_URL = BROKER_URL
+
+    return dict(CACHE_FILE_LOCATION=f"{cache_path}/cache",
+                REDIS_HOST_FILESYSTEM_DIR=f"{cache_path}/sessions",
+                REDIS_HOST="filesystem:local_session",
+                SAMESITE_NONE="True",
+                TESTING="True",
+                SELF_SCHEMA="",
+                DB_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432/",
+                CELERY_BROKER_URL=f"{BROKER_URL}",
+                CELERY_BACKEND_URL=f"{BACKEND_URL}",
+                GOOGLE_APPLICATION_CREDENTIALS=f"{data_path}/firebase-key.json",
+                CHADO_DATABASE="postgres",
+                CHADO_HOST="localhost",
+                CHADO_PORT="5432",
+                CHADO_USER="postgres",
+                CHADO_PASSWORD="postgres",
+                CHADO_SCHEMA="public",
+                GALAXY_API_KEY="fakekey",
+                GALAXY_LOCATION="http://localhost:8080"
+                )
+
+
 def prepare_default_configuration(create_directories):
-    def default_directories(path, tmp_path):
-        return {
-            "CACHE_FILE_LOCATION": f"{tmp_path}/cache",
-            "REDIS_HOST_FILESYSTEM_DIR": f"{tmp_path}/sessions",
-        }
+    default_cfg = get_default_configuration_dict()
 
     from appdirs import AppDirs
     app_dirs = AppDirs("bcs-backend")
@@ -116,40 +145,14 @@ def prepare_default_configuration(create_directories):
     if create_directories:
         os.makedirs(data_path, exist_ok=True)
         os.makedirs(cache_path, exist_ok=True)
-
-    # Obtain and create directories
-    dirs = default_directories(data_path, cache_path)
-    for v in dirs.values():
-        if v:
-            if create_directories:
-                os.makedirs(v, exist_ok=True)
-
-    REDIS_HOST = "redis"
-    REDIS_PORT = 6379
-    BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
-    BACKEND_URL = BROKER_URL
+        directories = [v for k, v in default_cfg.items() if k in ["CACHE_FILE_LOCATION", "REDIS_HOST_FILESYSTEM_DIR"]]
+        # Obtain and create directories
+        for v in directories:
+            os.makedirs(v, exist_ok=True)
 
     # Default configuration
-    return f"""{os.linesep.join([f'{k}="{v}"' for k, v in dirs.items()])}
-# Flask Session (server side session)
-REDIS_HOST="filesystem:local_session"
-# Set to not "True" in production 
-SAMESITE_NONE="True"
-TESTING="True"
-SELF_SCHEMA=""
-DB_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432/"
-CELERY_BROKER_URL="{BROKER_URL}"
-CELERY_BACKEND_URL="{BACKEND_URL}"
-GOOGLE_APPLICATION_CREDENTIALS="{data_path}/firebase-key.json"
-CHADO_DATABASE="postgres"
-CHADO_HOST="localhost"
-CHADO_PORT="5432"
-CHADO_USER="postgres"
-CHADO_PASSWORD="postgres"
-CHADO_SCHEMA="public"
-GALAXY_API_KEY="fakekey"
-GALAXY_LOCATION="http://localhost:8080"
-""", data_path + os.sep + "bcs_local.conf"
+    return f"""{os.linesep.join([f'{k}="{v}"' for k, v in default_cfg.items()])}""", \
+           data_path + os.sep + "bcs_local.conf"
 
 
 def load_configuration_file(flask_app):
@@ -186,7 +189,7 @@ def load_configuration_file(flask_app):
         print(e)
 
 
-def  construct_session_persistence_backend(flask_app):
+def construct_session_persistence_backend(flask_app):
     # A REDIS instance needs to be available. Check it
     # A local REDIS could be as simple as:
     #
