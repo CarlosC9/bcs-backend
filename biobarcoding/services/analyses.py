@@ -33,8 +33,15 @@ def read(id=None, **kwargs):
 
 
 def update(id, **kwargs):
-    issues = [Issue(IType.WARNING, 'UPDATE alignments: dummy completed')]
-    return issues, None, 200
+    content = None
+    try:
+        content = __get_query(id).first()
+        content.update(kwargs)
+        issues, status = [Issue(IType.INFO, f'UPDATE analyses: The analysis "{id}" updated successfully.')], 201
+    except Exception as e:
+        print(e)
+        issues, status = [Issue(IType.ERROR, f'UPDATE analyses: The analysis "{id}" could not be updated.')], 500
+    return issues, content, status
 
 
 def delete(id=None, **kwargs):
@@ -46,10 +53,10 @@ def delete(id=None, **kwargs):
         # delete_sequences(filter={'analysis_id':{'op':'in','analysis_id':_ids}})
         # __delete_from_bcs(_ids)
         resp = query.delete(synchronize_session='fetch')
-        issues, status = [Issue(IType.INFO, f'DELETE alignments: The {resp} alignments were successfully removed.')], 200
+        issues, status = [Issue(IType.INFO, f'DELETE analyses: The {resp} analyses were successfully removed.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'DELETE alignments: The alignments could not be removed.')], 500
+        issues, status = [Issue(IType.ERROR, 'DELETE analyses: The analyses could not be removed.')], 500
     return issues, content, status
 
 

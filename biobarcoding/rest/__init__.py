@@ -650,9 +650,6 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
 
     class CrudAPI(MethodView):
 
-        page: int = None
-        page_size: int = None
-
         @bcs_session(read_only=True, authr=execution_rules.get("r"))
         def get(self, _id=None):  # List or Read
             db = g.bcs_session.db_session
@@ -660,10 +657,15 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
             if _id is None:
                 # List of all
                 query = db.query(entity)
-                # TODO Pagination
-                self.__check_data(request.args)
-                if self.page and self.page_size:
-                    query = query.offset((self.page - 1) * self.page_size).limit(self.page_size)
+                # Filter, Order, Pagination
+                kwargs = check_request_params()
+                if 'filter' in kwargs:
+                    query = query.filter(filter_parse(entity, kwargs.get('filter')))
+                if 'order' in kwargs:
+                    query = query.order_by(order_parse(entity, kwargs.get('order')))
+                if 'pagination' in kwargs:
+                    r.count = query.count()
+                    query = paginator(query, kwargs.get('pagination'))
                 # TODO Detail of fields
                 r.content = query.all()
             else:
@@ -700,9 +702,6 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
             db.delete(s)
             return r.get_response()
 
-        def __check_data(self, data):
-            self.page = int(data.get(self.page, 1))
-            self.page_size = int(data.get(self.page_size, 1000000))
 
     # If the following line is uncommented, it complains on "overwriting an existing endpoint function". This function is public, because it is just the schema, so, no problem.
     # @bcs_session()
@@ -735,19 +734,19 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
 # GENERIC REST FUNCTIONS
 
 def get_decoded_params(data):
-        res = {}
-        for key in data:
-            value = data[key]
-            try:
-                value = unquote(value)
-            except Exception as e:
-                pass
-            try:
-                value = json.loads(value)
-            except Exception as e:
-                pass
-            res[key] = value
-        return res
+    res = {}
+    for key in data:
+        value = data[key]
+        try:
+            value = unquote(value)
+        except Exception as e:
+            pass
+        try:
+            value = json.loads(value)
+        except Exception as e:
+            pass
+        res[key] = value
+    return res
 
 
 def check_request_params(data=None):
