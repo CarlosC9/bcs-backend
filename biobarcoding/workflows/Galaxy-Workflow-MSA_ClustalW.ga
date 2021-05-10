@@ -13,11 +13,11 @@
             "inputs": [
                 {
                     "description": "",
-                    "name": "Input dataset"
+                    "name": "input_dataset"
                 }
             ],
-            "label": "Input dataset",
-            "name": "Input dataset",
+            "label": "input_dataset",
+            "name": "input_dataset",
             "outputs": [],
             "position": {
                 "left": 542,
@@ -53,8 +53,8 @@
                     "name": "input"
                 }
             ],
-            "label": "clustalW",
-            "name": "ClustalW",
+            "label": "MSA ClustalW",
+            "name": "MSA ClustalW",
             "outputs": [
                 {
                     "name": "output",

@@ -1,27 +1,87 @@
+import time
 import unittest
 from pathlib import Path
 import os
 
 from bioblend import galaxy
+
 from biobarcoding.jobs.galaxy_resource import *
 
 
 class MyTestCase(unittest.TestCase):
     def test_upload_file(self):
         insfile = 'data_test/parsec_creds.yaml'
-        insname = 'beauvoir3'
+        insname = 'local'
         ins = galaxy_instance(insfile, name = insname)
         gi = login(ins['key'],url=ins['url'])
-        history = gi.histories.create_history(name="test_upload_file history")
-        fn =  Path('data_test/ls_orchid.fasta')
-        file_name = "test1"
+        history = gi.histories.create_history(name="invoke test")
+        fn =  Path('data_test/matK_25taxones_Netgendem_SINalinear.fasta')
+        file_name = "input_dataset"
         d = gi.tools.upload_file(
             fn,
             history_id=history["id"],
             file_name=file_name,
             dbkey="?",
             file_type="fasta")
-        self.assertNotEqual(d, None, "should be something here")
+        while(True):
+            status1 = gi.histories.get_status(get_history_id(gi,"invoke test"))
+            print(status1)
+            time.sleep(5)
+            status2 = gi.histories.get_status(get_history_id(gi, "invoke test"))
+            print(status2)
+            self.assertIsInstance(status1,dict, "ok")
+            self.assertNotEquals(status1['state'], status2['state'])
+            if status2['state'] == 'ok' or 'error':
+                break
+
+
+    def test_invocation_states(self):
+        # todo test
+        import json
+        insfile = 'data_test/parsec_creds.yaml'
+        insname = 'local'
+        tmp = {"endpoint_url": "",
+                       "process":
+                           {"inputs":
+                                {"parameters":
+                                     {"clustalw":
+                                          {"dnarna": "DNA", "outform": "clustal", "out_order": "ALIGNED", "mode": "complete", "out_seqnos": "ON"},
+                                      "phyml":
+                                          {"phylip_format": "", "nb_data_set": "1", "type_of_seq": "nt", "prop_invar": "e", "equi_freq": "m", "nbSubstCat": "4", "gamma": "e", "move": "NNI", "optimisationTopology": "tlr", "branchSupport": "-4", "numStartSeed": "0", "inputTree": "false", "tstv": "e", "model": "HKY85"}
+                                      },
+                                 "data": [
+                                     {"step": "input_dataset",
+                                      "path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta",
+                                      "type": "fasta"}
+                                 ]
+                                 },
+                            "name": "ClustalW-PhyMl"},
+                       "resource": {"name": "localhost - galaxy", "jm_type": "galaxy", "jm_location": {"url": "http://localhost:8080/"}, "jm_credentials": {"api_key": "fakekey"}}, "job_id": 8}
+        ins = galaxy_instance(insfile, name=insname)
+        gi = login(ins['key'], url=ins['url'])
+        params = tmp["process"]
+        input_params = params['inputs']['parameters']
+        inputs = params['inputs']['data']
+        workflow = params['name']
+        w_id = workflow_id(gi, workflow)
+        h_id = gi.histories.get_histories(name='invoke test')[0]['id']
+        datamap, parameters = params_input_creation(gi, "ClustalW-PhyMl", inputs, input_params,
+                                                    history_id=h_id)
+        gi = login(ins['key'], url=ins['url'])
+        invocation = gi.workflows.invoke_workflow(workflow_id=w_id,
+                                                  inputs=datamap,
+                                                  params=parameters,
+                                              history_id=h_id)
+        while (True):
+            status1 = gi.histories.get_status(invocation['history_id'])
+            print(status1)
+            time.sleep(5)
+            status2 = gi.histories.get_status(invocation['history_id'])
+            print(status2)
+            self.assertIsInstance(status2, dict, "ok")
+            self.assertNotEquals(status1['state'], status2['state'])
+            if status2['state'] == 'ok' or 'error':
+                break
 
     def test_inputs_files(self):
         insfile = 'data_test/parsec_creds.yaml'
@@ -112,10 +172,12 @@ class MyTestCase(unittest.TestCase):
                   }
         wfdict2 = {'clustalW': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/clustalw_galaxy.json'}
         new_form_path = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/inputs_schema/clustalw_phyml_formly.json'
-        lwdict = [wfdict1,wfdict2]
+        new_form_path = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/clustalw_phyml_formly.json'
+        # lwdict = [wfdict1,wfdict2]
         lwdict = [wfdict1]
+        wf_path = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/workflows/Galaxy-Workflow-ClustalW-PhyMl.ga'
         for wfdict in lwdict:
-            convertToFormly(wfdict,new_form_path)
+            convertToFormly(wfdict, wf_path, new_form_path)
 
 
 

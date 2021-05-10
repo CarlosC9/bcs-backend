@@ -6,7 +6,7 @@
             "key": "input",
             "templateOptions": {
                "label": "input"
-         },
+            },
             "fieldGroup": [
                {
                   "key": "remote_name",
@@ -14,7 +14,7 @@
                   "templateOptions": {
                      "label": "input name"
                   },
-                  "defaultValue": "input_dataset"
+                  "defaultValue": "Input dataset"
                },
                {
                   "key": "type",
@@ -22,17 +22,16 @@
                   "templateOptions": {
                      "label": "type"
                   },
-                  "defaultValue": "fasta"
+                  "defaultValue": "no specified"
                },
-            {
+               {
                   "key": "bo_type",
                   "type": "input",
                   "templateOptions": {
                      "label": "bo type"
                   },
-                  "defaultValue": "sequences"
+                  "defaultValue": "no specified"
                }
-
             ]
          },
          {

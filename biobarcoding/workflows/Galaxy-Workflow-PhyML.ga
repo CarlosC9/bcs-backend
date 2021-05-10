@@ -13,11 +13,11 @@
             "inputs": [
                 {
                     "description": "",
-                    "name": "Input dataset"
+                    "name": "input_dataset"
                 }
             ],
-            "label": "Input dataset",
-            "name": "Input dataset",
+            "label": "input_dataset",
+            "name": "input_dataset",
             "outputs": [],
             "position": {
                 "left": 297,

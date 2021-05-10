@@ -1,0 +1,28 @@
+{
+  "resource_id": "0292821a-dd33-450a-bdd8-813b2b95c456",
+  "process_id": "25932546-d26c-4367-8c81-0c682094d117",
+  "process_params": {
+    "parameters": {
+      "script_file": "test.sh",
+      "script_params": "\"Nueva línea por parámetro\""
+    },
+    "data": [
+      {
+        "path": "/home/daniel/Documentos/GIT/bcs-backend/tests/ssh_data_test/myfile.txt",
+        "remote_path": "myfile.txt"
+      },
+      {
+        "path": "/home/daniel/Documentos/GIT/bcs-backend/tests/ssh_data_test/add_line.py",
+        "remote_path": "add_line.py"
+      },
+      {
+        "path": "/home/daniel/Documentos/GIT/bcs-backend/tests/ssh_data_test/count_lines.py",
+        "remote_path": "count_lines.py"
+      },
+      {
+        "path": "/home/daniel/Documentos/GIT/bcs-backend/tests/ssh_data_test/test.sh",
+        "remote_path": "test.sh"
+      }
+    ]
+  }
+}

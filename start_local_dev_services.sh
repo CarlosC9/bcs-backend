@@ -20,6 +20,19 @@ function init_chado {
   ./init.sh
 }
 
+
+if [ "$(whoami)" == "rnebot" ] && [ "$#" -gt 0 ] ; then
+  echo "TODO: INICIALIZAR VARIABLES DE ENTORNO!"
+elif [ "$(whoami)" == "acurbelo" ] ; then
+  echo "TODO: INICIALIZAR VARIABLES DE ENTORNO!"
+elif [ "$(whoami)" == "paula" ] ; then
+  export ENDPOINT_URL="http://localhost:5000"
+  export COOKIES_FILE_PATH="/home/paula/Documentos/NEXTGENDEM/curl/bcs-cookies.txt"
+elif [ "$(whoami)" == "daniel" ] ; then
+  export ENDPOINT_URL="http://localhost:5000"
+  export COOKIES_FILE_PATH="/home/daniel/Documentos/Projects/curl/bcs-cookies.txt"
+fi
+
 # PostgreSQL
 if [ ! "$(docker ps -q -f name=postgres_devel)" ] ; then
   echo Starting PostgreSQL-Chado
@@ -49,7 +62,8 @@ elif [ "$(whoami)" == "acurbelo" ] ; then
 elif [ "$(whoami)" == "paula" ] ; then
   galaxy_started=$(docker ps -q -f name=galaxy_devel)
 elif [ "$(whoami)" == "daniel" ] ; then
-  galaxy_started=$(ssh dreyes@balder docker ps -q -f name=galaxy_devel_dreyes)
+  galaxy_started=$(docker ps -q -f name=galaxy_devel)
+  #galaxy_started=$(ssh dreyes@balder docker ps -q -f name=galaxy_devel_dreyes)
 fi
 
 if [ ! $galaxy_started ] ; then
@@ -62,7 +76,9 @@ if [ ! $galaxy_started ] ; then
   elif [ "$(whoami)" == "paula" ] ; then
     docker run --name galaxy_devel -d -p 8080:80 -p 8021:21 -p 8022:22 --rm -v /home/paula/galaxy_storage/:/export  bgruening/galaxy-stable
   elif [ "$(whoami)" == "daniel" ] ; then
-    ssh dreyes@balder docker run --name galaxy_devel_dreyes -d -p 8480:80 -p 8421:21 -p 8422:22 --rm -v /home/daniel/Documentos/DATOS/galaxy_storage/:/export bgruening/galaxy-stable
+    #ssh dreyes@balder docker run --name galaxy_devel_dreyes -d -p 8480:80 -p 8421:21 -p 8422:22 --rm -v /home/daniel/Documentos/DATOS/galaxy_storage/:/export bgruening/galaxy-stable
+    #docker run --name galaxy_devel -d -p 8080:80 --privileged=true -v /home/daniel/Documentos/galaxy_storage/:/export/ bgruening/galaxy-stable:latest
+    docker run --name galaxy_devel -d -p 8080:80 -p 8021:21 -p 8022:22 --rm -v /home/daniel/Documentos/galaxy_storage/:/export  bgruening/galaxy-stable:latest
   fi
 fi
 
@@ -87,14 +103,18 @@ if [ ! geoserver_started ] ; then
   elif [ "$(whoami)" == "paula" ] ; then
     docker run --name galaxy_devel -d -p 8080:80 -p 8021:21 -p 8022:22 --rm -v /home/paula/galaxy_storage/:/export  bgruening/galaxy-stable
   elif [ "$(whoami)" == "daniel" ] ; then
-    ssh dreyes@balder docker run --name galaxy_devel_dreyes -d -p 8480:80 -p 8421:21 -p 8422:22 --rm -v /home/daniel/Documentos/DATOS/galaxy_storage/:/export bgruening/galaxy-stable
-    #echo El galaxy no funciona
+    #docker run --name galaxy_devel -d -p 8080:80 -p 8021:21 -p 8022:22 --rm -v /home/daniel/Documentos/DATOS/galaxy_storage/:/export  bgruening/galaxy-stable
+    ssh dreyes@balder docker run --name galaxy_devel_dreyes -d -p 8480:80 -p 8421:21 -p 8422:22 --rm -v /home/daniel/Documentos/galaxy_data/:/export bgruening/galaxy-stable
+  #docker run -d -p 8080:80 -p 8021:21 -p 8800:8800 --privileged=true -v /home/daniel/Documentos/galaxy_storage/:/export/ bgruening/galaxy-stable
   fi
 fi
 
 # CD to BCS-BACKEND source code (needed for proper Celery execution)
-cd "$(dirname $0)"
+CWD=$(basename "$PWD")
+if test $CWD = "docker_init"
+then
+  cd ..
+fi
 
-# CELERY
 # Worker AND Beat (only for development; NOT for production -use Supervisor and two separate processes-)
 celery -A biobarcoding.tasks worker --beat --loglevel=info

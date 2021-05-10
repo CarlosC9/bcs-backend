@@ -1,143 +1,146 @@
 [
-   {
-      "type": "stepper",
-      "fieldGroup": [
-         {
-            "templateOptions": {
-               "label": "clustalw"
+  {
+    "key": "MSA ClustalW",
+    "fieldGroup": [
+      {
+        "key": "dnarna",
+        "type": "select",
+        "templateOptions": {
+          "label": "Data type",
+          "required": true,
+          "options": [
+            {
+              "value": "DNA",
+              "label": "DNA nucleotide sequences"
             },
-            "fieldGroup": [
-               {
-                  "key": "clustalw.dnarna",
-                  "type": "select",
-                  "templateOptions": {
-                     "label": "Data type",
-                     "required": true,
-                     "description": "",
-                     "options": [
-                        {
-                           "value": "DNA",
-                           "label": "DNA nucleotide sequences"
-                        },
-                        {
-                           "value": "PROTEIN",
-                           "label": "Protein sequences"
-                        }
-                     ]
-                  },
-                  "defaultValue": "DNA"
-               },
-               {
-                  "key": "clustalw.outform",
-                  "type": "select",
-                  "templateOptions": {
-                     "label": "Output alignment format",
-                     "required": true,
-                     "description": "",
-                     "options": [
-                        {
-                           "value": "clustal",
-                           "label": "Native Clustal output format"
-                        },
-                        {
-                           "value": "phylip",
-                           "label": "PHYLIP format"
-                        },
-                        {
-                           "value": "fasta",
-                           "label": "FASTA format"
-                        }
-                     ]
-                  },
-                  "defaultValue": "clustal"
-               },
-               {
-                  "key": "clustalw.out_seqnos",
-                  "type": "radio",
-                  "templateOptions": {
-                     "label": "Show residue numbers in clustal format output",
-                     "required": true,
-                     "description": "",
-                     "options": [
-                        {
-                           "value": "ON",
-                           "label": "Yes"
-                        },
-                        {
-                           "value": "OFF",
-                           "label": "No"
-                        }
-                     ]
-                  },
-                  "defaultValue": "OFF",
-                  "hideExpression": "model.clustalw.outform!='clustal'"
-               },
-               {
-                  "key": "clustalw.out_order",
-                  "type": "select",
-                  "templateOptions": {
-                     "label": "Output order",
-                     "required": true,
-                     "description": "",
-                     "options": [
-                        {
-                           "value": "ALIGNED",
-                           "label": "Aligned"
-                        },
-                        {
-                           "value": "INPUT",
-                           "label": "Same order as input file"
-                        }
-                     ]
-                  },
-                  "defaultValue": "ALIGNED"
-               },
-               {
-                  "key": "clustalw.mode",
-                  "type": "select",
-                  "templateOptions": {
-                     "label": "Output complete alignment (or specify part to output)",
-                     "required": true,
-                     "description": "",
-                     "options": [
-                        {
-                           "value": "complete",
-                           "label": "Complete alignment"
-                        },
-                        {
-                           "value": "part",
-                           "label": "Only part of the alignment"
-                        }
-                     ]
-                  },
-                  "defaultValue": "complete"
-               },
-               {
-                  "key": "clustalw.seq_range_start",
-                  "type": "input",
-                  "templateOptions": {
-                     "label": "Start point",
-                     "required": true,
-                     "description": "Sequence range to write",
-                     "type": "number"
-                  },
-                  "defaultValue": "1",
-                  "hideExpression": "model.clustalw.mode!='part'"
-               },
-               {
-                  "key": "clustalw.seq_range_end",
-                  "type": "input",
-                  "templateOptions": {
-                     "label": "End point",
-                     "required": true,
-                     "description": "",
-                     "type": "number"
-                  },
-                  "defaultValue": "99999",
-                  "hideExpression": "model.clustalw.mode!='part'"
-               }
-            ]
-         }
-      ]
-   }
+            {
+              "value": "PROTEIN",
+              "label": "Protein sequences"
+            }
+          ]
+        },
+        "defaultValue": "DNA",
+        "hideExpression": true
+      },
+      {
+        "key": "outform",
+        "type": "select",
+        "templateOptions": {
+          "label": "Output alignment format",
+          "required": true,
+          "options": [
+            {
+              "value": "clustal",
+              "label": "Native Clustal output format"
+            },
+            {
+              "value": "phylip",
+              "label": "PHYLIP format"
+            },
+            {
+              "value": "fa",
+              "label": "FASTA format"
+            }
+          ]
+        },
+        "defaultValue": "clustal"
+      },
+      {
+        "key": "out_seqnos",
+        "type": "radio",
+        "defaultValue": "OFF",
+        "templateOptions": {
+          "label": "Show residue numbers in clustal format output",
+          "required": true,
+          "options": [
+            {
+              "value": "ON",
+              "label": "Yes"
+            },
+            {
+              "value": "OFF",
+              "label": "No"
+            }
+          ]
+        },
+        "hideExpression": "model.outform!='clustal'"
+      },
+      {
+        "key": "out_order",
+        "type": "select",
+        "templateOptions": {
+          "label": "Output order",
+          "required": true,
+          "options": [
+            {
+              "value": "ALIGNED",
+              "label": "Aligned"
+            },
+            {
+              "value": "INPUT",
+              "label": "Same order as input file"
+            }
+          ]
+        },
+        "defaultValue": "ALIGNED"
+      },
+      {
+        "key": "mode",
+        "type": "select",
+        "templateOptions": {
+          "label": "Output complete alignment (or specify part to output)",
+          "required": true,
+          "options": [
+            {
+              "value": "complete",
+              "label": "Complete alignment"
+            },
+            {
+              "value": "part",
+              "label": "Only part of the alignment"
+            }
+          ]
+        },
+        "defaultValue": "complete"
+      },
+      {
+        "key": "seq_range_start",
+        "type": "input",
+        "templateOptions": {
+          "label": "Start point",
+          "required": true,
+          "description": "Sequence range to write",
+          "type": "number"
+        },
+        "defaultValue": "1",
+        "hideExpression": "model.mode!='part'"
+      },
+      {
+        "key": "seq_range_end",
+        "type": "input",
+        "templateOptions": {
+          "label": "End point",
+          "required": true,
+          "type": "number"
+        },
+        "defaultValue": "99999",
+        "hideExpression": "model.mode!='part'"
+      },
+      {
+        "key": "sequence_selector",
+        "type": "sequence-selector",
+        "validators": {
+          "validation": [
+            "sequence-selector"
+          ]
+        },
+        "templateOptions": {
+          "filename": "input_dataset",
+          "label": "Sequences Selector",
+          "required": true,
+          "extension": "fasta"
+        }
+      }
+    ]
+  }
 ]

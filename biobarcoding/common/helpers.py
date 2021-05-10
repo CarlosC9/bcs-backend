@@ -66,7 +66,8 @@ def export_xlsx_to_memory(service, file_id):
         return process_request(request)
     except HttpError as e:
         try:
-            request = service.files().export_media(fileId=file_id, mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+            request = service.files().export_media(fileId=file_id,
+                                                   mimeType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
             return process_request(request)
         except HttpError as e:
             return None
@@ -161,7 +162,7 @@ def download_file(location, wv_user=None, wv_password=None, wv_host_name=None):
             fragment = location[pos + 1:]
             location = location[:pos]
         if not wv_host_name:
-            wv_host_name = get_global_configuration_variable("FS_SERVER")\
+            wv_host_name = get_global_configuration_variable("FS_SERVER") \
                 if get_global_configuration_variable("FS_SERVER") else "nextcloud.nextgendem.eu"
         if pr.netloc.lower() == wv_host_name:
             data = wv_download_file(location, wv_user, wv_password, wv_host_name)
@@ -196,3 +197,27 @@ def get_module_logger(mod_name,
     logger.addHandler(handler)
     logger.setLevel(level)
     return logger
+
+
+''' Content-Types '''
+files_metadata = [
+    ("fasta", "application/x-fasta", "sequences"),
+    ("gff3", "text/gff3", "geneannotations"),
+    ("dnd", "application/x-nhx", "phylotrees"),
+    ("log", "text/plain", None),
+    ("clustal", "application/x-clustal", "alignment"),
+    ("phylip", "application/x-phylip", "phylotrees"),
+    ("fa", "application/x-fasta", "alignment")
+]
+
+
+def get_content_type_from_extension(wanted_extension):
+    for extension, content_type, _ in files_metadata:
+        if wanted_extension == extension:
+            return content_type
+
+
+def get_bioinformatic_object_from_extension(wanted_extension):
+    for extension, _, bioinformatic_object in files_metadata:
+        if wanted_extension == extension:
+            return bioinformatic_object
