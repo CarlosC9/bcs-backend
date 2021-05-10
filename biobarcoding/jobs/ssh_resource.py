@@ -389,7 +389,7 @@ class JobExecutorWithSSH(JobExecutorAtResource):
                job_context["process"]["inputs"]["parameters"]["script_files"]
 
     def get_download_files_list(self, job_context):
-        return job_context["process"]["inputs"]["parameters"]["result_files"]
+        return job_context["results"]
 
     def check_resource(self):
         """

@@ -22,7 +22,7 @@ from biobarcoding.tasks.definitions import change_status
 #     },
 #     "data":  [
 #                     {
-#                       "step": "Input dataset",
+#                       "step": "input_dataset",
 #                       "path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta",
 #                       "type": "fasta"
 #                     }
@@ -488,7 +488,7 @@ class MyTestCase(unittest.TestCase):
                            {"inputs":
                                 {"parameters": {"ClustalW": {"darna": "PROTEIN"}},
                                  # esta es la parte que sería la del export
-                                 "data": [{"remote_name": "Input dataset",
+                                 "data": [{"remote_name": "input_dataset",
                                            "file": "60/input_dataset.fasta",
                                            "type": "fasta"}]},
                             },
@@ -534,14 +534,14 @@ class MyTestCase(unittest.TestCase):
     job_context_id = json.dumps(job_context_id)
     def test_celeryworkflow(self):
 
-        #job_context = '{"endpoint_url": "", "process": {"inputs": {"parameters": {"ClustalW": {"darna": "PROTEIN"}}, "data": {"Input dataset": {"path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta", "type": "fasta"}}}, "name": "MSA ClustalW"}, "resource": {"name": "localhost - galaxy", "jm_type": "galaxy", "jm_location": {"url": "http://localhost:8080/"}, "jm_credentials": {"api_key": "fakekey"}}, "job_id": 52}'
-        # job_context = '{"endpoint_url": "", "process": {"inputs": {"parameters": {"clustalw": {"dnarna": "DNA", "outform": "clustal", "out_order": "ALIGNED", "mode": "complete", "out_seqnos": "ON"}, "phyml": {"phylip_format": "", "nb_data_set": "1", "type_of_seq": "nt", "prop_invar": "e", "equi_freq": "m", "nbSubstCat": "4", "gamma": "e", "move": "NNI", "optimisationTopology": "tlr", "branchSupport": "-4", "numStartSeed": "0", "inputTree": "false", "tstv": "e", "model": "HKY85"}}, "data": {"Input dataset": {"path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta", "type": "fasta"}}}, "name": "ClustalW-PhyMl"}, "resource": {"name": "localhost - galaxy", "jm_type": "galaxy", "jm_location": {"url": "http://localhost:8080/"}, "jm_credentials": {"api_key": "fakekey"}}, "job_id": 8}'
+        #job_context = '{"endpoint_url": "", "process": {"inputs": {"parameters": {"ClustalW": {"darna": "PROTEIN"}}, "data": {"input_dataset": {"path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta", "type": "fasta"}}}, "name": "MSA ClustalW"}, "resource": {"name": "localhost - galaxy", "jm_type": "galaxy", "jm_location": {"url": "http://localhost:8080/"}, "jm_credentials": {"api_key": "fakekey"}}, "job_id": 52}'
+        # job_context = '{"endpoint_url": "", "process": {"inputs": {"parameters": {"clustalw": {"dnarna": "DNA", "outform": "clustal", "out_order": "ALIGNED", "mode": "complete", "out_seqnos": "ON"}, "phyml": {"phylip_format": "", "nb_data_set": "1", "type_of_seq": "nt", "prop_invar": "e", "equi_freq": "m", "nbSubstCat": "4", "gamma": "e", "move": "NNI", "optimisationTopology": "tlr", "branchSupport": "-4", "numStartSeed": "0", "inputTree": "false", "tstv": "e", "model": "HKY85"}}, "data": {"input_dataset": {"path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta", "type": "fasta"}}}, "name": "ClustalW-PhyMl"}, "resource": {"name": "localhost - galaxy", "jm_type": "galaxy", "jm_location": {"url": "http://localhost:8080/"}, "jm_credentials": {"api_key": "fakekey"}}, "job_id": 8}'
         # NUEVO:
 
 
 
         # job_context = '{"endpoint_url": "http//:localhost:5000/", ' \
-        #               '"process": {"inputs": {"parameters": {"ClustalW": {"darna": "PROTEIN"}}, "data": [{"step": "Input dataset","path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta","type": "fasta"}]},"name": "MSA ClustalW"}, "status": "created",' \
+        #               '"process": {"inputs": {"parameters": {"ClustalW": {"darna": "PROTEIN"}}, "data": [{"step": "input_dataset","path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta","type": "fasta"}]},"name": "MSA ClustalW"}, "status": "created",' \
         #               '"resource": ' \
         #               '{"name": "localhost - galaxy", "jm_type": "galaxy","jm_location": {"url": "http://localhost:8080/"}, "jm_credentials": {"api_key": "fakekey"}},' \
         #               '"job_id": 60, "output" : [{"local_path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/download", "name": }]}}'

@@ -17,7 +17,7 @@
                 }
             ],
             "label": "Input protein",
-            "name": "Input dataset",
+            "name": "input_dataset",
             "outputs": [],
             "position": {
                 "left": 220,
@@ -49,7 +49,7 @@
                 }
             ],
             "label": "Input FASTA as db",
-            "name": "Input dataset",
+            "name": "input_dataset",
             "outputs": [],
             "position": {
                 "left": 219,

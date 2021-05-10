@@ -143,9 +143,13 @@ def params_input_creation(gi, workflow_name, inputs_data, param_data, history_id
         set and check params dictionary and load data and set datamap
 
     '''
+    print(f"inputs_data: {inputs_data}")
+    print(f"Param data: {param_data}")
     w_id = workflow_id(gi, workflow_name)
+    print(f"Workflow id: {w_id}")
     wf_dict = gi.workflows.export_workflow_dict(w_id)
     show_wf = gi.workflows.show_workflow(w_id)
+    print(f"Show Workflow: {show_wf}")
     params_to_move = []
     for pk, pv in param_data.items():
         if not isinstance(pv, dict):
@@ -377,6 +381,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
                                                   inputs=datamap,
                                                   params=parameters,
                                                   history_id=history_id)
+        print(f"Invocation: {invocation}")
         return invocation['id']
 
     def __invocation_status(self, job_context):
@@ -404,10 +409,18 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
             status['state'] = "queued"
             print(f"changing PROCESS status from ok to queued this should happend only a few times")
         elif status['state'] == 'error':
-            self.__write_logs(job_context)
+            invocation = self.galaxy_instance.invocations.show_invocation(job_context["pid"])
+            for step in invocation["steps"]:
+                if step["job_id"] is not None:
+                    job_context["pid"] = step["job_id"]
+                    self.__write_logs(job_context)
             return status['state_details']
-        elif status['state'] =='ok':
-            self.__write_logs(job_context)
+        elif status['state'] == 'ok':
+            invocation = self.galaxy_instance.invocations.show_invocation(job_context["pid"])
+            for step in invocation["steps"]:
+                if step["job_id"] is not None:
+                    job_context["pid"] = step["job_id"]
+                    self.__write_logs(job_context)
         return status['state']
 
     def __upload_status(self,job_context):
@@ -489,13 +502,16 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         state = job_context['state_dict']['state']
         # check that stdout is not empty
         n=0
-        while n < 5 :
-            job = gi.jobs.show_job(galaxy_pid)
+        while n < 5:
+            job = gi.jobs.show_job(galaxy_pid, full_details=True)
+            print(f"Job: {job}")
             outputs = job['outputs']
             print(outputs)
             for _,dataset in outputs.items():
                 dataset_info = gi.datasets.show_dataset(dataset['id'])
+                print(f"Dataset info: {dataset_info}")
                 provenance = gi.histories.show_dataset_provenance(history_id=get_history_id(gi,str(self.workspace)), dataset_id= dataset['id'])
+                print(f"Provenance: {provenance}")
                 if len(provenance['stdout']) != 0 or state == 'upload':
                     for std, file in dict(stderr=state + '_stderr', stdout=state + '_stdout').items():
                         print(f"writing galaxy {std}...in {file} for job {galaxy_pid}")
@@ -594,11 +610,13 @@ def initialize_galaxy(flask_app):
             with open(workflow_path, 'r') as f:
                 wf_dict_in = json.load(f)
             name = wf_dict_in['name']
-            if workflow_id(gi, name) == 'there is no workflow named{}'.format(name):
-                wf = gi.workflows.import_workflow_from_local_path(workflow_path)
-                wf_dict_out = gi.workflows.export_workflow_dict(wf['id'])
-                list_of_tools = check_tools(wf_dict_out, wf_dict_in)
-                install_tools(gi, list_of_tools)
+            w_id = workflow_id(gi, name)
+            if w_id != 'there is no workflow named{}'.format(name):
+                gi.workflows.delete_workflow(w_id)
+            wf = gi.workflows.import_workflow_from_local_path(workflow_path)
+            wf_dict_out = gi.workflows.export_workflow_dict(wf['id'])
+            list_of_tools = check_tools(wf_dict_out, wf_dict_in)
+            install_tools(gi, list_of_tools)
         # conversion of workflows galaxy into workflows formly
         convert_workflows_to_formly()
     else:

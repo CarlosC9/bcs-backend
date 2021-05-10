@@ -2,25 +2,29 @@
   "resource_id":"0292821a-dd33-450a-bdd8-813b2b95c456",
   "process_id":"c8df0c20-9cd5-499b-92d4-5fb35b5a369a",
   "process_params": {
+    "data": [{
+      "remote_name":"input_dataset",
+      "type":"fasta",
+      "bo_type":"sequences",
+      "selection": {
+        "filter": {
+          "feature_id": {
+            "op":"in",
+            "unary":[3,4,5,6]
+          }
+        }
+      }
+    }],
     "parameters": {
       "clustalw": {
-        "dnarna": "DNA",
-        "outform": "phylip",
-        "out_seqnos": "false",
-        "out_order": "ALIGNED",
-        "mode": "complete",
-        "seq_range_start": "1",
-        "seq_range_end": "99999"
+        "dnarna":"DNA",
+        "outform":"clustal",
+        "out_seqnos":"OFF",
+        "out_order":"ALIGNED",
+        "mode":"complete",
+        "seq_range_start":"1",
+        "seq_range_end":"99999"
       }
-    },
-    "data":[
-       {
-          "remote_name": "input_dataset",
-          "file": "input_dataset",
-          "selection": [1, 2],
-          "bo_type": "sequences",
-          "type":"fasta"
-       }
-    ]
+    }
   }
 }

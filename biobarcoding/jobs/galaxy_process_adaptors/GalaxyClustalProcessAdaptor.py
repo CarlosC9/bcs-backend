@@ -77,7 +77,7 @@ job_context = {'process':
 #                         {"parameters": "...."},
 #                          "data": [
 #                              {
-#                          "name": "Input dataset",
+#                          "name": "input_dataset",
 #                          "file" : {
 #                                 {"bo_type": "collection",
 #                                 "ids": ["jkdjdjdjjdjd"],
@@ -104,7 +104,7 @@ class GalaxyClustalAdaptator(GalaxyProcessAdaptor):
     # workflow dict commun to all clustalW
     INPUT_LABEL = 'input_dataset'
     INPUT_EXTENSION = 'fasta'
-    worflow_dict = {'model_class': 'StoredWorkflow',
+    workflow_dict = {'model_class': 'StoredWorkflow',
  'id': 'df7a1f0c02a5b08e',
  'name': 'MSA ClustalW',
  'create_time': '2021-03-11T14:03:04.319361',
@@ -150,11 +150,11 @@ class GalaxyClustalAdaptator(GalaxyProcessAdaptor):
         return job_context
 
     def _complete_with_outputs_files(self,job_context):
-        extension = job_context['process']['inputs']['parameters']["clustalw"].get("outform")
-        output_1 = dict(type = extension, remote_name = f"ClustalW on data 1: clustal", file = '.'.join(["clustal",extension]) )
+        extension = job_context['process']['inputs']['parameters']["MSA ClustalW"].get("outform")
+        output_1 = dict(type = 'fa', remote_name = f"ClustalW on data 1: clustal", file = '.'.join(["clustal",extension]) )
         output_2 = dict(type = 'nhx', remote_name = f"ClustalW on data 1: dnd", file = '.'.join(['dnd','nhx'])) # TODO generalizar con regex
         return [output_1,output_2]
 
     def _complete_with_worlflow_name(self):
-        name = self.worflow_dict['name']
+        name = self.workflow_dict['name']
         return name

@@ -6,7 +6,7 @@ from biobarcoding.jobs.process_adaptor import ProcessAdaptor
 SCRIPT_KEY = "script"
 SCRIPT_FILES_KEY = "script_files"
 SCRIPT_PARAMS_KEY = "script_params"
-RESULTS_FILES_KEY = "result_files"
+RESULTS_KEY = "results"
 
 
 class SSHProcessAdaptor(ProcessAdaptor, abc.ABC):
@@ -27,9 +27,9 @@ class SSHProcessAdaptor(ProcessAdaptor, abc.ABC):
                                   "type": "sh"
                               }],
             SCRIPT_PARAMS_KEY: self._get_script_params_string(process_parameters),
-            RESULTS_FILES_KEY: self._get_results_files_list(process_parameters),
         }
         job_context["process"]["inputs"]["parameters"] = new_process_parameters
+        job_context[RESULTS_KEY] = self._get_results_files_list(process_parameters)
         return job_context
 
     @abc.abstractmethod

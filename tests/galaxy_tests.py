@@ -16,7 +16,7 @@ class MyTestCase(unittest.TestCase):
         gi = login(ins['key'],url=ins['url'])
         history = gi.histories.create_history(name="invoke test")
         fn =  Path('data_test/matK_25taxones_Netgendem_SINalinear.fasta')
-        file_name = "Input dataset"
+        file_name = "input_dataset"
         d = gi.tools.upload_file(
             fn,
             history_id=history["id"],
@@ -50,7 +50,7 @@ class MyTestCase(unittest.TestCase):
                                           {"phylip_format": "", "nb_data_set": "1", "type_of_seq": "nt", "prop_invar": "e", "equi_freq": "m", "nbSubstCat": "4", "gamma": "e", "move": "NNI", "optimisationTopology": "tlr", "branchSupport": "-4", "numStartSeed": "0", "inputTree": "false", "tstv": "e", "model": "HKY85"}
                                       },
                                  "data": [
-                                     {"step": "Input dataset",
+                                     {"step": "input_dataset",
                                       "path": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/matK_25taxones_Netgendem_SINalinear.fasta",
                                       "type": "fasta"}
                                  ]

@@ -11,7 +11,7 @@ class SSHClustalProcessAdaptor(SSHProcessAdaptor):
         return []
 
     def _get_script_params_string(self, process_parameters):
-        clustalw_parameters = process_parameters["clustalw"]
+        clustalw_parameters = process_parameters["MSA ClustalW"]
         output_file = self._get_results_files_list(process_parameters)[0].get("remote_name")
         params_str = f"{self.INPUT_FILENAME} {output_file} " + \
                      f"{clustalw_parameters['out_order']} {clustalw_parameters['dnarna']} " + \
@@ -22,16 +22,16 @@ class SSHClustalProcessAdaptor(SSHProcessAdaptor):
         return params_str
 
     def _get_results_files_list(self, process_parameters):
-        clustalw_parameters = process_parameters["clustalw"]
+        clustalw_parameters = process_parameters["MSA ClustalW"]
         return [
             {
                 "remote_name": f"clustal.{clustalw_parameters['outform'].lower()}",
                 "file": f"clustal.{clustalw_parameters['outform'].lower()}",
-                "type": "aln"
+                "type": "fa"
             },
             {
                 "remote_name": f"{self.INPUT_FILENAME}.dnd",
-                "file": "clustal.nhx",
+                "file": "dnd.nhx",
                 "type": "dnd"
             }
         ]

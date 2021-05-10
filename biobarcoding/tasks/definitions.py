@@ -2,6 +2,8 @@ import json
 import os
 import re
 import subprocess
+
+from biobarcoding.common.helpers import get_content_type_from_extension
 from biobarcoding.rest import bcs_api_base
 from biobarcoding.tasks import celery_app
 from biobarcoding.common.decorators import celery_wf
@@ -15,7 +17,6 @@ of course they can be debugged "off-line")
 
 MAX_ATTEMPTS = 3
 CELERY_LOG = ROOT + "/tests/data_test/celery_log.txt"
-
 
 # Send messages
 # Refresh queues of jobs (at different computing resources)
@@ -128,7 +129,7 @@ def export(file_dict, job_executor) -> object:
     api_login()
     url = f"{endpoint}{bcs_api_base}/bos/{bos_type}.{extension}"
     curl = (f"curl --cookie-jar {cookies_file_path} --cookie {cookies_file_path} -X GET -d \'{selection_json}\' " +
-            f"-H \'Content-Type:application/json\' {url} -o {tmp_path}")
+            f"-H \'Content-Type:application/json\' {url} -o \'{tmp_path}\'")
     cmd = (f"(nohup bash -c &quot;{curl}&quot; >>{job_executor.log_filenames_dict['export_stdout']} " +
            f"</dev/null 2>>{job_executor.log_filenames_dict['export_stderr']} & echo $!; wait $!; " +
            f"echo $? >> {job_executor.local_workspace}/$!.exit_status)")
@@ -713,7 +714,7 @@ def wf1_store_result_in_backend(job_context: str):
             write_to_universal_log_and_truncate(job_executor.log_filenames_dict["store_stdout"],
                                                 job_executor.log_filenames_dict["store_stderr"],
                                                 job_executor.log_filenames_dict["universal_log"])
-            tmp["process"]["inputs"]["parameters"]["result_files"].append(
+            tmp["results"].append(
                 {
                     "remote_name": "",
                     "file": job_executor.log_filenames_dict["universal_log"],
@@ -747,14 +748,16 @@ def wf1_store_result_in_backend(job_context: str):
         return None, job_context
     else:  # Store file i
         print(f"Beginning to store result in backend of file {file_dict['file']}. Attempt: {n_attempts + 1}")
+        print(file_dict)
         write_to_file(job_executor.log_filenames_dict["store_stdout"],
                       f"Beginning to store result in backend of file {file_dict['file']}. Attempt: {n_attempts + 1}")
         cookies_file_path = os.getenv("COOKIES_FILE_PATH")
         endpoint_url = os.getenv("ENDPOINT_URL")
         local_path = os.path.join(job_executor.local_workspace, file_dict["file"])
+        content_type = f"\"{get_content_type_from_extension(file_dict['type'])}\""
         api_login()
         curl_cmd = (f"curl -s --cookie-jar {cookies_file_path} --cookie {cookies_file_path} " +
-                    f"-H \"Content-Type: application/x-fasta\" -XPUT --data-binary @\"{local_path}\" " +
+                    f"-H {content_type} -XPUT --data-binary @\"{local_path}\" " +
                     f"\"{endpoint_url}{bcs_api_base}/files/jobs/{str(tmp['job_id'])}/{file_dict['file']}.content\"")
         cmd = (f"(nohup bash -c \'{curl_cmd} \' >>{job_executor.log_filenames_dict['store_stdout']} " +
                f"</dev/null 2>>{job_executor.log_filenames_dict['store_stderr']} & echo $!; wait $!; " +
@@ -785,7 +788,7 @@ def wf1_cleanup_workspace(job_context: str):
     state_dict = tmp.get("state_dict")
 
     print(f"Cleanup state: {state_dict}")
-    result_files = tmp["process"]["inputs"]["parameters"]["result_files"]
+    result_files = tmp["results"]
 
     if state_dict:  # ya ha empezado el prepare
         n_attempts = state_dict["n_attempts"]
@@ -857,9 +860,7 @@ def wf1_completed_error(job_context: str):
         return job_context
 
     job_executor = JobExecutorAtResourceFactory().get(tmp)
-    result_files = tmp["process"]["inputs"]["parameters"]["result_files"]
-    result_files = clean_failed_results(result_files, job_executor.local_workspace)
-    tmp["process"]["inputs"]["parameters"]["result_files"] = result_files
+    tmp["results"] = clean_failed_results(tmp["results"], job_executor.local_workspace)
     del tmp["state_dict"]  # needed to store to work
     job_context = json.dumps(tmp)
 
