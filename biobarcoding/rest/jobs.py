@@ -15,7 +15,8 @@ from biobarcoding.db_models import DBSession
 from biobarcoding.db_models.jobs import ProcessInComputeResource
 from biobarcoding.jobs import JobManagementAPI
 from biobarcoding.jobs.process_adaptor import ProcessAdaptorFactory
-from biobarcoding.rest import bcs_api_base, register_api, Job, ComputeResource, Process, ResponseObject,get_decoded_params
+from biobarcoding.rest import bcs_api_base, register_api, Job, ComputeResource, Process, ResponseObject, \
+    get_decoded_params
 from biobarcoding.authentication import bcs_session
 from biobarcoding.rest import make_simple_rest_crud
 
@@ -32,19 +33,31 @@ class JobAPI(MethodView):
     decorators = []  # Add decorators: identity, function execution permissions, logging, etc.
 
     @bcs_session(read_only=True)
-    def get(self, job_id = None):
+    def get(self, job_id=None):
         # return "<h1 style='color:blue'>Hello JOBS!</h1>"
         db = g.bcs_session.db_session
         r = ResponseObject()
+        status = request.args.get("status")
         if job_id is None:
             query = db.query(Job)
+            if status:
+                if status == "done":
+                    query = query.filter((Job.status == 'success') | (Job.status == 'error'))
+                elif status == "todo":
+                    query = query.filter(Job.status != 'success', Job.status != 'error')
             self.__check_data(request.args)
             if self.page and self.page_size:
                 query = query.offset((self.page - 1) * self.page_size).limit(self.page_size)
             r.content = query.all()
         else:
             # Return detail and status of single job
-            r.content = db.query(Job).filter(Job.id == job_id).first()
+            query = db.query(Job).filter(Job.id == job_id)
+            if status:
+                if status == "done":
+                    query = query.filter((Job.status == "success") | (Job.status == "error"))
+                elif status == "todo":
+                    query = query.filter(Job.status != "success", Job.status != "error")
+            r.content = query.first()
         return r.get_response()
 
     def post(self):
@@ -73,7 +86,9 @@ class JobAPI(MethodView):
             process = session.query(Process).get(in_dict.process_id)
         else:
             process = session.query(Process).filter(Process.uuid == in_dict.process_id).first()
-        process_in_resource = session.query(ProcessInComputeResource).filter(and_(ProcessInComputeResource.process_id==process.id, ProcessInComputeResource.resource_id==resource.id)).first()
+        process_in_resource = session.query(ProcessInComputeResource).filter(
+            and_(ProcessInComputeResource.process_id == process.id,
+                 ProcessInComputeResource.resource_id == resource.id)).first()
         process_params = in_dict.process_params
 
         """
@@ -146,8 +161,8 @@ class JobAPI(MethodView):
         msg = f'DELETE {request.path}\nDeleting job {id}'
 
         responseObject = {
-        'status': 'success',
-        'message': msg
+            'status': 'success',
+            'message': msg
         }
         return make_response(jsonify(responseObject)), 200
 
@@ -163,8 +178,8 @@ class JobAPI(MethodView):
         job.status = req['status']
         db.add(job)
         responseObject = {
-        'status': 'success',
-        'message': msg
+            'status': 'success',
+            'message': msg
         }
         return make_response(jsonify(responseObject)), 200
 
@@ -173,4 +188,4 @@ class JobAPI(MethodView):
         self.page_size = int(data.get(self.page_size, 1000000))
 
 
-register_api(bp_jobs, JobAPI, "jobs", f"{bcs_api_base}/jobs/", pk ="job_id")
+register_api(bp_jobs, JobAPI, "jobs", f"{bcs_api_base}/jobs/", pk="job_id")
