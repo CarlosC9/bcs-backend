@@ -23,7 +23,7 @@ from biobarcoding.common import generate_json
 from biobarcoding.common.helpers import get_module_logger
 from biobarcoding.common.pg_helpers import create_pg_database_engine, load_table, load_many_to_many_table, \
     load_computing_resources, load_processes_in_computing_resources, load_process_input_schema, load_table_extended
-from biobarcoding.db_models import DBSession, ORMBase, DBSessionChado, ORMBaseChado, ObjectType
+from biobarcoding.db_models import DBSession, ORMBase, DBSessionChado, ORMBaseChado, ObjectType, DBSessionGeo
 from biobarcoding.db_models.bioinformatics import *
 from biobarcoding.db_models.sysadmin import *
 from biobarcoding.db_models.geographics import *
@@ -121,6 +121,7 @@ def get_default_configuration_dict():
                 TESTING="True",
                 SELF_SCHEMA="",
                 DB_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432/",
+                POSTGIS_CONNECTION_STRING = "postgres://postgres:postgres@172.17.0.2:5432/ngd_geoserver",
                 CELERY_BROKER_URL=f"{BROKER_URL}",
                 CELERY_BACKEND_URL=f"{BACKEND_URL}",
                 GOOGLE_APPLICATION_CREDENTIALS=f"{data_path}/firebase-key.json",
@@ -631,6 +632,31 @@ def initialize_chado_edam(flask_app):
         print(flask_app.config)
         sys.exit(1)
 
+def inizialice_postgis(flask_app):
+    recreate_db = False
+    if True:
+        # db_connection_string = flask_app.config['POSTGIS_CONNECTION_STRING']
+        db_connection_string = "postgres://postgres:postgres@172.17.0.2:5432/"
+        print("Connecting to ngd_geoserver database server")
+        print(db_connection_string)
+        print("-----------------------------")
+
+        biobarcoding.postgis_engine = create_pg_database_engine(db_connection_string, "ngd_geoserver", recreate_db=recreate_db)
+        # global DBSession # global DBSession registry to get the scoped_session
+        DBSessionGeo.configure(bind=biobarcoding.postgis_engine)  # reconfigure the sessionmaker used by this scoped_session
+        orm.configure_mappers()  # Important for SQLAlchemy-Continuum
+        tables = ORMBaseGeo.metadata.tables
+        connection = biobarcoding.postgis_engine.connect()
+        table_existence = [biobarcoding.postgis_engine.dialect.has_table(connection, tables[t].name) for t in tables]
+        connection.close()
+        if False in table_existence:
+            ORMBaseGeo.metadata.bind = biobarcoding.postgis_engine
+            ORMBaseGeo.metadata.create_all()
+        # Load base tables
+        # initialize_gnd_geoserver_data() # not implemented
+    else:
+        print("No database connection defined (POSTGIS_CONNECTION_STRING), exiting now!")
+        sys.exit(1)
 
 def register_api(bp: Blueprint, view, endpoint: str, url: str, pk='id', pk_type='int'):
     view_func = view.as_view(endpoint)

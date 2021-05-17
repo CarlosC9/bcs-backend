@@ -1,12 +1,15 @@
 import uuid
 from copy import deepcopy
 
-from marshmallow_sqlalchemy import ModelConversionError, ModelSchema
+from geoalchemy2.shape import to_shape
+from marshmallow_sqlalchemy import ModelConversionError, ModelSchema, SQLAlchemySchema, fields
 from sqlalchemy import event, TypeDecorator, CHAR, Column, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker, class_mapper, ColumnProperty, RelationshipProperty, mapper
 from sqlalchemy_continuum import make_versioned
+from geoalchemy2.types import Geometry as Multipolygon
+from marshmallow_sqlalchemy import ModelConverter as BaseModelConverter
 
 # make_versioned(user_cls=None, options={'native_versioning': True})
 make_versioned(user_cls=None)
@@ -14,7 +17,7 @@ make_versioned(user_cls=None)
 
 DBSession = scoped_session(sessionmaker())
 DBSessionChado = scoped_session(sessionmaker())
-
+DBSessionGeo = scoped_session(sessionmaker())
 
 class GUID(TypeDecorator):
     """
@@ -89,6 +92,7 @@ class BaseMixin(object):
 
 ORMBase = declarative_base(cls=BaseMixin)
 ORMBaseChado = declarative_base(cls=BaseMixin)
+ORMBaseGeo = declarative_base(cls=BaseMixin)
 
 
 class ObjectType(ORMBase):  # CODES
@@ -101,8 +105,10 @@ class ObjectType(ORMBase):  # CODES
 
 
 def setup_schema(Base, session):
+    from biobarcoding.db_models.geographics import Regions
     # Create a function which incorporates the Base and session information
     def setup_schema_fn():
+
         for class_ in Base._decl_class_registry.values():
             if hasattr(class_, "__tablename__"):
                 if class_.__name__.endswith("Schema"):
@@ -110,7 +116,6 @@ def setup_schema(Base, session):
                         "For safety, setup_schema can not be used when a"
                         "Model class ends with 'Schema'"
                     )
-
                 class Meta(object):
                     include_fk = True
                     model = class_
@@ -118,7 +123,29 @@ def setup_schema(Base, session):
 
                 schema_class_name = "%sSchema" % class_.__name__
 
-                schema_class = type(schema_class_name, (ModelSchema,), {"Meta": Meta})
+                if class_.__name__ ==  "Regions":
+
+                    # https://stackoverflow.com/questions/58299923/serialize-geometry-using-flask-marshmallow
+                    # https://github.com/marshmallow-code/marshmallow-sqlalchemy/issues/55
+
+                    class ModelConverter(BaseModelConverter):
+                        SQLA_TYPE_MAPPING = {
+                            **BaseModelConverter.SQLA_TYPE_MAPPING,
+                            **{Multipolygon: fields.fields.String},
+                        }
+                        # def geomToPoint(self, obj):
+                        #     return to_shape(obj.geometry)  # TODO change serialization way
+
+                    class GeoSchema(ModelSchema):
+                        class Meta:
+                            model = Regions
+                            model_converter = ModelConverter
+
+
+
+                    schema_class = type(schema_class_name, (GeoSchema,), {"Meta": Meta})
+                else:
+                    schema_class = type(schema_class_name, (ModelSchema,), {"Meta": Meta})
 
                 setattr(class_, "Schema", schema_class)
 
@@ -127,3 +154,4 @@ def setup_schema(Base, session):
 
 event.listen(mapper, "after_configured", setup_schema(ORMBase, DBSession))
 event.listen(mapper, "after_configured", setup_schema(ORMBaseChado, DBSessionChado))
+event.listen(mapper, "after_configured", setup_schema(ORMBaseGeo, DBSessionGeo))
