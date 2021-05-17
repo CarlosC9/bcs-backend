@@ -10,6 +10,8 @@ from sqlalchemy.orm import scoped_session, sessionmaker, class_mapper, ColumnPro
 from sqlalchemy_continuum import make_versioned
 from geoalchemy2.types import Geometry as Multipolygon
 from marshmallow_sqlalchemy import ModelConverter as BaseModelConverter
+from marshmallow.fields import String as SchemaString
+from shapely.geometry import shape
 
 # make_versioned(user_cls=None, options={'native_versioning': True})
 make_versioned(user_cls=None)
@@ -104,6 +106,31 @@ class ObjectType(ORMBase):  # CODES
     name = Column(String(80), nullable=False)
 
 
+class GeoString(SchemaString):
+    """A string field.
+
+    :param kwargs: The same keyword arguments that :class:`Field` receives.
+    """
+
+    #: Default error messages.
+    default_error_messages = {
+        "invalid": "Not a valid string.",
+        "invalid_utf8": "Not a valid utf-8 string.",
+    }
+
+    def _serialize(self, value, attr, obj, **kwargs):
+        if value is None:
+            return None
+        return to_shape(value).wkt
+
+    def _deserialize(self, value, attr, data, **kwargs):
+        if not isinstance(value, (str, bytes)):
+            raise self.make_error("invalid")
+        try:
+            return shape(value)
+        except UnicodeDecodeError as error:
+            raise self.make_error("invalid_utf8") from error
+
 def setup_schema(Base, session):
     from biobarcoding.db_models.geographics import Regions
     # Create a function which incorporates the Base and session information
@@ -115,7 +142,7 @@ def setup_schema(Base, session):
         class ModelConverter(BaseModelConverter):
             SQLA_TYPE_MAPPING = {
                 **BaseModelConverter.SQLA_TYPE_MAPPING,
-                **{Multipolygon: fields.fields.String},
+                **{Multipolygon: GeoString},
             }
 
         class GeoSchema(ModelSchema):
