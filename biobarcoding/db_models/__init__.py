@@ -109,6 +109,20 @@ def setup_schema(Base, session):
     # Create a function which incorporates the Base and session information
     def setup_schema_fn():
 
+        # https://stackoverflow.com/questions/58299923/serialize-geometry-using-flask-marshmallow
+        # https://github.com/marshmallow-code/marshmallow-sqlalchemy/issues/55
+
+        class ModelConverter(BaseModelConverter):
+            SQLA_TYPE_MAPPING = {
+                **BaseModelConverter.SQLA_TYPE_MAPPING,
+                **{Multipolygon: fields.fields.String},
+            }
+
+        class GeoSchema(ModelSchema):
+            class Meta:
+                model = Regions
+                model_converter = ModelConverter
+
         for class_ in Base._decl_class_registry.values():
             if hasattr(class_, "__tablename__"):
                 if class_.__name__.endswith("Schema"):
@@ -124,25 +138,6 @@ def setup_schema(Base, session):
                 schema_class_name = "%sSchema" % class_.__name__
 
                 if class_.__name__ ==  "Regions":
-
-                    # https://stackoverflow.com/questions/58299923/serialize-geometry-using-flask-marshmallow
-                    # https://github.com/marshmallow-code/marshmallow-sqlalchemy/issues/55
-
-                    class ModelConverter(BaseModelConverter):
-                        SQLA_TYPE_MAPPING = {
-                            **BaseModelConverter.SQLA_TYPE_MAPPING,
-                            **{Multipolygon: fields.fields.String},
-                        }
-                        # def geomToPoint(self, obj):
-                        #     return to_shape(obj.geometry)  # TODO change serialization way
-
-                    class GeoSchema(ModelSchema):
-                        class Meta:
-                            model = Regions
-                            model_converter = ModelConverter
-
-
-
                     schema_class = type(schema_class_name, (GeoSchema,), {"Meta": Meta})
                 else:
                     schema_class = type(schema_class_name, (ModelSchema,), {"Meta": Meta})
