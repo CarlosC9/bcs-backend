@@ -1,9 +1,11 @@
+import pandas as pd
 from sqlalchemy import create_engine
 import geopandas as gpd
 from geo.Geoserver import Geoserver
 from flask import Blueprint, request, send_file, g, make_response, jsonify
 from flask.views import MethodView
 from biobarcoding.authentication import bcs_session
+from biobarcoding.common import generate_json
 from biobarcoding.rest import bcs_api_base, bcs_gui_base, ResponseObject, Issue, IType, register_api
 from biobarcoding.db_models import DBSession, DBSessionGeo
 from biobarcoding.db_models.geographics import GeographicRegion, GeographicLayer, Regions
@@ -63,7 +65,7 @@ Four areas:
 * Output feature layer. Apply SLD automatically, store in users workspace
 """
 
-bp_regions = Blueprint('regions', __name__)
+bp_geo = Blueprint('geo', __name__)
 
 
 # def inizialize_regions_table():
@@ -123,13 +125,32 @@ class RegionsAPI(MethodView):
         # tengo que combinar con la otra tabla
         db = g.bcs_session.db_session
         geo_session = DBSessionGeo()
-        r = ResponseObject()
+        rgeo = ResponseObject
+        rr = ResponseObject
         if region_id is None:
-            r.content = geo_session.query(Regions).order_by(Regions.name).all()
+            rgeo.content = db.query(GeographicRegion).order_by(GeographicRegion.name).all()
+            if rgeo.status == 200:
+                rr.content = geo_session.query(Regions).order_by(Regions.name).all()
         else:
-            r.content = geo_session.query(Regions).filter(Regions.id == region_id).first()
-        DBSessionGeo.remove()
-        return r.get_response()
+            rgeo.content = geo_session.query(GeographicRegion).filter(GeographicRegion.id == region_id).first()
+            if rgeo.status == 200:
+                rr.content = geo_session.query(Regions).filter(Regions.id == rgeo.content.geo_id).first()
+        if rr.status == 200:
+            DBSessionGeo.remove()
+            geodf = response_to_dataframe(rgeo.get_response())
+            df = response_to_dataframe(rr.get_response())
+            geodf = geodf.set_index(geodf["geo_id"])
+            df = df.set_index(df["id"])
+            df = df.join(geodf)
+            return ResponseObject(content=df.to_json, issues = [rgeo.issues,rr.status], content_type=rgeo.content_type, status= 200)
+        else:
+            return ResponseObject(status=200)
+
+
+
+
+
+        pass
 
 
     # @bcs_session()
@@ -144,29 +165,38 @@ class RegionsAPI(MethodView):
         # Añadir region a GeographicLayer
         t = request.json
         geojson = t.get('geojson')
-        # actualizar
-        region = GeographicRegion()
-        session = DBSession()
-        region.name = t.get('name')
-        region.usr = t.get('usr')
-        region.tags = t.get('tags')
-        session.add(region)
-        session.commit()
         geom = MultiPolygon([shape(i['geometry']) for i in geojson["features"]])
-        # convertitir a multipoligon si len de geo es mayor que 1 me dan varias
         session = DBSessionGeo()
         region = Regions(name='dummy_region', geometry=f'SRID=4326; {geom.wkt}')
         session.add(region)
         session.commit()
+        # actualizar
+        geograficregion = GeographicRegion()
+        session = DBSession()
+        geograficregion.name = t.get('name')
+        geograficregion.usr = t.get('usr')
+        geograficregion.tags = t.get('tags')
+        geograficregion.geo_id = region.id
+        session.add(region)
+        session.commit()
         response_object = {
             'status': 'success',
-            'message': f"region with ID {region.id} addaed to layer Regions"
+            'message': f"region with ID {geograficregion.id} addaed to layer Regions"
         }
         DBSessionGeo.remove()
         return make_response(jsonify(response_object)), 200
 
 
-register_api(bp_regions, RegionsAPI, "regions", f"{bcs_api_base}/regions/", pk="region_id")
+register_api(bp_geo, RegionsAPI, "geo/regions", f"{bcs_api_base}/geo/regions/", pk="region_id")
+
+
+def response_to_dataframe(response):
+    data = response.gat_data()
+    my_json = data.decode('utf8').replace("'", '"')
+    df = pd.read_json(my_json)
+    return df
+
+
 
 
 class layerAPI():

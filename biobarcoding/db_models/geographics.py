@@ -14,6 +14,7 @@ class GeographicRegion(ORMBase):
     __tablename__ = f"{prefix}regions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
+    geo_id = Column(Integer, unique=True)
     uuid = Column(GUID, unique=True)
     name = Column(String(80))
     usr = Column(String(80))

@@ -17,7 +17,7 @@ from biobarcoding.rest.metadata import bp_metadata
 from biobarcoding.rest.jobs import bp_jobs
 from biobarcoding.rest.tasks import bp_tasks
 from biobarcoding.rest.processes import  bp_processes, bp_resources
-from biobarcoding.rest.gis import bp_regions
+from biobarcoding.rest.gis import bp_geo
 from biobarcoding.rest.gui_static import bp_gui
 from biobarcoding.rest.browser_filters import bp_bfilters
 from biobarcoding.tasks import initialize_celery
@@ -70,7 +70,7 @@ def create_app(debug, cfg_dict=None):
         initialize_chado_edam(app)
 
         # iniitalize postgis Database
-        inizialice_postgis(app)
+        # inizialice_postgis(app)
 
     finally:
         lock.release()
@@ -101,7 +101,7 @@ def create_app(debug, cfg_dict=None):
                bp_bos,
                bp_metadata,
                bp_bfilters,
-               bp_regions
+               bp_geo
                ]:
         app.register_blueprint(bp)
 
