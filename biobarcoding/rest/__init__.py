@@ -699,7 +699,16 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
         def delete(self, _id):  # Delete
             db = g.bcs_session.db_session
             r = ResponseObject()
-            s = db.query(Identity).filter(Identity.id == _id).first()
+            # TODO Multiple delete
+            # if _id is None:
+            #     # List of all
+            #     query = db.query(entity)
+            #     # Filter, Order, Pagination
+            #     kwargs = check_request_params()
+            #     if 'filter' in kwargs:
+            #         query = query.filter(filter_parse(entity, kwargs.get('filter'))).delete()
+            # else:
+            s = db.query(entity).filter(entity.id == _id).first()
             db.delete(s)
             return r.get_response()
 

@@ -120,6 +120,11 @@ class BioObjAPI(MethodView):
 
 bos_view = BioObjAPI.as_view('api_bos')
 bp_bos.add_url_rule(
+    bcs_api_base + '/bos/<string:bos>',
+    view_func=bos_view,
+    methods=['GET','POST','DELETE']
+)
+bp_bos.add_url_rule(
     bcs_api_base + '/bos/<string:bos>/',
     view_func=bos_view,
     methods=['GET','POST','DELETE']
@@ -131,6 +136,11 @@ bp_bos.add_url_rule(
 )
 bp_bos.add_url_rule(
     bcs_api_base + '/bos/<string:bos>.<string:format>',
+    view_func=bos_view,
+    methods=['GET','POST']
+)
+bp_bos.add_url_rule(
+    bcs_api_base + '/bos/<string:bos>/.<string:format>',
     view_func=bos_view,
     methods=['GET','POST']
 )
