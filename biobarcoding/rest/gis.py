@@ -9,10 +9,9 @@ from biobarcoding.common import generate_json
 from biobarcoding.rest import bcs_api_base, bcs_gui_base, ResponseObject, Issue, IType, register_api
 from biobarcoding.db_models import DBSession, DBSessionGeo
 from biobarcoding.db_models.geographics import GeographicRegion, GeographicLayer, Regions
-import json
-from geoalchemy2 import Geometry
 from shapely.geometry import shape
 from shapely.geometry.multipolygon import MultiPolygon
+import json
 from geoalchemy2.shape import to_shape
 from sqlalchemy.orm import sessionmaker, scoped_session
 import os
@@ -125,32 +124,29 @@ class RegionsAPI(MethodView):
         # tengo que combinar con la otra tabla
         db = g.bcs_session.db_session
         geo_session = DBSessionGeo()
-        rgeo = ResponseObject
-        rr = ResponseObject
+        rgeo = ResponseObject()
+        rr = ResponseObject()
         if region_id is None:
+            lines = False
             rgeo.content = db.query(GeographicRegion).order_by(GeographicRegion.name).all()
+            res_geo = rgeo.get_response()
             if rgeo.status == 200:
                 rr.content = geo_session.query(Regions).order_by(Regions.name).all()
         else:
-            rgeo.content = geo_session.query(GeographicRegion).filter(GeographicRegion.id == region_id).first()
+            lines = True
+            rgeo.content = db.query(GeographicRegion).filter(GeographicRegion.id == region_id).first()
+            res_geo = rgeo.get_response()
             if rgeo.status == 200:
                 rr.content = geo_session.query(Regions).filter(Regions.id == rgeo.content.geo_id).first()
         if rr.status == 200:
-            DBSessionGeo.remove()
-            geodf = response_to_dataframe(rgeo.get_response())
-            df = response_to_dataframe(rr.get_response())
-            geodf = geodf.set_index(geodf["geo_id"])
-            df = df.set_index(df["id"])
-            df = df.join(geodf)
-            return ResponseObject(content=df.to_json, issues = [rgeo.issues,rr.status], content_type=rgeo.content_type, status= 200)
+            geodf = pd.read_json(response_to_dataframe(res_geo),lines = lines)
+            df = pd.read_json(response_to_dataframe(rr.get_response()), lines = lines)
+            geodf = geodf.set_index(geodf["geo_id"]).drop(columns=["geo_id"])
+            df = df.set_index(df["id"]).drop(columns=["id"])
+            df = pd.concat([geodf,df], axis = 1, join="inner")
+            return make_response(jsonify(df.to_dict("index"))), 200
         else:
             return ResponseObject(status=200)
-
-
-
-
-
-        pass
 
 
     # @bcs_session()
@@ -177,7 +173,7 @@ class RegionsAPI(MethodView):
         geograficregion.usr = t.get('usr')
         geograficregion.tags = t.get('tags')
         geograficregion.geo_id = region.id
-        session.add(region)
+        session.add(geograficregion)
         session.commit()
         response_object = {
             'status': 'success',
@@ -186,16 +182,55 @@ class RegionsAPI(MethodView):
         DBSessionGeo.remove()
         return make_response(jsonify(response_object)), 200
 
+    # @bcs_session
+    def delete(self,region_id = None):
+        session = DBSession()
+        geosession = DBSessionGeo()
+        r = ResponseObject()
+        geographicregion = session.query(GeographicRegion).filter(GeographicRegion.id == region_id).first()
+        region = geosession.query(Regions).filter(Regions.id == geographicregion.geo_id).first()
+        session.delete(geographicregion)
+        geosession.delete(region)
+        session.commit()
+        geosession.commit()
+        return r.get_response()
+
+
+    # @bcs_session
+    def put(self, region_id = None):
+        session = DBSession()
+        GEOsession = DBSessionGeo()
+        t = request.json
+        GeographicRegion_schema = getattr(GeographicRegion,"Schema")()
+        Regions_schema = getattr(Regions, "Schema")()
+        geographicregion = session.query(GeographicRegion).filter(GeographicRegion.id == region_id).first()
+        regions = GEOsession.query(Regions).filter(Regions.id == geographicregion.id).first()
+        geographicregion = GeographicRegion_schema.load(self._prepare(GeographicRegion,t),instance = geographicregion)
+        regions = Regions_schema.load(self._prepare(Regions,t),instance = regions)
+        session.add(geographicregion)
+        GEOsession.add(regions)
+        GEOsession.commit()
+        session.commit()
+        return jsonify(message='Successfuly updated'), 200
+
+
+    def _prepare(self,entity,t):
+        entity_schema = getattr(entity,"Schema")()
+        t_json = entity_schema.dumps(t)
+        return json.loads(t_json)
 
 register_api(bp_geo, RegionsAPI, "geo/regions", f"{bcs_api_base}/geo/regions/", pk="region_id")
 
 
 def response_to_dataframe(response):
-    data = response.gat_data()
+    data = response.get_data()
     my_json = data.decode('utf8').replace("'", '"')
-    df = pd.read_json(my_json)
-    return df
-
+    data = json.loads(my_json)
+    content = data.get("content")
+    data = json.dumps(content)
+    return data
+    # lines = True para un item
+    # lines = False para varios
 
 
 
