@@ -3,10 +3,28 @@ from biobarcoding.db_models import DBSessionChado as chado_session
 from biobarcoding.db_models.chado import Feature
 
 from biobarcoding.rest import Issue, IType, filter_parse, paginator
+from biobarcoding.services import get_query
+
 
 def create(**kwargs):
-    issues = [Issue(IType.WARNING, 'CREATE sequences: dummy completed')]
-    return issues, None, 200
+    # issues = [Issue(IType.WARNING, 'CREATE sequences: dummy completed')]
+    # return issues, None, 200
+    content = None
+    try:
+        if not kwargs.get('uniquename'):
+            raise
+        if not kwargs.get('organism_id'):
+            from biobarcoding.db_models.chado import Organism
+            try:
+                kwargs['organism_id'] = get_query(chado_session, Organism, genus='organism', species='undefined').organism_id
+            except Exception as e:
+                kwargs['organism_id'] = get_query(chado_session, Organism, genus='organism', species='undefined').organism_id
+        chado_session.add(Feature(**kwargs))
+        issues, status = [Issue(IType.INFO, f'CREATE sequences: The sequence "{kwargs.get("uniquename")}" created successfully.')], 201
+    except Exception as e:
+        print(e)
+        issues, status = [Issue(IType.ERROR, f'CREATE sequences: The sequence "{kwargs.get("uniquename")}" could not be created.')], 500
+    return issues, content, status
 
 count = 0
 def read(id=None, **kwargs):
@@ -50,6 +68,7 @@ def delete(id=None, **kwargs):
 
 # TODO: replace python-chado lib?
 def import_file(input_file, format='fasta', **kwargs):
+    # FASTA HEADER: > genus species mregion isle georegion individual
     content = None
     from biobarcoding.services import conn_chado
     conn = conn_chado()
