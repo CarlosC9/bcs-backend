@@ -2,6 +2,7 @@ import uuid
 from copy import deepcopy
 
 from geoalchemy2.shape import to_shape
+from geoalchemy2.elements import WKBElement
 from marshmallow_sqlalchemy import ModelConversionError, ModelSchema, SQLAlchemySchema, fields
 from sqlalchemy import event, TypeDecorator, CHAR, Column, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
@@ -12,6 +13,7 @@ from geoalchemy2.types import Geometry as Multipolygon
 from marshmallow_sqlalchemy import ModelConverter as BaseModelConverter
 from marshmallow.fields import String as SchemaString
 from shapely.geometry import shape
+from shapely.geometry.multipolygon import MultiPolygon
 
 # make_versioned(user_cls=None, options={'native_versioning': True})
 make_versioned(user_cls=None)
@@ -121,15 +123,19 @@ class GeoString(SchemaString):
     def _serialize(self, value, attr, obj, **kwargs):
         if value is None:
             return None
-        return to_shape(value).wkt
+        if not isinstance(value, (dict, WKBElement)):
+            raise self.make_error("invalid")
+        if isinstance(value, WKBElement):
+            return to_shape(value).wkt
+        if isinstance(value,dict):
+            return value
 
     def _deserialize(self, value, attr, data, **kwargs):
-        if not isinstance(value, (str, bytes)):
+        if not isinstance(value, (dict, bytes)):
             raise self.make_error("invalid")
-        try:
-            return shape(value)
-        except UnicodeDecodeError as error:
-            raise self.make_error("invalid_utf8") from error
+        else:
+            geom = MultiPolygon([shape(i['geometry']) for i in value["features"]])
+            return f'SRID=4326; {geom.wkt}'
 
 def setup_schema(Base, session):
     from biobarcoding.db_models.geographics import Regions

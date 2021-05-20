@@ -1,20 +1,13 @@
 import pandas as pd
-from sqlalchemy import create_engine
-import geopandas as gpd
 from geo.Geoserver import Geoserver
 from flask import Blueprint, request, send_file, g, make_response, jsonify
 from flask.views import MethodView
 from biobarcoding.authentication import bcs_session
-from biobarcoding.common import generate_json
 from biobarcoding.rest import bcs_api_base, bcs_gui_base, ResponseObject, Issue, IType, register_api
 from biobarcoding.db_models import DBSession, DBSessionGeo
 from biobarcoding.db_models.geographics import GeographicRegion, GeographicLayer, Regions
-from shapely.geometry import shape
-from shapely.geometry.multipolygon import MultiPolygon
 import json
-from geoalchemy2.shape import to_shape
-from sqlalchemy.orm import sessionmaker, scoped_session
-import os
+
 
 """
 Support operations regarding Geographical layers
@@ -66,54 +59,10 @@ Four areas:
 
 bp_geo = Blueprint('geo', __name__)
 
-
-# def inizialize_regions_table():
-#     session = DBSessionGeo()
-#     dummy_geojson = {"features": [
-#         {
-#             "type": "Feature",
-#             "properties": {},
-#             "geometry": {
-#                 "type": "Polygon",
-#                 "coordinates": [
-#                     [
-#                         [
-#                             -15.503768920898436,
-#                             28.232414812316087
-#                         ],
-#                         [
-#                             -15.500335693359375,
-#                             28.043500801345925
-#                         ],
-#                         [
-#                             -15.303955078125,
-#                             28.00531432138343
-#                         ],
-#                         [
-#                             -15.292968749999998,
-#                             28.168875180063345
-#                         ],
-#                         [
-#                             -15.503768920898436,
-#                             28.232414812316087
-#                         ]
-#                     ]
-#                 ]
-#             }
-#         }
-#     ]
-#     }
-#     geom = MultiPolygon([shape(i['geometry']) for i in dummy_geojson["features"]])
-#     region = Regions(name='dummy_region', geometry=f'SRID=4326; {geom.wkt}')
-#     session.add(region)
-#     session.commit()
-
-
-
 class RegionsAPI(MethodView):
     '''
     '''
-    @bcs_session()
+    @bcs_session(read_only=True)
     def get(self, region_id = None):
         '''
         ?? dede la GUI recibo el polígono marcado por el usuario
@@ -123,6 +72,7 @@ class RegionsAPI(MethodView):
         '''
         # tengo que combinar con la otra tabla
         db = g.bcs_session.db_session
+        pg = g.bcs_session.postgis_db_session
         geo_session = DBSessionGeo()
         rgeo = ResponseObject()
         rr = ResponseObject()
@@ -148,73 +98,57 @@ class RegionsAPI(MethodView):
         else:
             return ResponseObject(status=200)
 
-
-    # @bcs_session()
+    @bcs_session()
     def post(self):
-        '''
-
-        @param poligon: geoJSON format
-        @param name: name of region
-        @return: response
-        '''
-        # Añadir región a tabla en postgis
-        # Añadir region a GeographicLayer
-        t = request.json
-        geojson = t.get('geojson')
-        geom = MultiPolygon([shape(i['geometry']) for i in geojson["features"]])
-        session = DBSessionGeo()
-        region = Regions(name='dummy_region', geometry=f'SRID=4326; {geom.wkt}')
-        session.add(region)
-        session.commit()
-        # actualizar
-        geograficregion = GeographicRegion()
-        session = DBSession()
-        geograficregion.name = t.get('name')
-        geograficregion.usr = t.get('usr')
-        geograficregion.tags = t.get('tags')
-        geograficregion.geo_id = region.id
-        session.add(geograficregion)
-        session.commit()
-        response_object = {
-            'status': 'success',
-            'message': f"region with ID {geograficregion.id} addaed to layer Regions"
-        }
-        DBSessionGeo.remove()
-        return make_response(jsonify(response_object)), 200
-
-    # @bcs_session
-    def delete(self,region_id = None):
-        session = DBSession()
-        geosession = DBSessionGeo()
+        db = g.bcs_session.db_session
+        pg = g.bcs_session.postgis_db_session
         r = ResponseObject()
-        geographicregion = session.query(GeographicRegion).filter(GeographicRegion.id == region_id).first()
-        region = geosession.query(Regions).filter(Regions.id == geographicregion.geo_id).first()
-        session.delete(geographicregion)
-        geosession.delete(region)
-        session.commit()
-        geosession.commit()
+        t = request.json
+        GeographicRegion_schema = getattr(GeographicRegion, "Schema")()
+        Regions_schema = getattr(Regions, "Schema")()
+        regions_data = self._get_json_from_schema(Regions, t)
+        geographicregion_data = self._get_json_from_schema(GeographicRegion, t)
+        regions = Regions_schema.load(regions_data, instance=Regions())
+        pg.add(regions)
+        pg.commit()
+        geographicregion_data["geo_id"] = regions.id
+        geographicregion = GeographicRegion_schema.load(geographicregion_data, instance = GeographicRegion())
+        db.add(geographicregion)
         return r.get_response()
 
 
-    # @bcs_session
+
+
+
+    @bcs_session()
+    def delete(self,region_id = None):
+        db = g.bcs_session.db_session
+        pg = g.bcs_session.postgis_db_session
+        r = ResponseObject()
+        geographicregion = db.query(GeographicRegion).filter(GeographicRegion.id == region_id).first()
+        region = pg.query(Regions).filter(Regions.id == geographicregion.geo_id).first()
+        db.delete(geographicregion)
+        pg.delete(region)
+        return r.get_response()
+
+
+    @bcs_session()
     def put(self, region_id = None):
-        session = DBSession()
-        GEOsession = DBSessionGeo()
+        db = g.bcs_session.db_session
+        pg = g.bcs_session.postgis_db_session
         t = request.json
         GeographicRegion_schema = getattr(GeographicRegion,"Schema")()
         Regions_schema = getattr(Regions, "Schema")()
-        geographicregion = session.query(GeographicRegion).filter(GeographicRegion.id == region_id).first()
-        regions = GEOsession.query(Regions).filter(Regions.id == geographicregion.id).first()
-        geographicregion = GeographicRegion_schema.load(self._prepare(GeographicRegion,t),instance = geographicregion)
-        regions = Regions_schema.load(self._prepare(Regions,t),instance = regions)
-        session.add(geographicregion)
-        GEOsession.add(regions)
-        GEOsession.commit()
-        session.commit()
+        geographicregion = db.query(GeographicRegion).filter(GeographicRegion.id == region_id).first()
+        regions = pg.query(Regions).filter(Regions.id == geographicregion.id).first()
+        geographicregion = GeographicRegion_schema.load(self._get_json_from_schema(GeographicRegion, t), instance = geographicregion)
+        regions = Regions_schema.load(self._get_json_from_schema(Regions, t), instance = regions)
+        db.add(geographicregion)
+        pg.add(regions)
         return jsonify(message='Successfuly updated'), 200
 
 
-    def _prepare(self,entity,t):
+    def _get_json_from_schema(self,entity,t):
         entity_schema = getattr(entity,"Schema")()
         t_json = entity_schema.dumps(t)
         return json.loads(t_json)
@@ -229,8 +163,6 @@ def response_to_dataframe(response):
     content = data.get("content")
     data = json.dumps(content)
     return data
-    # lines = True para un item
-    # lines = False para varios
 
 
 

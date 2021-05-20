@@ -26,7 +26,7 @@ from sqlalchemy.orm import Session
 from biobarcoding.authorization import ast_evaluator, authr_expression, string_to_ast
 from biobarcoding.common import generate_json
 from biobarcoding.common.helpers import serialize_from_object, deserialize_to_object
-from biobarcoding.db_models import DBSession, ObjectType, DBSessionChado
+from biobarcoding.db_models import DBSession, ObjectType, DBSessionChado, DBSessionGeo
 from biobarcoding.db_models.sysadmin import Authenticator, Identity, IdentityAuthenticator, ACLExpression, ACL, \
     SystemFunction
 
@@ -83,6 +83,7 @@ class BCSSession:
     identity: Identity = None
     db_session: Session = None
     chado_db_session: Session = None
+    postgis_db_session: Session = None
 
 
 EXEMPT_METHODS = set(['OPTIONS'])
@@ -242,6 +243,8 @@ class bcs_session(object):
                     g.bcs_session.identity = ident
                     chado_db_session = DBSessionChado()  # Chado test
                     g.bcs_session.chado_db_session = chado_db_session   # Chado test
+                    postgis_db_session = DBSessionGeo()
+                    g.bcs_session.postgis_db_session = postgis_db_session
                     try:  # Protect "db_session"
                         # Get execution rule
                         if self.authr is None or bcs_session.is_function_name(self.authr):
@@ -278,15 +281,18 @@ class bcs_session(object):
                         if can_execute:
                             res = f(*args, **kwargs)
                             db_session.commit()
-                            chado_db_session.commit()   # Chado test
+                            chado_db_session.commit()  # Chado test
+                            postgis_db_session.commit()
                         else:
                             raise Exception(f"Current user ({sess.identity_name}) cannot execute function {f_code_name}")
                     except:
                         traceback.print_exc()
                         db_session.rollback()
                         chado_db_session.rollback()  # Chado test
+                        postgis_db_session.rollback()
                         raise
                     finally:
+                        DBSessionGeo.remove()
                         DBSession.remove()
                         DBSessionChado.remove()  # Chado test
                 except:
@@ -296,6 +302,7 @@ class bcs_session(object):
                         g.bcs_session.identity = None
                         g.bcs_session.db_session = None
                         g.bcs_session.chado_db_session = None   # Chado test
+                        g.bcs_session.postgis_db_session = None
                         flask_session["session"] = serialize_session(g.bcs_session)
                     # g.bcs_session = None  -- NO need for this line, "g" is reset after every request
                 return res

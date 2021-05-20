@@ -5,7 +5,7 @@ from sqlalchemy import Column, Integer, String, BigInteger, ForeignKey, JSON, Me
 from biobarcoding.db_models import ORMBase, ORMBaseGeo, GUID
 from biobarcoding.db_models.bioinformatics import BioinformaticObject, bio_object_type_id
 from geoalchemy2 import Geometry
-from geoalchemy2.shape import to_shape
+import uuid
 
 prefix = "geo_"
 
@@ -13,12 +13,12 @@ prefix = "geo_"
 class GeographicRegion(ORMBase):
     __tablename__ = f"{prefix}regions"
 
+    uuid = Column(GUID,default=uuid.uuid4)
     id = Column(Integer, primary_key=True, autoincrement=True)
     geo_id = Column(Integer, unique=True)
-    uuid = Column(GUID, unique=True)
     name = Column(String(80))
     usr = Column(String(80))
-    tags = Column(JSON)
+    attributes = Column(JSON)
 
 
 class GeographicLayer(BioinformaticObject):
@@ -31,7 +31,9 @@ class GeographicLayer(BioinformaticObject):
 
 class Regions(ORMBaseGeo):
      __tablename__ = 'Regions'
-     id = Column(Integer, primary_key=True)
+
+     uuid = Column(GUID, unique=True, default=uuid.uuid4)
+     id = Column(Integer, primary_key=True, autoincrement=True)
      name = Column(String)
      geometry = Column(Geometry(geometry_type='MULTIPOLYGON', srid=4326))
 
