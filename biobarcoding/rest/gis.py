@@ -73,30 +73,23 @@ class RegionsAPI(MethodView):
         # tengo que combinar con la otra tabla
         db = g.bcs_session.db_session
         pg = g.bcs_session.postgis_db_session
-        geo_session = DBSessionGeo()
-        rgeo = ResponseObject()
-        rr = ResponseObject()
         if region_id is None:
             lines = False
-            rgeo.content = db.query(GeographicRegion).order_by(GeographicRegion.name).all()
-            res_geo = rgeo.get_response()
-            if rgeo.status == 200:
-                rr.content = geo_session.query(Regions).order_by(Regions.name).all()
+            geographicregion = db.query(GeographicRegion).order_by(GeographicRegion.name).all()
+            regions = pg.query(Regions).order_by(Regions.name).all()
         else:
             lines = True
-            rgeo.content = db.query(GeographicRegion).filter(GeographicRegion.id == region_id).first()
-            res_geo = rgeo.get_response()
-            if rgeo.status == 200:
-                rr.content = geo_session.query(Regions).filter(Regions.id == rgeo.content.geo_id).first()
-        if rr.status == 200:
-            geodf = pd.read_json(response_to_dataframe(res_geo),lines = lines)
-            df = pd.read_json(response_to_dataframe(rr.get_response()), lines = lines)
-            geodf = geodf.set_index(geodf["geo_id"]).drop(columns=["geo_id"])
-            df = df.set_index(df["id"]).drop(columns=["id"])
-            df = pd.concat([geodf,df], axis = 1, join="inner")
-            return make_response(jsonify(df.to_dict("index"))), 200
-        else:
-            return ResponseObject(status=200)
+            geographicregion = db.query(GeographicRegion).filter(GeographicRegion.id == region_id).first()
+            regions = pg.query(Regions).filter(Regions.id == geographicregion.geo_id).first()
+
+        geodf = pd.read_json(response_to_dataframe(geographicregion),lines = lines)
+        df = pd.read_json(response_to_dataframe(regions), lines = lines)
+        geodf = geodf.set_index(geodf["geo_id"]).drop(columns=["geo_id"])
+        df = df.set_index(df["id"]).drop(columns=["id"])
+        df = pd.concat([geodf,df], axis = 1, join="inner")
+        return make_response(jsonify(df.to_dict("index"))), 200
+
+
 
     @bcs_session()
     def post(self):
@@ -111,13 +104,11 @@ class RegionsAPI(MethodView):
         regions = Regions_schema.load(regions_data, instance=Regions())
         pg.add(regions)
         pg.commit()
+        # TODO se debería forzar a error si no se aporta geometría?
         geographicregion_data["geo_id"] = regions.id
         geographicregion = GeographicRegion_schema.load(geographicregion_data, instance = GeographicRegion())
         db.add(geographicregion)
         return r.get_response()
-
-
-
 
 
     @bcs_session()
@@ -136,6 +127,7 @@ class RegionsAPI(MethodView):
     def put(self, region_id = None):
         db = g.bcs_session.db_session
         pg = g.bcs_session.postgis_db_session
+        r = ResponseObject()
         t = request.json
         GeographicRegion_schema = getattr(GeographicRegion,"Schema")()
         Regions_schema = getattr(Regions, "Schema")()
@@ -145,7 +137,7 @@ class RegionsAPI(MethodView):
         regions = Regions_schema.load(self._get_json_from_schema(Regions, t), instance = regions)
         db.add(geographicregion)
         pg.add(regions)
-        return jsonify(message='Successfuly updated'), 200
+        return r.get_response()
 
 
     def _get_json_from_schema(self,entity,t):
@@ -156,8 +148,11 @@ class RegionsAPI(MethodView):
 register_api(bp_geo, RegionsAPI, "geo/regions", f"{bcs_api_base}/geo/regions/", pk="region_id")
 
 
-def response_to_dataframe(response):
-    data = response.get_data()
+def response_to_dataframe(item):
+    r = ResponseObject()
+    r.content = item
+    res = r.get_response()
+    data = res.get_data()
     my_json = data.decode('utf8').replace("'", '"')
     data = json.loads(my_json)
     content = data.get("content")
