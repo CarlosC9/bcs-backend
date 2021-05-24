@@ -8,7 +8,6 @@ from biobarcoding.db_models import DBSession, DBSessionGeo
 from biobarcoding.db_models.geographics import GeographicRegion, GeographicLayer, Regions
 import json
 
-
 """
 Support operations regarding Geographical layers
 
@@ -59,94 +58,23 @@ Four areas:
 
 bp_geo = Blueprint('geo', __name__)
 
-class RegionsAPI(MethodView):
-    '''
-    '''
-    @bcs_session(read_only=True)
-    def get(self, region_id = None):
-        '''
-        ?? dede la GUI recibo el polígono marcado por el usuario
-        @return:
-        # dar lista de regiones para visualizar
-        # entregar región a PDA
-        '''
-        # tengo que combinar con la otra tabla
-        db = g.bcs_session.db_session
-        pg = g.bcs_session.postgis_db_session
-        if region_id is None:
-            lines = False
-            geographicregion = db.query(GeographicRegion).order_by(GeographicRegion.name).all()
-            regions = pg.query(Regions).order_by(Regions.name).all()
+def get_content(session, Feature, id=None):
+    content = None
+    count = 0
+    try:
+        content = session.query(Feature)
+        if id:
+            content = content.filter(Feature.id == id).first()
         else:
-            lines = True
-            geographicregion = db.query(GeographicRegion).filter(GeographicRegion.id == region_id).first()
-            regions = pg.query(Regions).filter(Regions.id == geographicregion.geo_id).first()
-
-        geodf = pd.read_json(response_to_dataframe(geographicregion),lines = lines)
-        df = pd.read_json(response_to_dataframe(regions), lines = lines)
-        geodf = geodf.set_index(geodf["geo_id"]).drop(columns=["geo_id"])
-        df = df.set_index(df["id"]).drop(columns=["id"])
-        df = pd.concat([geodf,df], axis = 1, join="inner")
-        return make_response(jsonify(df.to_dict("index"))), 200
-
-
-
-    @bcs_session()
-    def post(self):
-        db = g.bcs_session.db_session
-        pg = g.bcs_session.postgis_db_session
-        r = ResponseObject()
-        t = request.json
-        GeographicRegion_schema = getattr(GeographicRegion, "Schema")()
-        Regions_schema = getattr(Regions, "Schema")()
-        regions_data = self._get_json_from_schema(Regions, t)
-        geographicregion_data = self._get_json_from_schema(GeographicRegion, t)
-        regions = Regions_schema.load(regions_data, instance=Regions())
-        pg.add(regions)
-        pg.commit()
-        # TODO se debería forzar a error si no se aporta geometría?
-        geographicregion_data["geo_id"] = regions.id
-        geographicregion = GeographicRegion_schema.load(geographicregion_data, instance = GeographicRegion())
-        db.add(geographicregion)
-        return r.get_response()
-
-
-    @bcs_session()
-    def delete(self,region_id = None):
-        db = g.bcs_session.db_session
-        pg = g.bcs_session.postgis_db_session
-        r = ResponseObject()
-        geographicregion = db.query(GeographicRegion).filter(GeographicRegion.id == region_id).first()
-        region = pg.query(Regions).filter(Regions.id == geographicregion.geo_id).first()
-        db.delete(geographicregion)
-        pg.delete(region)
-        return r.get_response()
-
-
-    @bcs_session()
-    def put(self, region_id = None):
-        db = g.bcs_session.db_session
-        pg = g.bcs_session.postgis_db_session
-        r = ResponseObject()
-        t = request.json
-        GeographicRegion_schema = getattr(GeographicRegion,"Schema")()
-        Regions_schema = getattr(Regions, "Schema")()
-        geographicregion = db.query(GeographicRegion).filter(GeographicRegion.id == region_id).first()
-        regions = pg.query(Regions).filter(Regions.id == geographicregion.id).first()
-        geographicregion = GeographicRegion_schema.load(self._get_json_from_schema(GeographicRegion, t), instance = geographicregion)
-        regions = Regions_schema.load(self._get_json_from_schema(Regions, t), instance = regions)
-        db.add(geographicregion)
-        pg.add(regions)
-        return r.get_response()
-
-
-    def _get_json_from_schema(self,entity,t):
-        entity_schema = getattr(entity,"Schema")()
-        t_json = entity_schema.dumps(t)
-        return json.loads(t_json)
-
-register_api(bp_geo, RegionsAPI, "geo/regions", f"{bcs_api_base}/geo/regions/", pk="region_id")
-
+            content = content.order_by(Feature.name).all()
+        issues, status = [Issue(IType.INFO, f'READ "{Feature.__name__}": The "{Feature.__name__}" were successfully read')], 200
+    except Exception as e:
+        print(e)
+        issues, status = [Issue(IType.ERROR, f'READ "{Feature.__name__}": The "{Feature.__name__}" could not be read.')], 500
+    if content == None:
+        issues, status = [Issue(IType.ERROR, f'no data available')], 200
+        content = ""
+    return issues, content,count, status
 
 def response_to_dataframe(item):
     r = ResponseObject()
@@ -159,7 +87,96 @@ def response_to_dataframe(item):
     data = json.dumps(content)
     return data
 
+def get_json_from_schema(entity, t):
+    entity_schema = getattr(entity, "Schema")()
+    t_json = entity_schema.dumps(t)
+    return json.loads(t_json)
 
+
+
+class RegionsAPI(MethodView):
+    '''
+    '''
+    @bcs_session(read_only=True)
+    def get(self, region_id = None):
+        '''
+        ?? dede la GUI recibo el polígono marcado por el usuario
+        @return:
+        # dar lista de regiones para visualizar
+        # entregar región a PDA
+        '''
+        db = g.bcs_session.db_session
+        pg = g.bcs_session.postgis_db_session
+        issues, geographicregion, count, status = get_content(db, GeographicRegion,region_id)
+        if status == 200 and geographicregion != "":
+            if region_id is None:
+                lines = False
+                issues, regions, count, status = get_content(pg, Regions,region_id)
+            else:
+                lines = True
+                issues, regions, count, status = get_content(pg, Regions,geographicregion.geo_id)
+
+            geodf = pd.read_json(response_to_dataframe(geographicregion),lines = lines)
+            df = pd.read_json(response_to_dataframe(regions), lines = lines)
+            geodf = geodf.set_index(geodf["geo_id"]).drop(columns=["geo_id","uuid"])
+            df = df.set_index(df["id"]).drop(columns=["id","uuid"])
+            df = pd.concat([geodf,df], axis = 1, join="inner")
+            content = jsonify(df.to_dict("index")).json
+            # content = create_dictionary(df.to_dict("index"))
+        else:
+            content  = None
+        return ResponseObject(issues= issues,status = status, content= content, content_type= "application/json").get_response()
+
+
+    @bcs_session()
+    def post(self):
+        db = g.bcs_session.db_session
+        pg = g.bcs_session.postgis_db_session
+        r = ResponseObject()
+        t = request.json
+        GeographicRegion_schema = getattr(GeographicRegion, "Schema")()
+        Regions_schema = getattr(Regions, "Schema")()
+        regions_data = get_json_from_schema(Regions, t)
+        geographicregion_data = get_json_from_schema(GeographicRegion, t)
+        regions = Regions_schema.load(regions_data, instance=Regions())
+        pg.add(regions)
+        pg.commit()
+        geographicregion_data["geo_id"] = regions.id
+        geographicregion = GeographicRegion_schema.load(geographicregion_data, instance = GeographicRegion())
+        db.add(geographicregion)
+        return r.get_response()
+
+
+    @bcs_session()
+    def delete(self,region_id = None):
+        db = g.bcs_session.db_session
+        pg = g.bcs_session.postgis_db_session
+        issues, geographicregion, count, status = get_content(db, GeographicRegion, region_id)
+        if status == 200 and geographicregion != "":
+            issues, region, count, status = get_content(pg, Regions,geographicregion.geo_id)
+            db.delete(geographicregion)
+            pg.delete(region)
+        return ResponseObject(issues= issues,status = status).get_response()
+
+
+    @bcs_session()
+    def put(self, region_id = None):
+        db = g.bcs_session.db_session
+        pg = g.bcs_session.postgis_db_session
+        t = request.json
+        GeographicRegion_schema = getattr(GeographicRegion,"Schema")()
+        Regions_schema = getattr(Regions, "Schema")()
+        issues, geographicregion, count, status = get_content(db, GeographicRegion, region_id)
+        if status == 200 and geographicregion != "":
+            issues, region, count, status = get_content(pg, Regions, geographicregion.geo_id)
+        geographicregion = GeographicRegion_schema.load(get_json_from_schema(GeographicRegion, t), instance = geographicregion)
+        regions = Regions_schema.load(get_json_from_schema(Regions, t), instance = region)
+        db.add(geographicregion)
+        pg.add(regions)
+        return ResponseObject(issues= issues,status = status).get_response()
+
+
+register_api(bp_geo, RegionsAPI, "geo/regions", f"{bcs_api_base}/geo/regions/", pk="region_id")
 
 class layerAPI():
     @bcs_session()

@@ -634,9 +634,8 @@ def initialize_chado_edam(flask_app):
 
 def inizialice_postgis(flask_app):
     recreate_db = False
-    if True:
-        # db_connection_string = flask_app.config['POSTGIS_CONNECTION_STRING']
-        db_connection_string = "postgres://postgres:postgres@172.17.0.1:5433/"
+    if 'POSTGIS_CONNECTION_STRING' in flask_app.config:
+        db_connection_string = flask_app.config['POSTGIS_CONNECTION_STRING']
         print("Connecting to ngd_geoserver database server")
         print(db_connection_string)
         print("-----------------------------")
