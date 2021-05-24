@@ -77,7 +77,7 @@ def create_app(debug, cfg_dict=None):
 
     # Galaxy
     print("Initializing base Galaxy instance")
-    initialize_galaxy(app)
+    # initialize_galaxy(app)
     print("Initializing base Galaxy instance - DONE")
 
     # Security
