@@ -23,11 +23,9 @@ from biobarcoding.common import generate_json
 from biobarcoding.common.helpers import get_module_logger
 from biobarcoding.common.pg_helpers import create_pg_database_engine, load_table, load_many_to_many_table, \
     load_computing_resources, load_processes_in_computing_resources, load_process_input_schema, load_table_extended
-from biobarcoding.db_models import DBSession, ORMBase, DBSessionChado, ORMBaseChado, ObjectType, DBSessionGeo
-from biobarcoding.db_models.bioinformatics import *
+from biobarcoding.db_models import DBSession, DBSessionChado, ORMBaseChado, ObjectType, DBSessionGeo
 from biobarcoding.db_models.sysadmin import *
 from biobarcoding.db_models.geographics import *
-from biobarcoding.db_models.metadata import *
 from biobarcoding.db_models.jobs import *
 from biobarcoding.db_models.hierarchies import *
 

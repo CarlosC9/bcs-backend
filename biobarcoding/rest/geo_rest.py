@@ -4,8 +4,8 @@ from flask import Blueprint, request, send_file, g, make_response, jsonify
 from flask.views import MethodView
 from biobarcoding.authentication import bcs_session
 from biobarcoding.rest import bcs_api_base, bcs_gui_base, ResponseObject, Issue, IType, register_api
-from biobarcoding.db_models import DBSession, DBSessionGeo
 from biobarcoding.db_models.geographics import GeographicRegion, GeographicLayer, Regions
+from biobarcoding.common import create_dictionary
 import json
 
 """
@@ -66,7 +66,7 @@ def get_content(session, Feature, id=None):
         if id:
             content = content.filter(Feature.id == id).first()
         else:
-            content = content.order_by(Feature.name).all()
+            content = content.order_by(Feature.id).all()
         issues, status = [Issue(IType.INFO, f'READ "{Feature.__name__}": The "{Feature.__name__}" were successfully read')], 200
     except Exception as e:
         print(e)
@@ -118,11 +118,9 @@ class RegionsAPI(MethodView):
 
             geodf = pd.read_json(response_to_dataframe(geographicregion),lines = lines)
             df = pd.read_json(response_to_dataframe(regions), lines = lines)
-            geodf = geodf.set_index(geodf["geo_id"]).drop(columns=["geo_id","uuid"])
+            geodf = geodf.set_index(geodf["geo_id"]).drop(columns=["geo_id","uuid","id"])
             df = df.set_index(df["id"]).drop(columns=["id","uuid"])
-            df = pd.concat([geodf,df], axis = 1, join="inner")
-            content = jsonify(df.to_dict("index")).json
-            # content = create_dictionary(df.to_dict("index"))
+            content = pd.concat([geodf,df], axis = 1, join="inner")
         else:
             content  = None
         return ResponseObject(issues= issues,status = status, content= content, content_type= "application/json").get_response()
@@ -141,8 +139,10 @@ class RegionsAPI(MethodView):
         regions = Regions_schema.load(regions_data, instance=Regions())
         pg.add(regions)
         pg.commit()
-        geographicregion_data["geo_id"] = regions.id
         geographicregion = GeographicRegion_schema.load(geographicregion_data, instance = GeographicRegion())
+        geographicregion.uuid = regions.uuid
+        geographicregion.geo_id = regions.id
+        geographicregion.usr = g.bcs_session.identity.id
         db.add(geographicregion)
         return r.get_response()
 
@@ -238,7 +238,7 @@ def publish_tmp_layer(gdf, workspace, data_storage_name):
 
 def mask_raster_from_layer(raster, vector):
     geo = Geoserver('http://127.0.0.1:8080/geoserver', username='admin', password='geoserver')
-    # raster_layer = geo.get_layer(layer_name=raster)
+    raster_layer = geo.get_layer(layer_name=raster)
     vector_layer = geo.get_layer(layer_name=vector)
     print(vector_layer)
     pass

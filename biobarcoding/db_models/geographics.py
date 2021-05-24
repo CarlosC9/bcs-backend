@@ -13,11 +13,11 @@ prefix = "geo_"
 class GeographicRegion(ORMBase):
     __tablename__ = f"{prefix}regions"
 
-    uuid = Column(GUID,default=uuid.uuid4)
+    uuid = Column(GUID)
     id = Column(Integer, primary_key=True, autoincrement=True)
     geo_id = Column(Integer, unique=True)
     name = Column(String(80))
-    usr = Column(String(80))
+    usr = Column(Integer)
     attributes = Column(JSON)
 
 
@@ -34,7 +34,6 @@ class Regions(ORMBaseGeo):
 
      uuid = Column(GUID, unique=True, default=uuid.uuid4)
      id = Column(Integer, primary_key=True, autoincrement=True)
-     name = Column(String)
      geometry = Column(Geometry(geometry_type='MULTIPOLYGON', srid=4326))
 
 
