@@ -70,7 +70,7 @@ def create_app(debug, cfg_dict=None):
         initialize_chado_edam(app)
 
         # iniitalize postgis Database
-        inizialice_postgis(app)
+        # inizialice_postgis(app)
 
     finally:
         lock.release()
