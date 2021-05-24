@@ -102,7 +102,7 @@ def create_app(debug, cfg_dict=None):
                bp_bos,
                bp_metadata,
                bp_bfilters,
-               bp_geo
+               bp_geo,
                bp_views,
                ]:
         app.register_blueprint(bp)
