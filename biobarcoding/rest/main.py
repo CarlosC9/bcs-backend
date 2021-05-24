@@ -6,7 +6,8 @@ from NamedAtomicLock import NamedAtomicLock
 import biobarcoding
 from biobarcoding.jobs.galaxy_resource import initialize_galaxy
 from biobarcoding.rest import logger, log_level, load_configuration_file, construct_session_persistence_backend, \
-    initialize_database, initialize_database_chado, bcs_gui_base, ResponseObject, initialize_chado_edam
+    initialize_database, initialize_database_chado, bcs_gui_base, ResponseObject, initialize_chado_edam, \
+    inizialice_postgis
 from biobarcoding.rest.auth import bp_auth
 from biobarcoding.rest.file_manager import bp_files
 from biobarcoding.rest.identities_and_company import bp_identities, bp_sys_functions, bp_roles, bp_identities_roles, \
@@ -16,6 +17,7 @@ from biobarcoding.rest.metadata import bp_metadata
 from biobarcoding.rest.jobs import bp_jobs
 from biobarcoding.rest.tasks import bp_tasks
 from biobarcoding.rest.processes import  bp_processes, bp_resources
+from biobarcoding.rest.geo_rest import bp_geo
 from biobarcoding.rest.gui_static import bp_gui
 from biobarcoding.rest.browser_filters import bp_bfilters
 from biobarcoding.rest.views import bp_views
@@ -67,12 +69,16 @@ def create_app(debug, cfg_dict=None):
 
         # Insert EDAM Ontology in chado
         initialize_chado_edam(app)
+
+        # iniitalize postgis Database
+        # inizialice_postgis(app)
+
     finally:
         lock.release()
 
     # Galaxy
     print("Initializing base Galaxy instance")
-    initialize_galaxy(app)
+    # initialize_galaxy(app)
     print("Initializing base Galaxy instance - DONE")
 
     # Security
@@ -96,6 +102,7 @@ def create_app(debug, cfg_dict=None):
                bp_bos,
                bp_metadata,
                bp_bfilters,
+               bp_geo
                bp_views,
                ]:
         app.register_blueprint(bp)
