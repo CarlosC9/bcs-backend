@@ -63,6 +63,14 @@ biopython==1.78
 chado==2.3.4
 #cachier==1.2.2
 #tablib <- dictmapper (convert nested dict's to CSV)
+# some installations for GDAL:
+# sudo apt-get install libgnutls28-dev
+# sudo apt-get install libgdal-dev
+GDAL>=3.0.4
+GeoAlchemy2>=0.8.5
+geopandas>=0.9.0
+geoserver-rest>=1.6.1
+
 
 # ############################### CANDIDATE LIBRARIES #################################
 #JsonWeb (overlaps "objdict")
