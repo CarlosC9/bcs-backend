@@ -71,14 +71,14 @@ def create_app(debug, cfg_dict=None):
         initialize_chado_edam(app)
 
         # iniitalize postgis Database
-        # inizialice_postgis(app)
+        inizialice_postgis(app)
 
     finally:
         lock.release()
 
     # Galaxy
     print("Initializing base Galaxy instance")
-    # initialize_galaxy(app)
+    initialize_galaxy(app)
     print("Initializing base Galaxy instance - DONE")
 
     # Security
