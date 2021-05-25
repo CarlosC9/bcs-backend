@@ -21,6 +21,7 @@ from biobarcoding.rest.geo_rest import bp_geo
 from biobarcoding.rest.gui_static import bp_gui
 from biobarcoding.rest.browser_filters import bp_bfilters
 from biobarcoding.rest.views import bp_views
+from biobarcoding.rest.proxy import bp_proxy
 from biobarcoding.tasks import initialize_celery
 from biobarcoding.authentication import initialize_firebase
 
@@ -104,6 +105,7 @@ def create_app(debug, cfg_dict=None):
                bp_bfilters,
                bp_geo,
                bp_views,
+               bp_proxy,
                ]:
         app.register_blueprint(bp)
 

@@ -32,6 +32,7 @@ from biobarcoding.db_models.hierarchies import *
 bcs_api_base = "/api"  # Base for all RESTful calls
 bcs_gui_base = "/gui"  # Base for the Angular2 GUI
 bcs_external_gui_base = "/gui_external"  # Base for the Angular2 GUI when loaded from URL
+bcs_proxy_base = "/pxy"  # Base for the BCS Proxy
 
 logger = get_module_logger(__name__)
 log_level = logging.DEBUG

@@ -58,7 +58,6 @@ if [ "$(whoami)" == "rnebot" ] && [ "$#" -gt 0 ] ; then
   galaxy_started=$(ssh rnebot@balder docker ps -q -f name=galaxy_devel_rnebot)
 elif [ "$(whoami)" == "acurbelo" ] ; then
   galaxy_started=$(ssh acurbelo@balder docker ps -q -f name=galaxy_devel_acurbelo)
-#  galaxy_started=$(docker ps -q -f name=galaxy_devel)
 elif [ "$(whoami)" == "paula" ] ; then
   galaxy_started=$(docker ps -q -f name=galaxy_devel)
 elif [ "$(whoami)" == "daniel" ] ; then
@@ -66,13 +65,12 @@ elif [ "$(whoami)" == "daniel" ] ; then
   #galaxy_started=$(ssh dreyes@balder docker ps -q -f name=galaxy_devel_dreyes)
 fi
 
-if [ ! $galaxy_started ] ; then
+if [ ! "$galaxy_started" ] ; then
   echo Starting Galaxy
   if [ "$(whoami)" == "rnebot" ] ; then
     ssh rnebot@balder docker run --name galaxy_devel_rnebot -d -p 8180:80 -p 8121:21 -p 8122:22 --rm -v /home/rnebot/DATOS/galaxy_storage/:/export  bgruening/galaxy-stable
   elif [ "$(whoami)" == "acurbelo" ] ; then
     ssh acurbelo@balder docker run --name galaxy_devel_acurbelo -d -p 8280:80 -p 8221:21 -p 8222:22 --rm -v /var/lib/nextgendem/galaxy_storage/:/export  bgruening/galaxy-stable
-#    docker run --name galaxy_devel -d -p 8080:80 -p 8021:21 -p 8022:22 --rm -v /var/lib/nextgendem/galaxy_storage/:/export  bgruening/galaxy-stable
   elif [ "$(whoami)" == "paula" ] ; then
     docker run --name galaxy_devel -d -p 8080:80 -p 8021:21 -p 8022:22 --rm -v /home/paula/galaxy_storage/:/export  bgruening/galaxy-stable
   elif [ "$(whoami)" == "daniel" ] ; then
