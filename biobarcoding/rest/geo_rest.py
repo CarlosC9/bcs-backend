@@ -231,9 +231,11 @@ def new_layer_data_filter(layer, filter):
     sql = 'SELECT geometry as geom, "DENOMTAX" FROM plantas WHERE "RAREZALOCA" > 1'
     geo.publish_featurestore_sqlview(store_name='geo_data', name='tmp_view3', sql=sql, key_column="'IDCELDA'",
                                      workspace='ngd')
+    pass
 
 def publish_tmp_layer(gdf, workspace, data_storage_name):
     geo = Geoserver('http://127.0.0.1:8080/geoserver', username='admin', password='geoserver')
+    pass
 
 
 def mask_raster_from_layer(raster, vector):
@@ -241,4 +243,6 @@ def mask_raster_from_layer(raster, vector):
     raster_layer = geo.get_layer(layer_name=raster)
     vector_layer = geo.get_layer(layer_name=vector)
     print(vector_layer)
+    geo.create_featurestore(store_name='geo_data', workspace='ngd', db='ngd_geoserver', host='localhost', port=5435,
+                            pg_user='postgres', pg_password='postgres')
     pass
