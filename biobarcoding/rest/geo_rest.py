@@ -1,12 +1,15 @@
 import pandas as pd
+import geopandas as gpd
 from geo.Geoserver import Geoserver
-from flask import Blueprint, request, send_file, g, make_response, jsonify
+from flask import Blueprint, request, g
 from flask.views import MethodView
 from biobarcoding.authentication import bcs_session
-from biobarcoding.rest import bcs_api_base, bcs_gui_base, ResponseObject, Issue, IType, register_api
+from biobarcoding.rest import bcs_api_base, ResponseObject, Issue, IType, register_api
 from biobarcoding.db_models.geographics import GeographicRegion, GeographicLayer, Regions
-from biobarcoding.common import create_dictionary
 import json
+from biobarcoding.geo import geoserver_session
+from biobarcoding import postgis_engine
+
 
 """
 Support operations regarding Geographical layers
@@ -55,7 +58,6 @@ Four areas:
 * Output raster layer. Apply SLD automatically, store in users workspace
 * Output feature layer. Apply SLD automatically, store in users workspace
 """
-
 bp_geo = Blueprint('geo', __name__)
 
 def get_content(session, Feature, id=None):
@@ -74,7 +76,7 @@ def get_content(session, Feature, id=None):
     if content == None:
         issues, status = [Issue(IType.ERROR, f'no data available')], 200
         content = ""
-    return issues, content,count, status
+    return issues, content, count, status
 
 def response_to_dataframe(item):
     r = ResponseObject()
@@ -179,13 +181,44 @@ class RegionsAPI(MethodView):
 register_api(bp_geo, RegionsAPI, "geo/regions", f"{bcs_api_base}/geo/regions/", pk="region_id")
 
 class layerAPI():
+    '''
+    geo_session... inicializar en main o inicializar cada vez que se haga una llamada restful?)
+    GET: - the list of layers
+         - publish a result of filtering a layer (with geoserver_session.publish_featurestore_sqlview(sql_string))
+
+    POST: create and store (in postgis) and publish a new layer in which format am I going to retyreve that vector layer?
+    PUT: changing attributes
+    DELETE:
+    '''
     @bcs_session()
-    def get(self, id, filter):
-        pass
+    def get(self, id = None):
+        db = g.bcs_session.db_session
+        issues, layers, count, status = get_content(db, GeographicLayer, id)
+        return ResponseObject(issues= issues,status = status, content= layers)
 
     @bcs_session()
-    def post(self, id):
-        pass
+    def post(self):
+        '''
+        json with
+        name:''
+        geopandas:''/filter:''
+        @return:
+        '''
+        db = g.bcs_session.db_session
+        t = request.json
+        GeographicLayer_Schema= getattr(GeographicLayer,"Schema")()
+        geographiclayer = GeographicLayer_Schema.load(t, instance=GeographicLayer())
+        db.add(geographiclayer)
+        df = gpd.read(t["geojson"])
+        try:
+            df.to_postgis(t["name"],postgis_engine, if_exists="fail") # names have to be uniques or will be stores by id
+        except ValueError:
+            issues, status = [Issue(IType.INFO,f"layer named as {t['name']} already exists")], 400
+
+        else:
+            geoserver_session.publish_featurestore(workspace='ngd', store_name='geo_data', pg_table=t['name'])
+            issues, status = [Issue(IType.INFO,f"layer named as {t['name']} published")], 200
+        return ResponseObject(issues=issues, status=status, content=None)
 
     @bcs_session()
     def put(self, id):
