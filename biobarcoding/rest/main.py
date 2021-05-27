@@ -23,6 +23,7 @@ from biobarcoding.rest.browser_filters import bp_bfilters
 from biobarcoding.rest.views import bp_views
 from biobarcoding.tasks import initialize_celery
 from biobarcoding.authentication import initialize_firebase
+from biobarcoding.geo import inizialice_geoserver
 
 # Flask and configuration file
 app = None
@@ -80,6 +81,10 @@ def create_app(debug, cfg_dict=None):
     print("Initializing base Galaxy instance")
     initialize_galaxy(app)
     print("Initializing base Galaxy instance - DONE")
+
+    print("Initializing Geoserver")
+    inizialice_geoserver(app)
+    print("Initializing Geoserver - DONE")
 
     # Security
     # initialize_authn_authr(app)

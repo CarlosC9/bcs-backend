@@ -2,6 +2,8 @@ from biobarcoding import postgis_engine
 from sqlalchemy import create_engine
 from geo.Geoserver import Geoserver
 import geopandas as gpd
+import requests
+from biobarcoding.rest import bcs_api_base
 
 '''
 geo_sesion inizialize (just object with admin and password information)
@@ -20,6 +22,12 @@ def inizialice_layers(app):
         except ValueError as v:
             print(v)
             pass
+
+def ini_layers():
+    for layer_name, path in layers.items():
+        req = dict(path = path, name = layer_name, attributes= {"tags": ["plantas","Canarias", "Biota"] })
+        r = requests.post(f"http://localhost:5000{bcs_api_base}/geo/layers/", data = req)
+        return r.status_code
 
 
 def inizialice_geoserver(flask_app):
@@ -43,17 +51,10 @@ def inizialice_geoserver(flask_app):
             geoserver_session.create_featurestore(store_name = 'geo_data',
                                     workspace='ngd',
                                     db = flask_app.config['POSTGIS_DB'],
-                                    host = 'postgis', # internal host TODO get this as variable
+                                    host = '172.17.0.1', # internal host TODO get this as variable
                                     port = 5435, # internal port TODO get this as variable
                                     pg_user= flask_app.config['POSTGIS_USER'],
                                     pg_password= flask_app.config['POSTGIS_PASSWORD']
                                 )
-        # todo check that all initial layers are publish
-        # layers_in_geoserver = geo.get_layers()
-
-        for layer_name, _ in layers.items():
-            # todo error al publicar
-            geoserver_session.publish_featurestore(workspace='ngd', store_name='geo_data', pg_table=layer_name)
-    else:
         print("no geoserver data in config file cant open GEOSERVER session")
 

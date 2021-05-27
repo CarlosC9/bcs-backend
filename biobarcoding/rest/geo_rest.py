@@ -9,6 +9,9 @@ from biobarcoding.db_models.geographics import GeographicRegion, GeographicLayer
 import json
 from biobarcoding.geo import geoserver_session
 from biobarcoding import postgis_engine
+import pathlib
+import psycopg2
+from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 
 """
@@ -180,49 +183,92 @@ class RegionsAPI(MethodView):
 
 register_api(bp_geo, RegionsAPI, "geo/regions", f"{bcs_api_base}/geo/regions/", pk="region_id")
 
-class layerAPI():
+class layerAPI(MethodView):
     '''
     geo_session... inicializar en main o inicializar cada vez que se haga una llamada restful?)
-    GET: - the list of layers
-         - publish a result of filtering a layer (with geoserver_session.publish_featurestore_sqlview(sql_string))
+        GET: - the list of layers info from Geographiclayer table on bcs
+             - publish a result of filtering a layer (with geoserver_session.publish_featurestore_sqlview(sql_string))
 
-    POST: create and store (in postgis) and publish a new layer in which format am I going to retyreve that vector layer?
-    PUT: changing attributes
-    DELETE:
+    POST:   Three post cases (at least):
+            1. post all new vector layer from geoJSON format (PDA case)
+            2. Import a Raster o Vector layer from a file (via command)
+            3. Save a temporal layer created by geoserver_session.publish_featurestore_sqlview(sql_string)
+            create and store in geographichlayer table as item
+            then in postgis as table (format)
+            and then publish  in geoserver as new layer
+
+    PUT: changing name or attribues (never Geometry)
+
+    DELETE: delete completely from GeographicLayer table (bcs) postgis and geoserver
+
     '''
     @bcs_session()
-    def get(self, id = None):
-        db = g.bcs_session.db_session
-        issues, layers, count, status = get_content(db, GeographicLayer, id)
-        return ResponseObject(issues= issues,status = status, content= layers)
+    def get(self, filter = None):
+        '''
+        - get the list of layers in postgis
+        - create a temporal layer from a sql filter
+        @param filter: SQL filter in case of temporal layer
+        @return:
+        '''
+        if filter == None:
+            db = g.bcs_session.db_session
+            issues, layers, count, status = get_content(db, GeographicLayer)
+            return ResponseObject(issues=issues, status=status, content=layers).get_response()
+        else:
+            # el tema de la key_columns...???
+            r = geoserver_session.publish_featurestore_sqlview(store_name='geo_data', name='tmpview', sql=self._create_sql(filter), key_column="'IDCELDA'",
+                                             workspace='ngd') # las tmp tmb en ngs, supongo
+            r.get_response()
 
     @bcs_session()
     def post(self):
         '''
-        json with
-        name:''
-        geopandas:''/filter:''
-        @return:
+        {"name":'',
+        "wks": '',
+        "data":'',
+        "file":'',
+        "layer_name":'',
+        "SRID":'?'} -> layer_name siempre será tmp?
         '''
         db = g.bcs_session.db_session
         t = request.json
         GeographicLayer_Schema= getattr(GeographicLayer,"Schema")()
         geographiclayer = GeographicLayer_Schema.load(t, instance=GeographicLayer())
         db.add(geographiclayer)
-        df = gpd.read(t["geojson"])
-        try:
-            df.to_postgis(t["name"],postgis_engine, if_exists="fail") # names have to be uniques or will be stores by id
-        except ValueError:
-            issues, status = [Issue(IType.INFO,f"layer named as {t['name']} already exists")], 400
+        layer_name = geographiclayer.id
+        if t.get("data"):
+            df = gpd.read_file(t["data"]) # assuming t is a JSON
+            self._store_and_publish_gdf(layer_name, df)
+        if t.get("file"):
+            path = t["file"]
+            file_extension = pathlib.Path('my_file.txt').suffix
+            if file_extension == ".shp":
+                df = gpd.read_file(path)
+                self._store_and_publish_gdf(df, layer_name)
+            if file_extension in (".tif"):
+                r = geoserver_session.create_coveragestore(layer_name=t["id"],
+                                         path=path,
+                                         workspace=t["wks"])
+                r.get_response()
+        if t.get("layer_name"):
 
-        else:
-            geoserver_session.publish_featurestore(workspace='ngd', store_name='geo_data', pg_table=t['name'])
-            issues, status = [Issue(IType.INFO,f"layer named as {t['name']} published")], 200
-        return ResponseObject(issues=issues, status=status, content=None)
+            layer = geoserver_session.get_layer(layer_name=t["layer_name"])
+            # if layer == raster:
+            #     r = geoserver_session.create_coveragestore(layer_name=layer_name,
+            #                                                path=path,
+            #                                                workspace=t["wks"])
+            # TODO CAMBIAR FORMATO Y TAL
+            self._store_and_publish_gdf(layer_name,layer)
 
     @bcs_session()
-    def put(self, id):
-        pass
+    def put(self, id = None):
+        db = g.bcs_session.db_session
+        t = request.json
+        GeographicLayer_schema = getattr(GeographicRegion, "Schema")()
+        issues, geographiclayer, count, status = get_content(db, GeographicLayer, id)
+        geographiclayer = GeographicLayer_schema.load(t, instance = geographiclayer)
+        geographiclayer.add()
+        return ResponseObject(content=geographiclayer,issues = issues, status=status)
 
     @bcs_session()
     def delete(self, id):
@@ -232,10 +278,48 @@ class layerAPI():
         @param id:
         @return:
         '''
-        pass
+        db = g.bcs_session.db_session
+        pg = g.bcs_session.postgis_db_session
+        issues, geographiclayer , count, status = get_content(db, GeographicLayer, id)
+        if issues == 200:
+            layer_name = geographiclayer.id
+            # delete layer from geoserver
+            r = geoserver_session.delete_layer(layer_name= layer_name, workspace=geographiclayer.wks)
+            r.get_response()
+            # delete table from postgis
+            psqlCursor = pg.cursor()
+            dropTableStmt = f"DROP TABLE {layer_name};"
+            psqlCursor.execute(dropTableStmt);
+            psqlCursor.close();
+            # TODO response?
+        pg.delete(geographiclayer)
+        return ResponseObject() # TODO response
 
 
-class stylesAPI():
+    def _create_sql(self,filter):
+        '''
+        TODO create sintaxis
+        @param filter: filter build by the user in GUI
+        @return: sql query for postgis
+        '''
+        return filter
+
+    def _store_and_publish_gdf(self,layer_name,gdf):
+        try:
+            gdf.to_postgis(layer_name, postgis_engine,
+                          if_exists="fail")  # names have to be uniques or will be stores by id
+        except ValueError:
+            issues, status = [Issue(IType.INFO, f"layer named as {layer_name} already exists")], 400
+            return ResponseObject(issues=issues, status=status, content=None)
+        else:
+            issues, status = [Issue(IType.INFO, f"layer stored in geo database")], 200
+            r = geoserver_session.publish_featurestore(workspace="ngd", store_name='geo_data', pg_table=layer_name)
+            r.get_response # todo incluir respuesta de geoserver
+            return ResponseObject(issues=issues, status=status, content=None)
+
+register_api(bp_geo, layerAPI, "geo/layers", f"{bcs_api_base}/geo/layers/", pk="layer_id")
+
+class stylesAPI(MethodView):
 
     @bcs_session()
     def get(self, id, layer, style_name):
@@ -258,24 +342,3 @@ class stylesAPI():
         # create new style
         # geo.upload_style(path=r'path\to\sld\file.sld', workspace='demo')
         pass
-
-def new_layer_data_filter(layer, filter):
-    geo = Geoserver('http://127.0.0.1:8080/geoserver', username='admin', password='geoserver')
-    sql = 'SELECT geometry as geom, "DENOMTAX" FROM plantas WHERE "RAREZALOCA" > 1'
-    geo.publish_featurestore_sqlview(store_name='geo_data', name='tmp_view3', sql=sql, key_column="'IDCELDA'",
-                                     workspace='ngd')
-    pass
-
-def publish_tmp_layer(gdf, workspace, data_storage_name):
-    geo = Geoserver('http://127.0.0.1:8080/geoserver', username='admin', password='geoserver')
-    pass
-
-
-def mask_raster_from_layer(raster, vector):
-    geo = Geoserver('http://127.0.0.1:8080/geoserver', username='admin', password='geoserver')
-    raster_layer = geo.get_layer(layer_name=raster)
-    vector_layer = geo.get_layer(layer_name=vector)
-    print(vector_layer)
-    geo.create_featurestore(store_name='geo_data', workspace='ngd', db='ngd_geoserver', host='localhost', port=5435,
-                            pg_user='postgres', pg_password='postgres')
-    pass
