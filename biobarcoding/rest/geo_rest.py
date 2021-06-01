@@ -66,17 +66,18 @@ bp_geo = Blueprint('geo', __name__)
 
 def get_content(session,r, Feature, id=None):
     content = None
+    count = 0
     try:
         content = session.query(Feature)
         if id:
             content = content.filter(Feature.id == id).first()
         else:
             content = content.order_by(Feature.id).all()
+            count = len(content)
         issues, status = r.issues.append(Issue(IType.INFO, f'READ "{Feature.__name__}": The "{Feature.__name__}" were successfully read')), 200
     except Exception as e:
         print(e)
         issues, status = r.issues.append(Issue(IType.ERROR, f'READ "{Feature.__name__}": The "{Feature.__name__}" could not be read.')), 500
-    count = len(content)
     if content == None:
         issues, status = r.issues.append(Issue(IType.ERROR, f'no data available')), 200
         content = ""
@@ -97,8 +98,6 @@ def get_json_from_schema(entity, t):
     entity_schema = getattr(entity, "Schema")()
     t_json = entity_schema.dumps(t)
     return json.loads(t_json)
-
-
 
 class RegionsAPI(MethodView):
     '''
@@ -141,12 +140,12 @@ class RegionsAPI(MethodView):
         t = request.json
         GeographicRegion_schema = getattr(GeographicRegion, "Schema")()
         Regions_schema = getattr(Regions, "Schema")()
-        # regions_data = get_json_from_schema(Regions, t)
+        regions_data = get_json_from_schema(Regions, t)
         geographicregion_data = get_json_from_schema(GeographicRegion, t)
-        regions = Regions_schema.load(t, instance=Regions())
+        regions = Regions_schema.load(regions_data, instance=Regions())
         pg.add(regions)
         pg.commit()
-        geographicregion = GeographicRegion_schema.load(t, instance = GeographicRegion())
+        geographicregion = GeographicRegion_schema.load(geographicregion_data, instance = GeographicRegion())
         geographicregion.uuid = regions.uuid
         geographicregion.geo_id = regions.id
         geographicregion.usr = g.bcs_session.identity.id
@@ -245,35 +244,23 @@ class layerAPI(MethodView):
         db.add(geographiclayer)
         db.commit()
         layer_name = f"layer_{geographiclayer.id}"
-        if t.get("data"):
-            df = gpd.GeoDataFrame.from_features(t["data"]['features'])
-            issues, status = self._store_and_publish_gdf(layer_name, df)
-        if t.get("file"):
-            path = t["file"]
-            file_extension = pathlib.Path(path).suffix
-            if file_extension == ".shp":
-                df = gpd.read_file(path)
-                issues, status = self._store_and_publish_gdf(layer_name, df)
-            if file_extension in (".tif"):
-                geoserver_session.create_coveragestore(layer_name=t["id"],
-                                         path=path,
-                                         workspace=t["wks"])
-        if t.get("layer_name"):
-            layer = geoserver_session.get_layer(layer_name=t["layer_name"])
-            # if layer == raster:
-            #     r = geoserver_session.create_coveragestore(layer_name=layer_name,
-            #                                                path=path,
-            #                                                workspace=t["wks"])
-            # TODO CAMBIAR FORMATO Y TAL
-            issues, status = self._store_and_publish_gdf(layer_name,layer)
+        issues, status = self.post_in_postgis(t,layer_name)
+        if status == 200:
+            geographiclayer.in_postgis = True
+        issues, status = self.publish_in_geoserver(t,layer_name)
+        if status == 200:
+            geographiclayer.published = True
+        db.add(geographiclayer)
+        db.commit()
         return ResponseObject(issues = issues, status=status, content=None).get_response()
 
     @bcs_session()
     def put(self, _id = None):
+        r = ResponseObject()
         db = g.bcs_session.db_session
         t = request.json
         GeographicLayer_schema = getattr(GeographicRegion, "Schema")()
-        issues, geographiclayer, count, status = get_content(db, GeographicLayer, _id)
+        issues, geographiclayer, count, status = get_content(db,r, GeographicLayer, _id)
         geographiclayer = GeographicLayer_schema.load(t, instance = geographiclayer)
         geographiclayer.add()
         return ResponseObject(content=geographiclayer,issues = issues, status=status)
@@ -321,8 +308,7 @@ class layerAPI(MethodView):
         from biobarcoding import postgis_engine
         from biobarcoding.geo import geoserver_session
         try:
-            gdf.to_postgis(layer_name, postgis_engine,
-                          if_exists="fail")  # names have to be uniques or will be stores by id
+            gdf.to_postgis(layer_name, postgis_engine, if_exists="fail") # TODO... es mejor hacer fail o replace?
         except ValueError as e:
             issues, status = [Issue(IType.INFO, f"layer named as {layer_name} error {e}")], 400
             return issues,status
@@ -332,15 +318,52 @@ class layerAPI(MethodView):
             issues.append(Issue(IType.INFO, r))
             return issues, status
 
-    def _geojson_to_dataframe(self,data):
-        '''
-        from geoJSON.io like format. Convert to geopandas
-        @param data:
-        @return:
-        '''
-        d = data['features']
-        gdf = gpd.GeoDataFrame.from_dict(d)
-        pass
+
+    def post_in_postgis(self,t, layer_name):
+        from biobarcoding import postgis_engine
+        if t.get("data"):
+            df = gpd.GeoDataFrame.from_features(t["data"]['features'])
+        elif t.get("file"):
+            path = t["file"]
+            file_extension = pathlib.Path(path).suffix
+            if file_extension == ".shp":
+                df = gpd.read_file(path)
+        else:
+            return None, None
+        try:
+            df.to_postgis(layer_name, postgis_engine, if_exists="fail")  # TODO... es mejor hacer fail o replace?
+        except ValueError as e:
+            issues, status = [Issue(IType.INFO, f"layer named as {layer_name} error {e}")], 400
+        else:
+            issues, status = [Issue(IType.INFO, f"layer stored in geo database")], 200
+        return issues, status
+
+
+    def publish_in_geoserver(self, t, layer_name):
+        from biobarcoding.geo import geoserver_session
+        if t.get('file'):
+            path = t.get('file')
+            file_extension = pathlib.Path(path).suffix
+            if file_extension in (".tif"):
+                r = geoserver_session.create_coveragestore(layer_name=t["id"],
+                                                           path=path,
+                                                           workspace=t["wks"])
+                return [Issue(IType.INFO, r)], 400
+            if file_extension in (".shp"):
+                r = geoserver_session.publish_featurestore(workspace=t['wks'], store_name='geo_data',
+                                                           pg_table=layer_name)
+                return [Issue(IType.INFO, r)], 200
+
+        elif t.get("layer_name"):
+            layer = geoserver_session.get_layer(layer_name=t["layer_name"])
+            # if layer == raster:
+            #     r = geoserver_session.create_coveragestore(layer_name=layer_name,
+            #                                                path=path,
+            #                                                workspace=t["wks"])
+            # TODO CAMBIAR FORMATO Y TAL
+            # issues, status = self._store_and_publish_gdf(layer_name, layer)
+        else:
+            return [Issue(IType.INFO, f"No  valid geographic data specified")], 400
 
 view_func = layerAPI.as_view("geo/layers")
 bp_geo.add_url_rule(f"{bcs_api_base}/geo/layers/", defaults={"_filter": None}, view_func=view_func, methods=['GET'])

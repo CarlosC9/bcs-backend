@@ -1,6 +1,6 @@
 # GEOGRAPHIC data
 from marshmallow_sqlalchemy import SQLAlchemySchema, fields
-from sqlalchemy import Column, Integer, String, BigInteger, ForeignKey, JSON, MetaData
+from sqlalchemy import Column, Integer, String, BigInteger, ForeignKey, JSON, Boolean
 
 from biobarcoding.db_models import ORMBase, ORMBaseGeo, GUID
 from biobarcoding.db_models.bioinformatics import BioinformaticObject, bio_object_type_id
@@ -30,6 +30,8 @@ class GeographicLayer(ORMBase):
     name = Column(String(80))
     wks = Column(String(80))
     attributes = Column(JSON)
+    published = Column(Boolean,default= False)
+    in_postgis = Column(Boolean,default= False)
 
 class Regions(ORMBaseGeo):
      __tablename__ = 'Regions'
