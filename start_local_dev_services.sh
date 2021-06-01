@@ -57,7 +57,8 @@ galaxy_started="yes"
 if [ "$(whoami)" == "rnebot" ] && [ "$#" -gt 0 ] ; then
   galaxy_started=$(ssh rnebot@balder docker ps -q -f name=galaxy_devel_rnebot)
 elif [ "$(whoami)" == "acurbelo" ] ; then
-  galaxy_started=$(ssh acurbelo@balder docker ps -q -f name=galaxy_devel_acurbelo)
+#  galaxy_started=$(ssh acurbelo@balder docker ps -q -f name=galaxy_devel_acurbelo)
+  galaxy_started=$(docker ps -q -f name=galaxy_devel)
 elif [ "$(whoami)" == "paula" ] ; then
   galaxy_started=$(docker ps -q -f name=galaxy_devel)
 elif [ "$(whoami)" == "daniel" ] ; then
@@ -70,7 +71,8 @@ if [ ! "$galaxy_started" ] ; then
   if [ "$(whoami)" == "rnebot" ] ; then
     ssh rnebot@balder docker run --name galaxy_devel_rnebot -d -p 8180:80 -p 8121:21 -p 8122:22 --rm -v /home/rnebot/DATOS/galaxy_storage/:/export  bgruening/galaxy-stable
   elif [ "$(whoami)" == "acurbelo" ] ; then
-    ssh acurbelo@balder docker run --name galaxy_devel_acurbelo -d -p 8280:80 -p 8221:21 -p 8222:22 --rm -v /var/lib/nextgendem/galaxy_storage/:/export  bgruening/galaxy-stable
+#    ssh acurbelo@balder docker run --name galaxy_devel_acurbelo -d -p 8280:80 -p 8221:21 -p 8222:22 --rm -v /var/lib/nextgendem/galaxy_storage/:/export  bgruening/galaxy-stable
+    docker run --name galaxy_devel -d -p 8280:80 -p 8221:21 -p 8222:22 --rm -v /var/lib/nextgendem/galaxy_storage/:/export  bgruening/galaxy-stable:20.05
   elif [ "$(whoami)" == "paula" ] ; then
     docker run --name galaxy_devel -d -p 8080:80 -p 8021:21 -p 8022:22 --rm -v /home/paula/galaxy_storage/:/export  bgruening/galaxy-stable
   elif [ "$(whoami)" == "daniel" ] ; then
@@ -160,7 +162,7 @@ if [ ! $geoserver_started ] ; then
   if [ "$(whoami)" == "rnebot" ] ; then
     docker run --name "geoserver"   --link postgis:postgis  -p 9180:8080 --rm -v /home/rnebot/DATOS/geoserver/geoserver/:/opt/geoserver/data_dir  -d  -e DB_BACKEND=POSTGRES  -e HOST=postgis  -e POSTGRES_PORT=5432  -e POSTGRES_DB=geoserver  -e POSTGRES_USER=postgres  -e POSTGRES_PASS=postgres  -e USERNAME=postgres  -e PASS=postgres  -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37   -e GEOSERVER_ADMIN_USER=ngd_admin  kartoza/geoserver:2.19.0
   elif [ "$(whoami)" == "acurbelo" ] ; then
-    docker run --name "geoserver"  --link postgis:postgis  -p 9180:8080 --rm -v /var/lib/nextgendem/geoserver/geoserver:/opt/geoserver/data_dir  -d  -e DB_BACKEND=POSTGRES  -e HOST=postgis  -e POSTGRES_PORT=5432  -e POSTGRES_DB=geoserver  -e POSTGRES_USER=postgres  -e POSTGRES_PASS=postgres  -e USERNAME=postgres  -e PASS=postgres  -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37   -e GEOSERVER_ADMIN_USER=ngd_admin  kartoza/geoserver:2.19.0
+    docker run --name "geoserver"  --link postgis:postgis  -p 9280:8080 --rm -v /var/lib/nextgendem/geoserver/geoserver:/opt/geoserver/data_dir  -d  -e DB_BACKEND=POSTGRES  -e HOST=postgis  -e POSTGRES_PORT=5432  -e POSTGRES_DB=geoserver  -e POSTGRES_USER=postgres  -e POSTGRES_PASS=postgres  -e USERNAME=postgres  -e PASS=postgres  -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37   -e GEOSERVER_ADMIN_USER=ngd_admin  kartoza/geoserver:2.19.0
   elif [ "$(whoami)" == "paula" ] ; then
     docker run --name "geoserver"  --link postgis:postgis  -p 9180:8080 --rm -v /home/paula/DATOS/geoserver/geoserver:/opt/geoserver/data_dir  -d  -e DB_BACKEND=POSTGRES  -e HOST=postgis  -e POSTGRES_PORT=5432  -e POSTGRES_DB=ngd_eoserver  -e POSTGRES_USER=postgres  -e POSTGRES_PASS=postgres  -e USERNAME=postgres  -e PASS=postgres  -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37   -e GEOSERVER_ADMIN_USER=ngd_admin  kartoza/geoserver:2.19.0
   elif [ "$(whoami)" == "daniel" ] ; then

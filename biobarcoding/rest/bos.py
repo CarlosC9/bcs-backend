@@ -41,7 +41,7 @@ class BioObjAPI(MethodView):
 
     @bcs_session()
     def put(self, bos, id, format=None):
-        print(f'PUT {request.path}\nCreating {bos} {id}')
+        print(f'PUT {request.path}\nUpdating {bos} {id}')
         self._prepare(bos)
         issues, content, status = self.service.update(id, **self.kwargs.get('value'))
         return ResponseObject(content=content, issues=issues, status=status).get_response()

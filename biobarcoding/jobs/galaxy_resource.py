@@ -617,7 +617,7 @@ def initialize_galaxy(flask_app):
                 wf_dict_in = json.load(f)
             name = wf_dict_in['name']
             w_id = workflow_id(gi, name)
-            if w_id != 'there is no workflow named{}'.format(name):
+            if w_id != 'there is no workflow named{}'.format(name) and w_id:
                 gi.workflows.delete_workflow(w_id)
             wf = gi.workflows.import_workflow_from_local_path(workflow_path)
             wf_dict_out = gi.workflows.export_workflow_dict(wf['id'])

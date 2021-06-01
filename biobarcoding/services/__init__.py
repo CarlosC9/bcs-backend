@@ -42,10 +42,12 @@ def get_or_create(session, model, **kwargs):
     if not instance:
         params = dict((k, v) for k, v in kwargs.items())
         instance = model(**params)
+        session.add(instance)
+        session.flush()
     return instance
 
 
 # TODO in progress
-def get_query(session, model, **kwargs):
+def get_simple_query(session, model, **kwargs):
     kwargs = {k:v for k,v in kwargs.items() if v is not None}
     return session.query(model).filter_by(**kwargs)
