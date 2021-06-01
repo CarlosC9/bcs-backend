@@ -448,6 +448,11 @@ def initialize_database_data():
                             [["sysadmin", "test_user"]])
     load_many_to_many_table(DBSession, GroupIdentity, Group, Identity, ["group_id", "identity_id"],
                             [["all-identified", "test_user"]])
+    load_many_to_many_table(DBSession, ObjectTypePermissionType, ObjectType, PermissionType, ["object_type_id", "permission_type_id"],
+                            [["sequence", "read"], ["sequence", "annotate"], ["sequence", "delete"],
+                            ["multiple-sequence-alignment", "read"], ["multiple-sequence-alignment", "annotate"], ["multiple-sequence-alignment", "delete"],
+                            ["phylogenetic-tree", "read"], ["phylogenetic-tree", "annotate"], ["phylogenetic-tree", "delete"],
+                            ["process", "read"], ["process", "execute"]])
 
     # Insert a test BOS
     # session = DBSession()
@@ -892,3 +897,24 @@ def paginator(query, pagination):
             .offset((page - 1) * page_size)\
             .limit(page_size)
     return query
+
+
+def get_query(session, orm, id=None, aux_filter=None, aux_order=None, **kwargs):
+    query = session.query(orm)
+    count = 0
+    if id:
+        query = query.filter(orm.id == id)
+    elif kwargs.get('value'):
+        query.filter_by(**kwargs.get('value'))
+        # for k,v in kwargs.get('value'):
+        #     kwargs['value'][k]={'op':'eq', 'unary':v}
+        # query = query.filter(filter_parse(orm, kwargs.get('value'), aux_filter))
+    else:
+        if 'filter' in kwargs:
+            query = query.filter(filter_parse(orm, kwargs.get('filter'), aux_filter))
+        if 'order' in kwargs:
+            query = query.order_by(order_parse(orm, kwargs.get('order'), aux_order))
+        if 'pagination' in kwargs:
+            count = query.count()
+            query = paginator(query, kwargs.get('pagination'))
+    return query, count

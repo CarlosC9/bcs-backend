@@ -125,6 +125,16 @@ class PermissionType(ORMBase):  # CODES
     name = Column(String(80))
 
 
+class ObjectTypePermissionType(ORMBase):
+    __tablename__ = f"{prefix}obj_types_perm_types"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    object_type_id = Column(Integer, ForeignKey(ObjectType.id), nullable=False, primary_key=True)
+    permission_type_id = Column(Integer, ForeignKey(PermissionType.id), nullable=False, primary_key=True)
+    object_type = relationship(ObjectType, backref=backref("permission_types", cascade="all, delete-orphan"))
+    permission_type = relationship(PermissionType, backref=backref("object_types", cascade="all, delete-orphan"))
+
+
 class ACL(ORMBase):
     """ List of permissions on an object. The detail """
     __tablename__ = f"{prefix}permissions"
