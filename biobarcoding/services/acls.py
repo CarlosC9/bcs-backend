@@ -12,13 +12,13 @@ def create_acls(**kwargs):
             if not kwargs.get('object_type'):
                 # TODO: what for the non-bos ?
                 kwargs['object_type'] = DBSession.query(BioinformaticObject.bo_type_id)\
-                    .filter(BioinformaticObject.id==kwargs.get('object_id')).first()
+                    .filter(BioinformaticObject.uuid==kwargs.get('object_id')).first()
         elif kwargs.get('object_type'):
-            if kwargs.get('chado_id'):
-                # TODO: look at
-                kwargs['object_id'] = DBSession.query(BioinformaticObject.id)\
-                    .filter(BioinformaticObject.chado_id==kwargs.get('chado_id')
-                            and BioinformaticObject.bo_type_id==kwargs.get('object_type')).first()
+            if not kwargs.get('chado_id'):
+                raise
+            kwargs['object_id'] = DBSession.query(BioinformaticObject)\
+                .filter(BioinformaticObject.chado_id==kwargs.pop('chado_id'),
+                        BioinformaticObject.bo_type_id==kwargs.get('object_type')).one().uuid
         else:
             raise
         acl = ACL(**kwargs)
@@ -28,7 +28,7 @@ def create_acls(**kwargs):
         if isinstance(details, (list, tuple)):
             for d in details:
                 DBSession.add(ACLDetail(acl_id=acl.id, **d))
-        else:
+        elif details:
             DBSession.add(ACLDetail(acl_id=acl.id, **details))
         issues, status = [Issue(IType.INFO, f'CREATE acls: The acl created successfully.')], 201
     except Exception as e:

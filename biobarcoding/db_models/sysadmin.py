@@ -12,6 +12,13 @@ from biobarcoding.db_models import ORMBase, GUID, ObjectType
 
 prefix = "sa_auth_"
 
+authorizable_type_id = {
+    "identity": 1,
+    "organization": 2,
+    "group": 3,
+    "role": 4,
+}
+
 
 class Authenticator(ORMBase):  # CODES
     """ List of valid authenticators """
@@ -23,15 +30,33 @@ class Authenticator(ORMBase):  # CODES
     validation_endpoint = Column(String(1024))
 
 
-class Identity(ORMBase):
+class Authorizable(ORMBase):
+    """ Authorizables.
+     Permissions (ACLs) are assigned to Authorizables """
+    __versioned__ = {}
+    __tablename__ = f"{prefix}authorizables"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
+    authorizable_type_id = Column(Integer, nullable=False)
+
+    __mapper_args__ = {
+        'polymorphic_identity': 'authorizable',
+        'polymorphic_on': authorizable_type_id
+    }
+
+
+class Identity(Authorizable):
     """ Identities.
      Users can have one or more authenticators
      Permissions (ACLs) are assigned to Identities or Groups of identities """
     __versioned__ = {}
     __tablename__ = f"{prefix}identities"
+    __mapper_args__ = {
+        'polymorphic_identity': authorizable_type_id['identity'],
+    }
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True, default=uuid.uuid4)
+    id = Column(Integer, ForeignKey(Authorizable.id), primary_key=True)
     name = Column(String(255))
     email = Column(String(255))
     # configuration = Column(JSON)  # To store personal preferences, from language to other visualization features
@@ -53,11 +78,13 @@ class IdentityAuthenticator(ORMBase):
     authenticator_info = Column(JSON)
 
 
-class Organization(ORMBase):
+class Organization(Authorizable):
     __tablename__ = f"{prefix}organizations"
+    __mapper_args__ = {
+        'polymorphic_identity': authorizable_type_id['organization'],
+    }
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True, default=uuid.uuid4)
+    id = Column(Integer, ForeignKey(Authorizable.id), primary_key=True)
     name = Column(String(80))
 
 
@@ -69,11 +96,13 @@ class OrganizationIdentity(ORMBase):
     identity = relationship(Identity, backref=backref("organizations", cascade="all, delete-orphan"))
 
 
-class Group(ORMBase):
+class Group(Authorizable):
     __tablename__ = f"{prefix}groups"
+    __mapper_args__ = {
+        'polymorphic_identity': authorizable_type_id['group'],
+    }
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True, default=uuid.uuid4)
+    id = Column(Integer, ForeignKey(Authorizable.id), primary_key=True)
     name = Column(String(80))
 
 
@@ -85,11 +114,13 @@ class GroupIdentity(ORMBase):
     identity = relationship(Identity, backref=backref("groups", cascade="all, delete-orphan"))
 
 
-class Role(ORMBase):
+class Role(Authorizable):
     __tablename__ = f"{prefix}roles"
+    __mapper_args__ = {
+        'polymorphic_identity': authorizable_type_id['role'],
+    }
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True, default=uuid.uuid4)
+    id = Column(Integer, ForeignKey(Authorizable.id), primary_key=True)
     name = Column(String(80))
 
 
@@ -144,6 +175,10 @@ class ACL(ORMBase):
     object_type = Column(Integer, ForeignKey(ObjectType.id), nullable=False)
     object_id = Column(GUID, nullable=False)
 
+    __table_args__ = (
+        sqlalchemy.UniqueConstraint(object_id, object_type, name=__tablename__+'_c1'),
+    )
+
 
 class ACLExpression(ORMBase):
     """ Authorization in the form of expression, evaluated by """
@@ -164,19 +199,17 @@ class ACLDetail(ORMBase):
     __tablename__ = f"{prefix}permissions_detail"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    acl_id = Column(Integer, ForeignKey(ACL.id))
+    acl_id = Column(Integer, ForeignKey(ACL.id), nullable=False)
     acl = relationship(ACL, backref=backref("detail", cascade="all, delete-orphan"))
 
     # Origin of this record (can be NULL if directly specified)
     acl_expression_id = Column(Integer, ForeignKey(ACLExpression.id), nullable=True)
     acl_expression = relationship(ACLExpression, backref=backref("compiled", cascade="all, delete-orphan"))
 
-    identity_id = Column(Integer, ForeignKey(Identity.id))
-    organization_id = Column(Integer, ForeignKey(Organization.id))
-    group_id = Column(Integer, ForeignKey(Group.id))
-    role_id = Column(Integer, ForeignKey(Role.id))
+    authorizable_id = Column(Integer, ForeignKey(Authorizable.id, ondelete="CASCADE"), nullable=False)
+    authorizable = relationship(Authorizable)
 
-    permission_id = Column(Integer, ForeignKey(PermissionType.id))  # Read, Export (Share?), Modify, Delete (depends on the type of object)
+    permission_id = Column(Integer, ForeignKey(PermissionType.id), nullable=False)  # Read, Export (Share?), Modify, Delete (depends on the type of object)
     permission = relationship(PermissionType)
 
     validity_start = Column(DateTime, nullable=True)
