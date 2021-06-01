@@ -21,16 +21,14 @@ class GeographicRegion(ORMBase):
     attributes = Column(JSON)
 
 
-class GeographicLayer(BioinformaticObject):
+class GeographicLayer(ORMBase):
     __tablename__ = f"{prefix}layers"
-    __mapper_args__ = {
-        'polymorphic_identity': bio_object_type_id['geographic-layer'],
-    }
 
     uuid = Column(GUID, unique=True, default=uuid.uuid4)
-    id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
+    id = Column(Integer, primary_key=True, autoincrement=True)
     usr = Column(Integer)
-    name = Column(String(80)) # TODO UNIQUE? EVERY ITEM POINTS TO A TABLE IN POSTGIS BY ITS NAME?
+    name = Column(String(80))
+    wks = Column(String(80))
     attributes = Column(JSON)
 
 class Regions(ORMBaseGeo):
