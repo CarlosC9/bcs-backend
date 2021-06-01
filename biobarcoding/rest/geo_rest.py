@@ -64,21 +64,21 @@ Four areas:
 """
 bp_geo = Blueprint('geo', __name__)
 
-def get_content(session, Feature, id=None):
+def get_content(session,r, Feature, id=None):
     content = None
-    count = 0
     try:
         content = session.query(Feature)
         if id:
             content = content.filter(Feature.id == id).first()
         else:
             content = content.order_by(Feature.id).all()
-        issues, status = [Issue(IType.INFO, f'READ "{Feature.__name__}": The "{Feature.__name__}" were successfully read')], 200
+        issues, status = r.issues.append(Issue(IType.INFO, f'READ "{Feature.__name__}": The "{Feature.__name__}" were successfully read')), 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'READ "{Feature.__name__}": The "{Feature.__name__}" could not be read.')], 500
+        issues, status = r.issues.append(Issue(IType.ERROR, f'READ "{Feature.__name__}": The "{Feature.__name__}" could not be read.')), 500
+    count = len(content)
     if content == None:
-        issues, status = [Issue(IType.ERROR, f'no data available')], 200
+        issues, status = r.issues.append(Issue(IType.ERROR, f'no data available')), 200
         content = ""
     return issues, content, count, status
 
@@ -111,16 +111,17 @@ class RegionsAPI(MethodView):
         # dar lista de regiones para visualizar
         # entregar región a PDA
         '''
+        r = ResponseObject()
         db = g.bcs_session.db_session
         pg = g.bcs_session.postgis_db_session
-        issues, geographicregion, count, status = get_content(db, GeographicRegion,region_id)
+        issues, geographicregion, count, status = get_content(db,r, GeographicRegion,region_id)
         if status == 200 and geographicregion != "":
             if region_id is None:
                 lines = False
-                issues, regions, count, status = get_content(pg, Regions,region_id)
+                issues, regions, count, status = get_content(pg,r, Regions,region_id)
             else:
                 lines = True
-                issues, regions, count, status = get_content(pg, Regions,geographicregion.geo_id)
+                issues, regions, count, status = get_content(pg,r, Regions,geographicregion.geo_id)
 
             geodf = pd.read_json(response_to_dataframe(geographicregion),lines = lines)
             df = pd.read_json(response_to_dataframe(regions), lines = lines)
@@ -129,7 +130,7 @@ class RegionsAPI(MethodView):
             content = pd.concat([geodf,df], axis = 1, join="inner")
         else:
             content  = None
-        return ResponseObject(issues= issues,status = status, content= content, content_type= "application/json").get_response()
+        return ResponseObject(issues= issues,status = status, content= content, content_type= "application/json", count = count).get_response()
 
 
     @bcs_session()
@@ -155,11 +156,12 @@ class RegionsAPI(MethodView):
 
     @bcs_session()
     def delete(self,region_id = None):
+        r = ResponseObject()
         db = g.bcs_session.db_session
         pg = g.bcs_session.postgis_db_session
-        issues, geographicregion, count, status = get_content(db, GeographicRegion, region_id)
+        issues, geographicregion, count, status = get_content(db,r, GeographicRegion, region_id)
         if status == 200 and geographicregion != "":
-            issues, region, count, status = get_content(pg, Regions,geographicregion.geo_id)
+            issues, region, count, status = get_content(pg,r, Regions,geographicregion.geo_id)
             db.delete(geographicregion)
             pg.delete(region)
         return ResponseObject(issues= issues,status = status).get_response()
@@ -167,19 +169,20 @@ class RegionsAPI(MethodView):
 
     @bcs_session()
     def put(self, region_id = None):
+        r = ResponseObject()
         db = g.bcs_session.db_session
         pg = g.bcs_session.postgis_db_session
         t = request.json
         GeographicRegion_schema = getattr(GeographicRegion,"Schema")()
         Regions_schema = getattr(Regions, "Schema")()
-        issues, geographicregion, count, status = get_content(db, GeographicRegion, region_id)
+        issues, geographicregion, count, status = get_content(db,r, GeographicRegion, region_id)
         if status == 200 and geographicregion != "":
-            issues, region, count, status = get_content(pg, Regions, geographicregion.geo_id)
+            issues, region, count, status = get_content(pg,r, Regions, geographicregion.geo_id)
         geographicregion = GeographicRegion_schema.load(get_json_from_schema(GeographicRegion, t), instance = geographicregion)
         regions = Regions_schema.load(get_json_from_schema(Regions, t), instance = region)
         db.add(geographicregion)
         pg.add(regions)
-        return ResponseObject(issues= issues,status = status).get_response()
+        return ResponseObject(issues= issues,status = status, count = count).get_response()
 
 
 register_api(bp_geo, RegionsAPI, "geo/regions", f"{bcs_api_base}/geo/regions/", pk="region_id")
@@ -198,7 +201,7 @@ class layerAPI(MethodView):
             then in postgis as table (format)
             and then publish  in geoserver as new layer
 
-    PUT: changing name or attribues (never Geometry)
+    PUT: changing name or attributes (never Geometry)
 
     DELETE: delete completely from GeographicLayer table (bcs) postgis and geoserver
 
@@ -219,7 +222,7 @@ class layerAPI(MethodView):
             return ResponseObject(issues=issues, status=status, content=layers).get_response()
         else:
             # el tema de la key_columns...???
-            r = geoserver_session.publish_featurestore_sqlview(store_name='geo_data', name='tmpview', sql=self._create_sql(filter), key_column="'IDCELDA'",
+            r = geoserver_session.publish_featurestore_sqlview(store_name='geo_data', name='tmpview', sql=self._create_sql(_filter), key_column="'IDCELDA'",
                                              workspace='ngd') # las tmp tmb en ngs, supongo
             r.get_response()
 
@@ -243,7 +246,7 @@ class layerAPI(MethodView):
         db.commit()
         layer_name = f"layer_{geographiclayer.id}"
         if t.get("data"):
-            df = gpd.read_file(t["data"]) # assuming t is a JSON
+            df = gpd.GeoDataFrame.from_features(t["data"]['features'])
             issues, status = self._store_and_publish_gdf(layer_name, df)
         if t.get("file"):
             path = t["file"]
@@ -285,14 +288,15 @@ class layerAPI(MethodView):
         '''
         from biobarcoding.geo import geoserver_session
         from biobarcoding import postgis_engine
+        r = ResponseObject()
         db = g.bcs_session.db_session
         pg = g.bcs_session.postgis_db_session
-        issues, geographiclayer , count, status = get_content(db, GeographicLayer, _id)
+        issues, geographiclayer , count, status = get_content(db, r, GeographicLayer, _id)
         if status == 200:
             layer_name = f"layer_{str(geographiclayer.id)}"
             # delete layer from geoserver
-            r = geoserver_session.delete_layer(layer_name= layer_name, workspace=geographiclayer.wks)
-            issues.append(Issue(IType.INFO, r))
+            res = geoserver_session.delete_layer(layer_name= layer_name, workspace=geographiclayer.wks)
+            issues.append(Issue(IType.INFO, res))
             # delete table from postgis
             dropTableStmt = f"DROP TABLE public.{layer_name};"
             try:
@@ -311,7 +315,7 @@ class layerAPI(MethodView):
         @param filter: filter build by the user in GUI
         @return: sql query for postgis
         '''
-        return filter
+        return _filter
 
     def _store_and_publish_gdf(self,layer_name,gdf):
         from biobarcoding import postgis_engine
@@ -328,6 +332,15 @@ class layerAPI(MethodView):
             issues.append(Issue(IType.INFO, r))
             return issues, status
 
+    def _geojson_to_dataframe(self,data):
+        '''
+        from geoJSON.io like format. Convert to geopandas
+        @param data:
+        @return:
+        '''
+        d = data['features']
+        gdf = gpd.GeoDataFrame.from_dict(d)
+        pass
 
 view_func = layerAPI.as_view("geo/layers")
 bp_geo.add_url_rule(f"{bcs_api_base}/geo/layers/", defaults={"_filter": None}, view_func=view_func, methods=['GET'])
