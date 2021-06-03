@@ -88,10 +88,10 @@ class ACLAPI(MethodView):
     """
 
     @bcs_session(read_only=True)
-    def get(self, uuid=None):
-        print(f'GET {request.path}\nGetting ACL {uuid}')
+    def get(self, id=None, uuid=None):
+        print(f'GET {request.path}\nGetting ACL {id}')
         kwargs = check_request_params()
-        issues, content, count, status = read_acls(uuid, **kwargs)
+        issues, content, count, status = read_acls(id=id, uuid=uuid, **kwargs)
         return ResponseObject(content=content, count=count, issues=issues, status=status).get_response()
 
     @bcs_session()
@@ -102,17 +102,17 @@ class ACLAPI(MethodView):
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
     @bcs_session()
-    def put(self, uuid):
-        print(f'PUT {request.path}\nCreating ACL {uuid}')
+    def put(self, id=None, uuid=None):
+        print(f'PUT {request.path}\nCreating ACL {id}')
         kwargs = check_request_params()
-        issues, content, status = update_acls(uuid, **kwargs.get('value'))
+        issues, content, status = update_acls(id=id, uuid=uuid, **kwargs.get('value'))
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
     @bcs_session()
-    def delete(self, uuid=None):
-        print(f'DELETE {request.path}\nDeleting ACL {uuid}')
+    def delete(self, id=None, uuid=None):
+        print(f'DELETE {request.path}\nDeleting ACL {id}')
         kwargs = check_request_params()
-        issues, content, status = delete_acls(uuid, **kwargs)
+        issues, content, status = delete_acls(id=id, uuid=uuid, **kwargs)
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
@@ -128,7 +128,12 @@ bp_acl.add_url_rule(
     methods=['GET','POST','DELETE']
 )
 bp_acl.add_url_rule(
-    bcs_api_base + '/acls/<int:uuid>',
+    bcs_api_base + '/acls/<int:id>',
+    view_func=acl_view,
+    methods=['GET','PUT','DELETE']
+)
+bp_acl.add_url_rule(
+    bcs_api_base + '/acls/<string:uuid>',
     view_func=acl_view,
     methods=['GET','PUT','DELETE']
 )
@@ -140,10 +145,10 @@ class ObjectTypeAPI(MethodView):
     """
 
     @bcs_session(read_only=True)
-    def get(self, id=None):
+    def get(self, id=None, uuid=None):
         print(f'GET {request.path}\nGetting ACL {id}')
         kwargs = check_request_params()
-        issues, content, count, status = read_obj_types(id=id, **kwargs)
+        issues, content, count, status = read_obj_types(id=id, uuid=uuid, **kwargs)
         return ResponseObject(content=content, count=count, issues=issues, status=status).get_response()
 
 
@@ -160,6 +165,11 @@ bp_acl.add_url_rule(
 )
 bp_acl.add_url_rule(
     bcs_api_base + '/object_types/<int:id>',
+    view_func=obj_type_view,
+    methods=['GET']
+)
+bp_acl.add_url_rule(
+    bcs_api_base + '/object_types/<string:uuid>',
     view_func=obj_type_view,
     methods=['GET']
 )

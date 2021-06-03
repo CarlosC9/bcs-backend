@@ -15,7 +15,7 @@ from flask import Response, Blueprint, g, request
 from flask.views import MethodView
 from sqlalchemy import orm, and_, or_
 from sqlalchemy.pool import StaticPool
-from typing import Dict
+from typing import Dict, List
 
 import biobarcoding
 from biobarcoding.authentication import bcs_session
@@ -810,6 +810,40 @@ def check_request_params(data=None):
     return kwargs
 
 
+def related_authr_ids(engine, identity_id) -> List[int]:
+    pass
+
+
+def auth_filter():
+    """
+    * Filter
+    * Identity (ids) 
+    * object types (ids)
+    * permission types (ids)
+    * object ids
+    * date time
+    
+    CollectionDetail (cd) <> Collection (c) > ACL <> ACLDetail (ad)
+    
+SELECT 
+  CASE cd.object_id WHEN NULL THEN acl.object_uuid ELSE cd.object_uuid as oid, 
+  ad.permission_id as pid, 
+  ad.authr_id as aid  # To explain why it was authorized
+FROM CollectionDetail cd JOIN Collection c ON cd.col_id=c.id RIGHT JOIN ACL ON c.uuid=acl.object_id JOIN ACLDetail ad ON acl.id=ad.acl_id
+WHERE ad.authorizable IN (<identities>)  # Authorizable 
+      AND object_type IN (<collection object type>[, <target object type>])  # Object types
+      AND date time BETWEEN ad.validity_start AND ad.validity_end
+      [AND permission_types IN (...)]
+      [AND object_uuids IN (...)]
+      
+* Añadir lista ids objeto sirve para ver permisos de esos objetos concretos
+* Añadir lista id tipos permisos sirve para ver si esos tipos están
+    
+    @return: 
+    """
+    pass
+
+
 def filter_parse(orm, filter, aux_filter=None):
     """
     @param orm: <ORMSqlAlchemy>
@@ -904,17 +938,24 @@ def get_query(session, orm, id=None, aux_filter=None, aux_order=None, **kwargs):
     count = 0
     if id:
         query = query.filter(orm.id == id)
-    elif kwargs.get('value'):
-        query.filter_by(**kwargs.get('value'))
-        # for k,v in kwargs.get('value'):
-        #     kwargs['value'][k]={'op':'eq', 'unary':v}
-        # query = query.filter(filter_parse(orm, kwargs.get('value'), aux_filter))
+    # elif kwargs.get('value'):
+    #     query.filter_by(**kwargs.get('value'))
+    #     # for k,v in kwargs.get('value'):
+    #     #     kwargs['value'][k]={'op':'eq', 'unary':v}
+    #     # query = query.filter(filter_parse(orm, kwargs.get('value'), aux_filter))
     else:
-        if 'filter' in kwargs:
+        if not kwargs.get('value'):
+            kwargs['value'] = {}
+        for k,v in kwargs.items():
+            if not k in ['value', 'filter', 'order', 'pagination']:
+                kwargs['value'][k] = v
+        if kwargs.get('value'):
+            query.filter_by(**kwargs.get('value'))
+        if kwargs.get('filter'):
             query = query.filter(filter_parse(orm, kwargs.get('filter'), aux_filter))
-        if 'order' in kwargs:
+        if kwargs.get('order'):
             query = query.order_by(order_parse(orm, kwargs.get('order'), aux_order))
-        if 'pagination' in kwargs:
+        if kwargs.get('pagination'):
             count = query.count()
             query = paginator(query, kwargs.get('pagination'))
     return query, count

@@ -173,10 +173,10 @@ class ACL(ORMBase):
     id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(GUID, nullable=False, default=uuid.uuid4)  # Object ID (ACL are on objects with UUID)
     object_type = Column(Integer, ForeignKey(ObjectType.id), nullable=False)
-    object_id = Column(GUID, nullable=False)
+    object_uuid = Column(GUID, nullable=False)
 
     __table_args__ = (
-        sqlalchemy.UniqueConstraint(object_id, object_type, name=__tablename__+'_c1'),
+        sqlalchemy.UniqueConstraint(object_uuid, object_type, name=__tablename__ + '_c1'),
     )
 
 
