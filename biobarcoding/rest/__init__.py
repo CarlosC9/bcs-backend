@@ -947,7 +947,7 @@ def get_query(session, orm, id=None, aux_filter=None, aux_order=None, **kwargs):
         if not kwargs.get('value'):
             kwargs['value'] = {}
         for k,v in kwargs.items():
-            if not k in ['value', 'filter', 'order', 'pagination']:
+            if not k in ['value', 'filter', 'order', 'pagination', 'searchValue']:
                 kwargs['value'][k] = v
         if kwargs.get('value'):
             query.filter_by(**kwargs.get('value'))
