@@ -23,6 +23,7 @@ class BioinformaticObject(ORMBase):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     uuid = Column(GUID, unique=True, default=uuid.uuid4)
     bo_type_id = Column(Integer, ForeignKey(ObjectType.id))
+    chado_id = Column(BigInteger, unique=True, nullable=False, primary_key=False)  # Foreign key (not enforceable by the DB)
     chado_table = Column(String(80))
     name = Column(String(80))
     # content = Column(UnicodeText)
@@ -55,9 +56,7 @@ class Sequence(BioinformaticObject):
     __mapper_args__ = {
         'polymorphic_identity': bio_object_type_id['sequence'],
     }
-
     id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
-    chado_feature_id = Column(BigInteger, unique=True, nullable=False, primary_key=False)  # Foreign key (not enforceable by the DB)
     specimen_id = Column(Integer, ForeignKey(Specimen.id), nullable=True, primary_key=False)
     specimen = relationship(Specimen)
 
@@ -68,9 +67,7 @@ class MultipleSequenceAlignment(BioinformaticObject):
     __mapper_args__ = {
         'polymorphic_identity': bio_object_type_id['multiple-sequence-alignment'],
     }
-
     id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
-    chado_analysis_id = Column(BigInteger, unique=True, nullable=False, primary_key=False)  # Foreign key (not enforceable by the DB)
 
 
 class PhylogeneticTree(BioinformaticObject):
@@ -79,9 +76,7 @@ class PhylogeneticTree(BioinformaticObject):
     __mapper_args__ = {
         'polymorphic_identity': bio_object_type_id['phylogenetic-tree'],
     }
-
     id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
-    chado_phylotree_id = Column(BigInteger, unique=True, nullable=False, primary_key=False)  # Foreign key (not enforceable by the DB)
 
 
 class SequenceSimilarity(BioinformaticObject):
@@ -90,6 +85,4 @@ class SequenceSimilarity(BioinformaticObject):
     __mapper_args__ = {
         'polymorphic_identity': bio_object_type_id['sequence-similarity'],
     }
-
     id = Column(BigInteger, ForeignKey(BioinformaticObject.id), primary_key=True)
-    chado_analysis_id = Column(BigInteger, unique=True, nullable=False, primary_key=False)  # Foreign key (not enforceable by the DB)
