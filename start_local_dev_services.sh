@@ -93,8 +93,8 @@ elif [ "$(whoami)" == "paula" ] ; then
     mkdir /home/paula/DATOS/geoserver
   fi
 elif [ "$(whoami)" == "daniel" ] ; then
-  if [ ! -d "daniel/Documentos/geoserver" ]; then
-    mkdir /home/daniel/Documentos/geoserver
+  if [ ! -d "/home/daniel/Documentos/DATOS/geoserver" ]; then
+    mkdir /home/daniel/Documentos/DATOS/geoserver
   fi
 fi
 
@@ -119,7 +119,7 @@ if [ ! $postgis_started ] ; then
   elif [ "$(whoami)" == "paula" ] ; then
     docker run -d -v /home/paula/DATOS/geoserver/pg:/var/lib/postgresql -p 5435:5432 --rm -e POSTGRES_DBNAME=ngd_geoserver -e POSTGRES_PASS=postgres -e POSTGRES_USER=postgres -e ALLOW_IP_RANGE=0.0.0.0/0 --name postgis -t kartoza/postgis:13.0
   elif [ "$(whoami)" == "daniel" ] ; then
-    docker run -d -v /home/daniel/Documentos/geoserver/pg:/var/lib/postgresql -p 5435:5432 --rm -e POSTGRES_DBNAME=ngd_geoserver -e POSTGRES_PASS=postgres -e POSTGRES_USER=postgres -e ALLOW_IP_RANGE=0.0.0.0/0 --name postgis -t kartoza/postgis:13.0
+    docker run -d -v /home/daniel/Documentos/DATOS/geoserver/pg:/var/lib/postgresql -p 5435:5432 --rm -e POSTGRES_DBNAME=ngd_geoserver -e POSTGRES_PASS=postgres -e POSTGRES_USER=postgres -e ALLOW_IP_RANGE=0.0.0.0/0 --name postgis -t kartoza/postgis:13.0
   fi
 fi
 
@@ -137,8 +137,8 @@ elif [ "$(whoami)" == "paula" ] ; then
     mkdir /home/paula/DATOS/geoserver/geoserver && sudo chown 1000 /home/paula/DATOS/geoserver/geoserver
    fi
 elif [ "$(whoami)" == "daniel" ] ; then
-  if [ ! -d "daniel/Documentos/geoserver/geoserver" ]; then
-    mkdir /home/daniel/Documentos/geoserver/geoserver && sudo chown 1000 /home/rnebot/DATOS/geoserver/geoserver
+  if [ ! -d "/home/daniel/Documentos/DATOS/geoserver/geoserver" ]; then
+    mkdir /home/daniel/Documentos/DATOS/geoserver/geoserver && sudo chown 1000 /home/daniel/Documentos/DATOS/geoserver/geoserver
   fi
 fi
 
@@ -164,7 +164,7 @@ if [ ! $geoserver_started ] ; then
   elif [ "$(whoami)" == "paula" ] ; then
     docker run --name "geoserver"  --link postgis:postgis  -p 9180:8080 --rm -v /home/paula/DATOS/geoserver/geoserver:/opt/geoserver/data_dir  -d  -e DB_BACKEND=POSTGRES  -e HOST=postgis  -e POSTGRES_PORT=5432  -e POSTGRES_DB=ngd_eoserver  -e POSTGRES_USER=postgres  -e POSTGRES_PASS=postgres  -e USERNAME=postgres  -e PASS=postgres  -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37   -e GEOSERVER_ADMIN_USER=ngd_admin  kartoza/geoserver:2.19.0
   elif [ "$(whoami)" == "daniel" ] ; then
-    docker run --name "geoserver"  --link postgis:postgis  -p 9180:8080 --rm -v /home/daniel/Documentos/geoserver/geoserver:/opt/geoserver/data_dir  -d  -e DB_BACKEND=POSTGRES  -e HOST=postgis  -e POSTGRES_PORT=5432  -e POSTGRES_DB=geoserver  -e POSTGRES_USER=postgres  -e POSTGRES_PASS=postgres  -e USERNAME=postgres  -e PASS=postgres  -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37   -e GEOSERVER_ADMIN_USER=ngd_admin  kartoza/geoserver:2.19.0
+    docker run --name "geoserver"  --link postgis:postgis  -p 9180:8080 --rm -v /home/daniel/Documentos/DATOS/geoserver/geoserver:/opt/geoserver/data_dir  -d  -e DB_BACKEND=POSTGRES  -e HOST=postgis  -e POSTGRES_PORT=5432  -e POSTGRES_DB=geoserver  -e POSTGRES_USER=postgres  -e POSTGRES_PASS=postgres  -e USERNAME=postgres  -e PASS=postgres  -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37   -e GEOSERVER_ADMIN_USER=ngd_admin  kartoza/geoserver:2.19.0
   fi
 fi
 
