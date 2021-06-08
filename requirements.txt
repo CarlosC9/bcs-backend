@@ -66,10 +66,13 @@ chado==2.3.4
 # some installations for GDAL:
 # sudo apt-get install libgnutls28-dev
 # sudo apt-get install libgdal-dev
-GDAL>=3.0.4
-GeoAlchemy2>=0.8.5
-geopandas>=0.9.0
-geoserver-rest>=1.6.1
+GDAL==3.0.4
+GeoAlchemy2==0.8.5
+geopandas==0.9.0
+geoserver-rest==1.6.1
+flask-socketio==5.1.0
+gevent-websocket== 0.10.1
+
 
 
 # ############################### CANDIDATE LIBRARIES #################################

@@ -130,19 +130,22 @@ class JobAPI(MethodView):
         d.resource.jm_location = resource.jm_location
         d.resource.jm_credentials = resource.jm_credentials if "credentials" not in in_dict else in_dict.credentials
 
+        process_adaptor = ProcessAdaptorFactory().get(d.resource.jm_type, in_dict.process_id)
+        d = process_adaptor.adapt_job_context(d)
+
+        outputs = [r.to_json() for r in d.results]
+
         # Create Job database object
         job = Job()
         job.resource = resource
         job.process = process
         job.status = d.status
         job.inputs = json.dumps(process_params.to_json())
+        job.outputs = json.dumps(outputs)
         session.add(job)
         session.commit()
         d.job_id = job.id
         DBSession.remove()
-
-        process_adaptor = ProcessAdaptorFactory().get(d.resource.jm_type, in_dict.process_id)
-        d = process_adaptor.adapt_job_context(d)
 
         # Submit job to Celery
         JobManagementAPI().submit(d.to_json())
