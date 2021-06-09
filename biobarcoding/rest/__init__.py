@@ -723,7 +723,7 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
             db = g.bcs_session.db_session
             r = ResponseObject()
             t = request.json
-            s = entity.Schema().load(t, instance=entity())
+            s = entity.Schema().load(t, instance=entity(), partial=True)
             db.add(s)
             return r.get_response()
 
@@ -733,7 +733,7 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
             r = ResponseObject()
             t = request.json
             s = db.query(entity).filter(entity.id == _id).first()
-            s = entity.Schema().load(t, instance=s)
+            s = entity.Schema().load(t, instance=s, partial=True)
             db.add(s)
             return r.get_response()
 
