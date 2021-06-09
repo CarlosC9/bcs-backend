@@ -8,7 +8,6 @@ from biobarcoding.authentication import bcs_session
 from biobarcoding.rest import bcs_api_base, ResponseObject, Issue, IType, register_api
 from biobarcoding.db_models.geographics import GeographicRegion, GeographicLayer, Regions
 import json
-import pathlib
 import regex as re
 import requests
 
