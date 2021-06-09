@@ -224,6 +224,16 @@ class layerAPI(MethodView):
         @return:
         '''
         from biobarcoding.geo import geoserver_session
+        issues = []
+        if _filter == None:
+            db = g.bcs_session.db_session
+            issues, layers, count, status = get_content(db, GeographicLayer,issues)
+            return ResponseObject(issues=issues, status=status, content=layers).get_response()
+        else:
+            # el tema de la key_columns...???
+            r = geoserver_session.publish_featurestore_sqlview(store_name='geo_data', name='tmpview', sql=self._create_sql(_filter), key_column="'IDCELDA'",
+                                             workspace='ngd') # las tmp tmb en ngs, supongo
+            r.get_response()
 
         if _filter == None:
             db = g.bcs_session.db_session
@@ -245,7 +255,7 @@ class layerAPI(MethodView):
         "layer_name":'',
         "SRID":'?'} -> layer_name siempre será tmp?
         '''
-        from biobarcoding.geo import geoserver_session
+        issues= []
         db = g.bcs_session.db_session
         t = request.json
         GeographicLayer_Schema= getattr(GeographicLayer,"Schema")()
@@ -254,10 +264,10 @@ class layerAPI(MethodView):
         db.add(geographiclayer)
         db.commit()
         layer_name = f"layer_{geographiclayer.id}"
-        issues, status = self.post_in_postgis(t,layer_name)
+        issues, status = self._post_in_postgis(t, layer_name,issues)
         if status == 200:
             geographiclayer.in_postgis = True
-        issues, status = self.publish_in_geoserver(t,layer_name)
+        issues, status = self.publish_in_geoserver(t,layer_name, issues)
         if status == 200:
             geographiclayer.published = True
         db.add(geographiclayer)
@@ -266,14 +276,16 @@ class layerAPI(MethodView):
 
     @bcs_session()
     def put(self, _id = None):
-        r = ResponseObject()
+        issues = []
         db = g.bcs_session.db_session
         t = request.json
         GeographicLayer_schema = getattr(GeographicRegion, "Schema")()
-        issues, geographiclayer, count, status = get_content(db,r, GeographicLayer, _id)
-        geographiclayer = GeographicLayer_schema.load(t, instance = geographiclayer)
-        geographiclayer.add()
-        return ResponseObject(content=geographiclayer,issues = issues, status=status)
+        issues, geographiclayer, count, status = get_content(db, GeographicLayer,issues, _id)
+        if geographiclayer:
+            geographiclayer = GeographicLayer_schema.load(t, instance = geographiclayer)
+            db.add(geographiclayer)
+            db.commit()
+        return ResponseObject(content=geographiclayer,issues = issues, status=status).get_response()
 
     @bcs_session()
     def delete(self, _id):
@@ -285,25 +297,34 @@ class layerAPI(MethodView):
         '''
         from biobarcoding.geo import geoserver_session
         from biobarcoding import postgis_engine
-        r = ResponseObject()
+        issues = []
         db = g.bcs_session.db_session
         pg = g.bcs_session.postgis_db_session
-        issues, geographiclayer , count, status = get_content(db, r, GeographicLayer, _id)
-        if status == 200:
+        issues, geographiclayer , count, status = get_content(db, GeographicLayer,issues, _id)
+        if status == 200 and geographiclayer:
             layer_name = f"layer_{str(geographiclayer.id)}"
             # delete layer from geoserver
             res = geoserver_session.delete_layer(layer_name= layer_name, workspace=geographiclayer.wks)
             issues.append(Issue(IType.INFO, res))
+            if '200' in res:
+                geographiclayer.published = False
+                geographiclayer.add()
+                db.commit()
             # delete table from postgis
             dropTableStmt = f"DROP TABLE public.{layer_name};"
             try:
                 postgis_engine.execute(dropTableStmt)
             except:
-                issues.append(Issue(IType.INFO, f'Error: Error at deleteing {layer_name}'))
+                issues.append(Issue(IType.INFO, f'Error: Error at deleteing {layer_name} layer'))
                 status = 404
-        # TODO informar de 206 si se borra parte del contenido?
-        pg.delete(geographiclayer)
-        return ResponseObject(content=None, issues = issues, status=status).get_response() # TODO response
+            else:
+                geographiclayer.in_postgis = False
+                geographiclayer.add()
+                db.commit()
+            # TODO informar de 206 si se borra parte del contenido?
+            if geographiclayer.in_postgis == False and geographiclayer.published == False:
+                db.delete(geographiclayer)
+        return ResponseObject(content=None, issues = issues, status=status).get_response() # TODO ¿el peor status es siempre el mayor?
 
 
     def _create_sql(self,_filter):
@@ -314,22 +335,22 @@ class layerAPI(MethodView):
         '''
         return _filter
 
-    def _store_and_publish_gdf(self,layer_name,gdf):
-        from biobarcoding import postgis_engine
-        from biobarcoding.geo import geoserver_session
-        try:
-            gdf.to_postgis(layer_name, postgis_engine, if_exists="fail") # TODO... es mejor hacer fail o replace?
-        except ValueError as e:
-            issues, status = [Issue(IType.INFO, f"layer named as {layer_name} error {e}")], 400
-            return issues,status
-        else:
-            issues, status = [Issue(IType.INFO, f"layer stored in geo database")], 200
-            r = geoserver_session.publish_featurestore(workspace="ngd", store_name='geo_data', pg_table=layer_name)
-            issues.append(Issue(IType.INFO, r))
-            return issues, status
+    # def _store_and_publish_gdf(self,layer_name,gdf):
+    #     from biobarcoding import postgis_engine
+    #     from biobarcoding.geo import geoserver_session
+    #     try:
+    #         gdf.to_postgis(layer_name, postgis_engine, if_exists="fail") # TODO... es mejor hacer fail o replace?
+    #     except ValueError as e:
+    #         issues, status = [Issue(IType.INFO, f"layer named as {layer_name} error {e}")], 400
+    #         return issues,status
+    #     else:
+    #         issues, status = [Issue(IType.INFO, f"layer stored in geo database")], 200
+    #         r = geoserver_session.publish_featurestore(workspace="ngd", store_name='geo_data', pg_table=layer_name)
+    #         issues.append(Issue(IType.INFO, r))
+    #         return issues, status
 
 
-    def post_in_postgis(self,t, layer_name):
+    def _post_in_postgis(self,t, layer_name, issues):
         from biobarcoding import postgis_engine
         if t.get("data"):
             df = gpd.GeoDataFrame.from_features(t["data"]['features'])
@@ -338,32 +359,33 @@ class layerAPI(MethodView):
             file_extension = pathlib.Path(path).suffix
             if file_extension == ".shp":
                 df = gpd.read_file(path)
-        else:
-            return None, None
+            else: # go to geoserver
+                return issues, None
         try:
             df.to_postgis(layer_name, postgis_engine, if_exists="fail")  # TODO... es mejor hacer fail o replace?
         except ValueError as e:
-            issues, status = [Issue(IType.INFO, f"layer named as {layer_name} error {e}")], 400
+            _, status =  issues.append(Issue(IType.INFO, f"layer named as {layer_name} error {e}")), 400
         else:
-            issues, status = [Issue(IType.INFO, f"layer stored in geo database")], 200
+            _, status =  issues.append(Issue(IType.INFO, f"layer stored in geo database")), 200
         return issues, status
 
 
-    def publish_in_geoserver(self, t, layer_name):
+    def publish_in_geoserver(self, t, layer_name, issues):
         from biobarcoding.geo import geoserver_session
-        if t.get('file'):
+        if t.get("data"):
+            r = geoserver_session.publish_featurestore(workspace=t['wks'], store_name='geo_data',
+                                                       pg_table=layer_name)
+        elif t.get('file'):
             path = t.get('file')
             file_extension = pathlib.Path(path).suffix
             if file_extension in (".tif"):
-                r = geoserver_session.create_coveragestore(layer_name=t["id"],
+                r = geoserver_session.create_coveragestore(layer_name=layer_name,
                                                            path=path,
                                                            workspace=t["wks"])
-                return [Issue(IType.INFO, r)], 400
+                #TODO AÑADIR TIPO DE CAPA  EN TABLA GEOLAYER?
             if file_extension in (".shp"):
                 r = geoserver_session.publish_featurestore(workspace=t['wks'], store_name='geo_data',
                                                            pg_table=layer_name)
-                return [Issue(IType.INFO, r)], 200
-
         elif t.get("layer_name"):
             layer = geoserver_session.get_layer(layer_name=t["layer_name"])
             # if layer == raster:
@@ -373,7 +395,11 @@ class layerAPI(MethodView):
             # TODO CAMBIAR FORMATO Y TAL
             # issues, status = self._store_and_publish_gdf(layer_name, layer)
         else:
-            return [Issue(IType.INFO, f"No  valid geographic data specified")], 400
+            r = "No  valid geographic data specified, 400"
+        issue, status = geoserver_response(r)
+        issues.append(issue)
+        return issues, status
+
 
 view_func = layerAPI.as_view("geo/layers")
 bp_geo.add_url_rule(f"{bcs_api_base}/geo/layers/", defaults={"_filter": None}, view_func=view_func, methods=['GET'])

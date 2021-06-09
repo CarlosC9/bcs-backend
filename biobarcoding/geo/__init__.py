@@ -13,26 +13,28 @@ geoserver_session = None
 
 layers = {"plantas":"/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/geo_layers/plantas/Plantas.shp"}
 
-def inizialice_layers(app):
-    engine = create_engine(app.config['POSTGIS_CONNECTION_STRING'] + "ngd_geoserver")
-    for layer_name, path in layers.items():
-        df = gpd.read_file(path)
-        try:
-            df.to_postgis(layer_name,engine, if_exists="fail")
-        except ValueError as v:
-            print(v)
-            pass
+# def inizialice_layers(app):
+#     engine = create_engine(app.config['POSTGIS_CONNECTION_STRING'] + "ngd_geoserver")
+#     for layer_name, path in layers.items():
+#         df = gpd.read_file(path)
+#         try:
+#             df.to_postgis(layer_name,engine, if_exists="fail")
+#         except ValueError as v:
+#             print(v)
+#             pass
 
-def ini_layers():
-    for layer_name, path in layers.items():
-        req = dict(path = path, name = layer_name, attributes= {"tags": ["plantas","Canarias", "Biota"] })
-        r = requests.post(f"http://localhost:5000{bcs_api_base}/geo/layers/", data = req)
-        return r.status_code
+# def inizialice_layers():
+#     req = {"file": "/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/geo_layers/plantas/Plantas.shp",
+#             "name": "plantas_test3",
+#             "attributes":
+#             {"tags": ["plantas", "Canarias", "Biota"]},
+#             "wks":"ngd"}
+#     r = requests.post(f"http://localhost:5000{bcs_api_base}/geo/layers/", data = req)
+#     return r.status_code
 
 
 def inizialice_geoserver(flask_app):
     global geoserver_session
-    inizialice_layers(flask_app)
     if {'GEOSERVER_USER',
         'GEOSERVER_PASSWORD',
         'GEOSERVER_HOST',
@@ -41,6 +43,7 @@ def inizialice_geoserver(flask_app):
         geoserver_session = Geoserver(geoserver_url, username= flask_app.config['GEOSERVER_USER'], password= flask_app.config['GEOSERVER_PASSWORD'])
         workspaces = geoserver_session.get_workspaces()
         print(workspaces)
+        # TODO CHECK THAT GEOSERVER IS RUNNING
         if workspaces.get('workspaces') != '': #there at list a workspace
             if {'name': 'ngd', 'href': f'{geoserver_url}/rest/workspaces/ngd.json'} in workspaces['workspaces'].get('workspace'):
                 print('workspace ngd ready')
@@ -56,5 +59,7 @@ def inizialice_geoserver(flask_app):
                                     pg_user= flask_app.config['POSTGIS_USER'],
                                     pg_password= flask_app.config['POSTGIS_PASSWORD']
                                 )
+    else:
+        # inizialice_layers()
         print("no geoserver data in config file cant open GEOSERVER session")
 
