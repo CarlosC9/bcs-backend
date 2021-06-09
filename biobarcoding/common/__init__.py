@@ -147,7 +147,7 @@ def _json_serial(obj):
     elif isinstance(obj, np.int64):
         return int(obj)
     elif isinstance(obj,pandas.DataFrame):
-        return obj.to_dict("index")
+        return obj.to_dict("records")
     elif getattr(obj, "Schema"):
         # Use "marshmallow"
         return getattr(obj, "Schema")().dump(obj)

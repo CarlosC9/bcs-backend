@@ -14,6 +14,9 @@ from marshmallow_sqlalchemy import ModelConverter as BaseModelConverter
 from marshmallow.fields import String as SchemaString
 from shapely.geometry import shape
 from shapely.geometry.multipolygon import MultiPolygon
+from shapely.geometry.polygon import Polygon
+import geopandas
+import json
 
 # make_versioned(user_cls=None, options={'native_versioning': True})
 make_versioned(user_cls=None)
@@ -126,7 +129,17 @@ class GeoString(SchemaString):
         if not isinstance(value, (dict, WKBElement)):
             raise self.make_error("invalid")
         if isinstance(value, WKBElement):
-            return to_shape(value).wkt
+            multi  = to_shape(value)
+            polygons = list(multi)
+            geojson =  geopandas.GeoSeries(polygons).to_json()
+            geodict = json.loads(geojson)
+            # parse geodict to get rid og bbox attribute.
+            # I assume that it will be a bbox attribute for feature and one bbox for the Feature collection
+            # I assume that Featureccollection is a list of Polygones
+            geodict.pop('bbox', None)
+            for geo in geodict['features']:
+                geo.pop('bbox', None)
+            return geodict
         if isinstance(value,dict):
             return value
 
