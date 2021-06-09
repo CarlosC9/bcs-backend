@@ -19,6 +19,7 @@ class GeographicRegion(ORMBase):
     name = Column(String(80))
     usr = Column(Integer)
     attributes = Column(JSON)
+    style = Column(JSON)
 
 
 class GeographicLayer(BioinformaticObject):
