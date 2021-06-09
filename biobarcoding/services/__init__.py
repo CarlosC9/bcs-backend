@@ -28,13 +28,17 @@ def exec_cmds(*args):
     return out, err
 
 
-def chado2json(query):
-    response = []
-    for value in query.all():
-        tmp = value.__dict__
-        tmp.pop('_sa_instance_state', None)
-        response.append(tmp)
-    return response
+def orm2json(row):
+    # response = []
+    # for value in query.all():
+    #     tmp = value.__dict__
+    #     tmp.pop('_sa_instance_state', None)
+    #     response.append(tmp)
+    # return response
+    d = {}
+    for column in row.__table__.columns:
+        d[column.name] = str(getattr(row, column.name))
+    return d
 
 
 def get_or_create(session, model, **kwargs):
@@ -42,10 +46,12 @@ def get_or_create(session, model, **kwargs):
     if not instance:
         params = dict((k, v) for k, v in kwargs.items())
         instance = model(**params)
+        session.add(instance)
+        session.flush()
     return instance
 
 
 # TODO in progress
-def get_query(session, model, **kwargs):
+def get_simple_query(session, model, **kwargs):
     kwargs = {k:v for k,v in kwargs.items() if v is not None}
     return session.query(model).filter_by(**kwargs)

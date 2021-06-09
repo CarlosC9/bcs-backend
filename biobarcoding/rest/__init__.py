@@ -1,21 +1,19 @@
-import json
 import logging
 import os
 import sys
 from enum import Enum
 import json
 from urllib.parse import unquote
-from urllib.parse import unquote
 
 import redis
-import sqlalchemy
 from alchemyjsonschema import SchemaFactory, StructuralWalker
 from attr import attrs, attrib
 from flask import Response, Blueprint, g, request
 from flask.views import MethodView
+from flask_socketio import SocketIO
 from sqlalchemy import orm, and_, or_
 from sqlalchemy.pool import StaticPool
-from typing import Dict
+from typing import Dict, List
 
 import biobarcoding
 from biobarcoding.authentication import bcs_session
@@ -28,10 +26,12 @@ from biobarcoding.db_models.sysadmin import *
 from biobarcoding.db_models.geographics import *
 from biobarcoding.db_models.jobs import *
 from biobarcoding.db_models.hierarchies import *
+from biobarcoding.rest.socket_service import SocketService
 
 bcs_api_base = "/api"  # Base for all RESTful calls
 bcs_gui_base = "/gui"  # Base for the Angular2 GUI
 bcs_external_gui_base = "/gui_external"  # Base for the Angular2 GUI when loaded from URL
+bcs_proxy_base = "/pxy"  # Base for the BCS Proxy
 
 logger = get_module_logger(__name__)
 log_level = logging.DEBUG
@@ -119,7 +119,7 @@ def get_default_configuration_dict():
                 TESTING="True",
                 SELF_SCHEMA="",
                 DB_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432/",
-                POSTGIS_CONNECTION_STRING = "postgres://postgres:postgres@172.17.0.2:5432/ngd_geoserver",
+                POSTGIS_CONNECTION_STRING="postgresql://postgres:postgres@172.17.0.1:5435/",
                 CELERY_BROKER_URL=f"{BROKER_URL}",
                 CELERY_BACKEND_URL=f"{BACKEND_URL}",
                 GOOGLE_APPLICATION_CREDENTIALS=f"{data_path}/firebase-key.json",
@@ -238,6 +238,10 @@ def construct_session_persistence_backend(flask_app):
     return d
 
 
+def init_socket(socketio):
+    SocketService(socketio)
+
+
 # Initialization of tables
 
 tm_object_type_fields = ["id", "uuid", "name"]
@@ -319,7 +323,7 @@ tm_job_mgmt_types = {
     "fc1fb247-6b76-420c-9c48-f69f154cbe1d": "ebi"
 }
 
-tm_processes = {# Preloaded processes
+tm_processes = {  # Preloaded processes
     "02f44e54-f139-4ea0-a1bf-fe27054c0d6c": "klustal-1",
     "903a73a9-5a4e-4cec-b8fa-4fc9bd5ffab5": "blast",
     "5c4ba6db-e7f2-4d5c-a89a-76059ac116b1": "mrbayes",
@@ -356,6 +360,7 @@ tm_browser_filter_forms = [
     (bio_object_type_id["multiple-sequence-alignment"], "44363784-d304-4e7e-a507-8bae48598e50"),
     (bio_object_type_id["phylogenetic-tree"], "8b62f4aa-d32a-4841-89f5-9ed50da44121"),
 ]
+
 
 #
 #
@@ -447,6 +452,11 @@ def initialize_database_data():
                             [["sysadmin", "test_user"]])
     load_many_to_many_table(DBSession, GroupIdentity, Group, Identity, ["group_id", "identity_id"],
                             [["all-identified", "test_user"]])
+    load_many_to_many_table(DBSession, ObjectTypePermissionType, ObjectType, PermissionType, ["object_type_id", "permission_type_id"],
+                            [["sequence", "read"], ["sequence", "annotate"], ["sequence", "delete"],
+                            ["multiple-sequence-alignment", "read"], ["multiple-sequence-alignment", "annotate"], ["multiple-sequence-alignment", "delete"],
+                            ["phylogenetic-tree", "read"], ["phylogenetic-tree", "annotate"], ["phylogenetic-tree", "delete"],
+                            ["process", "read"], ["process", "execute"]])
 
     # Insert a test BOS
     # session = DBSession()
@@ -550,7 +560,8 @@ def initialize_chado_edam(flask_app):
         biobarcoding.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=True)
 
         with biobarcoding.chado_engine.connect() as conn:
-            relationship_id = conn.execute(text("select * from INFORMATION_SCHEMA.TABLES where TABLE_NAME = 'db_relationship'")).fetchone()
+            relationship_id = conn.execute(
+                text("select * from INFORMATION_SCHEMA.TABLES where TABLE_NAME = 'db_relationship'")).fetchone()
             if relationship_id is None:
                 try:
                     meta = MetaData()
@@ -561,7 +572,8 @@ def initialize_chado_edam(flask_app):
                                             Column('db_relationship_id', BigInteger, primary_key=True),
                                             Column('type_id',
                                                    BigInteger,
-                                                   ForeignKey('cvterm.cvterm_id', ondelete="CASCADE", initially="DEFERRED"),
+                                                   ForeignKey('cvterm.cvterm_id', ondelete="CASCADE",
+                                                              initially="DEFERRED"),
                                                    nullable=False),
                                             Column('subject_id',
                                                    BigInteger,
@@ -581,11 +593,13 @@ def initialize_chado_edam(flask_app):
 
                     # DELETE CVTERMS THAT ARE IN THE CHADO XML AND ALSO IN THE DATABASE
                     conn.execute(text("delete from cvterm where name = 'comment'and cv_id = 6 and is_obsolete = 0"))
-                    conn.execute(text("delete from cvterm where name = 'has_function'and cv_id = 4 and is_obsolete = 0"))
+                    conn.execute(
+                        text("delete from cvterm where name = 'has_function'and cv_id = 4 and is_obsolete = 0"))
                     conn.execute(text("delete from cvterm where name = 'has_input'and cv_id = 4 and is_obsolete = 0"))
                     conn.execute(text("delete from cvterm where name = 'has_output'and cv_id = 4 and is_obsolete = 0"))
                     conn.execute(text("delete from cvterm where name = 'is_a'and cv_id = 4 and is_obsolete = 0"))
-                    conn.execute(text("delete from cvterm where name = 'is_anonymous'and cv_id = 6 and is_obsolete = 0"))
+                    conn.execute(
+                        text("delete from cvterm where name = 'is_anonymous'and cv_id = 6 and is_obsolete = 0"))
 
                     db_relationship.create(bind=conn)
 
@@ -605,7 +619,7 @@ def initialize_chado_edam(flask_app):
                                os.path.join(chado_xml_folder, "EDAM.chado")]
 
                     subprocess.run(command)
-                    #We commit 2 times because we need a commit on the last block to execute this one
+                    # We commit 2 times because we need a commit on the last block to execute this one
                     with biobarcoding.chado_engine.connect() as conn:
                         # FILL THE db_relationship TABLE
                         edam_id = conn.execute(text("select db_id from db where name=\'EDAM\'")).fetchone()[0]
@@ -616,7 +630,8 @@ def initialize_chado_edam(flask_app):
 
                         for db_id in db_ids:
                             conn.execute(text("INSERT INTO db_relationship (type_id,subject_id,object_id)" +
-                                              "VALUES(" + str(type_id) + "," + str(db_id[0]) + "," + str(edam_id) + ")"))
+                                              "VALUES(" + str(type_id) + "," + str(db_id[0]) + "," + str(
+                                edam_id) + ")"))
                 else:
                     print("EDAM was already inserted")
 
@@ -630,6 +645,7 @@ def initialize_chado_edam(flask_app):
         print(flask_app.config)
         sys.exit(1)
 
+
 def inizialice_postgis(flask_app):
     recreate_db = False
     if 'POSTGIS_CONNECTION_STRING' in flask_app.config:
@@ -638,9 +654,11 @@ def inizialice_postgis(flask_app):
         print(db_connection_string)
         print("-----------------------------")
 
-        biobarcoding.postgis_engine = create_pg_database_engine(db_connection_string, "ngd_geoserver", recreate_db=recreate_db)
+        biobarcoding.postgis_engine = create_pg_database_engine(db_connection_string, "ngd_geoserver",
+                                                                recreate_db=recreate_db)
         # global DBSession # global DBSession registry to get the scoped_session
-        DBSessionGeo.configure(bind=biobarcoding.postgis_engine)  # reconfigure the sessionmaker used by this scoped_session
+        DBSessionGeo.configure(
+            bind=biobarcoding.postgis_engine)  # reconfigure the sessionmaker used by this scoped_session
         orm.configure_mappers()  # Important for SQLAlchemy-Continuum
         tables = ORMBaseGeo.metadata.tables
         connection = biobarcoding.postgis_engine.connect()
@@ -654,6 +672,7 @@ def inizialice_postgis(flask_app):
     else:
         print("No database connection defined (POSTGIS_CONNECTION_STRING), exiting now!")
         sys.exit(1)
+
 
 def register_api(bp: Blueprint, view, endpoint: str, url: str, pk='id', pk_type='int'):
     view_func = view.as_view(endpoint)
@@ -735,7 +754,6 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
             db.delete(s)
             return r.get_response()
 
-
     # If the following line is uncommented, it complains on "overwriting an existing endpoint function". This function is public, because it is just the schema, so, no problem.
     # @bcs_session()
     def get_entities_json_schema():
@@ -804,6 +822,40 @@ def check_request_params(data=None):
     return kwargs
 
 
+def related_authr_ids(engine, identity_id) -> List[int]:
+    pass
+
+
+def auth_filter():
+    """
+    * Filter
+    * Identity (ids) 
+    * object types (ids)
+    * permission types (ids)
+    * object ids
+    * date time
+    
+    CollectionDetail (cd) <> Collection (c) > ACL <> ACLDetail (ad)
+    
+SELECT 
+  CASE cd.object_id WHEN NULL THEN acl.object_uuid ELSE cd.object_uuid as oid, 
+  ad.permission_id as pid, 
+  ad.authr_id as aid  # To explain why it was authorized
+FROM CollectionDetail cd JOIN Collection c ON cd.col_id=c.id RIGHT JOIN ACL ON c.uuid=acl.object_id JOIN ACLDetail ad ON acl.id=ad.acl_id
+WHERE ad.authorizable IN (<identities>)  # Authorizable 
+      AND object_type IN (<collection object type>[, <target object type>])  # Object types
+      AND date time BETWEEN ad.validity_start AND ad.validity_end
+      [AND permission_types IN (...)]
+      [AND object_uuids IN (...)]
+      
+* Añadir lista ids objeto sirve para ver permisos de esos objetos concretos
+* Añadir lista id tipos permisos sirve para ver si esos tipos están
+    
+    @return: 
+    """
+    pass
+
+
 def filter_parse(orm, filter, aux_filter=None):
     """
     @param orm: <ORMSqlAlchemy>
@@ -813,6 +865,7 @@ def filter_parse(orm, filter, aux_filter=None):
     @param aux_filter: <callable function(filter)>
     @return: <orm_clause_filter>
     """
+
     def get_condition(orm, field, condition):
         obj = getattr(orm, field)
         op = condition["op"]
@@ -833,7 +886,7 @@ def filter_parse(orm, filter, aux_filter=None):
 
     try:
         if not isinstance(filter, (list, tuple)):
-            filter=[filter]
+            filter = [filter]
         or_clause = []
         for clause in filter:
             and_clause = []
@@ -843,7 +896,7 @@ def filter_parse(orm, filter, aux_filter=None):
                 else:
                     print(f'Unknown column "{field}" for the given tables.')
             if aux_filter:
-                and_clause+=aux_filter(clause)
+                and_clause += aux_filter(clause)
             or_clause.append(and_(*and_clause))
         return or_(*or_clause)
     except Exception as e:
@@ -858,6 +911,7 @@ def order_parse(orm, sort, aux_order=None):
     @param aux_order: <callable function(order)>
     @return: <orm_clause_order>
     """
+
     def get_condition(orm, clause):
         obj = getattr(orm, clause.field)
         if clause.order == "asc":
@@ -868,7 +922,7 @@ def order_parse(orm, sort, aux_order=None):
 
     try:
         if not isinstance(sort, (list, tuple)):
-            order=[sort]
+            order = [sort]
         ord_clause = []
         for clause in order:
             if hasattr(orm, clause.field):
@@ -876,7 +930,7 @@ def order_parse(orm, sort, aux_order=None):
             else:
                 print(f'Unknown column "{clause.field}" for the given tables.')
                 if aux_order:
-                    ord_clause+=aux_order(clause)
+                    ord_clause += aux_order(clause)
         return ord_clause
     except Exception as e:
         print(e)
@@ -887,7 +941,35 @@ def paginator(query, pagination):
     if 'pageIndex' in pagination and 'pageSize' in pagination:
         page = pagination.get('pageIndex')
         page_size = pagination.get('pageSize')
-        return query\
-            .offset((page - 1) * page_size)\
+        return query \
+            .offset((page - 1) * page_size) \
             .limit(page_size)
     return query
+
+
+def get_query(session, orm, id=None, aux_filter=None, aux_order=None, **kwargs):
+    query = session.query(orm)
+    count = 0
+    if id:
+        query = query.filter(orm.id == id)
+    # elif kwargs.get('value'):
+    #     query.filter_by(**kwargs.get('value'))
+    #     # for k,v in kwargs.get('value'):
+    #     #     kwargs['value'][k]={'op':'eq', 'unary':v}
+    #     # query = query.filter(filter_parse(orm, kwargs.get('value'), aux_filter))
+    else:
+        if not kwargs.get('value'):
+            kwargs['value'] = {}
+        for k,v in kwargs.items():
+            if not k in ['value', 'filter', 'order', 'pagination', 'searchValue']:
+                kwargs['value'][k] = v
+        if kwargs.get('value'):
+            query.filter_by(**kwargs.get('value'))
+        if kwargs.get('filter'):
+            query = query.filter(filter_parse(orm, kwargs.get('filter'), aux_filter))
+        if kwargs.get('order'):
+            query = query.order_by(order_parse(orm, kwargs.get('order'), aux_order))
+        if kwargs.get('pagination'):
+            count = query.count()
+            query = paginator(query, kwargs.get('pagination'))
+    return query, count

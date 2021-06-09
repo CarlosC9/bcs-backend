@@ -708,7 +708,8 @@ def wf1_store_result_in_backend(job_context: str):
         job_context = json.dumps(tmp)
         return "error", job_context
     elif i == len(files):  # Transfer finished
-        if files[-1]["file"] != job_executor.log_filenames_dict["universal_log"]:
+        log_file = os.path.basename(job_executor.log_filenames_dict["universal_log"])
+        if files[-1]["file"] != log_file:
             write_to_file(job_executor.log_filenames_dict["store_stdout"],
                           "Store result in backend finished successfully")
             write_to_universal_log_and_truncate(job_executor.log_filenames_dict["store_stdout"],
@@ -717,7 +718,7 @@ def wf1_store_result_in_backend(job_context: str):
             tmp["results"].append(
                 {
                     "remote_name": "",
-                    "file": job_executor.log_filenames_dict["universal_log"],
+                    "file": log_file,
                     "type": "log"
                 },
             )
@@ -754,7 +755,7 @@ def wf1_store_result_in_backend(job_context: str):
         cookies_file_path = os.getenv("COOKIES_FILE_PATH")
         endpoint_url = os.getenv("ENDPOINT_URL")
         local_path = os.path.join(job_executor.local_workspace, file_dict["file"])
-        content_type = f"\"{get_content_type_from_extension(file_dict['type'])}\""
+        content_type = f"\"Content-Type: {get_content_type_from_extension(file_dict['type'])}\""
         api_login()
         curl_cmd = (f"curl -s --cookie-jar {cookies_file_path} --cookie {cookies_file_path} " +
                     f"-H {content_type} -XPUT --data-binary @\"{local_path}\" " +
@@ -840,6 +841,7 @@ def wf1_complete_succesfully(job_context: str):
     write_to_file(CELERY_LOG, "complete_successfully")
     job_context = json.dumps(tmp)
     write_to_file(CELERY_LOG, f"success:")
+    print(job_context)
     return job_context
 
 

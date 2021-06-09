@@ -3,7 +3,7 @@ from biobarcoding.db_models import DBSessionChado as chado_session
 from biobarcoding.db_models.chado import Feature
 
 from biobarcoding.rest import Issue, IType, filter_parse, paginator
-from biobarcoding.services import get_query
+from biobarcoding.services import get_simple_query
 
 
 def create(**kwargs):
@@ -16,9 +16,9 @@ def create(**kwargs):
         if not kwargs.get('organism_id'):
             from biobarcoding.db_models.chado import Organism
             try:
-                kwargs['organism_id'] = get_query(chado_session, Organism, genus='organism', species='undefined').organism_id
+                kwargs['organism_id'] = get_simple_query(chado_session, Organism, genus='organism', species='undefined').organism_id
             except Exception as e:
-                kwargs['organism_id'] = get_query(chado_session, Organism, genus='organism', species='undefined').organism_id
+                kwargs['organism_id'] = get_simple_query(chado_session, Organism, genus='organism', species='undefined').organism_id
         chado_session.add(Feature(**kwargs))
         issues, status = [Issue(IType.INFO, f'CREATE sequences: The sequence "{kwargs.get("uniquename")}" created successfully.')], 201
     except Exception as e:
@@ -49,7 +49,7 @@ def update(id, **kwargs):
 
 def __delete_from_bcs(feature_id):
     from biobarcoding.db_models.bioinformatics import Sequence
-    db_session.query(Sequence).filter(Sequence.chado_feature_id == feature_id) \
+    db_session.query(Sequence).filter(Sequence.chado_id == feature_id) \
         .delete(synchronize_session='fetch')
 
 
@@ -103,7 +103,7 @@ def __feature2bcs(seq):
     db_session.merge(bcs_specimen)
     db_session.flush()
     bcs_sequence = get_or_create(db_session, Sequence,
-                                 chado_feature_id=seq.feature_id,
+                                 chado_id=seq.feature_id,
                                  chado_table='feature',
                                  name=seq.uniquename,
                                  specimen_id=bcs_specimen.id)

@@ -2,12 +2,13 @@ from flask import (Flask, request, session as flask_session, redirect, current_a
 from flask_session import Session as FlaskSessionServerSide
 from flask_cors import CORS
 from NamedAtomicLock import NamedAtomicLock
+from flask_socketio import SocketIO
 
 import biobarcoding
 from biobarcoding.jobs.galaxy_resource import initialize_galaxy
 from biobarcoding.rest import logger, log_level, load_configuration_file, construct_session_persistence_backend, \
     initialize_database, initialize_database_chado, bcs_gui_base, ResponseObject, initialize_chado_edam, \
-    inizialice_postgis
+    inizialice_postgis, init_socket
 from biobarcoding.rest.auth import bp_auth
 from biobarcoding.rest.file_manager import bp_files
 from biobarcoding.rest.identities_and_company import bp_identities, bp_sys_functions, bp_roles, bp_identities_roles, \
@@ -21,11 +22,13 @@ from biobarcoding.rest.geo_rest import bp_geo
 from biobarcoding.rest.gui_static import bp_gui
 from biobarcoding.rest.browser_filters import bp_bfilters
 from biobarcoding.rest.views import bp_views
+from biobarcoding.rest.proxy import bp_proxy
 from biobarcoding.tasks import initialize_celery
 from biobarcoding.authentication import initialize_firebase
 from biobarcoding.geo import inizialice_geoserver
 
 # Flask and configuration file
+socket_service_socketio = None
 app = None
 
 
@@ -36,6 +39,7 @@ def create_app(debug, cfg_dict=None):
 
     :return:
     """
+
     global app
     app = Flask(__name__)
     app.debug = debug
@@ -59,6 +63,10 @@ def create_app(debug, cfg_dict=None):
          supports_credentials=True
          )
 
+    global socket_service_socketio
+    socket_service_socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+    init_socket(socket_service_socketio)
+
     lock = NamedAtomicLock("bcs-backend-lock")
     lock.acquire()
     try:
@@ -79,7 +87,7 @@ def create_app(debug, cfg_dict=None):
 
     # Galaxy
     print("Initializing base Galaxy instance")
-    initialize_galaxy(app)
+    #initialize_galaxy(app)
     print("Initializing base Galaxy instance - DONE")
 
     print("Initializing Geoserver")
@@ -109,6 +117,7 @@ def create_app(debug, cfg_dict=None):
                bp_bfilters,
                bp_geo,
                bp_views,
+               bp_proxy,
                ]:
         app.register_blueprint(bp)
 
@@ -159,3 +168,4 @@ def after_a_request(response):
 
 if __name__ == "__main__":
     biobarcoding.flask_app.run(host='0.0.0.0')
+    socket_service_socketio.run(biobarcoding.flask_app, host='0.0.0.0')

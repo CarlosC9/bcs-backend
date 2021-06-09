@@ -44,7 +44,7 @@ def check(sess, o,  ident: Identity, permission: PermissionType) -> bool:
         or_(ACLDetail.validity_start is None, ACLDetail.validity_start <= ahora),
         or_(ACLDetail.validity_end is None, ACLDetail.validity_end > ahora))). \
         join(ACLDetail.acl).filter(
-        and_(ACL.object_type == obj_type_id, ACL.object_id == o_uuid)).first()
+        and_(ACL.object_type == obj_type_id, ACL.object_uuid == o_uuid)).first()
 
 
 
@@ -55,7 +55,7 @@ def check(sess, o,  ident: Identity, permission: PermissionType) -> bool:
         or_(ACLExpression.validity_start is None, ACLExpression.validity_start <= ahora),
         or_(ACLExpression.validity_end is None, ACLExpression.validity_end > ahora))). \
         join(ACLExpression.acl).filter(
-        and_(ACL.object_type == obj_type_id, ACL.object_id == o_uuid)).first()
+        and_(ACL.object_type == obj_type_id, ACL.object_uuid == o_uuid)).first()
 
 
 

@@ -266,7 +266,7 @@ class bcs_session(object):
                                     or_(ACLExpression.validity_start is None, ACLExpression.validity_start <= ahora),
                                     or_(ACLExpression.validity_end is None, ACLExpression.validity_end > ahora))). \
                                     join(ACLExpression.acl).filter(
-                                    and_(ACL.object_type == obj_type.id, ACL.object_id == function.uuid)).first()
+                                    and_(ACL.object_type == obj_type.id, ACL.object_uuid == function.uuid)).first()
                             else:
                                 rule = None  # If the function name cannot be found, rule = None -> so "can execute"
                         else:
