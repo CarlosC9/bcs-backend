@@ -9,6 +9,7 @@ from biobarcoding.db_models.geographics import GeographicRegion, GeographicLayer
 import json
 import pathlib
 import regex as re
+import requests
 
 from sqlalchemy import create_engine
 import psycopg2
@@ -67,8 +68,7 @@ bp_geo = Blueprint('geo', __name__)
 def geoserver_response(response):
     if response:
         status = int(re.findall('[0-9]+', response)[0])
-        issue = response
-        return issue, status
+        return Issue(IType.INFO, "layer succesfully published"), status
     else:
         return Issue(IType.INFO, "layer succesfully published"), 200
 
@@ -216,34 +216,36 @@ class layerAPI(MethodView):
 
     '''
     @bcs_session()
-    def get(self, _filter = None):
+    def get(self, _filter = None, key_col = None):
         '''
         - get the list of layers in postgis
         - create a temporal layer from a sql filter
         @param filter: SQL filter in case of temporal layer
+            sql = 'SELECT geometry as geom, "DENOMTAX" FROM plantas WHERE "RAREZALOCA" > 1'
+            geo.publish_featurestore_sqlview(store_name='geo_data', name='tmp_view3', sql=sql, key_column="'IDCELDA'",  (OJO CON LAS COMILLAS)
+                                     workspace='ngd')
         @return:
         '''
         from biobarcoding.geo import geoserver_session
         issues = []
-        if _filter == None:
+        #
+        if not (_filter, key_col):
             db = g.bcs_session.db_session
             issues, layers, count, status = get_content(db, GeographicLayer,issues)
-            return ResponseObject(issues=issues, status=status, content=layers).get_response()
         else:
+            # esto s epuede ver como un post porque estoy creando un registro nuevo en GEOSERVER
+            # si hay algún fallo a la hora de hacer el query. No lo sabré hasta visualizar
             # el tema de la key_columns...???
-            r = geoserver_session.publish_featurestore_sqlview(store_name='geo_data', name='tmpview', sql=self._create_sql(_filter), key_column="'IDCELDA'",
+            sql = self._create_sql(_filter)
+            # esta funcion devuelve None aunque el query sea incorrecto :(
+            # hace print si ya existe (no sobreescribe)
+            # TODO para qué key_col?
+            r = geoserver_session.publish_featurestore_sqlview(store_name='geo_data', name='tmpview', sql=sql, key_column=key_col,
                                              workspace='ngd') # las tmp tmb en ngs, supongo
-            r.get_response()
-
-        if _filter == None:
-            db = g.bcs_session.db_session
-            issues, layers, count, status = get_content(db, GeographicLayer)
-            return ResponseObject(issues=issues, status=status, content=layers).get_response()
-        else:
-            # el tema de la key_columns...???
-            r = geoserver_session.publish_featurestore_sqlview(store_name='geo_data', name='tmpview', sql=self._create_sql(_filter), key_column="'IDCELDA'",
-                                             workspace='ngd') # las tmp tmb en ngs, supongo
-            r.get_response()
+            issue, status = geoserver_response(r)
+            issues.append(issue)
+            layers = None
+        return ResponseObject(issues=issues, status=status, content=layers).get_response()
 
     @bcs_session()
     def post(self):
@@ -267,7 +269,7 @@ class layerAPI(MethodView):
         issues, status = self._post_in_postgis(t, layer_name,issues)
         if status == 200:
             geographiclayer.in_postgis = True
-        issues, status = self.publish_in_geoserver(t,layer_name, issues)
+        issues, status = self._publish_in_geoserver(t, layer_name, issues)
         if status == 200:
             geographiclayer.published = True
         db.add(geographiclayer)
@@ -295,6 +297,7 @@ class layerAPI(MethodView):
         @param id:
         @return:
         '''
+        # TODO delete da problemas: - si borro la capa de geoserver pero por lo que sea no se cambia published a false..
         from biobarcoding.geo import geoserver_session
         from biobarcoding import postgis_engine
         issues = []
@@ -333,34 +336,38 @@ class layerAPI(MethodView):
         @param filter: filter build by the user in GUI
         @return: sql query for postgis
         '''
+        # key_col = _filter["key"]
+        # sql = _filter["sql"]
         return _filter
-
-    # def _store_and_publish_gdf(self,layer_name,gdf):
-    #     from biobarcoding import postgis_engine
-    #     from biobarcoding.geo import geoserver_session
-    #     try:
-    #         gdf.to_postgis(layer_name, postgis_engine, if_exists="fail") # TODO... es mejor hacer fail o replace?
-    #     except ValueError as e:
-    #         issues, status = [Issue(IType.INFO, f"layer named as {layer_name} error {e}")], 400
-    #         return issues,status
-    #     else:
-    #         issues, status = [Issue(IType.INFO, f"layer stored in geo database")], 200
-    #         r = geoserver_session.publish_featurestore(workspace="ngd", store_name='geo_data', pg_table=layer_name)
-    #         issues.append(Issue(IType.INFO, r))
-    #         return issues, status
-
 
     def _post_in_postgis(self,t, layer_name, issues):
         from biobarcoding import postgis_engine
+        from biobarcoding.geo import geoserver_session
         if t.get("data"):
             df = gpd.GeoDataFrame.from_features(t["data"]['features'])
+        elif t.get("layer_name"):
+            layer = geoserver_session.get_layer(layer_name=t["layer_name"])
+            if layer["layer"].get("type") == 'VECTOR':
+                # OPCIÓN 1: pedir los datos directamente desde GEOSERVER mediante WFS (no sé cómo hacerlo)
+
+                # OPCIÓN 2: Hacer el query a postgis y guardarlo en postgis y geoserver
+                tmpview_json = requests.get(layer["layer"]["resource"]["href"], auth=(geoserver_session.username, geoserver_session.password)).text
+                tmpview_dict = json.loads(tmpview_json)
+                sql = tmpview_dict["featureType"]["metadata"]["entry"]["virtualTable"]["sql"]
+                key_col = tmpview_dict["featureType"]["metadata"]["entry"]["virtualTable"]["keyColumn"]
+                df = gpd.GeoDataFrame.from_postgis(sql, postgis_engine)
+            else:  # go to geoserver
+                return issues, None
         elif t.get("file"):
             path = t["file"]
             file_extension = pathlib.Path(path).suffix
             if file_extension == ".shp":
                 df = gpd.read_file(path)
+
             else: # go to geoserver
                 return issues, None
+        else:
+            return issues, None
         try:
             df.to_postgis(layer_name, postgis_engine, if_exists="fail")  # TODO... es mejor hacer fail o replace?
         except ValueError as e:
@@ -370,11 +377,22 @@ class layerAPI(MethodView):
         return issues, status
 
 
-    def publish_in_geoserver(self, t, layer_name, issues):
+    def _publish_in_geoserver(self, t, layer_name, issues):
         from biobarcoding.geo import geoserver_session
         if t.get("data"):
             r = geoserver_session.publish_featurestore(workspace=t['wks'], store_name='geo_data',
                                                        pg_table=layer_name)
+            issue, status = geoserver_response(r)
+            issues.append(issue)
+
+        elif t.get("layer_name"):
+            layer = geoserver_session.get_layer(layer_name=t["layer_name"])
+            if layer["layer"].get("type") == 'VECTOR':
+                r = geoserver_session.publish_featurestore(workspace=t['wks'], store_name='geo_data',
+                                                           pg_table=layer_name)
+                issue, status = geoserver_response(r)
+                issues.append(issue)
+
         elif t.get('file'):
             path = t.get('file')
             file_extension = pathlib.Path(path).suffix
@@ -382,27 +400,25 @@ class layerAPI(MethodView):
                 r = geoserver_session.create_coveragestore(layer_name=layer_name,
                                                            path=path,
                                                            workspace=t["wks"])
-                #TODO AÑADIR TIPO DE CAPA  EN TABLA GEOLAYER?
+                issue, status = geoserver_response(r)
+                issues.append(issue)
             if file_extension in (".shp"):
                 r = geoserver_session.publish_featurestore(workspace=t['wks'], store_name='geo_data',
                                                            pg_table=layer_name)
-        elif t.get("layer_name"):
-            layer = geoserver_session.get_layer(layer_name=t["layer_name"])
-            # if layer == raster:
-            #     r = geoserver_session.create_coveragestore(layer_name=layer_name,
-            #                                                path=path,
-            #                                                workspace=t["wks"])
-            # TODO CAMBIAR FORMATO Y TAL
-            # issues, status = self._store_and_publish_gdf(layer_name, layer)
+                issue, status = geoserver_response(r)
+                issues.append(issue)
+            else:
+                _, status = issues.append(Issue(IType.ERROR, f'READ "no valid file extension: {file_extension}')), 400
         else:
             r = "No  valid geographic data specified, 400"
-        issue, status = geoserver_response(r)
-        issues.append(issue)
+            issue, status = geoserver_response(r)
+            issues.append(issue)
         return issues, status
 
 
 view_func = layerAPI.as_view("geo/layers")
-bp_geo.add_url_rule(f"{bcs_api_base}/geo/layers/", defaults={"_filter": None}, view_func=view_func, methods=['GET'])
+bp_geo.add_url_rule(f"{bcs_api_base}/geo/layers/", defaults={"_filter": None, "key_col": None}, view_func=view_func, methods=['GET'])
+bp_geo.add_url_rule(f"{bcs_api_base}/geo/layers/<string:_filter>/<string:key_col>", view_func=view_func, methods=['GET'])
 bp_geo.add_url_rule(f"{bcs_api_base}/geo/layers/", view_func=view_func, methods=['POST'])
 bp_geo.add_url_rule(f'{bcs_api_base}/geo/layers/<int:_id>', view_func=view_func, methods=['PUT', 'DELETE'])
 
