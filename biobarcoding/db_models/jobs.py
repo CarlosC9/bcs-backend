@@ -15,6 +15,8 @@ from sqlalchemy.orm import relationship, backref
 from biobarcoding.db_models import ORMBase, GUID
 import uuid
 
+from biobarcoding.db_models.sysadmin import Identity
+
 prefix = "jobs_"
 
 
@@ -256,6 +258,8 @@ class Job(ORMBase):
     process = relationship(Process)
     resource_id = Column(Integer, ForeignKey(ComputeResource.id), nullable=True, primary_key=False)
     resource = relationship(ComputeResource)
+    identity_id = Column(Integer, ForeignKey(Identity.id), nullable=False, primary_key=False)
+    identity = relationship(Identity, backref=backref("jobs", cascade="all, delete-orphan"))
     inputs = Column(JSON)
     status = Column(String(80))
     log = Column(Text)

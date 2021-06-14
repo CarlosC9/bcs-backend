@@ -6,6 +6,7 @@ from multidict import MultiDict, CIMultiDict
 from typing import List, Tuple
 
 from sqlalchemy import and_
+from sqlalchemy.pool import QueuePool
 
 import biobarcoding
 from biobarcoding.db_models import ORMBase
@@ -90,7 +91,7 @@ def create_pg_database_engine(sa_str, database_name, recreate_db=False):
     conn.close()
     data_engine.dispose()
     db_connection_string = sa_str+database_name
-    return sqlalchemy.create_engine(db_connection_string, echo=False)
+    return sqlalchemy.create_engine(db_connection_string, echo=False, poolclass=QueuePool, pool_size=0,  max_overflow=-1)
 
 
 def load_table(sf, clazz, d):

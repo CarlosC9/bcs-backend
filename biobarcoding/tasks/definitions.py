@@ -2,6 +2,7 @@ import json
 import os
 import re
 import subprocess
+from json import JSONDecodeError
 
 from biobarcoding.common.helpers import get_content_type_from_extension
 from biobarcoding.rest import bcs_api_base
@@ -58,7 +59,11 @@ def check_file_is_stored_in_backend(filename, job_id):
     cmd = ["curl", "--cookie-jar", cookies_file_path, "--cookie",
            cookies_file_path, f"{endpoint_url}{bcs_api_base}/files/jobs/{job_id}/{filename}"]
     proc = subprocess.run(cmd, capture_output=True, text=True)
-    process_return_dict = json.loads(proc.stdout)
+    try:
+        process_return_dict = json.loads(proc.stdout)
+    except JSONDecodeError as e:
+        print(e)
+        return False
     if process_return_dict.get("content"):
         return process_return_dict["content"].get("size") != 0
     else:
