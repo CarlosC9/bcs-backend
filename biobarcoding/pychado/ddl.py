@@ -15,7 +15,7 @@ class DatabaseAccessClient(object):
     def __init__(self, uri: str):
         """Constructor - connect to database"""
         self.uri = uri
-        self.engine = sqlalchemy.create_engine(self.uri)                            # type: sqlalchemy.engine.Engine
+        self.engine = sqlalchemy.create_engine(self.uri, max_pools=0) # type: sqlalchemy.engine.Engine
 
     def __del__(self):
         """Destructor - disconnect from database"""

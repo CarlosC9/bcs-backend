@@ -3,7 +3,7 @@ REST interface to manage JOBS API
 """
 from dotted.collection import DottedDict, DottedList, DottedJSONEncoder, DottedCollection
 from flask import Blueprint
-from flask import request, make_response, jsonify, Response, g
+from flask import request, make_response, Response, jsonify, g, session as flask_session
 from flask.views import MethodView
 import json
 
@@ -16,8 +16,8 @@ from biobarcoding.db_models.jobs import ProcessInComputeResource
 from biobarcoding.jobs import JobManagementAPI
 from biobarcoding.jobs.process_adaptor import ProcessAdaptorFactory
 from biobarcoding.rest import bcs_api_base, register_api, Job, ComputeResource, Process, ResponseObject, \
-    get_decoded_params
-from biobarcoding.authentication import bcs_session
+    get_decoded_params, SocketService
+from biobarcoding.authentication import bcs_session, deserialize_session, BCSSession
 from biobarcoding.rest import make_simple_rest_crud
 
 bp_jobs = Blueprint('jobs', __name__)
@@ -60,6 +60,7 @@ class JobAPI(MethodView):
             r.content = query.first()
         return r.get_response()
 
+    @bcs_session(read_only=True)
     def post(self):
         """
         curl -i -XPOST http://localhost:5000/api/jobs/ --data-urlencode "{}"
@@ -68,8 +69,12 @@ class JobAPI(MethodView):
         """
         # Submit new Job
         msg = f'POST {request.path}\nPosting job'
+        # Get Identity ID
+        identity_id = g.bcs_session.identity_id
+        if identity_id is None:
+            return Response("User not authorized", status=401)
         # Start session
-        session = DBSession()
+        session = g.bcs_session.db_session
         # Start JSON for processing
         d = DottedDict()
         uncoded_req = request.get_json()
@@ -90,7 +95,6 @@ class JobAPI(MethodView):
             and_(ProcessInComputeResource.process_id == process.id,
                  ProcessInComputeResource.resource_id == resource.id)).first()
         process_params = in_dict.process_params
-
         """
         Input JSON
         {
@@ -129,31 +133,30 @@ class JobAPI(MethodView):
         d.resource.jm_type = resource.jm_type.name
         d.resource.jm_location = resource.jm_location
         d.resource.jm_credentials = resource.jm_credentials if "credentials" not in in_dict else in_dict.credentials
-
         process_adaptor = ProcessAdaptorFactory().get(d.resource.jm_type, in_dict.process_id)
         d = process_adaptor.adapt_job_context(d)
 
         outputs = [r.to_json() for r in d.results]
-
         # Create Job database object
         job = Job()
         job.resource = resource
         job.process = process
         job.status = d.status
+        job.identity_id = identity_id
         job.inputs = json.dumps(process_params.to_json())
         job.outputs = json.dumps(outputs)
         session.add(job)
         session.commit()
         d.job_id = job.id
         DBSession.remove()
-
         # Submit job to Celery
         JobManagementAPI().submit(d.to_json())
-
         # Return
+        job_dict = job.__dict__
         response_object = {
             'status': 'success',
-            'message': f"Job with ID {job.id} queued"
+            'message': f"Job with ID {job.id} queued",
+            'job': dict((k, job_dict[k]) for k in job_dict if k not in ["_sa_instance_state", "uuid"])
         }
 
         return make_response(jsonify(response_object)), 200
@@ -178,8 +181,12 @@ class JobAPI(MethodView):
         # r = ResponseObject()
         req = request.get_json()
         job = db.query(Job).filter(Job.id == job_id).first()
-        job.status = req['status']
-        db.add(job)
+        if job.status != req['status']:
+            job.status = req['status']
+            db.add(job)
+            job_dict = job.__dict__
+            socket_job_dict = dict((k, job_dict[k]) for k in job_dict if k not in ["_sa_instance_state", "uuid"])
+            SocketService.instance.emit_process_status(job.identity_id, socket_job_dict)
         responseObject = {
             'status': 'success',
             'message': msg
