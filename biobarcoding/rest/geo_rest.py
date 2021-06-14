@@ -86,7 +86,7 @@ def get_content(session, Feature,issues, id=None):
         print(e)
         _ , status = issues.append(Issue(IType.ERROR, f'READ "{Feature.__name__}" data: The "{Feature.__name__}" data could not be read.')), 500
     if not content:
-        _, status = issues.append(Issue(IType.ERROR, f'no data available')), 200
+        _, status = issues.append(Issue(IType.INFO, f'no data available')), 200
     else:
         _, status = issues.append(
             Issue(IType.INFO, f'READ "{Feature.__name__}": The "{Feature.__name__}" data were successfully read')), 200
@@ -154,11 +154,11 @@ class RegionsAPI(MethodView):
         geographicregion_data = get_json_from_schema(GeographicRegion, t)
         regions = Regions_schema.load(regions_data, instance=Regions())
         pg.add(regions)
-        pg.commit()
+        pg.flush()
         geographicregion = GeographicRegion_schema.load(geographicregion_data, instance = GeographicRegion())
         geographicregion.uuid = regions.uuid
         geographicregion.geo_id = regions.id
-        geographicregion.usr = g.bcs_session.identity.id
+        geographicregion.identity_id = g.bcs_session.identity.id
         db.add(geographicregion)
         return r.get_response()
 
@@ -216,45 +216,50 @@ class layerAPI(MethodView):
 
     '''
     @bcs_session()
-    def get(self, _filter = None, key_col = None):
+    def get(self, _id = None):
         '''
         - get the list of layers in postgis
         - create a temporal layer from a sql filter
         @param filter: SQL filter in case of temporal layer
             sql = 'SELECT geometry as geom, "DENOMTAX" FROM plantas WHERE "RAREZALOCA" > 1'
-            geo.publish_featurestore_sqlview(store_name='geo_data', name='tmp_view3', sql=sql, key_column="'IDCELDA'",  (OJO CON LAS COMILLAS)
+            geo.publish_featurestore_sqlview(store_name='geo_data', name='tmp_view3', sql=sql, key_column="DENOMTAX",  (OJO CON LAS COMILLAS)
                                      workspace='ngd')
         @return:
         '''
         from biobarcoding.geo import geoserver_session
         issues = []
-        #
-        if not (_filter, key_col):
-            db = g.bcs_session.db_session
+        layers = None
+        _filter = request.args.get("filter")
+        key_col = request.args.get("key_col")
+        db = g.bcs_session.db_session
+        if _id:
+            issues, layers, count, status = get_content(db, GeographicLayer, issues, _id)
+        elif not _filter and not key_col:
             issues, layers, count, status = get_content(db, GeographicLayer,issues)
-        else:
-            # esto s epuede ver como un post porque estoy creando un registro nuevo en GEOSERVER
-            # si hay algún fallo a la hora de hacer el query. No lo sabré hasta visualizar
-            # el tema de la key_columns...???
+        elif _filter and key_col:
             sql = self._create_sql(_filter)
-            # esta funcion devuelve None aunque el query sea incorrecto :(
-            # hace print si ya existe (no sobreescribe)
-            # TODO para qué key_col?
+            r = geoserver_session.delete_layer(layer_name='tmpview',workspace='ngd')
             r = geoserver_session.publish_featurestore_sqlview(store_name='geo_data', name='tmpview', sql=sql, key_column=key_col,
-                                             workspace='ngd') # las tmp tmb en ngs, supongo
+                                             workspace='ngd')
             issue, status = geoserver_response(r)
+            if not self.check_layer(request):
+                _, status = issues.append(Issue(IType.ERROR, f"Error executing request for geoserver")),500
             issues.append(issue)
             layers = None
+        else:
+            _, status = issues.append(Issue(IType.ERROR, f"missing data")), 400
+
         return ResponseObject(issues=issues, status=status, content=layers).get_response()
 
     @bcs_session()
     def post(self):
         '''
-        {"name":'',
-        "wks": '',
-        "data":'',
-        "file":'',
-        "layer_name":'',
+        {"name":"",
+        "wks": "",
+        "data":"",
+        "file":"",
+        "layer_name":'', -> publish tmp view
+        " filter ":{"sql":"...","key_col":"..."} , .-> publish view with a name ion geo server and register in bcs as user view
         "SRID":'?'} -> layer_name siempre será tmp?
         '''
         issues= []
@@ -263,21 +268,23 @@ class layerAPI(MethodView):
         GeographicLayer_Schema= getattr(GeographicLayer,"Schema")()
         geographiclayer_data = get_json_from_schema(GeographicLayer, t)
         geographiclayer = GeographicLayer_Schema.load(geographiclayer_data, instance=GeographicLayer())
+        geographiclayer.identity_id = g.bcs_session.identity.id
         db.add(geographiclayer)
-        db.commit()
+        db.flush()
         layer_name = f"layer_{geographiclayer.id}"
-        issues, status = self._post_in_postgis(t, layer_name,issues)
+        issues, status  = self._post_in_postgis(t, layer_name,issues)
         if status == 200:
             geographiclayer.in_postgis = True
-        issues, status = self._publish_in_geoserver(t, layer_name, issues)
+        issues, status, layer_type = self._publish_in_geoserver(t, layer_name, issues)
         if status == 200:
             geographiclayer.published = True
-        db.add(geographiclayer)
-        db.commit()
+        geographiclayer.layer_type = layer_type
+        db.flush()
         return ResponseObject(issues = issues, status=status, content=None).get_response()
 
     @bcs_session()
     def put(self, _id = None):
+        # TODO edición de la información geográfica (postgis) de un item
         issues = []
         db = g.bcs_session.db_session
         t = request.json
@@ -286,7 +293,6 @@ class layerAPI(MethodView):
         if geographiclayer:
             geographiclayer = GeographicLayer_schema.load(t, instance = geographiclayer)
             db.add(geographiclayer)
-            db.commit()
         return ResponseObject(content=geographiclayer,issues = issues, status=status).get_response()
 
     @bcs_session()
@@ -297,37 +303,37 @@ class layerAPI(MethodView):
         @param id:
         @return:
         '''
-        # TODO delete da problemas: - si borro la capa de geoserver pero por lo que sea no se cambia published a false..
         from biobarcoding.geo import geoserver_session
         from biobarcoding import postgis_engine
         issues = []
         db = g.bcs_session.db_session
-        pg = g.bcs_session.postgis_db_session
         issues, geographiclayer , count, status = get_content(db, GeographicLayer,issues, _id)
+        if geographiclayer == None:
+            return ResponseObject(content=None, issues=issues, status=status).get_response()
+        geographiclayer.is_deleted = True
+        db.flush()
         if status == 200 and geographiclayer:
             layer_name = f"layer_{str(geographiclayer.id)}"
             # delete layer from geoserver
-            res = geoserver_session.delete_layer(layer_name= layer_name, workspace=geographiclayer.wks)
-            issues.append(Issue(IType.INFO, res))
-            if '200' in res:
+            r = geoserver_session.delete_layer(layer_name=layer_name, workspace=geographiclayer.wks)
+            issue, status = geoserver_response(r)
+            issues.append(issue)
+            if status ==200:
                 geographiclayer.published = False
-                geographiclayer.add()
-                db.commit()
+                db.flush()
             # delete table from postgis
             dropTableStmt = f"DROP TABLE public.{layer_name};"
             try:
                 postgis_engine.execute(dropTableStmt)
             except:
-                issues.append(Issue(IType.INFO, f'Error: Error at deleteing {layer_name} layer'))
+                issues.append(Issue(IType.ERROR, f'Error: Error at deleteing {layer_name} layer'))
                 status = 404
             else:
                 geographiclayer.in_postgis = False
-                geographiclayer.add()
-                db.commit()
-            # TODO informar de 206 si se borra parte del contenido?
+                db.flush()
             if geographiclayer.in_postgis == False and geographiclayer.published == False:
                 db.delete(geographiclayer)
-        return ResponseObject(content=None, issues = issues, status=status).get_response() # TODO ¿el peor status es siempre el mayor?
+        return ResponseObject(content=None, issues = issues, status=status).get_response()
 
 
     def _create_sql(self,_filter):
@@ -379,6 +385,7 @@ class layerAPI(MethodView):
 
     def _publish_in_geoserver(self, t, layer_name, issues):
         from biobarcoding.geo import geoserver_session
+        layer_type = None
         if t.get("data"):
             r = geoserver_session.publish_featurestore(workspace=t['wks'], store_name='geo_data',
                                                        pg_table=layer_name)
@@ -390,22 +397,36 @@ class layerAPI(MethodView):
             if layer["layer"].get("type") == 'VECTOR':
                 r = geoserver_session.publish_featurestore(workspace=t['wks'], store_name='geo_data',
                                                            pg_table=layer_name)
+                layer_type = "vector"
                 issue, status = geoserver_response(r)
                 issues.append(issue)
+        elif t.get("filter"):
+            sql = t["filter"]
+            key_col = t["key_col"]
+            r = geoserver_session.publish_featurestore_sqlview(store_name='geo_data', name=layer_name, sql=sql,
+                                                               key_column=key_col,
+                                                               workspace=t['wks'])
+            layer_type = "sqlview"
+            issue, status = geoserver_response(r)
+            issues.append(issue)
 
         elif t.get('file'):
             path = t.get('file')
             file_extension = pathlib.Path(path).suffix
             if file_extension in (".tif"):
+                #TODO FALLO
                 r = geoserver_session.create_coveragestore(layer_name=layer_name,
                                                            path=path,
                                                            workspace=t["wks"])
+                layer_type = "raster"
                 issue, status = geoserver_response(r)
                 issues.append(issue)
-            if file_extension in (".shp"):
-                r = geoserver_session.publish_featurestore(workspace=t['wks'], store_name='geo_data',
+            elif file_extension in (".shp"):
+                r = geoserver_session.publish_featurestore(workspace=t['wks'],
+                                                           store_name='geo_data',
                                                            pg_table=layer_name)
                 issue, status = geoserver_response(r)
+                layer_type = "vector"
                 issues.append(issue)
             else:
                 _, status = issues.append(Issue(IType.ERROR, f'READ "no valid file extension: {file_extension}')), 400
@@ -413,12 +434,29 @@ class layerAPI(MethodView):
             r = "No  valid geographic data specified, 400"
             issue, status = geoserver_response(r)
             issues.append(issue)
-        return issues, status
+        return issues, status, layer_type
+
+    def check_layer(self, request):
+        from biobarcoding.geo import geoserver_session
+        layer = geoserver_session.get_layer(layer_name = "tmpview")
+        tmpview_json = requests.get(layer["layer"]["resource"]["href"],
+                                    auth=(geoserver_session.username, geoserver_session.password)).text
+        tmpview_dict = json.loads(tmpview_json)
+        sql = tmpview_dict["featureType"]["metadata"]["entry"]["virtualTable"]["sql"].rstrip("\n")
+        key_col = tmpview_dict["featureType"]["metadata"]["entry"]["virtualTable"]["keyColumn"]
+        if sql == request.args.get("filter") and key_col == request.args.get("key_col"):
+            return True
+        else:
+            return False
+
+
+
+
 
 
 view_func = layerAPI.as_view("geo/layers")
-bp_geo.add_url_rule(f"{bcs_api_base}/geo/layers/", defaults={"_filter": None, "key_col": None}, view_func=view_func, methods=['GET'])
-bp_geo.add_url_rule(f"{bcs_api_base}/geo/layers/<string:_filter>/<string:key_col>", view_func=view_func, methods=['GET'])
+bp_geo.add_url_rule(f"{bcs_api_base}/geo/layers/", defaults={"_id" : None}, view_func=view_func, methods=['GET'])
+bp_geo.add_url_rule(f"{bcs_api_base}/geo/layers/<int:_id>", view_func=view_func, methods=['GET'])
 bp_geo.add_url_rule(f"{bcs_api_base}/geo/layers/", view_func=view_func, methods=['POST'])
 bp_geo.add_url_rule(f'{bcs_api_base}/geo/layers/<int:_id>', view_func=view_func, methods=['PUT', 'DELETE'])
 

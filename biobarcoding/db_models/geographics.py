@@ -17,7 +17,7 @@ class GeographicRegion(ORMBase):
     id = Column(Integer, primary_key=True, autoincrement=True)
     geo_id = Column(Integer, unique=True)
     name = Column(String(80))
-    usr = Column(Integer)
+    identity_id = Column(Integer)
     attributes = Column(JSON)
     style = Column(JSON)
 
@@ -27,12 +27,14 @@ class GeographicLayer(ORMBase):
 
     uuid = Column(GUID, unique=True, default=uuid.uuid4)
     id = Column(Integer, primary_key=True, autoincrement=True)
-    usr = Column(Integer)
+    identity_id = Column(Integer)
     name = Column(String(80))
     wks = Column(String(80))
     attributes = Column(JSON)
     published = Column(Boolean,default= False)
     in_postgis = Column(Boolean,default= False)
+    is_deleted = Column(Boolean,default= False)
+    layer_type = Column(String(80)) # CHOICES?
 
 class Regions(ORMBaseGeo):
      __tablename__ = 'Regions'
