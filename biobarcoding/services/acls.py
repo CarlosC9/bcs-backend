@@ -42,15 +42,17 @@ def read_acls(id=None, uuid=None, **kwargs):
     content, count = None, 0
     try:
         qparams = kwargs['value'] if kwargs.get('value') else kwargs
-        if qparams.get('chado_id'):
+        # IDs: id, uuid, object_uuid, chado_id + object_type
+        if qparams.get('chado_id') and not id and not uuid and not qparams.get('object_uuid'):
             if not qparams.get('object_type'):
                 raise
             qparams['object_uuid'] = DBSession.query(BioinformaticObject)\
                 .filter(BioinformaticObject.chado_id==qparams.pop('chado_id'),
                         BioinformaticObject.bo_type_id==qparams.get('object_type')).one().uuid
         content, count = get_query(DBSession, ACL, id=id, uuid=uuid, **kwargs)
-        if id or uuid or kwargs.get('object_uuid') or qparams.get('object_uuid'):
-            content = orm2json(content.first())
+
+        if id or uuid or qparams.get('object_uuid'):
+            content = orm2json(content.one())
             content['details'] = get_simple_query(DBSession, ACLDetail, acl_id=content.get('id')).all()
         else:
             content = content.all()
