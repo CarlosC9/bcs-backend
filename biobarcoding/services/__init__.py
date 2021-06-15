@@ -36,8 +36,11 @@ def orm2json(row):
     #     response.append(tmp)
     # return response
     d = {}
-    for column in row.__table__.columns:
-        d[column.name] = str(getattr(row, column.name))
+    try:
+        for column in row.__table__.columns:
+            d[column.name] = str(getattr(row, column.name))
+    except:
+        pass
     return d
 
 
