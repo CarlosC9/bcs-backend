@@ -1,3 +1,4 @@
+import marshmallow.exceptions
 import pandas as pd
 import geopandas as gpd
 from geo.Geoserver import Geoserver
@@ -243,7 +244,7 @@ class layerAPI(MethodView):
                                              workspace='ngd')
             issue, status = geoserver_response(r)
             if not self.check_layer(request):
-                _, status = issues.append(Issue(IType.ERROR, f"Error executing request for geoserver")),500
+                _, status = issues.append(Issue(IType.ERROR, f"Error executing request for geoserver")), 500
             issues.append(issue)
             layers = None
         else:
@@ -284,15 +285,37 @@ class layerAPI(MethodView):
 
     @bcs_session()
     def put(self, _id = None):
-        # TODO edición de la información geográfica (postgis) de un item
         issues = []
         db = g.bcs_session.db_session
         t = request.json
         GeographicLayer_schema = getattr(GeographicRegion, "Schema")()
         issues, geographiclayer, count, status = get_content(db, GeographicLayer,issues, _id)
         if geographiclayer:
-            geographiclayer = GeographicLayer_schema.load(t, instance = geographiclayer)
-            db.add(geographiclayer)
+            try:
+                geographiclayer = GeographicLayer_schema.load(t, instance=geographiclayer)
+            except marshmallow.exceptions.ValidationError:
+                # caso del que el field no corresponda a ninguno conocido
+                # tengo que dar un fallo
+                geographiclayer_data = get_json_from_schema(GeographicLayer, t)
+                geographiclayer = GeographicLayer_schema.load(geographiclayer_data, instance = geographiclayer)
+                # if t tiene más info que geographiclayer_data
+                layer_name = f"layer_{geographiclayer.id}"
+                geographiclayer.published = False
+                geographiclayer.in_postgis = False
+                db.flush()
+                issues, status = self._post_in_postgis(t, layer_name, issues)
+                if status == 200:
+                    geographiclayer.in_postgis = True
+                # re-publish in geoserver is need when the layer is changed (why?)
+                # (note that it is not necessary when sql_view layer)
+                issues, status, layer_type = self._publish_in_geoserver(t, layer_name, issues)
+                if status == 200:
+                    geographiclayer.published = True
+                    geographiclayer.layer_type = layer_type
+                    db.flush()
+                # TODO append issue if the geographic attribute is incorrect
+                else:
+                    db.rollback()
         return ResponseObject(content=geographiclayer,issues = issues, status=status).get_response()
 
     @bcs_session()
@@ -375,7 +398,7 @@ class layerAPI(MethodView):
         else:
             return issues, None
         try:
-            df.to_postgis(layer_name, postgis_engine, if_exists="fail")  # TODO... es mejor hacer fail o replace?
+            df.to_postgis(layer_name, postgis_engine, if_exists="replace")
         except ValueError as e:
             _, status =  issues.append(Issue(IType.INFO, f"layer named as {layer_name} error {e}")), 400
         else:
@@ -386,6 +409,7 @@ class layerAPI(MethodView):
     def _publish_in_geoserver(self, t, layer_name, issues):
         from biobarcoding.geo import geoserver_session
         layer_type = None
+        # TODO REFACTOR
         if t.get("data"):
             r = geoserver_session.publish_featurestore(workspace=t['wks'], store_name='geo_data',
                                                        pg_table=layer_name)
@@ -414,7 +438,6 @@ class layerAPI(MethodView):
             path = t.get('file')
             file_extension = pathlib.Path(path).suffix
             if file_extension in (".tif"):
-                #TODO FALLO
                 r = geoserver_session.create_coveragestore(layer_name=layer_name,
                                                            path=path,
                                                            workspace=t["wks"])
