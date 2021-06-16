@@ -261,14 +261,15 @@ tm_object_types = [  # ObjectType
     (1002, "83077626-cf8c-48d3-854b-a355afdb7df9", "process")  # Bioinformatic algorithms
 ]
 
-tm_permissions = {  # PermissionType
-    "f19ad19f-0a74-44e8-bd4e-4762404a35aa": "read",
-    "04cac7ca-a90b-4d12-a966-d8b0c77fca70": "annotate",
-    "d0924822-32fa-4456-8143-0fd48da33fd7": "contribute",
-    "83d837ab-01b2-4260-821b-8c4a3c52e9ab": "share",
-    "91a5b4a7-3359-4eed-98df-497c42d0c3c1": "execute",
-    "d3137471-84a0-4bcf-8dd8-16387ea46a30": "delete"
-}
+tm_permissions_fields = ["uuid", "name", "rank"]
+tm_permissions = [  # PermissionType
+    ("f19ad19f-0a74-44e8-bd4e-4762404a35aa", "read", 1),
+    ("04cac7ca-a90b-4d12-a966-d8b0c77fca70", "annotate", 2),
+    ("d0924822-32fa-4456-8143-0fd48da33fd7", "contribute", 2),
+    ("83d837ab-01b2-4260-821b-8c4a3c52e9ab", "share", 2),
+    ("91a5b4a7-3359-4eed-98df-497c42d0c3c1", "execute", 2),
+    ("d3137471-84a0-4bcf-8dd8-16387ea46a30", "delete", 3)
+]
 
 tm_default_users = {  # Identities
     "f3848599-4aa3-4964-b7e1-415d478560be": "admin",
@@ -420,7 +421,7 @@ def initialize_database_data():
     load_table(DBSession, Authenticator, tm_authenticators)
     load_table_extended(DBSession, ObjectType, tm_object_type_fields, tm_object_types)
     load_table(DBSession, SystemFunction, tm_system_functions)
-    load_table(DBSession, PermissionType, tm_permissions)
+    load_table_extended(DBSession, PermissionType, tm_permissions_fields, tm_permissions)
     load_table(DBSession, JobStatus, tm_job_statuses)
     load_table(DBSession, JobManagementType, tm_job_mgmt_types)
     load_table(DBSession, Process, tm_processes)
@@ -824,17 +825,24 @@ def check_request_params(data=None):
     return kwargs
 
 
-def related_authr_ids(identity_id):
+def related_authr_ids(*identity_ids):
     return DBSession.query(Identity.id)\
         .join(Identity, OrganizationIdentity, Identity.id==OrganizationIdentity.identity_id)\
         .join(Identity, GroupIdentity, Identity.id==GroupIdentity.identity_id)\
         .join(Identity, RoleIdentity, Identity.id==RoleIdentity.identity_id)\
-        .filter(OrganizationIdentity.organization_id==identity_id,
-                GroupIdentity.group_id==identity_id,
-                RoleIdentity.role_id==identity_id)
+        .filter(OrganizationIdentity.organization_id.in_(identity_ids),
+                GroupIdentity.group_id.in_(identity_ids),
+                RoleIdentity.role_id.in_(identity_ids))
 
 
-def auth_filter(orm, identity_ids, object_types_ids, permission_types_ids, object_uuids=None, time=None,
+def related_perm_ids(*permission_ids):
+    return DBSession.query(PermissionType.id)\
+        .filter(PermissionType.id.in_(permission_ids),
+                PermissionType.rank < PermissionType.id.in_(permission_ids).rank)
+
+
+def auth_filter(orm, identity_ids, object_types_ids, permission_types_ids,
+                object_uuids=None, time=None,
                 permission_flag=None, authorizable_flag=None):
     """
     * Filter
@@ -864,25 +872,18 @@ def auth_filter(orm, identity_ids, object_types_ids, permission_types_ids, objec
     """
     time = time if time else datetime.now()
     try:
-        filter_clause = (ACL.object_type.in_(object_types_ids),
-                        time >= ACLDetail.validity_start,
-                        time <= ACLDetail.validity_end,
-                        ACLDetail.permission_id.in_(permission_types_ids),
-                        ACL.object_uuid.in_(object_uuids))
-
-        collected = DBSession.query(CollectionDetail.object_uuid).join(Collection).join(ACL).join(ACLDetail).filter(filter_clause)
-        uncollected = DBSession.query(ACL.object_uuid).join(ACLDetail).filter(filter_clause)
-
+        filter_clause = [(ACL.object_type.in_(object_types_ids),
+                         time >= ACLDetail.validity_start,
+                         time <= ACLDetail.validity_end,
+                         ACLDetail.permission.rank < related_perm_ids(permission_types_ids),
+                         ACL.object_uuid.in_(object_uuids))]
 
         if identity_ids:
-            expanded_identity_ids = []
-            for i in identity_ids:
-                expanded_identity_ids += related_authr_ids(i)
-            expanded_identity_ids = or_(expanded_identity_ids)
-            or_clause = or_(ACLDetail.authorizable_id.in_(identity_ids),
-                            ACLDetail.authorizable_id.in_(expanded_identity_ids))
-            collected = collected.filter(or_clause)
-            uncollected = uncollected.filter(or_clause)
+            filter_clause.append(ACLDetail.authorizable_id.in_(related_authr_ids(identity_ids)))
+
+        collected = DBSession.query(CollectionDetail.object_uuid).join(Collection).join(ACL).join(ACLDetail).filter(*filter_clause)
+        uncollected = DBSession.query(ACL.object_uuid).join(ACLDetail).filter(*filter_clause)
+
 
         final_query = collected.union(uncollected)
         # also select permission_id and authorizable_id
