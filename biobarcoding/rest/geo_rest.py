@@ -69,7 +69,7 @@ bp_geo = Blueprint('geo', __name__)
 def geoserver_response(response):
     if response:
         status = int(re.findall('[0-9]+', response)[0])
-        return Issue(IType.INFO, "layer succesfully published"), status
+        return Issue(IType.INFO, response.replace(str(status),'')), status
     else:
         return Issue(IType.INFO, "layer succesfully published"), 200
 
@@ -161,7 +161,8 @@ class RegionsAPI(MethodView):
         geographicregion.geo_id = regions.id
         geographicregion.identity_id = g.bcs_session.identity.id
         db.add(geographicregion)
-        return r.get_response()
+        db.flush()
+        return ResponseObject(content= geographicregion, content_type= "application/json").get_response()
 
 
     @bcs_session()
@@ -211,7 +212,7 @@ class layerAPI(MethodView):
             then in postgis as table (format)
             and then publish  in geoserver as new layer
 
-    PUT: changing name or attributes (never Geometry)
+    PUT: changing name, attributes  or geometry
 
     DELETE: delete completely from GeographicLayer table (bcs) postgis and geoserver
 
@@ -281,7 +282,7 @@ class layerAPI(MethodView):
             geographiclayer.published = True
         geographiclayer.layer_type = layer_type
         db.flush()
-        return ResponseObject(issues = issues, status=status, content=None).get_response()
+        return ResponseObject(issues = issues, status=status, content=geographiclayer).get_response()
 
     @bcs_session()
     def put(self, _id = None):
@@ -294,15 +295,14 @@ class layerAPI(MethodView):
             try:
                 geographiclayer = GeographicLayer_schema.load(t, instance=geographiclayer)
             except marshmallow.exceptions.ValidationError:
-                # caso del que el field no corresponda a ninguno conocido
-                # tengo que dar un fallo
                 geographiclayer_data = get_json_from_schema(GeographicLayer, t)
                 geographiclayer = GeographicLayer_schema.load(geographiclayer_data, instance = geographiclayer)
-                # if t tiene más info que geographiclayer_data
                 layer_name = f"layer_{geographiclayer.id}"
                 geographiclayer.published = False
                 geographiclayer.in_postgis = False
                 db.flush()
+                if not t.get("wks"):
+                    t["wks"] = geographiclayer.wks
                 issues, status = self._post_in_postgis(t, layer_name, issues)
                 if status == 200:
                     geographiclayer.in_postgis = True
@@ -313,10 +313,9 @@ class layerAPI(MethodView):
                     geographiclayer.published = True
                     geographiclayer.layer_type = layer_type
                     db.flush()
-                # TODO append issue if the geographic attribute is incorrect
                 else:
                     db.rollback()
-        return ResponseObject(content=geographiclayer,issues = issues, status=status).get_response()
+        return ResponseObject(content = geographiclayer,issues = issues, status = status).get_response()
 
     @bcs_session()
     def delete(self, _id):
