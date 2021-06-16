@@ -139,7 +139,6 @@ class RegionsAPI(MethodView):
     def post(self):
         db = g.bcs_session.db_session
         pg = g.bcs_session.postgis_db_session
-        r = ResponseObject()
         t = request.json
         GeographicRegion_schema = getattr(GeographicRegion, "Schema")()
         Regions_schema = getattr(Regions, "Schema")()
@@ -153,7 +152,8 @@ class RegionsAPI(MethodView):
         geographicregion.geo_id = regions.id
         geographicregion.usr = g.bcs_session.identity.id
         db.add(geographicregion)
-        return r.get_response()
+        db.flush()
+        return ResponseObject(content=geographicregion, content_type="application/json").get_response()
 
 
     @bcs_session()
