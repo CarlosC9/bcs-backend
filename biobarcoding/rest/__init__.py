@@ -901,7 +901,7 @@ def filter_parse(orm, filter, aux_filter=None):
         return or_(*or_clause)
     except Exception as e:
         print(e)
-        return False
+        return None
 
 
 def order_parse(orm, sort, aux_order=None):
@@ -952,19 +952,14 @@ def get_query(session, orm, id=None, aux_filter=None, aux_order=None, **kwargs):
     count = 0
     if id:
         query = query.filter(orm.id == id)
-    # elif kwargs.get('value'):
-    #     query.filter_by(**kwargs.get('value'))
-    #     # for k,v in kwargs.get('value'):
-    #     #     kwargs['value'][k]={'op':'eq', 'unary':v}
-    #     # query = query.filter(filter_parse(orm, kwargs.get('value'), aux_filter))
     else:
         if not kwargs.get('value'):
             kwargs['value'] = {}
         for k,v in kwargs.items():
-            if not k in ['value', 'filter', 'order', 'pagination', 'searchValue']:
+            if not k in ['value', 'filter', 'order', 'pagination', 'searchValue'] and v:
                 kwargs['value'][k] = v
         if kwargs.get('value'):
-            query.filter_by(**kwargs.get('value'))
+            query = query.filter_by(**kwargs.get('value'))
         if kwargs.get('filter'):
             query = query.filter(filter_parse(orm, kwargs.get('filter'), aux_filter))
         if kwargs.get('order'):
