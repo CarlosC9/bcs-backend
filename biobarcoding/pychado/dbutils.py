@@ -7,6 +7,8 @@ import getpass
 import sqlalchemy.engine
 import sqlalchemy.sql
 import sqlalchemy_utils
+from sqlalchemy.pool import QueuePool
+
 from . import utils
 
 
@@ -69,7 +71,7 @@ def default_configuration_file() -> str:
 
 def open_connection(uri: str) -> sqlalchemy.engine.base.Connection:
     """Establishes a database connection"""
-    engine = sqlalchemy.create_engine(uri)
+    engine = sqlalchemy.create_engine(uri, poolclass=QueuePool, pool_size=0, max_overflow=-1)
     connection = engine.connect()
     return connection
 

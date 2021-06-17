@@ -8,7 +8,6 @@ from biobarcoding.authentication import bcs_session
 from biobarcoding.rest import bcs_api_base, ResponseObject, Issue, IType, register_api
 from biobarcoding.db_models.geographics import GeographicRegion, GeographicLayer, Regions
 import json
-import pathlib
 import regex as re
 import requests
 
@@ -147,7 +146,6 @@ class RegionsAPI(MethodView):
     def post(self):
         db = g.bcs_session.db_session
         pg = g.bcs_session.postgis_db_session
-        r = ResponseObject()
         t = request.json
         GeographicRegion_schema = getattr(GeographicRegion, "Schema")()
         Regions_schema = getattr(Regions, "Schema")()

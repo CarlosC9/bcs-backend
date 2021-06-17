@@ -180,6 +180,7 @@ def setup_schema(Base, session):
                     include_fk = True
                     model = class_
                     sqla_session = session
+                    generate_polymorphic_schemas = True
 
                 schema_class_name = "%sSchema" % class_.__name__
 
