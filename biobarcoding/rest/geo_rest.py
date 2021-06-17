@@ -228,6 +228,7 @@ class layerAPI(MethodView):
                                      workspace='ngd')
         @return:
         '''
+        # TODO filtrar tmb en el get todo lo que no esté publicado en geoserver?
         from biobarcoding.geo import geoserver_session
         issues = []
         layers = None
@@ -236,8 +237,12 @@ class layerAPI(MethodView):
         db = g.bcs_session.db_session
         if _id:
             issues, layers, count, status = get_content(db, GeographicLayer, issues, _id)
+            if layers.is_deleted == True:
+                layers = None
+                _, status = issues.append(Issue(IType.INFO, f'no data available')), 200
         elif not _filter and not key_col:
             issues, layers, count, status = get_content(db, GeographicLayer,issues)
+            layers = list(filter(lambda x: (x.is_deleted == False), layers))
         elif _filter and key_col:
             sql = self._create_sql(_filter)
             r = geoserver_session.delete_layer(layer_name='tmpview',workspace='ngd')
@@ -258,11 +263,12 @@ class layerAPI(MethodView):
         '''
         {"name":"",
         "wks": "",
+        "attributes"
         "data":"",
         "file":"",
         "layer_name":'', -> publish tmp view
-        " filter ":{"sql":"...","key_col":"..."} , .-> publish view with a name ion geo server and register in bcs as user view
-        "SRID":'?'} -> layer_name siempre será tmp?
+        " filter ":{"sql":"...","key_col":"..."}
+         }, .-> publish view with a name ion geo server and register in bcs as user view
         '''
         issues= []
         db = g.bcs_session.db_session
@@ -294,7 +300,7 @@ class layerAPI(MethodView):
         if geographiclayer:
             try:
                 geographiclayer = GeographicLayer_schema.load(t, instance=geographiclayer)
-            except marshmallow.exceptions.ValidationError:
+            except marshmallow.exceptions.ValidationError as field:
                 geographiclayer_data = get_json_from_schema(GeographicLayer, t)
                 geographiclayer = GeographicLayer_schema.load(geographiclayer_data, instance = geographiclayer)
                 layer_name = f"layer_{geographiclayer.id}"
@@ -375,15 +381,23 @@ class layerAPI(MethodView):
             df = gpd.GeoDataFrame.from_features(t["data"]['features'])
         elif t.get("layer_name"):
             layer = geoserver_session.get_layer(layer_name=t["layer_name"])
-            if layer["layer"].get("type") == 'VECTOR':
-                # OPCIÓN 1: pedir los datos directamente desde GEOSERVER mediante WFS (no sé cómo hacerlo)
+            if isinstance(layer, dict):
+                layer = geoserver_session.get_layer(layer_name=t["layer_name"])
+                # si no hay tmpview va a lanzar error
+                if layer["layer"].get("type") == 'VECTOR':
+                    # OPCIÓN 1: pedir los datos directamente desde GEOSERVER mediante WFS (no sé cómo hacerlo)
 
-                # OPCIÓN 2: Hacer el query a postgis y guardarlo en postgis y geoserver
-                tmpview_json = requests.get(layer["layer"]["resource"]["href"], auth=(geoserver_session.username, geoserver_session.password)).text
-                tmpview_dict = json.loads(tmpview_json)
-                sql = tmpview_dict["featureType"]["metadata"]["entry"]["virtualTable"]["sql"]
-                key_col = tmpview_dict["featureType"]["metadata"]["entry"]["virtualTable"]["keyColumn"]
-                df = gpd.GeoDataFrame.from_postgis(sql, postgis_engine)
+                    # OPCIÓN 2: Hacer el query a postgis y guardarlo en postgis y geoserver
+                    response = requests.get(layer["layer"]["resource"]["href"], auth=(geoserver_session.username, geoserver_session.password))
+                    if response.status_code == 200:
+                        tmpview_json = response.text
+                        tmpview_dict = json.loads(tmpview_json)
+                        sql = tmpview_dict["featureType"]["metadata"]["entry"]["virtualTable"]["sql"]
+                        key_col = tmpview_dict["featureType"]["metadata"]["entry"]["virtualTable"]["keyColumn"]
+                        df = gpd.GeoDataFrame.from_postgis(sql, postgis_engine)
+                    else:
+                        _, status = issues.append(Issue(IType.INFO, f"no tmpview available")), response.status_code
+                        return issues,status
             else:  # go to geoserver
                 return issues, None
         elif t.get("file"):
@@ -409,20 +423,19 @@ class layerAPI(MethodView):
         from biobarcoding.geo import geoserver_session
         layer_type = None
         # TODO REFACTOR
+        layer_type = "vector"
         if t.get("data"):
             r = geoserver_session.publish_featurestore(workspace=t['wks'], store_name='geo_data',
                                                        pg_table=layer_name)
-            issue, status = geoserver_response(r)
-            issues.append(issue)
-
         elif t.get("layer_name"):
             layer = geoserver_session.get_layer(layer_name=t["layer_name"])
-            if layer["layer"].get("type") == 'VECTOR':
-                r = geoserver_session.publish_featurestore(workspace=t['wks'], store_name='geo_data',
-                                                           pg_table=layer_name)
-                layer_type = "vector"
-                issue, status = geoserver_response(r)
-                issues.append(issue)
+            if isinstance(layer,dict):
+                if layer["layer"].get("type") == 'VECTOR':
+                    r = geoserver_session.publish_featurestore(workspace=t['wks'], store_name='geo_data',
+                                                               pg_table=layer_name)
+            else:
+                r = "no tmpview available 500 "
+
         elif t.get("filter"):
             sql = t["filter"]
             key_col = t["key_col"]
@@ -430,8 +443,6 @@ class layerAPI(MethodView):
                                                                key_column=key_col,
                                                                workspace=t['wks'])
             layer_type = "sqlview"
-            issue, status = geoserver_response(r)
-            issues.append(issue)
 
         elif t.get('file'):
             path = t.get('file')
@@ -441,21 +452,17 @@ class layerAPI(MethodView):
                                                            path=path,
                                                            workspace=t["wks"])
                 layer_type = "raster"
-                issue, status = geoserver_response(r)
-                issues.append(issue)
             elif file_extension in (".shp"):
                 r = geoserver_session.publish_featurestore(workspace=t['wks'],
                                                            store_name='geo_data',
                                                            pg_table=layer_name)
-                issue, status = geoserver_response(r)
-                layer_type = "vector"
-                issues.append(issue)
             else:
-                _, status = issues.append(Issue(IType.ERROR, f'READ "no valid file extension: {file_extension}')), 400
+                r = f'READ "no valid file extension: {file_extension} 400'
         else:
             r = "No  valid geographic data specified, 400"
-            issue, status = geoserver_response(r)
-            issues.append(issue)
+
+        issue, status = geoserver_response(r)
+        issues.append(issue)
         return issues, status, layer_type
 
     def check_layer(self, request):
@@ -471,6 +478,11 @@ class layerAPI(MethodView):
         else:
             return False
 
+    def _publish_view(self, t, layer_name):
+        pass
+
+    def _post_view(self, t, layer_name):
+        pass
 
 
 
