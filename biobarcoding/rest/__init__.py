@@ -845,12 +845,14 @@ def auth_filter(orm, identity_ids, object_types_ids, permission_types_ids,
                 object_uuids=None, time=None,
                 permission_flag=None, authorizable_flag=None):
     """
-    * Filter
-    * Identity (ids)
-    * object types (ids)
-    * permission types (ids)
-    * object ids
-    * date time
+    * orm: base (with uuid) to build the filter
+    * identity_ids: who is requesting
+    * object_types_ids: where is requesting
+    * permission_types_ids: what is requesting
+    * object_uuid: about what is requesting
+    * time: when is requesting
+    * permission_flag: extra info required
+    * authorizable_flag: extra info required
 
     CollectionDetail (cd) <> Collection (c) > ACL <> ACLDetail (ad)
 
@@ -868,25 +870,22 @@ def auth_filter(orm, identity_ids, object_types_ids, permission_types_ids,
         * Añadir lista object_ids objeto sirve para ver permisos de esos objetos concretos
         * Añadir lista id tipos permisos sirve para ver si esos tipos están
 
-    @return: <orm_clause_filter>
+    @return: <orm_clause_filter> || object_uuids[, permissions][, authorizables]
     """
     time = time if time else datetime.now()
     try:
-        filter_clause = [(ACL.object_type.in_(object_types_ids),
-                         time >= ACLDetail.validity_start,
-                         time <= ACLDetail.validity_end,
-                         ACLDetail.permission.rank < related_perm_ids(permission_types_ids),
-                         ACL.object_uuid.in_(object_uuids))]
-
-        if identity_ids:
-            filter_clause.append(ACLDetail.authorizable_id.in_(related_authr_ids(identity_ids)))
+        filter_clause = []
+        filter.append(ACL.object_type.in_(object_types_ids)) if object_types_ids else None
+        filter.append(time >= ACLDetail.validity_start) if time else None
+        filter.append(time <= ACLDetail.validity_end) if time else None
+        filter.append(ACLDetail.authorizable_id.in_(related_authr_ids(identity_ids))) if identity_ids else None
+        filter.append(ACLDetail.permission_id.in_(related_perm_ids(permission_types_ids))) if permission_types_ids else None
+        filter.append(ACL.object_uuid.in_(object_uuids)) if object_uuids else None
 
         collected = DBSession.query(CollectionDetail.object_uuid).join(Collection).join(ACL).join(ACLDetail).filter(*filter_clause)
         uncollected = DBSession.query(ACL.object_uuid).join(ACLDetail).filter(*filter_clause)
 
-
         final_query = collected.union(uncollected)
-        # also select permission_id and authorizable_id
         if permission_flag or authorizable_flag:
             entities = []
             entities += [ACLDetail.permission] if permission_flag else []
