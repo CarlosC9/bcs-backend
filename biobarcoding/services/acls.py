@@ -16,12 +16,12 @@ def create_acls(**kwargs):
                     .filter(BioinformaticObject.uuid==kwargs.get('object_uuid')).first()
         elif kwargs.get('object_type'):
             if not kwargs.get('chado_id'):
-                raise
+                raise Exception('Missing the chado_id')
             kwargs['object_uuid'] = DBSession.query(BioinformaticObject)\
                 .filter(BioinformaticObject.chado_id==kwargs.pop('chado_id'),
                         BioinformaticObject.bo_type_id==kwargs.get('object_type')).one().uuid
         else:
-            raise
+            raise Exception('Missing the object_uuid or the chado_id with object_type')
         acl = ACL(**kwargs)
         DBSession.add(acl)
         DBSession.flush()
@@ -45,7 +45,7 @@ def read_acls(id=None, uuid=None, **kwargs):
         # IDs: id, uuid, object_uuid, chado_id + object_type
         if qparams.get('chado_id') and not id and not uuid and not qparams.get('object_uuid'):
             if not qparams.get('object_type'):
-                raise
+                raise Exception('Missing the object_type')
             qparams['object_uuid'] = DBSession.query(BioinformaticObject)\
                 .filter(BioinformaticObject.chado_id==qparams.pop('chado_id'),
                         BioinformaticObject.bo_type_id==qparams.get('object_type')).one().uuid
