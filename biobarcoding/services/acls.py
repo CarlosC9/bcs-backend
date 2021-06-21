@@ -34,7 +34,7 @@ def create_acls(**kwargs):
         issues, status = [Issue(IType.INFO, f'CREATE acls: The acl created successfully.')], 201
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'CREATE acls: The acl could not be created.')], 500
+        issues, status = [Issue(IType.ERROR, f'CREATE acls: The acl could not be created.')], 409
     return issues, content, status
 
 
@@ -52,14 +52,20 @@ def read_acls(id=None, uuid=None, **kwargs):
         content, count = get_query(DBSession, ACL, id=id, uuid=uuid, **kwargs)
 
         if id or uuid or qparams.get('object_uuid'):
-            content = orm2json(content.one())
-            content['details'] = get_simple_query(DBSession, ACLDetail, acl_id=content.get('id')).all()
+            content = content.one()
+            details = []
+            for detail in content.details:
+                d = orm2json(detail)
+                d['authorizable'] = detail.authorizable
+                details.append(d)
+            content = orm2json(content)
+            content['details'] = details
         else:
             content = content.all()
         issues, status = [Issue(IType.INFO, 'READ acls: The acls were successfully read.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'READ acls: The acls could not be read.')], 500
+        issues, status = [Issue(IType.ERROR, 'READ acls: The acls could not be read.')], 404
     return issues, content, count, status
 
 
@@ -69,24 +75,24 @@ def update_acls(id=None, uuid=None, **kwargs):
         details = kwargs.pop('details')
         content = get_simple_query(DBSession, ACL, id=id, uuid=uuid)
         if kwargs:
-            content.update(**kwargs)
+            content.update(kwargs)
         content = content.one()
         if isinstance(details, (list, tuple)):
             # Removing missing details
-            DBSession.query(ACLDetail).filter(acl_id=content.id).filter(id.out_([d.id for d in details])).delete(synchronize_session='fetch')
+            DBSession.query(ACLDetail).filter(ACLDetail.acl_id==content.id)\
+                .filter(ACLDetail.id.notin_([d.get('id') for d in details if d.get('id')]))\
+                .delete(synchronize_session='fetch')
             for d in details:
                 if 'id' in d:
                     # Updating existing details
-                    DBSession.query(ACLDetail).filter(id=d.id).update(**d)
+                    DBSession.query(ACLDetail).filter(ACLDetail.id==d.get('id')).update(d)
                 else:
                     # Adding new details
                     DBSession.add(ACLDetail(acl_id=content.id, **d))
-        elif isinstance(details, (dict, ACLDetail)):
-            DBSession.add(ACLDetail(acl_id=content.id, **details))
-        issues, status = [Issue(IType.INFO, f'UPDATE acls({id}): The acls were successfully updated.')], 200
+        issues, status = [Issue(IType.INFO, f'UPDATE acls({content.id}): The acls were successfully updated.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'UPDATE acls: The acls could not be updated.')], 500
+        issues, status = [Issue(IType.ERROR, 'UPDATE acls: The acls could not be updated.')], 409
     return issues, content, status
 
 
@@ -97,7 +103,7 @@ def delete_acls(id=None, uuid=None, **kwargs):
         issues, status = [Issue(IType.INFO, f'DELETE acls({id}): The acls were successfully deleted.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'DELETE acls: The acls could not be deleted.')], 500
+        issues, status = [Issue(IType.ERROR, 'DELETE acls: The acls could not be deleted.')], 409
     return issues, content, status
 
 
@@ -110,18 +116,19 @@ def read_obj_types(id=None, uuid=None, **kwargs):
     content, count = None, 0
     try:
         content, count = get_query(DBSession, ObjectType, id=id, uuid=uuid, **kwargs)
-        if id or uuid:
+        if id or uuid or content.count()==1:
             content = orm2json(content.first())
             from biobarcoding.db_models.sysadmin import ObjectTypePermissionType
             perms = DBSession.query(PermissionType).join(ObjectTypePermissionType)\
                 .filter(ObjectTypePermissionType.object_type_id==content.get('id'))
             content['permission_types'] = perms.all()
+            content = [content] if not id and not uuid else content
         else:
             content = content.all()
         issues, status = [Issue(IType.INFO, 'READ object_types: The object_types were successfully read.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'READ object_types: The object_types could not be read.')], 500
+        issues, status = [Issue(IType.ERROR, 'READ object_types: The object_types could not be read.')], 404
     return issues, content, count, status
 
 
@@ -141,5 +148,5 @@ def read_perm_types(id=None, uuid=None, type=None, **kwargs):
         issues, status = [Issue(IType.INFO, 'READ permission_types: The permission_types were successfully read.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'READ permission_types: The permission_types could not be read.')], 500
+        issues, status = [Issue(IType.ERROR, 'READ permission_types: The permission_types could not be read.')], 404
     return issues, content, count, status
