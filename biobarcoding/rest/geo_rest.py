@@ -10,6 +10,9 @@ from biobarcoding.db_models.geographics import GeographicRegion, GeographicLayer
 import json
 import regex as re
 import requests
+import pathlib
+import numpy as np
+
 
 from sqlalchemy import create_engine
 import psycopg2
@@ -235,12 +238,13 @@ class layerAPI(MethodView):
         db = g.bcs_session.db_session
         if _id:
             issues, layers, count, status = get_content(db, GeographicLayer, issues, _id)
-            if layers.is_deleted == True:
+            if layers and layers.is_deleted == True:
                 layers = None
                 _, status = issues.append(Issue(IType.INFO, f'no data available')), 200
         elif not _filter and not key_col:
             issues, layers, count, status = get_content(db, GeographicLayer,issues)
-            layers = list(filter(lambda x: (x.is_deleted == False), layers))
+            if layers:
+                layers = list(filter(lambda x: (x.is_deleted == False), layers))
         elif _filter and key_col:
             sql = self._create_sql(_filter)
             r = geoserver_session.delete_layer(layer_name='tmpview',workspace='ngd')
@@ -266,6 +270,7 @@ class layerAPI(MethodView):
         "file":"",
         "layer_name":'', -> publish tmp view
         " filter ":{"sql":"...","key_col":"..."}
+        "convert_to: "json",
          }, .-> publish view with a name ion geo server and register in bcs as user view
         '''
         issues= []
@@ -277,6 +282,10 @@ class layerAPI(MethodView):
         geographiclayer.identity_id = g.bcs_session.identity.id
         db.add(geographiclayer)
         db.flush()
+        if t.get("convert_to"):
+            if t["convert_to"] == "geojson":
+                t["data"] = self.import_file_as_json(t["file"])
+                del t["file"]
         layer_name = f"layer_{geographiclayer.id}"
         issues, status  = self._post_in_postgis(t, layer_name,issues)
         if status == 200:
@@ -375,8 +384,11 @@ class layerAPI(MethodView):
     def _post_in_postgis(self,t, layer_name, issues):
         from biobarcoding import postgis_engine
         from biobarcoding.geo import geoserver_session
-        if t.get("data"):
-            df = gpd.GeoDataFrame.from_features(t["data"]['features'])
+        if "data" in t.keys():
+            if isinstance(t["data"], gpd.GeoDataFrame):
+                df = t["data"]
+            else:
+                df = gpd.GeoDataFrame.from_features(t["data"]['features'])
         elif t.get("layer_name"):
             layer = geoserver_session.get_layer(layer_name=t["layer_name"])
             if isinstance(layer, dict):
@@ -422,7 +434,7 @@ class layerAPI(MethodView):
         layer_type = None
         # TODO REFACTOR
         layer_type = "vector"
-        if t.get("data"):
+        if "data" in t.keys():
             r = geoserver_session.publish_featurestore(workspace=t['wks'], store_name='geo_data',
                                                        pg_table=layer_name)
         elif t.get("layer_name"):
@@ -482,6 +494,18 @@ class layerAPI(MethodView):
     def _post_view(self, t, layer_name):
         pass
 
+    def import_file_as_json(self,path):
+        def f(x):
+            return x[["RIQUEZA", "RAREZALOCA", "RAREZAINSU", "RAREZAREGI", "CODIGOTAX", "DENOMTAX"]].to_json(
+                orient="records")
+
+        gdf = gpd.read_file(path)
+        for c in ["IDCELDA", "CODIGOTAX"]:
+            gdf[c] = gdf[c].astype(np.int64)
+        tmp = gpd.GeoSeries(gdf["geometry"], index=gdf["IDCELDA"]).to_dict()
+        df = gdf.groupby("IDCELDA").apply(f).to_frame("taxa").reset_index()
+        new_pdf = gpd.GeoDataFrame(df, crs=gdf.crs, geometry=df["IDCELDA"].replace(tmp))
+        return new_pdf
 
 
 
