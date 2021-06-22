@@ -22,15 +22,13 @@ def create_acls(**kwargs):
                         BioinformaticObject.bo_type_id==kwargs.get('object_type')).one().uuid
         else:
             raise Exception('Missing the object_uuid or the chado_id with object_type')
+        details = kwargs.pop('details') if 'details' in kwargs else None
         acl = ACL(**kwargs)
         DBSession.add(acl)
         DBSession.flush()
-        details = kwargs.get('details')
         if isinstance(details, (list, tuple)):
             for d in details:
                 DBSession.add(ACLDetail(acl_id=acl.id, **d))
-        elif details:
-            DBSession.add(ACLDetail(acl_id=acl.id, **details))
         issues, status = [Issue(IType.INFO, f'CREATE acls: The acl created successfully.')], 201
     except Exception as e:
         print(e)
