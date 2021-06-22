@@ -7,7 +7,7 @@ def create(**kwargs):
     content = None
     try:
         if not kwargs.get('uniquename'):
-            raise
+            raise Exception('Missing the uniquename')
         if not kwargs.get('type_id'):
             from biobarcoding.db_models.chado import Cvterm
             kwargs['type_id'] = chado_session.query(Cvterm.cvterm_id).filter(Cvterm.name=='plant anatomical entity').one()

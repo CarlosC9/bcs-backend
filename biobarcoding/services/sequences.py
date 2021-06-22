@@ -12,7 +12,7 @@ def create(**kwargs):
     content = None
     try:
         if not kwargs.get('uniquename'):
-            raise
+            raise Exception('Missing the uniquename')
         if not kwargs.get('organism_id'):
             from biobarcoding.db_models.chado import Organism
             try:
