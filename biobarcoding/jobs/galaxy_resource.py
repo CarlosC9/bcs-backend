@@ -229,24 +229,6 @@ def import_workflow(instance, wf_Id):
     wf = gi.workflows.import_workflow_dict(wf_Id)
     return wf
 
-
-def check_tools(wf1_dic, wf2_dic):
-    steps1 = wf1_dic['steps']
-    steps2 = wf2_dic['steps']
-    tool_list = list()
-    for step, content in steps1.items():
-        if 'errors' in content:
-            if content['errors'] == "Tool is not installed":
-                # TODO depende de la versión de galaxi esto lleva un punto al final o no xq lo que hay que buscar
-                #  otra cosa
-                tool_list.append(steps2[step]['tool_shed_repository'])
-    if len(tool_list) == 0:
-        return 'all tools are installed'
-    else:
-        return tool_list
-
-
-
 def get_stdout_stderr(gi,result,history_name):
     remote_name = result['remote_name']
     dataset_id = \
@@ -260,12 +242,12 @@ def get_stdout_stderr(gi,result,history_name):
 
 
 class JobExecutorAtGalaxy(JobExecutorAtResource):
-    def __init__(self, job_id):
-        super().__init__(job_id)
+    def __init__(self, identity_job_id):
+        super().__init__(identity_job_id)
         self.api_key = None
         self.url = None
         self.galaxy_instance = None
-        self.workspace = job_id
+        self.workspace = identity_job_id
 
     def set_resource(self, params):
         self.api_key = params['jm_credentials']['api_key']
@@ -294,30 +276,30 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
     def get_download_files_list(self, job_context):
         return job_context["results"]
 
-    def create_job_workspace(self, name):
+    def create_job_workspace(self):
         self.connect()
         gi = self.galaxy_instance
-        history = gi.histories.create_history(name=str(name))
+        history = gi.histories.create_history(name=self.workspace)
         # tengo que retornar algo diferente si no se puede conectar a galaxy
         self.disconnect()
         return history['id']
 
-    def job_workspace_exists(self, job_id):
+    def job_workspace_exists(self):
         self.connect()
         gi = self.galaxy_instance
-        history_id = get_history_id(gi,str(job_id))
+        history_id = get_history_id(gi, self.workspace)
         if history_id:
             return True
         else:
             return False
 
-    def remove_job_workspace(self, job_context):
+    def remove_job_workspace(self):
         self.connect()
         gi = self.galaxy_instance
         history_name = self.workspace
         gi.histories.delete_history(get_history_id(gi, history_name),purge = True)
 
-    def upload_file(self,job_context):
+    def upload_file(self, job_context):
         self.connect()
         gi = self.galaxy_instance
         i = job_context["state_dict"]["idx"]
@@ -458,7 +440,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
                 return status # if error return dict
             if job_context["state_dict"].get("state") =="download":
                 pid = job_context["pid"]
-                return self.local_job_status(self.workspace,pid)
+                return self.local_job_status(pid)
             if job_context["state_dict"].get("state") == "submit":
                 status = self.__invocation_status(job_context)
                 return status
@@ -543,319 +525,4 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         pid = popen_pipe.readline().rstrip()
         print(f"PID: {pid}")
         return pid
-
-# GALAXY INIZIALIZATION
-
-def install_tools(gi, tools):
-    '''
-    tool_shed_url, name, owner,
-    changeset_revision,
-    install_tool_dependencies = False,
-    install_repository_dependencies = False,
-    install_resolver_dependencies = False,
-    tool_panel_section_id = None,
-    new_tool_panel_section_label = Non
-    '''
-    if isinstance(tools, list):
-        for tool in tools:
-            tool_shed_url = 'https://' + tool['tool_shed']
-            gi.toolshed.install_repository_revision(tool_shed_url=tool_shed_url,
-                                                    name=tool['name'],
-                                                    owner=tool['owner'],
-                                                    changeset_revision=tool['changeset_revision'],
-                                                    install_tool_dependencies=True,
-                                                    install_repository_dependencies=True,
-                                                    install_resolver_dependencies=True,
-                                                    new_tool_panel_section_label='New'
-                                                    )
-
-
-def convert_workflows_to_formly():
-    # workflow_files_list = os.listdir(os.path.join(ROOT,'biobarcoding/workflows'))
-
-    wfdict1 = {'steps': {'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json',
-                         'phyml': ROOT + '/biobarcoding/inputs_schema/phyml_galaxy.json'}
-               ,
-               'fname' : 'clustalw_phyml_formly.json',
-               'workflow_path': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/workflows/Galaxy-Workflow-ClustalW-PhyMl.ga'
-               }
-    wfdict2 = {'steps':
-                   [{'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json'}
-                    ],
-               'fname' : 'clustalw_formly.json',
-               'workflow_path': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/workflows/Galaxy-Workflow-MSA_ClustalW.ga'
-               }
-
-    path = ROOT + '/biobarcoding/inputs_schema/'
-    lwdict = [wfdict1, wfdict2]
-    for wfdict in lwdict:
-        if wfdict['fname'] not in os.listdir(path):
-            wfdict['fname'] = path + wfdict['fname']
-            convertToFormly(wfdict['steps'],wfdict['workflow_path'],wfdict['fname'])
-
-def initialize_galaxy(flask_app):
-    if {'GALAXY_API_KEY', 'GALAXY_LOCATION'} <= flask_app.config.keys():
-        api_key = flask_app.config['GALAXY_API_KEY']
-        url = flask_app.config['GALAXY_LOCATION']
-
-        # Update resource location
-        session = DBSession()
-        local_uuid = "8fac3ce8-8796-445f-ac27-4baedadeff3b"
-        r = session.query(ComputeResource).filter(ComputeResource.uuid == local_uuid).first()
-        if r:
-            r.jm_location = {"url": url}
-            r.jm_credentials = {"api_key": api_key}
-            session.commit()
-        DBSession.remove()
-
-        # Install basic workflow if it is not installed
-        gi = login(api_key, url)
-        path = ROOT + '/biobarcoding/workflows/'
-        for workflow in os.listdir(path):
-            workflow_path = path + workflow
-            with open(workflow_path, 'r') as f:
-                wf_dict_in = json.load(f)
-            name = wf_dict_in['name']
-            w_id = workflow_id(gi, name)
-            if w_id != 'there is no workflow named{}'.format(name) and w_id:
-                gi.workflows.delete_workflow(w_id)
-            wf = gi.workflows.import_workflow_from_local_path(workflow_path)
-            wf_dict_out = gi.workflows.export_workflow_dict(wf['id'])
-            list_of_tools = check_tools(wf_dict_out, wf_dict_in)
-            install_tools(gi, list_of_tools)
-        # conversion of workflows galaxy into workflows formly
-        convert_workflows_to_formly()
-    else:
-        return 'No Galaxy test credentials in config file'
-
-class ToFormlyConverter:
-    field = {
-        # 'original' : 'formly'
-        'name': 'key',
-        'type': 'type'
-    }
-    templateoptionsfields = {
-        # 'original' : 'formly'
-        'label': 'label',
-        'optional': 'required'
-    }
-
-    def __init__(self, step_label):
-        self.step_label = step_label
-
-    @staticmethod
-    def rename_keys(d, keys):
-        return dict([(keys.get(k), v) for k, v in d.items() if k in keys.keys()])
-
-    @staticmethod
-    def options(g_input):
-        return [{'value': o[1], 'label': o[0]} for o in g_input['options']]
-
-    def choose_converter(self, g_input):
-        input_type = g_input['model_class']
-        if input_type == 'SelectToolParameter':
-            converter = convertSelectToolParameter(self.step_label)
-        elif input_type == 'BooleanToolParameter':
-            converter = convertBooleanToolParameter(self.step_label)
-        elif input_type == 'Conditional':
-            converter = converterConditional(self.step_label)
-        elif input_type == 'IntegerToolParameter':
-            converter = converterIntegerToolParameter(self.step_label)
-        elif input_type == 'FloatToolParameter':
-            converter = converterIntegerToolParameter(self.step_label)
-        elif input_type == 'TextToolParameter':
-            converter = converterTextToolParameter(self.step_label)
-        else:
-            return 'no converter for model class {}'.format(g_input['model_class'])
-        return converter.convert(g_input)
-
-    def conversion(self, g_input):
-        form = self.rename_keys(g_input, self.field)
-        form['key'] = '.'.join([self.step_label, form['key']])
-        form['templateOptions'] = self.rename_keys(g_input, self.templateoptionsfields)
-        if 'value' in g_input:
-            form['defaultValue'] = g_input['value']
-        form['templateOptions']['required'] = not form['templateOptions']['required']
-        form['templateOptions']['description'] = g_input['help']
-        return form
-
-    def get_formly_dict(self, g_input):
-        l = []
-        for i in g_input:
-            forms = self.choose_converter(i)
-            if isinstance(forms, list) and len(forms) > 1:
-                for f in forms:
-                    if isinstance(f, dict):
-                        l.append(f)
-            else:
-                if isinstance(forms, dict):
-                    l.append(forms)
-        return l
-
-class convertBooleanToolParameter(ToFormlyConverter):
-    def __init__(self,step_label):
-        super(convertBooleanToolParameter, self).__init__(step_label)
-
-    def convert(self, g_input):
-        form = self.conversion(g_input)
-        form['type'] = 'radio'
-        form['templateOptions']['options'] = [
-            {'value': g_input['truevalue'], 'label': 'Yes'},
-            {'value': g_input['falsevalue'], 'label': 'No'}  # check is needed
-        ]
-        if form['defaultValue']:
-            if form['defaultValue'] == 'false':
-                form['defaultValue'] = 'OFF'
-            elif form['defaultValue'] == 'true':
-                form['defaultValue'] = 'YES'
-            else:
-                form['defaultValue'] = form['defaultValue']
-
-        return form
-
-
-class convertSelectToolParameter(ToFormlyConverter):
-    def __init__(self, step_label):
-        super(convertSelectToolParameter, self).__init__(step_label)
-
-    def convert(self, g_input):
-        form = self.conversion(g_input)
-        form['templateOptions']['options'] = self.options(g_input)
-        return form
-
-class converterIntegerToolParameter(ToFormlyConverter):
-    def __init__(self,step_label):
-        super(converterIntegerToolParameter, self).__init__(step_label)
-
-    def convert(self, g_input):
-        form = self.conversion(g_input)
-        form['type'] = 'input'
-        form['templateOptions']['type'] = 'number'
-        if g_input['min'] != None:
-            form['templateOptions']['min'] = int(g_input['min'])
-        if g_input['max'] != None:
-            form['templateOptions']['max'] = int(g_input['max'])
-        return form
-
-
-class converterTextToolParameter(ToFormlyConverter):
-    def __init__(self,step_label):
-        super(converterTextToolParameter, self).__init__(step_label)
-    def convert(self, input):
-        form = self.conversion(input)
-        form['type'] = 'textarea'
-        return form
-
-
-class converterConditional(ToFormlyConverter):
-    def __init__(self,step_label):
-        super(converterConditional, self).__init__(step_label)
-        self.selector = None
-        self.cases = None
-
-    def convert(self, g_inputs):
-        self.selector = g_inputs['test_param']
-        self.cases = g_inputs['cases']
-        form = list()
-        selector_form = self.choose_converter(self.selector)
-        form.append(selector_form)
-        for i in self.cases:
-            if len(i['inputs']) > 0:
-                for j in i['inputs']:
-                    case_form = self.choose_converter(j)
-                    if isinstance(case_form, dict):
-                        case_form['hideExpression'] = 'model.' + selector_form['key'] + '!=\'' + i['value'] + '\''
-                    else:
-                        print('no converter for ', j['model_class'])
-                    form.append(case_form)
-        return form
-
-class inputCreation:
-
-    def __init__(self, workflow_path):
-        self.workflow = workflow_path
-
-    @property
-    def workflow(self):
-        return self.__workflow
-
-    @workflow.setter
-    def workflow(self, workflow_path):
-        with open(workflow_path) as jsonfile:
-            self.__workflow = json.load(jsonfile)
-
-    def __get_inputs(self):
-        input = []
-        workflow = self.workflow
-        steps = workflow.get("steps")
-        for _,step in steps.items():
-            if len(step.get("input_connections")) == 0:
-                for step_input in step["inputs"]:
-                    input.append({"name": step_input.get("name"),
-                                  "bo_type": step_input.get("bo_type","no specified"), # TODO DONDE ESTA ESTA INFORMACIÓN
-                                  "bo_format": step_input.get("bo_format","no specified")
-                                  }
-                                 )
-
-        return input
-
-    def convert(self):
-        inputs = self.__get_inputs()
-        inputs_fieldGroups = list()
-        for input in inputs:
-            form = dict()
-            form["key"] = "input"
-            form["templateOptions"] = {"label": "input"}
-            form['fieldGroup'] = [{
-                "key": "remote_name",
-                "type": "input",
-                "templateOptions": {
-                    "label": "input name"
-                },
-                "defaultValue": input["name"]
-            },
-            {
-                "key": "type",
-                "type": "input",
-                "templateOptions": {
-                    "label": "type"
-                },
-                "defaultValue": input["bo_format"]
-            },
-        {
-            "key": "bo_type",
-            "type": "input",
-            "templateOptions": {
-                "label": "bo type"
-            },
-            "defaultValue": input["bo_type"]
-        }]
-            inputs_fieldGroups.append(form)
-        # a esto le tengo que hacer el append de los parámetros de los algoritmos
-        return inputs_fieldGroups
-
-
-def convertToFormly(wf_steps, path_to_workflow, newpath):
-    '''
-    dictionary step_label: form_path
-    '''
-    creator = inputCreation(path_to_workflow)
-    fieldGroup = creator.convert()
-    formly = dict()
-    formly['type'] = 'stepper'
-    for k, v in wf_steps.items():
-        input_path = v
-        with open(input_path, 'r') as f:
-            galaxy_dict_in = json.load(f)
-        inputs = galaxy_dict_in['inputs']
-        convert = ToFormlyConverter(k)
-        form = dict()
-        form['templateOptions'] = {'label': k}
-        form['fieldGroup'] = convert.get_formly_dict(inputs)
-        fieldGroup.append(form)
-    formly['fieldGroup'] = fieldGroup
-    formly_json = json.dumps([formly], indent=3)
-    file =  open(newpath, 'w')
-    file.write(formly_json)
-    file.close()
 

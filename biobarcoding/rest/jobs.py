@@ -69,12 +69,15 @@ class JobAPI(MethodView):
         """
         # Submit new Job
         msg = f'POST {request.path}\nPosting job'
+
         # Get Identity ID
         identity_id = g.bcs_session.identity_id
         if identity_id is None:
             return Response("User not authorized", status=401)
+
         # Start session
         session = g.bcs_session.db_session
+
         # Start JSON for processing
         d = DottedDict()
         uncoded_req = request.get_json()
@@ -133,8 +136,10 @@ class JobAPI(MethodView):
         d.resource.jm_type = resource.jm_type.name
         d.resource.jm_location = resource.jm_location
         d.resource.jm_credentials = resource.jm_credentials if "credentials" not in in_dict else in_dict.credentials
+        d.identity_id = identity_id
         process_adaptor = ProcessAdaptorFactory().get(d.resource.jm_type, in_dict.process_id)
         d = process_adaptor.adapt_job_context(d)
+
 
         outputs = [r.to_json() for r in d.results]
         # Create Job database object

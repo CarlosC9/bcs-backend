@@ -20,24 +20,6 @@ from biobarcoding.common import ROOT
 # #####################################################################################################################
 from biobarcoding.db_models.jobs import ComputeResource, JobManagementType, Process, ProcessInComputeResource
 
-RESOURCES_DICT = {
-    "8fac3ce8-8796-445f-ac27-4baedadeff3b": {
-        "name": "localhost - galaxy",
-        "job_management_type": "galaxy",
-        "job_management_location": {"url": "http://localhost:8080/"},
-        "job_management_credentials": {"api_key": "fakekey"}
-    },
-    "0292821a-dd33-450a-bdd8-813b2b95c456": {
-        "name": "balder - ssh",
-        "job_management_type": "ssh",
-        "job_management_location": {"host": "balder"},
-        "job_management_credentials": {
-            "known_hosts_filepath": "/home/daniel/.ssh/known_hosts",
-            "username": "dreyes"
-        }
-    }
-}
-
 RESOURCE_PROCESSES_DICT = {
     "localhost - galaxy": [
         "klustal-1",
@@ -53,9 +35,26 @@ RESOURCE_PROCESSES_DICT = {
         "ClustalW-PhyMl",
         "MSA ClustalW",
     ],
+    "balder - galaxy": [
+        "klustal-1",
+        "blast",
+        "mrbayes",
+        "pd-1.0",
+        "migrate-3.7.2",
+        "import-sequences",
+        "import-msa",
+        "import-phylotree",
+        "Clustal Omega",
+        "MSA ClustalW",
+        "ClustalW-PhyMl",
+        "MSA ClustalW",
+    ],
+    "localhost - ssh": [
+        "MSA ClustalW",
+    ],
     "balder - ssh": [
         "MSA ClustalW",
-    ]
+    ],
 }
 
 PROCESSES_INPUTS = {
@@ -172,7 +171,9 @@ def load_many_to_many_table(sf, clazz, lclazz, rclazz, attributes: List[str], va
 
 def load_computing_resources(sf):
     session = sf()
-    for resource_uuid, resource_dict in RESOURCES_DICT.items():
+    with open(biobarcoding.get_global_configuration_variable("RESOURCES_CONFIG_FILE_PATH")) as json_file:
+        resources_dict = json.load(json_file)
+    for resource_uuid, resource_dict in resources_dict.items():
         r = session.query(ComputeResource).filter(ComputeResource.uuid == resource_uuid).first()
         if not r:
             r = ComputeResource()
@@ -191,7 +192,9 @@ def load_computing_resources(sf):
 def load_processes_in_computing_resources(sf):
     from biobarcoding.rest import tm_processes
     session = sf()
-    for resource_uuid, resource_dict in RESOURCES_DICT.items():
+    with open(biobarcoding.get_global_configuration_variable("RESOURCES_CONFIG_FILE_PATH")) as json_file:
+        resources_dict = json.load(json_file)
+    for resource_uuid, resource_dict in resources_dict.items():
         for k, v in tm_processes.items():
             if v in RESOURCE_PROCESSES_DICT[resource_dict["name"]]:
                 process = session.query(Process).filter(Process.uuid == k).first()

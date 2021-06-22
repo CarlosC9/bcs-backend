@@ -22,15 +22,13 @@ function init_chado {
 
 
 if [ "$(whoami)" == "rnebot" ] && [ "$#" -gt 0 ] ; then
-  echo "TODO: INICIALIZAR VARIABLES DE ENTORNO!"
+  echo "TODO: INICIALIZAR VARIABLE DE ENTORNO BCS_CONFIG_FILE!"
 elif [ "$(whoami)" == "acurbelo" ] ; then
-  echo "TODO: INICIALIZAR VARIABLES DE ENTORNO!"
+  echo "TODO: INICIALIZAR VARIABLE DE ENTORNO BCS_CONFIG_FILE!"
 elif [ "$(whoami)" == "paula" ] ; then
-  export ENDPOINT_URL="http://localhost:5000"
-  export COOKIES_FILE_PATH="/home/paula/Documentos/NEXTGENDEM/curl/bcs-cookies.txt"
+  echo "TODO: INICIALIZAR VARIABLE DE ENTORNO BCS_CONFIG_FILE!"
 elif [ "$(whoami)" == "daniel" ] ; then
-  export ENDPOINT_URL="http://localhost:5000"
-  export COOKIES_FILE_PATH="/home/daniel/Documentos/Projects/curl/bcs-cookies.txt"
+  echo "TODO: INICIALIZAR VARIABLE DE ENTORNO BCS_CONFIG_FILE!"
 fi
 
 # PostgreSQL
