@@ -78,11 +78,16 @@ RUN apt-get update && \
     bioperl \
     wget \
     unzip \
+    libgnutls28-dev \
+    libgdal-dev \
 	&& apt-get clean
 
 # COMMON
 RUN pip3 install --no-cache-dir --upgrade pip && \
     pip3 install --no-cache-dir git+https://github.com/Supervisor/supervisor gunicorn psycopg2==2.8.5 redislite==5.0.165407
+
+RUN pip3 install gdal==`gdal-config --version`
+
 
 WORKDIR /app
 
@@ -136,9 +141,11 @@ COPY docker_init /app/docker_init
 #docker network create bcs-net
 #docker run --network bcs-net --name redis --rm -d -p 6379:6379 redis
 #docker run --network bcs-net --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v /home/daniel/Documentos/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
+#docker run --network bcs-net --name postgis -d -p 5435:5432 --rm -e POSTGRES_PASSWORD=postgres -e POSTGRES_DBNAME=ngd_geoserver -e POSTGRES_PASS=postgres -e POSTGRES_USER=postgres -e ALLOW_IP_RANGE=0.0.0.0/0  -v /home/daniel/Documentos/DATOS/geoserver/pg:/var/lib/postgresql kartoza/postgis:13.0
+#docker run --network bcs-net --name geoserver -d -p 9180:8080 --rm -e DB_BACKEND=POSTGRES  -e HOST=postgis  -e POSTGRES_PORT=5432  -e POSTGRES_DB=geoserver  -e POSTGRES_USER=postgres  -e POSTGRES_PASS=postgres -e USERNAME=postgres  -e PASS=postgres  -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37  -e GEOSERVER_ADMIN_USER=ngd_admin -v /home/daniel/Documentos/DATOS/geoserver/geoserver:/opt/geoserver/data_dir kartoza/geoserver:2.19.0
 #docker build -t nextgendem-mac/ngd-bcs-backend .
-#docker create --network bcs-net --name bcs-local -p 8080:80 -e BCS_CONFIG_FILE="bcs_docker_local.conf" nextgendem-mac/ngd-bcs-backend:latest
-#docker cp bcs_docker_local.conf bcs-local:/app/biobarcoding/rest/bcs_docker_local.conf
+#docker create --network bcs-net --name bcs-local -p 5000:80 -e BCS_CONFIG_FILE="bcs_docker_local.conf" nextgendem-mac/ngd-bcs-backend:latest
+#docker cp /home/paula/Documentos/bcs_docker_config.conf bcs-local:/app/biobarcoding/rest/bcs_docker_local.conf #TODO ESTE SERÍA EL DOCUMENTO bcs_docker_local.conf del proyecto?
 #docker cp ../private-conf/firebase-key.json bcs-local:/app/firebase-key.json
 #docker start bcs-local
 #docker logs -f bcs-local > output.log
