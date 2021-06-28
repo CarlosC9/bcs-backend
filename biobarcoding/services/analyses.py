@@ -12,7 +12,7 @@ def create(**kwargs):
         issues, status = [Issue(IType.INFO, f'CREATE analyses: The analysis "{kwargs.get("program")} {kwargs.get("programversion")}" created successfully.')], 201
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'CREATE analyses: The analysis "{kwargs.get("program")} {kwargs.get("programversion")}" could not be created.')], 500
+        issues, status = [Issue(IType.ERROR, f'CREATE analyses: The analysis "{kwargs.get("program")} {kwargs.get("programversion")}" could not be created.')], 409
     return issues, content, status
 
 
@@ -28,7 +28,7 @@ def read(id=None, **kwargs):
         issues, status = [Issue(IType.INFO, 'READ analyses: The analyses were successfully read.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'READ analyses: The analyses could not be read.')], 500
+        issues, status = [Issue(IType.ERROR, 'READ analyses: The analyses could not be read.')], 400
     return issues, content, count, status
 
 
@@ -40,7 +40,7 @@ def update(id, **kwargs):
         issues, status = [Issue(IType.INFO, f'UPDATE analyses: The analysis "{id}" updated successfully.')], 201
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'UPDATE analyses: The analysis "{id}" could not be updated.')], 500
+        issues, status = [Issue(IType.ERROR, f'UPDATE analyses: The analysis "{id}" could not be updated.')], 409
     return issues, content, status
 
 
@@ -56,7 +56,7 @@ def delete(id=None, **kwargs):
         issues, status = [Issue(IType.INFO, f'DELETE analyses: The {resp} analyses were successfully removed.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'DELETE analyses: The analyses could not be removed.')], 500
+        issues, status = [Issue(IType.ERROR, 'DELETE analyses: The analyses could not be removed.')], 404
     return issues, content, status
 
 
