@@ -579,6 +579,10 @@ class layerAPI(MethodView):
             r = geoserver_session.create_coveragestore(layer_name=layer_name,
                                                        path=path,
                                                        workspace=self.kwargs["wks"])
+            r = geoserver_session.create_coveragestyle(raster_path=path,
+                                     style_name= layer_name + '_style',
+                                     workspace=self.kwargs["wks"])
+            r = geoserver_session.publish_style(layer_name=layer_name, style_name=layer_name + '_style', workspace=self.kwargs["wks"])
             layer_type = "raster"
         elif file_extension in (".shp"):
             r = geoserver_session.publish_featurestore(workspace=self.kwargs['wks'],
