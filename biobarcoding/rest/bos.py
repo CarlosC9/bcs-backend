@@ -1,11 +1,9 @@
-import importlib, json
-from urllib.parse import unquote
+import importlib
 
 from flask import Blueprint, request, send_file
 from flask.views import MethodView
 from biobarcoding.authentication import bcs_session
-from biobarcoding.rest import bcs_api_base, ResponseObject, Issue, IType
-
+from biobarcoding.rest import bcs_api_base, ResponseObject, Issue, IType, check_request_params
 
 bp_bos = Blueprint('bp_bos', __name__)
 
@@ -14,56 +12,92 @@ class BioObjAPI(MethodView):
     """
     BOS Resource
     """
-    kwargs = {}
-
 
     @bcs_session(read_only=True)
     def get(self, bos, id=None, format=None):
         print(f'GET {request.path}\nGetting {bos} {id}')
-        self._prepare(bos)
+        kwargs = self._prepare(bos)
         if format:
-            issues, content, status = self.service.export(id, format=format, **self.kwargs)
+            issues, content, status = self.service.export(id, format=format, **kwargs)
             return send_file(content, mimetype=f'text/{format}'), status
-        issues, content, count, status = self.service.read(id, **self.kwargs)
+        issues, content, count, status = self.service.read(id, **kwargs)
         return ResponseObject(content=content, count=count, issues=issues, status=status).get_response()
 
 
     @bcs_session()
     def post(self, bos, format=None):
         print(f'POST {request.path}\nCreating {bos}')
-        self._prepare(bos)
-        if request.files:
-            issues, content, status = self._import_files(format)
+        kwargs = self._prepare(bos)
+        if request.files or kwargs.get('value') and 'filesAPI' in kwargs.get('value'):
+            issues, content, status = self._import_files(format, kwargs.get('value'))
         else:
-            issues, content, status = self.service.create(**self.kwargs.get('value'))
+            issues, content, status = self.service.create(**kwargs.get('value'))
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
     @bcs_session()
     def put(self, bos, id, format=None):
         print(f'PUT {request.path}\nUpdating {bos} {id}')
-        self._prepare(bos)
-        issues, content, status = self.service.update(id, **self.kwargs.get('value'))
+        kwargs = self._prepare(bos)
+        issues, content, status = self.service.update(id, **kwargs.get('value'))
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
     @bcs_session()
     def delete(self, bos, id=None, format=None):
         print(f'DELETE {request.path}\nDeleting {bos} {id}')
-        self._prepare(bos)
-        issues, content, status = self.service.delete(id, **self.kwargs)
+        kwargs = self._prepare(bos)
+        issues, content, status = self.service.delete(id, **kwargs)
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
-    def _import_files(self, format):
+    def _import_files(self, format, value={}):
+        issues, content = [], []
+        if 'filesAPI' in value:
+            i, c, s = self._import_filesAPI(format, value)
+            issues += i
+            content += c
+        if request.files:
+            i, c, s = self._import_request_files(format, value)
+            issues += i
+            content += c
+        return issues, content, 207
+
+
+    def _import_filesAPI(self, format, value={}):
+        issues, content = [], []
+        if value.get('filesAPI'):
+            filesAPI = value.get('filesAPI') \
+                if isinstance(value.get('filesAPI'), (list, tuple)) \
+                else [value.get('filesAPI')]
+            from biobarcoding.db_models import DBSession
+            from biobarcoding.db_models.files import FileSystemObject
+            for file in filesAPI:
+                try:
+                    file = DBSession.query(FileSystemObject)\
+                        .filter(FileSystemObject.full_name == file).first()
+                    from werkzeug.utils import secure_filename
+                    file_cp = '/tmp/'+secure_filename(file.full_name)
+                    with open(file_cp, 'wb') as f:
+                        f.write(file.embedded_content)
+                    i, c, s = self.service.import_file(file_cp, format, **value)
+                except Exception as e:
+                    print(e)
+                    i, c = [Issue(IType.ERROR, f'Could not import the file {file}.', file)], {}
+                issues+=i
+                content.append(c)
+        return issues, content, 207
+
+
+    def _import_request_files(self, format, value={}):
         issues, content = [], []
         for key,file in request.files.items(multi=True):
             try:
                 file_cpy = self._make_file(file)
-                i, c, s = self.service.import_file(file_cpy, format, **self.kwargs.get('value'))
+                i, c, s = self.service.import_file(file_cpy, format, **value)
             except Exception as e:
                 print(e)
-                i, c = [Issue(IType.ERROR, f'Could not import the file {file}.')], {}
+                i, c = [Issue(IType.ERROR, f'Could not import the file {file}.', file.filename)], {}
             issues+=i
             content.append(c)
         return issues, content, 207
@@ -78,44 +112,8 @@ class BioObjAPI(MethodView):
 
 
     def _prepare(self, bos):
-        self._check_data()
         self.service = importlib.import_module(f'biobarcoding.services.{bos}')
-
-
-    def _get_decoded(self, data):
-        res = {}
-        for key in data:
-            value = data[key]
-            try:
-                value = unquote(value)
-            except Exception as e:
-                pass
-            try:
-                value = json.loads(value)
-            except Exception as e:
-                pass
-            res[key] = value
-        return res
-
-
-    def _check_data(self, data=None):
-        if not data:
-            self.kwargs = { 'filter' : [], 'order' : {}, 'pagination' : {},
-                            'value' : {}, 'searchValue' : '' }
-            if request.json:
-                self._check_data(request.json)
-            if request.values:
-                self._check_data(request.values)
-        else:
-            print(f'DATA: {data}')
-            input = self._get_decoded(data)
-            for key in self.kwargs:
-                i = input.get(key)
-                if i:
-                    self.kwargs[key] = i
-                    input.pop(key)
-            self.kwargs['value'].update(input)
-            print(f'KWARGS: {self.kwargs}')
+        return check_request_params()
 
 
 bos_view = BioObjAPI.as_view('api_bos')

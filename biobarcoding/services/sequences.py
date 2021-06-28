@@ -1,3 +1,5 @@
+import os.path
+
 from biobarcoding.db_models import DBSession as db_session
 from biobarcoding.db_models import DBSessionChado as chado_session
 from biobarcoding.db_models.chado import Feature
@@ -23,7 +25,7 @@ def create(**kwargs):
         issues, status = [Issue(IType.INFO, f'CREATE sequences: The sequence "{kwargs.get("uniquename")}" created successfully.')], 201
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'CREATE sequences: The sequence "{kwargs.get("uniquename")}" could not be created.')], 500
+        issues, status = [Issue(IType.ERROR, f'CREATE sequences: The sequence "{kwargs.get("uniquename")}" could not be created.')], 409
     return issues, content, status
 
 count = 0
@@ -38,7 +40,7 @@ def read(id=None, **kwargs):
         issues, status = [Issue(IType.INFO, 'READ sequences: The sequences were successfully read')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'READ sequences: The sequences could not be read.')], 500
+        issues, status = [Issue(IType.ERROR, 'READ sequences: The sequences could not be read.')], 400
     return issues, content, count, status
 
 
@@ -63,7 +65,7 @@ def delete(id=None, **kwargs):
         issues, status = [Issue(IType.INFO, f'DELETE sequences: {resp} sequences were successfully removed.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'DELETE sequences: The sequences could not be removed.')], 500
+        issues, status = [Issue(IType.ERROR, f'DELETE sequences: The sequences could not be removed.')], 404
     return issues, content, status
 
 # TODO: replace python-chado lib?
@@ -82,10 +84,14 @@ def import_file(input_file, format='fasta', **kwargs):
         resp = conn.feature.load_fasta(input_file, kwargs.get('organism_id'), analysis_id=kwargs.get('analysis_id'), update=True)
         from Bio import SeqIO
         __seqs2bcs([seq.id for seq in SeqIO.parse(input_file, format or 'fasta')])
-        issues, status = [Issue(IType.INFO, f'IMPORT sequences: {resp} sequences were successfully imported.')], 200
+        issues, status = [Issue(IType.INFO,
+                                f'IMPORT sequences: {resp} sequences were successfully imported.',
+                                os.path.basename(input_file))], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'IMPORT sequences: file {input_file} could not be imported.')], 500
+        issues, status = [Issue(IType.ERROR,
+                                f'IMPORT sequences: file {input_file} could not be imported.',
+                                os.path.basename(input_file))], 409
     return issues, content, status
 
 
@@ -126,7 +132,7 @@ def export(id=None, format='fasta', **kwargs):
         issues, status = [Issue(IType.INFO, f'EXPORT sequences: {query.count()} sequences were successfully exported.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'EXPORT sequences: The sequences could not be exported.')], 500
+        issues, status = [Issue(IType.ERROR, f'EXPORT sequences: The sequences could not be exported.')], 409
     return issues, f'/tmp/output_ngd.{format}', status
 
 
