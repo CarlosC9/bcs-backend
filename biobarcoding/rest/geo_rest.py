@@ -157,8 +157,8 @@ class RegionsAPI(MethodView):
         t = request.json
         GeographicRegion_schema = getattr(GeographicRegion, "Schema")()
         Regions_schema = getattr(Regions, "Schema")()
-        regions_data = get_json_from_schema(Regions)
-        geographicregion_data = get_json_from_schema(GeographicRegion)
+        regions_data = get_json_from_schema(Regions, t)
+        geographicregion_data = get_json_from_schema(GeographicRegion, t)
         regions = Regions_schema.load(regions_data, instance=Regions())
         pg.add(regions)
         pg.flush()
@@ -195,8 +195,8 @@ class RegionsAPI(MethodView):
         issues, geographicregion, count, status = get_content(db, GeographicRegion, issues,  region_id)
         if status == 200 and geographicregion:
             issues, region, count, status = get_content(pg, Regions, issues, geographicregion.geo_id)
-            geographicregion = GeographicRegion_schema.load(get_json_from_schema(GeographicRegion), instance = geographicregion)
-            regions = Regions_schema.load(get_json_from_schema(Regions), instance = region)
+            geographicregion = GeographicRegion_schema.load(get_json_from_schema(GeographicRegion, t), instance = geographicregion)
+            regions = Regions_schema.load(get_json_from_schema(Regions, t), instance = region)
             db.add(geographicregion)
             pg.add(regions)
         return ResponseObject(issues= issues,status = status, count = count).get_response()
@@ -442,7 +442,7 @@ class layerAPI(MethodView):
                     r = geoserver_session.publish_featurestore(workspace=self.kwargs['wks'], store_name='geo_data',
                                                                pg_table=layer_name)
             else:
-                r = "no tmpview available 500 "
+                r = "no view available 500 "
 
         elif self.kwargs.get("filter"):
             sql = self.kwargs["filter"]
@@ -504,7 +504,7 @@ class layerAPI(MethodView):
                     try:
                         item = json.loads(item)
                         self.kwargs.update(item)
-                    except json.decoder.JSONDecodeError: #is a string
+                    except json.decoder.JSONDecodeError:
                         self.kwargs.update(t)
         return None
 
@@ -517,7 +517,7 @@ class layerAPI(MethodView):
         gdf = gpd.read_file(path)
         for c in ["IDCELDA", "CODIGOTAX"]:
             gdf[c] = gdf[c].astype(np.int64)
-        tmp = gpd.GeoSeries(gdf["geometry"], index=gdf["IDCELDA"]).to_dict()
+        tmp = dict(zip(gdf["IDCELDA"], gdf["geometry"]))
         df = gdf.groupby("IDCELDA").apply(f).to_frame("taxa").reset_index()
         new_gdf = gpd.GeoDataFrame(df, crs=gdf.crs, geometry=df["IDCELDA"].replace(tmp))
         return new_gdf
@@ -544,6 +544,9 @@ class layerAPI(MethodView):
                 if pathlib.Path(file_path).suffix in formats:
                     path = file_path
                 files_list.append(file)
+        if path == None:
+            self.status = 400
+            self.issues.append(Issue(IType.ERROR,'unrecognised input file'))
         return path
 
     def _import_vector_file(self):
@@ -558,10 +561,11 @@ class layerAPI(MethodView):
                     self.status = 400
                     return None
         else:
-            file_extension = pathlib.Path(path).suffix
-            if file_extension == ".shp":
-                gdf = gpd.read_file(path)
-                return gdf
+            if path:
+                file_extension = pathlib.Path(path).suffix
+                if file_extension == ".shp":
+                    gdf = gpd.read_file(path)
+                    return gdf
             else:
                 return None
 
