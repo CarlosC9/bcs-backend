@@ -1,4 +1,5 @@
 import importlib
+import os.path
 
 from flask import Blueprint, request, send_file
 from flask.views import MethodView
@@ -67,6 +68,7 @@ class BioObjAPI(MethodView):
     def _import_filesAPI(self, format, value={}):
         issues, content = [], []
         if value.get('filesAPI'):
+            # TODO: deal with list of filepaths
             filesAPI = value.get('filesAPI') \
                 if isinstance(value.get('filesAPI'), (list, tuple)) \
                 else [value.get('filesAPI')]
@@ -74,6 +76,8 @@ class BioObjAPI(MethodView):
             from biobarcoding.db_models.files import FileSystemObject
             for file in filesAPI:
                 try:
+                    if not os.path.isabs(file):
+                        raise Exception('Invalid path')
                     file = DBSession.query(FileSystemObject)\
                         .filter(FileSystemObject.full_name == file).first()
                     from werkzeug.utils import secure_filename
