@@ -20,7 +20,7 @@ def read(id=None, **kwargs):
         issues, status = [Issue(IType.INFO, 'READ ontologies: The ontologies were successfully read.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'READ ontologies: The ontologies could not be read.')], 500
+        issues, status = [Issue(IType.ERROR, 'READ ontologies: The ontologies could not be read.')], 400
     return issues, content, count, status
 
 
@@ -69,7 +69,7 @@ def import_file(input_file, format='obo', **kwargs):
         issues, status = [Issue(IType.INFO, f'IMPORT ontologies: The {format} ontology were successfully imported.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'IMPORT ontologies: The file {input_file} could not be imported.')], 500
+        issues, status = [Issue(IType.ERROR, f'IMPORT ontologies: The file {input_file} could not be imported.')], 409
     return issues, content, status
 
 
@@ -115,7 +115,7 @@ def read_cvterms(cv_id=None, cvterm_id=None, **kwargs):
             content = result.all()
         issues, status = [Issue(IType.ERROR, f'READ ontology terms: The cvterms were successfully read.')], 200
     except Exception as e:
-        issues, status = [Issue(IType.ERROR, f'READ ontology terms: The cvterms could not be read.')], 500
+        issues, status = [Issue(IType.ERROR, f'READ ontology terms: The cvterms could not be read.')], 400
     return issues, content, status
 
 
