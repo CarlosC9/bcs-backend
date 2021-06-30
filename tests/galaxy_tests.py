@@ -167,17 +167,27 @@ class MyTestCase(unittest.TestCase):
             file.write(formly_json)
 
     def test_convert_workflows(self):
-        wfdict1 = {'clustalw': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/inputs_schema/clustalw_galaxy.json',
-                  'phyml': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/inputs_schema/phyml_galaxy.json'
-                  }
-        wfdict2 = {'clustalW': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/clustalw_galaxy.json'}
-        new_form_path = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/inputs_schema/clustalw_phyml_formly.json'
-        new_form_path = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/tests/data_test/clustalw_phyml_formly.json'
-        # lwdict = [wfdict1,wfdict2]
-        lwdict = [wfdict1]
-        wf_path = '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/workflows/Galaxy-Workflow-ClustalW-PhyMl.ga'
+        # workflow_files_list = os.listdir(os.path.join(ROOT,'biobarcoding/workflows'))
+
+        wfdict1 = {'steps': {'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json',
+                             'phyml': ROOT + '/biobarcoding/inputs_schema/phyml_galaxy.json'}
+            ,
+                   'fname': 'clustalw_phyml_formly.json',
+                   'workflow_path': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/workflows/Galaxy-Workflow-ClustalW-PhyMl.ga'
+                   }
+        wfdict2 = {'steps':
+                       [{'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json'}
+                        ],
+                   'fname': 'clustalw_formly.json',
+                   'workflow_path': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/workflows/Galaxy-Workflow-MSA_ClustalW.ga'
+                   }
+
+        path = ROOT + 'tests/data_test'
+        lwdict = [wfdict1, wfdict2]
         for wfdict in lwdict:
-            convertToFormly(wfdict, wf_path, new_form_path)
+            wfdict['fname'] = path + wfdict['fname']
+            formyConverter = convertToFormly(wfdict['workflow_path'], wfdict['fname'], galaxy_form_path=wfdict['steps'])
+            formyConverter.full_converter()
 
 
 

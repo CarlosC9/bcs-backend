@@ -1,9 +1,9 @@
 import time
 from urllib.parse import urljoin
 
+import requests
 from bioblend import galaxy
 import json
-
 from biobarcoding.common import ROOT
 from biobarcoding.db_models import DBSession
 from biobarcoding.db_models.jobs import ComputeResource
@@ -587,11 +587,13 @@ def convert_workflows_to_formly():
                }
 
     path = ROOT + '/biobarcoding/inputs_schema/'
+    path = ROOT + 'tests/data_test'
     lwdict = [wfdict1, wfdict2]
     for wfdict in lwdict:
         if wfdict['fname'] not in os.listdir(path):
             wfdict['fname'] = path + wfdict['fname']
-            convertToFormly(wfdict['steps'],wfdict['workflow_path'],wfdict['fname'])
+            formyConverter = convertToFormly(wfdict['workflow_path'],path,'http://localhost:8080/')
+            formyConverter.full_converter()
 
 def initialize_galaxy(flask_app):
     if {'GALAXY_API_KEY', 'GALAXY_LOCATION'} <= flask_app.config.keys():
@@ -628,7 +630,88 @@ def initialize_galaxy(flask_app):
     else:
         return 'No Galaxy test credentials in config file'
 
-class ToFormlyConverter:
+
+class convertToFormly:
+
+    '''
+    wfdict1 = {'steps': {'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json',
+                         'phyml': ROOT + '/biobarcoding/inputs_schema/phyml_galaxy.json'}
+               ,
+               'fname' : 'clustalw_phyml_formly.json',
+               'workflow_path': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/workflows/Galaxy-Workflow-ClustalW-PhyMl.ga'
+               }
+    '''
+    def __init__(self,workflow_path,fname,galaxy_form_path = None,galaxy_url = None):
+        self.new_path = fname
+        self.__workflow_path =  workflow_path
+        self.workflow = workflow_path #TODO  CAMBIAR ESO POR
+        self.galaxy_url = galaxy_url
+        self.galaxy_form = galaxy_form_path
+
+
+    @property
+    def workflow(self):
+        return self.__workflow
+
+    @workflow.setter
+    def workflow(self, workflow_path):
+        with open(workflow_path) as jsonfile:
+            self.__workflow = json.load(jsonfile)
+
+    def __get_galaxy_forms(self):
+        steps = self.__workflow["steps"]
+        step_dict = dict()
+        for _,step in steps.items():
+            if isinstance(step['content_id'],str):
+                version = step["tool_version"]
+                url = urljoin(self.galaxy_url, f"api/toools/{step['content_id']}/build?version={version}")
+                '''
+                http://localhost:8080/api/tools/toolshed.g2.bx.psu.edu/repos/vlefort/phyml/phyml/3.1/build?version=3.1
+                '''
+                # TODO request also works adding
+                # url + &__identifer=4pj9zq6s0oe&tool_version=3.1
+                # being identifer some identifer
+                # TODO whats the identifer? makes any difference?
+                r = requests.get(url)
+                # TODO aunqthentication
+                form = r.json()
+                step_dict[step["label"]] = json.load(form)
+        return step_dict
+
+
+
+    def full_converter(self):
+        '''
+        dictionary step_label: form_path
+        '''
+        conversor = inputCreation()
+        fieldGroup = conversor.convert()
+        formly = dict()
+        formly['type'] = 'stepper'
+        if not self.galaxy_form:
+            wf_steps = self.__get_galaxy_forms()
+        else:
+            wf_steps = self.galaxy_form
+        for k, v in wf_steps.items():
+            if isinstance(v,dict):
+                galaxy_workflow = v
+            else:
+                input_path = v
+                with open(input_path, 'r') as f:
+                    galaxy_workflow = json.load(f)
+            inputs = galaxy_workflow['inputs']
+            conversor = ToFormlyStepConverter(k)
+            form = dict()
+            form['templateOptions'] = {'label': k}
+            form['fieldGroup'] = conversor.get_formly_dict(inputs)
+            fieldGroup.append(form)
+        formly['fieldGroup'] = fieldGroup
+        formly_json = json.dumps([formly], indent=3)
+        file = open(self.newpath, 'w')
+        file.write(formly_json)
+        file.close()
+
+class ToFormlyStepConverter(convertToFormly):
     field = {
         # 'original' : 'formly'
         'name': 'key',
@@ -640,7 +723,8 @@ class ToFormlyConverter:
         'optional': 'required'
     }
 
-    def __init__(self, step_label):
+    def __init__(self, step_label, workflow_path, fname):
+        super().__init__(workflow_path, fname)
         self.step_label = step_label
 
     @staticmethod
@@ -692,7 +776,7 @@ class ToFormlyConverter:
                     l.append(forms)
         return l
 
-class convertBooleanToolParameter(ToFormlyConverter):
+class convertBooleanToolParameter(ToFormlyStepConverter):
     def __init__(self,step_label):
         super(convertBooleanToolParameter, self).__init__(step_label)
 
@@ -714,7 +798,7 @@ class convertBooleanToolParameter(ToFormlyConverter):
         return form
 
 
-class convertSelectToolParameter(ToFormlyConverter):
+class convertSelectToolParameter(ToFormlyStepConverter):
     def __init__(self, step_label):
         super(convertSelectToolParameter, self).__init__(step_label)
 
@@ -723,7 +807,7 @@ class convertSelectToolParameter(ToFormlyConverter):
         form['templateOptions']['options'] = self.options(g_input)
         return form
 
-class converterIntegerToolParameter(ToFormlyConverter):
+class converterIntegerToolParameter(ToFormlyStepConverter):
     def __init__(self,step_label):
         super(converterIntegerToolParameter, self).__init__(step_label)
 
@@ -738,7 +822,7 @@ class converterIntegerToolParameter(ToFormlyConverter):
         return form
 
 
-class converterTextToolParameter(ToFormlyConverter):
+class converterTextToolParameter(ToFormlyStepConverter):
     def __init__(self,step_label):
         super(converterTextToolParameter, self).__init__(step_label)
     def convert(self, input):
@@ -747,7 +831,7 @@ class converterTextToolParameter(ToFormlyConverter):
         return form
 
 
-class converterConditional(ToFormlyConverter):
+class converterConditional(ToFormlyStepConverter):
     def __init__(self,step_label):
         super(converterConditional, self).__init__(step_label)
         self.selector = None
@@ -770,19 +854,9 @@ class converterConditional(ToFormlyConverter):
                     form.append(case_form)
         return form
 
-class inputCreation:
-
-    def __init__(self, workflow_path):
-        self.workflow = workflow_path
-
-    @property
-    def workflow(self):
-        return self.__workflow
-
-    @workflow.setter
-    def workflow(self, workflow_path):
-        with open(workflow_path) as jsonfile:
-            self.__workflow = json.load(jsonfile)
+class inputCreation(convertToFormly):
+    def __init__(self, workflow_path, fname):
+        super().__init__(workflow_path, fname)
 
     def __get_inputs(self):
         input = []
@@ -835,27 +909,27 @@ class inputCreation:
         return inputs_fieldGroups
 
 
-def convertToFormly(wf_steps, path_to_workflow, newpath):
-    '''
-    dictionary step_label: form_path
-    '''
-    creator = inputCreation(path_to_workflow)
-    fieldGroup = creator.convert()
-    formly = dict()
-    formly['type'] = 'stepper'
-    for k, v in wf_steps.items():
-        input_path = v
-        with open(input_path, 'r') as f:
-            galaxy_dict_in = json.load(f)
-        inputs = galaxy_dict_in['inputs']
-        convert = ToFormlyConverter(k)
-        form = dict()
-        form['templateOptions'] = {'label': k}
-        form['fieldGroup'] = convert.get_formly_dict(inputs)
-        fieldGroup.append(form)
-    formly['fieldGroup'] = fieldGroup
-    formly_json = json.dumps([formly], indent=3)
-    file =  open(newpath, 'w')
-    file.write(formly_json)
-    file.close()
+# def convertToFormly(wf_steps, path_to_workflow, newpath):
+#     '''
+#     dictionary step_label: form_path
+#     '''
+#     creator = inputCreation(path_to_workflow)
+#     fieldGroup = creator.convert()
+#     formly = dict()
+#     formly['type'] = 'stepper'
+#     for k, v in wf_steps.items():
+#         input_path = v
+#         with open(input_path, 'r') as f:
+#             galaxy_dict_in = json.load(f)
+#         inputs = galaxy_dict_in['inputs']
+#         convert = ToFormlyStepConverter(k)
+#         form = dict()
+#         form['templateOptions'] = {'label': k}
+#         form['fieldGroup'] = convert.get_formly_dict(inputs)
+#         fieldGroup.append(form)
+#     formly['fieldGroup'] = fieldGroup
+#     formly_json = json.dumps([formly], indent=3)
+#     file =  open(newpath, 'w')
+#     file.write(formly_json)
+#     file.close()
 
