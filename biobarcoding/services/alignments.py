@@ -1,4 +1,4 @@
-import os
+import os.path
 
 from biobarcoding.db_models import DBSession as db_session
 from biobarcoding.db_models import DBSessionChado as chado_session
@@ -27,7 +27,7 @@ def read(id=None, **kwargs):
         issues, status = [Issue(IType.INFO, 'READ alignments: The alignments were successfully read.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'READ alignments: The alignments could not be read.')], 500
+        issues, status = [Issue(IType.ERROR, 'READ alignments: The alignments could not be read.')], 400
     return issues, content, count, status
 
 
@@ -55,7 +55,7 @@ def delete(id=None, **kwargs):
         issues, status = [Issue(IType.INFO, f'DELETE alignments: The {resp} alignments were successfully removed.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'DELETE alignments: The alignments could not be removed.')], 500
+        issues, status = [Issue(IType.ERROR, 'DELETE alignments: The alignments could not be removed.')], 404
     return issues, content, status
 
 
@@ -125,10 +125,14 @@ def import_file(input_file, format='fasta', **kwargs):
         chado_session.add(msa_cvterm)
         chado_session.flush()
         __msafile2chado(input_file, msa, format)
-        issues, status = [Issue(IType.INFO, f'IMPORT alignments: The {format} alignment were successfully imported.')], 200
+        issues, status = [Issue(IType.INFO,
+                                f'IMPORT alignments: The {format} alignment were successfully imported.',
+                                os.path.basename(input_file))], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'IMPORT alignments: The file {input_file} could not be imported.')], 500
+        issues, status = [Issue(IType.ERROR,
+                                f'IMPORT alignments: The file {input_file} could not be imported.',
+                                os.path.basename(input_file))], 409
     return issues, content, status
 
 
@@ -138,7 +142,7 @@ def export(id, format='fasta', **kwargs):
         return export_sequences(format='fasta',
                                 **{'filter': [{'analysis_id': {'op': 'eq', 'unary': id}}]})
     else:
-        issues, status = [Issue(IType.ERROR, f'EXPORT alignments: The format {format} could not be imported.')], 500
+        issues, status = [Issue(IType.ERROR, f'EXPORT alignments: The format {format} could not be exported.')], 404
         return issues, None, status
 
 

@@ -20,7 +20,7 @@ def read(id = None, **kwargs):
         issues, status = [Issue(IType.INFO, 'READ taxonomies: The taxonomies were successfully read.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.INFO, 'READ taxonomies: The taxonomies could not be read.')], 500
+        issues, status = [Issue(IType.INFO, 'READ taxonomies: The taxonomies could not be read.')], 400
     return issues, content, count, status
 
 
@@ -37,7 +37,7 @@ def delete(id=None, **kwargs):
         issues, status = [Issue(IType.INFO, f'DELETE taxonomies: The {resp} taxonomies were successfully removed.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'DELETE taxonomies: The taxonomies could not be removed.')], 500
+        issues, status = [Issue(IType.ERROR, f'DELETE taxonomies: The taxonomies could not be removed.')], 404
     return issues, content, status
 
 
@@ -68,7 +68,7 @@ def import_file(input_file, format = 'obo', **kwargs):
             issues, status = [Issue(IType.INFO, f'IMPORT taxonomies: The taxonomy {os.path.basename(input_file)} was barely imported.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'IMPORT taxonomies: The taxonomy {os.path.basename(input_file)} could not be imported.')], 500
+        issues, status = [Issue(IType.ERROR, f'IMPORT taxonomies: The taxonomy {os.path.basename(input_file)} could not be imported.')], 409
     return issues, content, status
 
 

@@ -1,12 +1,10 @@
 import marshmallow.exceptions
 import pandas as pd
-import geopandas as gpd
-from geo.Geoserver import Geoserver
 from flask import Blueprint, request, g
 from flask.views import MethodView
 from biobarcoding.authentication import bcs_session
 from biobarcoding.rest import bcs_api_base, ResponseObject, Issue, IType, register_api
-from biobarcoding.db_models.geographics import GeographicRegion, GeographicLayer, Regions
+from biobarcoding.db_models.geographics import GeographicRegion, Regions
 import json
 import regex as re
 import requests
@@ -160,7 +158,7 @@ class RegionsAPI(MethodView):
         geographicregion.identity_id = g.bcs_session.identity.id
         db.add(geographicregion)
         db.flush()
-        return ResponseObject(content= geographicregion, content_type= "application/json").get_response()
+        return ResponseObject(content=geographicregion, content_type="application/json").get_response()
 
 
     @bcs_session()

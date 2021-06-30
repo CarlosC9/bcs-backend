@@ -29,12 +29,7 @@ def exec_cmds(*args):
 
 
 def orm2json(row):
-    # response = []
-    # for value in query.all():
-    #     tmp = value.__dict__
-    #     tmp.pop('_sa_instance_state', None)
-    #     response.append(tmp)
-    # return response
+    # TODO: missing inherited fields
     d = {}
     try:
         for column in row.__table__.columns:
