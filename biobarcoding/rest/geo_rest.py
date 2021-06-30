@@ -6,7 +6,8 @@ from flask.views import MethodView
 from biobarcoding.authentication import bcs_session
 from biobarcoding.geo import geoserver_session
 from biobarcoding.rest import bcs_api_base, ResponseObject, Issue, IType, register_api
-from biobarcoding.db_models.geographics import GeographicRegion, Regions
+from biobarcoding.db_models.geographics import GeographicRegion, Regions,GeographicLayer
+import geopandas as gpd
 import json
 import regex as re
 import requests
@@ -15,12 +16,6 @@ import numpy as np
 import tempfile
 
 
-from sqlalchemy import create_engine
-import psycopg2
-from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
-
-# postgis_engine = create_engine(app.config['POSTGIS_CONNECTION_STRING'] + "ngd_geoserver")
-FOLDER = "/home/paula/Documentos/NEXTGENDEM/bcs/"
 """
 Support operations regarding Geographical layers
 
@@ -205,7 +200,6 @@ register_api(bp_geo, RegionsAPI, "geo/regions", f"{bcs_api_base}/geo/regions/", 
 
 class layerAPI(MethodView):
     '''
-    geo_session... inicializar en main o inicializar cada vez que se haga una llamada restful?)
         GET: - the list of layers info from Geographiclayer table on bcs
              - publish a result of filtering a layer (with geoserver_session.publish_featurestore_sqlview(sql_string))
 
@@ -281,7 +275,8 @@ class layerAPI(MethodView):
         1. import a raster file (tif and twf file)
         2. import vetor layer from shp file (import shp shx...)
         3. import layer from geojson data
-        4.
+        4. create a new layer from a temview
+        5. create a new vector file from shape file and convert data to json
         {"name":"",
         "wks": "ngd",
         "attributes" -> json attribues like {"tags"["tag1", "tag2"]
