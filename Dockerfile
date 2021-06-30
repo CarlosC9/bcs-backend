@@ -145,7 +145,7 @@ COPY docker_init /app/docker_init
 #docker run --network bcs-net --name geoserver -d -p 9180:8080 --rm -e DB_BACKEND=POSTGRES  -e HOST=postgis  -e POSTGRES_PORT=5432  -e POSTGRES_DB=geoserver  -e POSTGRES_USER=postgres  -e POSTGRES_PASS=postgres -e USERNAME=postgres  -e PASS=postgres  -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37  -e GEOSERVER_ADMIN_USER=ngd_admin -v /home/daniel/Documentos/DATOS/geoserver/geoserver:/opt/geoserver/data_dir kartoza/geoserver:2.19.0
 #docker build -t nextgendem-mac/ngd-bcs-backend .
 #docker create --network bcs-net --name bcs-local -p 5000:80 -e BCS_CONFIG_FILE="bcs_docker_local.conf" nextgendem-mac/ngd-bcs-backend:latest
-#docker cp /home/paula/Documentos/bcs_docker_config.conf bcs-local:/app/biobarcoding/rest/bcs_docker_local.conf #TODO ESTE SERÍA EL DOCUMENTO bcs_docker_local.conf del proyecto?
+#docker cp bcs_docker_config.conf bcs-local:/app/biobarcoding/rest/bcs_docker_local.conf #TODO ESTE SERÍA EL DOCUMENTO bcs_docker_local.conf del proyecto?
 #docker cp ../private-conf/firebase-key.json bcs-local:/app/firebase-key.json
 #docker start bcs-local
 #docker logs -f bcs-local > output.log

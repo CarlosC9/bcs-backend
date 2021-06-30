@@ -14,6 +14,7 @@ import regex as re
 import requests
 import pathlib
 import numpy as np
+import tempfile
 
 
 from sqlalchemy import create_engine
@@ -21,7 +22,7 @@ import psycopg2
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
 # postgis_engine = create_engine(app.config['POSTGIS_CONNECTION_STRING'] + "ngd_geoserver")
-FOLDER = "/tmp"
+FOLDER = "/home/paula/Documentos/NEXTGENDEM/bcs/"
 """
 Support operations regarding Geographical layers
 
@@ -239,6 +240,8 @@ class layerAPI(MethodView):
             sql = 'SELECT geometry as geom, "DENOMTAX" FROM plantas WHERE "RAREZALOCA" > 1'
             geo.publish_featurestore_sqlview(store_name='geo_data', name='tmp_view3', sql=sql, key_column="DENOMTAX",  (OJO CON LAS COMILLAS)
                                      workspace='ngd')
+
+            key_column:
         @return:
         '''
         self.issues = []
@@ -257,32 +260,37 @@ class layerAPI(MethodView):
             if layers:
                 layers = list(filter(lambda x: (x.is_deleted == False), layers))
         elif _filter and key_col:
+            tmpview = f'tmpview_{g.bcs_session.identity.id}'
             sql = self._create_sql(_filter)
-            r = geoserver_session.delete_layer(layer_name='tmpview',workspace='ngd')
-            r = geoserver_session.publish_featurestore_sqlview(store_name='geo_data', name='tmpview', sql=sql, key_column=key_col,
+            r = geoserver_session.delete_layer(layer_name=tmpview,workspace='ngd')
+            print(r)
+            r = geoserver_session.publish_featurestore_sqlview(store_name='geo_data', name=tmpview, sql=sql, key_column=key_col,
                                              workspace='ngd')
+            print(r)
             issue, self.status = geoserver_response(r)
             if not self._check_layer():
                 _, self.status = self.issues.append(Issue(IType.ERROR, f"Error executing request for geoserver")), 500
             self.issues.append(issue)
-            layers = None
+            layers = dict( tmpview = tmpview, sql = sql , key_col = key_col)
         else:
             _, self.status = self.issues.append(Issue(IType.ERROR, f"missing data")), 400
 
-        return ResponseObject(issues=self.issues, status=self.status, content=layers).get_response()
+        return ResponseObject(issues=self.issues, status = self.status, content = layers).get_response()
 
     @bcs_session()
     def post(self):
         '''
+        1. import a raster file (tif and twf file)
+        2. import vetor layer from shp file (import shp shx...)
+        3. import layer from geojson data
+        4.
         {"name":"",
-        "wks": "",
-        "attributes"
-        "data":"",
-        "file":"",
+        "wks": "ngd",
+        "attributes" -> json attribues like {"tags"["tag1", "tag2"]
+        "data":"", -> import layer from geojson data
         "layer_name":'', -> publish tmp view
-        " filter ":{"sql":"...","key_col":"..."}
-        "convert_to: "json",
-         }, .-> publish view with a name ion geo server and register in bcs as user view
+        "convert_to: "geojson", -> conger Biota file to geojson (very long process)
+         }
         '''
         self.issues = []
         self.kwargs = {
@@ -297,6 +305,8 @@ class layerAPI(MethodView):
         geographiclayer.identity_id = g.bcs_session.identity.id
         db.add(geographiclayer)
         db.flush()
+        if request.files:
+            self._make_file()
         layer_name = f"layer_{geographiclayer.id}"
         status = self._post_in_postgis(layer_name)
         if status == 200:
@@ -323,10 +333,13 @@ class layerAPI(MethodView):
             except marshmallow.exceptions.ValidationError as field:
                 geographiclayer_data = get_json_from_schema(GeographicLayer, self.kwargs)
                 geographiclayer = GeographicLayer_schema.load(geographiclayer_data, instance = geographiclayer)
+            if  self.kwargs.get("data") or request.files:
                 layer_name = f"layer_{geographiclayer.id}"
                 geographiclayer.published = False
                 geographiclayer.in_postgis = False
                 db.flush()
+                if request.files:
+                    self._make_file()
                 if not self.kwargs.get("wks"):
                     self.kwargs["wks"] = geographiclayer.wks
                 status = self._post_in_postgis(layer_name)
@@ -392,7 +405,9 @@ class layerAPI(MethodView):
         '''
         # key_col = _filter["key"]
         # sql = _filter["sql"]
+        # _filter = _filter.encode('utf-8')
         return _filter
+
 
     def _post_in_postgis(self, layer_name):
         from biobarcoding import postgis_engine
@@ -418,7 +433,12 @@ class layerAPI(MethodView):
             else:  # go to geoserver
                 return None
         try:
-            df.to_postgis(layer_name, postgis_engine, if_exists="replace")
+            # Make PK for sqlview work properly using id_column as PK
+            if "id_column" in df.columns:
+                df = df.drop(columns="id_column", axis= 1)
+            df.to_postgis(layer_name, postgis_engine, if_exists="replace", index=True, index_label= "id_column" )
+            with postgis_engine.connect() as con:
+                con.execute(f'ALTER TABLE {layer_name} ADD PRIMARY KEY (id_column);')
         except ValueError as e:
             _, self.status =  self.issues.append(Issue(IType.INFO, f"layer named as {layer_name} error {e}")), 400
         else:
@@ -429,7 +449,6 @@ class layerAPI(MethodView):
         from biobarcoding.geo import geoserver_session
         layer_type = "vector"
         if "data" in self.kwargs.keys():
-            # there are troubles when trying to reaplce layers
             r = geoserver_session.delete_layer(layer_name=layer_name, workspace=self.kwargs['wks'])
             print(r)
             r = geoserver_session.publish_featurestore(workspace=self.kwargs['wks'], store_name='geo_data',
@@ -464,6 +483,8 @@ class layerAPI(MethodView):
     def _tmpview_sql(self,layer_name):
         from biobarcoding.geo import geoserver_session
         layer = geoserver_session.get_layer(layer_name=layer_name)
+        if not isinstance(layer,dict):
+            return None, None
         response = requests.get(layer["layer"]["resource"]["href"],
                                 auth=(geoserver_session.username, geoserver_session.password))
         if response.status_code == 200:
@@ -508,7 +529,6 @@ class layerAPI(MethodView):
                         self.kwargs.update(t)
         return None
 
-    # TODO COLOCAR A PARTE
     def import_file_as_geojson(self,path):
         def f(x):
             return x[["RIQUEZA", "RAREZALOCA", "RAREZAINSU", "RAREZAREGI", "CODIGOTAX", "DENOMTAX"]].to_json(
@@ -528,29 +548,24 @@ class layerAPI(MethodView):
         global n
         formats = [".tif",".shp"]
         files_list = []
-        path = None
-        dir = os.path.join(FOLDER,"inputs")
-        # dir = f'/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/geo_layers/tmp{n}'
-        try:
-            os.mkdir(dir)
-        except FileExistsError:
-            print("folder exists")
+        path = ""
+        folder = tempfile.mkdtemp(prefix = "bcs_")
         from werkzeug.utils import secure_filename
         files = request.files.to_dict(flat=False)
         for _,value in files.items():
             for file in value:
-                file_path = os.path.join(dir, secure_filename(file.filename))
+                file_path = os.path.join(folder, secure_filename(file.filename))
                 file.save(file_path)
                 if pathlib.Path(file_path).suffix in formats:
                     path = file_path
                 files_list.append(file)
-        if path == None:
+        if path == "":
             self.status = 400
             self.issues.append(Issue(IType.ERROR,'unrecognised input file'))
-        return path
+        self.kwargs["path"] = path
 
     def _import_vector_file(self):
-        path = self._make_file()
+        path = self.kwargs["path"]
         if self.kwargs.get("convert_to"):
             if self.kwargs.get("convert_to"):
                 if self.kwargs["convert_to"] == "geojson":
@@ -561,28 +576,31 @@ class layerAPI(MethodView):
                     self.status = 400
                     return None
         else:
-            if path:
-                file_extension = pathlib.Path(path).suffix
-                if file_extension == ".shp":
-                    gdf = gpd.read_file(path)
-                    return gdf
+            file_extension = pathlib.Path(path).suffix
+            if file_extension == ".shp":
+                gdf = gpd.read_file(path)
+                return gdf
             else:
                 return None
 
 
     def _import_raster_file(self, layer_name):
         from biobarcoding.geo import geoserver_session
-        path = self._make_file()
+        path = self.kwargs["path"]
         file_extension = pathlib.Path(path).suffix
         if file_extension in (".tif"):
             self.kwargs["wks"] = 'ngd'
             r = geoserver_session.create_coveragestore(layer_name=layer_name,
                                                        path=path,
                                                        workspace=self.kwargs["wks"])
+            print(r)
             r = geoserver_session.create_coveragestyle(raster_path=path,
                                      style_name= layer_name + '_style',
                                      workspace=self.kwargs["wks"])
+            print(r)
             r = geoserver_session.publish_style(layer_name=layer_name, style_name=layer_name + '_style', workspace=self.kwargs["wks"])
+            print(r)
+            # TODO improve error control when importing to geoserver
             layer_type = "raster"
         elif file_extension in (".shp"):
             r = geoserver_session.publish_featurestore(workspace=self.kwargs['wks'],
@@ -604,8 +622,40 @@ bp_geo.add_url_rule(f'{bcs_api_base}/geo/layers/<int:_id>', view_func=view_func,
 
 class stylesAPI(MethodView):
 
+    '''
+    Create Styles:
+
+    # 1. Dynamic styles from rasters corverages specifying color_Ramp
+        input: color_ramp : dictionary,  maplorlib colormaps
+        (https://matplotlib.org/3.3.0/tutorials/colors/colormaps.html), or list of colors
+        c_ramp_1 = {
+            'label 1 value': '#ffff55',
+            'label 2 value': '#505050',
+            'label 3 value': '#404040',
+            'label 4 value': '#333333'
+        }
+
+        c_ramp_2 = 'RdYlGn'
+        c_ramp_3 = [#ffffff, #453422,  #f0f0f0, #aaaaaa]
+
+        geo.create_coveragestyle(raster_path=r'path\to\raster\file.tiff',
+                            style_name='style_2',
+                            workspace='demo',
+                            color_ramp=c_ramp_,
+                            cmap_type='values')
+
+    # 2. Festure Styles:
+        - Outline featurestyle: change boundary
+        geo.create_outline_featurestyle(style_name='new_style' color="#3579b1" geom_type='polygon', workspace='demo')
+        - Catagorized featurestyle:
+        geo.create_catagorized_featurestyle(style_name='
+        ', column_name='name_of_column', column_distinct_values=[1,2,3,4,5,6,7], workspace='demo')
+        - Classified featurestyle:
+        geo.create_classified_featurestyle(style_name='name_of_style' column_name='name_of_column', column_distinct_values=[1,2,3,4,5,6,7], workspace='demo')
+    '''
+
     @bcs_session()
-    def get(self, id, layer, style_name):
+    def get(self):
         '''
         apply an style in a layer and publish
         @param id:
@@ -613,6 +663,7 @@ class stylesAPI(MethodView):
         '''
         # geo.publish_style(layer_name=layer, style_name='sld_file_name', workspace=style_name,
         #                 sld_version='1.0.0')# version?
+        styles = geoserver_session.get_styles()
         pass
 
     @bcs_session()
@@ -625,3 +676,43 @@ class stylesAPI(MethodView):
         # create new style
         # geo.upload_style(path=r'path\to\sld\file.sld', workspace='demo')
         pass
+
+    @bcs_session()
+    def post(self):
+        pass
+
+
+    def post_style_from_raster_file(self):
+        c_ramp = {
+            'label 1 value': '#ffff55',
+            'label 2 value': '#505050',
+            'label 3 value': '#404040',
+            'label 4 value': '#333333'
+        }
+        geoserver_session.create_coveragestyle(raster_path=r'path\to\raster\file.tiff',
+                                               style_name='style_2',
+                                               workspace='demo',
+                                               color_ramp=c_ramp,
+                                               cmap_type='values')
+        pass
+
+    def post_raster_style(self):
+
+        pass
+
+
+    def post_vector_style(self):
+
+        # - Outline featurestyle: change boundary
+        geoserver_session.create_outline_featurestyle(style_name='new_style', color="#3579b1", geom_type='multipolygon', workspace='ngd')
+        # - Catagorized featurestyle:
+        geoserver_session.create_catagorized_featurestyle(style_name="new",
+                                                          column_name='name_of_column',
+                                                          column_distinct_values=[1,2,3,4,5,6,7],
+                                                          workspace='ngd',
+                                                          color_ramp =  "tab20")
+        #- Classified featurestyle:
+        geoserver_session.create_classified_featurestyle(style_name='name_of_style', column_name='name_of_column', column_distinct_values=[1,2,3,4,5,6,7], workspace='ngd')
+        pass
+
+
