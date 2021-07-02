@@ -7,7 +7,7 @@ def create(**kwargs):
     content = None
     try:
         if not kwargs.get('uniquename'):
-            raise
+            raise Exception('Missing the uniquename')
         if not kwargs.get('type_id'):
             from biobarcoding.db_models.chado import Cvterm
             kwargs['type_id'] = chado_session.query(Cvterm.cvterm_id).filter(Cvterm.name=='sequence_collection').one()
@@ -15,7 +15,7 @@ def create(**kwargs):
         issues, status = [Issue(IType.INFO, f'CREATE collections: The collection "{kwargs.get("uniquename")}" created successfully.')], 201
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'CREATE collections: The collection "{kwargs.get("uniquename")}" could not be created.')], 500
+        issues, status = [Issue(IType.ERROR, f'CREATE collections: The collection "{kwargs.get("uniquename")}" could not be created.')], 409
     return issues, content, status
 
 
@@ -31,7 +31,7 @@ def read(id=None, **kwargs):
         issues, status = [Issue(IType.INFO, 'READ collections: The collections were successfully read.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'READ collections: The collections could not be read.')], 500
+        issues, status = [Issue(IType.ERROR, 'READ collections: The collections could not be read.')], 400
     return issues, content, count, status
 
 
@@ -42,7 +42,7 @@ def update(id, **kwargs):
         issues, status = [Issue(IType.INFO, f'UPDATE collections: The collection "{id}" updated successfully.')], 201
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'UPDATE collections: The collection "{id}" could not be updated.')], 500
+        issues, status = [Issue(IType.ERROR, f'UPDATE collections: The collection "{id}" could not be updated.')], 409
     return issues, content, status
 
 
@@ -54,7 +54,7 @@ def delete(id=None, **kwargs):
         issues, status = [Issue(IType.INFO, f'DELETE collections: The {resp} collections were successfully removed.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'DELETE collections: The collections could not be removed.')], 500
+        issues, status = [Issue(IType.ERROR, 'DELETE collections: The collections could not be removed.')], 404
     return issues, content, status
 
 

@@ -15,7 +15,7 @@ def create(datatype, **kwargs):
         issues, status = [Issue(IType.INFO, f'CREATE browser_filters: It was created successfully.')], 201
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'CREATE browser_filters: It could not be created.')], 500
+        issues, status = [Issue(IType.ERROR, f'CREATE browser_filters: It could not be created.')], 409
     return issues, None, status
 
 
@@ -31,7 +31,7 @@ def read(datatype, id=None, **kwargs):
         issues, status = [Issue(IType.INFO, 'READ browser_filters: The browser_filters were read successfully.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'READ browser_filters: The browser_filters could not be read.')], 500
+        issues, status = [Issue(IType.ERROR, 'READ browser_filters: The browser_filters could not be read.')], 400
     return issues, content, count, status
 
 
@@ -41,7 +41,7 @@ def update(datatype, id, **kwargs):
         issues, status = [Issue(IType.INFO, f'UPDATE browser_filters: It was updated successfully.')], 201
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'UPDATE browser_filters: It could not be updated.')], 500
+        issues, status = [Issue(IType.ERROR, f'UPDATE browser_filters: It could not be updated.')], 409
     return issues, None, status
 
 
@@ -52,7 +52,7 @@ def delete(datatype, id=None, **kwargs):
         issues, status = [Issue(IType.INFO, f'DELETE browser_filters: The {resp} browser_filters were successfully removed.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'DELETE browser_filters: The browser_filters could not be removed.')], 500
+        issues, status = [Issue(IType.ERROR, 'DELETE browser_filters: The browser_filters could not be removed.')], 404
     return issues, content, status
 
 
@@ -90,5 +90,5 @@ def read_form(datatype):
         issues, status = [Issue(IType.INFO, 'READ browser_filter forms: successfully read.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'READ browser_filter forms: could not be read.')], 500
+        issues, status = [Issue(IType.ERROR, 'READ browser_filter forms: could not be read.')], 400
     return issues, content, status
