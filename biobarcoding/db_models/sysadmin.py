@@ -154,6 +154,7 @@ class PermissionType(ORMBase):  # CODES
     id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(GUID, nullable=False, default=uuid.uuid4)  # Object ID (ACL are on objects with UUID)
     name = Column(String(80))
+    rank = Column(Integer, nullable=False, default=0)
 
 
 class ObjectTypePermissionType(ORMBase):

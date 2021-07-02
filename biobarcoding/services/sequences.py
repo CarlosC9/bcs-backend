@@ -2,9 +2,11 @@ import os.path
 
 from biobarcoding.db_models import DBSession as db_session
 from biobarcoding.db_models import DBSessionChado as chado_session
+from biobarcoding.db_models.bioinformatics import BioinformaticObject
 from biobarcoding.db_models.chado import Feature
+from biobarcoding.db_models.sysadmin import PermissionType
 
-from biobarcoding.rest import Issue, IType, filter_parse, paginator
+from biobarcoding.rest import Issue, IType, filter_parse, paginator, auth_filter
 from biobarcoding.services import get_simple_query
 
 
@@ -97,7 +99,6 @@ def import_file(input_file, format='fasta', **kwargs):
 
 def __seqs2bcs(names):
     from biobarcoding.db_models.chado import Feature
-    from biobarcoding.db_models import DBSession as db_session
     for seq in chado_session.query(Feature).filter(Feature.uniquename.in_(names)).all():
         db_session.merge(__feature2bcs(seq))
 
@@ -137,7 +138,21 @@ def export(id=None, format='fasta', **kwargs):
 
 
 def __get_query(id=None, **kwargs):
-    query = chado_session.query(Feature)
+    from flask import g
+    from biobarcoding.db_models.bioinformatics import bio_object_type_id
+    # TODO: is there any case we need multiple identities, permissiones, object_types_ids
+    # TODO: how to deal with different contexts for permission type (read, annotate, delete, ...)
+    bos_authed = db_session.query(BioinformaticObject.chado_id).filter(
+        auth_filter(orm=BioinformaticObject,
+                    identity_ids=[g.bcs_session.identity.id],
+                    object_types_ids=[bio_object_type_id['sequence']],
+                    permission_types_ids=get_simple_query(db_session, PermissionType, name='read').one().id
+                    # object_uuids=None, time=None,
+                    # permission_flag=None, authorizable_flag=None
+                    ))
+    print(bos_authed)
+    query = chado_session.query(Feature).filter(Feature.feature_id.in_(bos_authed.all()))
+    print(query)
     global count
     count = 0
     if id:

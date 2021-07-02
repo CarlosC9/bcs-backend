@@ -4,8 +4,6 @@ import sys
 from enum import Enum
 import json
 from urllib.parse import unquote
-from datetime import datetime
-
 
 import redis
 from alchemyjsonschema import SchemaFactory, StructuralWalker
@@ -826,19 +824,21 @@ def check_request_params(data=None):
 
 
 def related_authr_ids(*identity_ids):
-    return DBSession.query(Identity.id)\
-        .join(Identity, OrganizationIdentity, Identity.id==OrganizationIdentity.identity_id)\
-        .join(Identity, GroupIdentity, Identity.id==GroupIdentity.identity_id)\
-        .join(Identity, RoleIdentity, Identity.id==RoleIdentity.identity_id)\
-        .filter(OrganizationIdentity.organization_id.in_(identity_ids),
-                GroupIdentity.group_id.in_(identity_ids),
-                RoleIdentity.role_id.in_(identity_ids))
+    return DBSession.query(Authorizable.id) \
+        .join(OrganizationIdentity, OrganizationIdentity.organization_id==Authorizable.id, isouter=True) \
+        .join(GroupIdentity, GroupIdentity.group_id==Authorizable.id, isouter=True) \
+        .join(RoleIdentity, RoleIdentity.role_id==Authorizable.id, isouter=True) \
+        .filter(or_(Authorizable.id.in_(identity_ids),
+                    OrganizationIdentity.identity_id.in_(identity_ids),
+                    GroupIdentity.identity_id.in_(identity_ids),
+                    RoleIdentity.identity_id.in_(identity_ids)))
 
 
-def related_perm_ids(*permission_ids):
-    return DBSession.query(PermissionType.id)\
-        .filter(PermissionType.id.in_(permission_ids),
-                PermissionType.rank < PermissionType.id.in_(permission_ids).rank)
+def related_perm_ids(permission_id):
+    return DBSession.query(PermissionType.id) \
+        .filter(or_(PermissionType.id==permission_id,
+                    PermissionType.rank >
+                    DBSession.query(PermissionType.rank).filter(PermissionType.id==permission_id)))
 
 
 def auth_filter(orm, identity_ids, object_types_ids, permission_types_ids,
@@ -872,17 +872,27 @@ def auth_filter(orm, identity_ids, object_types_ids, permission_types_ids,
 
     @return: <orm_clause_filter> || object_uuids[, permissions][, authorizables]
     """
+    from datetime import datetime
     time = time if time else datetime.now()
     try:
         filter_clause = []
-        filter.append(ACL.object_type.in_(object_types_ids)) if object_types_ids else None
-        filter.append(time >= ACLDetail.validity_start) if time else None
-        filter.append(time <= ACLDetail.validity_end) if time else None
-        filter.append(ACLDetail.authorizable_id.in_(related_authr_ids(identity_ids))) if identity_ids else None
-        filter.append(ACLDetail.permission_id.in_(related_perm_ids(permission_types_ids))) if permission_types_ids else None
-        filter.append(ACL.object_uuid.in_(object_uuids)) if object_uuids else None
+        filter_clause.append(ACL.object_type.in_(object_types_ids)) if object_types_ids else None
+        filter_clause.append(or_(time >= ACLDetail.validity_start, ACLDetail.validity_start == None)) if time else None
+        filter_clause.append(or_(time <= ACLDetail.validity_end, ACLDetail.validity_end == None)) if time else None
+        # By identity or authorizables associated with the identity
+        filter_clause.append(ACLDetail.authorizable_id.in_(related_authr_ids(*identity_ids))) if identity_ids else None
+        if isinstance(permission_types_ids, int):
+            # By permission or superior permissions
+            filter_clause.append(ACLDetail.permission_id.in_(related_perm_ids(permission_types_ids)))
+        elif hasattr(permission_types_ids, '__iter__'):
+            filter_clause.append(ACLDetail.permission_id.in_(permission_types_ids))
+        filter_clause.append(ACL.object_uuid.in_(object_uuids)) if object_uuids else None
 
-        collected = DBSession.query(CollectionDetail.object_uuid).join(Collection).join(ACL).join(ACLDetail).filter(*filter_clause)
+        collected = DBSession.query(CollectionDetail.object_uuid) \
+            .join(Collection) \
+            .join(ACL, Collection.uuid==ACL.object_uuid) \
+            .join(ACLDetail) \
+            .filter(*filter_clause)
         uncollected = DBSession.query(ACL.object_uuid).join(ACLDetail).filter(*filter_clause)
 
         final_query = collected.union(uncollected)
