@@ -823,32 +823,34 @@ def check_request_params(data=None):
     return kwargs
 
 
-def related_authr_ids(*identity_ids):
+def related_authr_ids(identity_id: int):
+    # Get the organizations, groups, and roles associated to an identity
     return DBSession.query(Authorizable.id) \
         .join(OrganizationIdentity, OrganizationIdentity.organization_id==Authorizable.id, isouter=True) \
         .join(GroupIdentity, GroupIdentity.group_id==Authorizable.id, isouter=True) \
         .join(RoleIdentity, RoleIdentity.role_id==Authorizable.id, isouter=True) \
-        .filter(or_(Authorizable.id.in_(identity_ids),
-                    OrganizationIdentity.identity_id.in_(identity_ids),
-                    GroupIdentity.identity_id.in_(identity_ids),
-                    RoleIdentity.identity_id.in_(identity_ids)))
+        .filter(or_(Authorizable.id==identity_id,
+                    OrganizationIdentity.identity_id==identity_id,
+                    GroupIdentity.identity_id==identity_id,
+                    RoleIdentity.identity_id==identity_id))
 
 
-def related_perm_ids(permission_id):
+def related_perm_ids(permission_id: int):
+    # Get the mayor permissions that also allow permission_id
     return DBSession.query(PermissionType.id) \
         .filter(or_(PermissionType.id==permission_id,
                     PermissionType.rank >
                     DBSession.query(PermissionType.rank).filter(PermissionType.id==permission_id)))
 
 
-def auth_filter(orm, identity_ids, object_types_ids, permission_types_ids,
+def auth_filter(orm, identity_id, permission_types_ids, object_types_ids,
                 object_uuids=None, time=None,
-                permission_flag=None, authorizable_flag=None):
+                permission_flag=False, authorizable_flag=False):
     """
     * orm: base (with uuid) to build the filter
     * identity_ids: who is requesting
-    * object_types_ids: where is requesting
     * permission_types_ids: what is requesting
+    * object_types_ids: where is requesting
     * object_uuid: about what is requesting
     * time: when is requesting
     * permission_flag: extra info required
@@ -874,19 +876,23 @@ def auth_filter(orm, identity_ids, object_types_ids, permission_types_ids,
     """
     from datetime import datetime
     time = time if time else datetime.now()
+    filter_clause = [
+        or_(time >= ACLDetail.validity_start, ACLDetail.validity_start == None),
+        or_(time <= ACLDetail.validity_end, ACLDetail.validity_end == None)
+    ]
+    filter_clause.append(ACL.object_type.in_(object_types_ids)) if object_types_ids else None
+    filter_clause.append(ACL.object_uuid.in_(object_uuids)) if object_uuids else None
     try:
-        filter_clause = []
-        filter_clause.append(ACL.object_type.in_(object_types_ids)) if object_types_ids else None
-        filter_clause.append(or_(time >= ACLDetail.validity_start, ACLDetail.validity_start == None)) if time else None
-        filter_clause.append(or_(time <= ACLDetail.validity_end, ACLDetail.validity_end == None)) if time else None
         # By identity or authorizables associated with the identity
-        filter_clause.append(ACLDetail.authorizable_id.in_(related_authr_ids(*identity_ids))) if identity_ids else None
+        if isinstance(identity_id, int):
+            filter_clause.append(ACLDetail.authorizable_id.in_(related_authr_ids(identity_id)))
+        elif hasattr(identity_id, '__iter__'):
+            filter_clause.append(ACLDetail.authorizable_id.in_(identity_id))
+        # By permission or superior permissions
         if isinstance(permission_types_ids, int):
-            # By permission or superior permissions
             filter_clause.append(ACLDetail.permission_id.in_(related_perm_ids(permission_types_ids)))
         elif hasattr(permission_types_ids, '__iter__'):
             filter_clause.append(ACLDetail.permission_id.in_(permission_types_ids))
-        filter_clause.append(ACL.object_uuid.in_(object_uuids)) if object_uuids else None
 
         collected = DBSession.query(CollectionDetail.object_uuid) \
             .join(Collection) \

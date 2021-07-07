@@ -11,8 +11,6 @@ from biobarcoding.services import get_simple_query
 
 
 def create(**kwargs):
-    # issues = [Issue(IType.WARNING, 'CREATE sequences: dummy completed')]
-    # return issues, None, 200
     content = None
     try:
         if not kwargs.get('uniquename'):
@@ -47,8 +45,15 @@ def read(id=None, **kwargs):
 
 
 def update(id, **kwargs):
-    issues = [Issue(IType.WARNING, 'UPDATE sequences: dummy completed')]
-    return issues, None, 200
+    content = None
+    try:
+        content = __get_query(id, permission_type='update').update(kwargs)
+        # TODO: update timelastmodified ?
+        issues, status = [Issue(IType.INFO, 'UPDATE sequences: The sequences were successfully updated')], 200
+    except Exception as e:
+        print(e)
+        issues, status = [Issue(IType.ERROR, f'UPDATE sequences: The sequences could not be updated.')], 409
+    return issues, content, 200
 
 
 def __delete_from_bcs(feature_id):
@@ -60,7 +65,7 @@ def __delete_from_bcs(feature_id):
 def delete(id=None, **kwargs):
     content = None
     try:
-        query = __get_query(id, **kwargs)
+        query = __get_query(id, permission_type='delete', **kwargs)
         for seq in query.all():
             __delete_from_bcs(seq.feature_id)
         resp = query.delete(synchronize_session='fetch')
@@ -128,7 +133,7 @@ def __seqs2file(output_file, format, seqs):
 
 def export(id=None, format='fasta', **kwargs):
     try:
-        query = __get_query(id, **kwargs)
+        query = __get_query(id, permission_type='export', **kwargs)
         __seqs2file(f'/tmp/output_ngd.{format}', format, query.all())
         issues, status = [Issue(IType.INFO, f'EXPORT sequences: {query.count()} sequences were successfully exported.')], 200
     except Exception as e:
@@ -137,22 +142,20 @@ def export(id=None, format='fasta', **kwargs):
     return issues, f'/tmp/output_ngd.{format}', status
 
 
-def __get_query(id=None, **kwargs):
+def __get_query(id=None, permission_type='read', **kwargs):
     from flask import g
     from biobarcoding.db_models.bioinformatics import bio_object_type_id
-    # TODO: is there any case we need multiple identities, permissiones, object_types_ids
-    # TODO: how to deal with different contexts for permission type (read, annotate, delete, ...)
-    bos_authed = db_session.query(BioinformaticObject.chado_id).filter(
+    bos_authed = db_session.query(BioinformaticObject.chado_id)
+    # TODO: if owner or sysadmin is asking, allow access with or without acl
+    bos_authed = bos_authed.filter(
         auth_filter(orm=BioinformaticObject,
-                    identity_ids=[g.bcs_session.identity.id],
+                    identity_id=g.bcs_session.identity.id,
                     object_types_ids=[bio_object_type_id['sequence']],
-                    permission_types_ids=get_simple_query(db_session, PermissionType, name='read').one().id
+                    permission_types_ids=get_simple_query(db_session, PermissionType, name=permission_type).one().id
                     # object_uuids=None, time=None,
                     # permission_flag=None, authorizable_flag=None
                     ))
-    print(bos_authed)
     query = chado_session.query(Feature).filter(Feature.feature_id.in_(bos_authed.all()))
-    print(query)
     global count
     count = 0
     if id:
