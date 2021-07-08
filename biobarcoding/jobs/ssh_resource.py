@@ -1,9 +1,10 @@
+from biobarcoding import get_global_configuration_variable
 from biobarcoding.jobs import JobExecutorAtResource
 import os
+from shutil import rmtree
 import asyncio
 import asyncssh
 
-REMOTE_ROOT_DIR = os.sep + "tmp"
 SSH_OPTIONS = "-o StrictHostKeyChecking=no"
 
 
@@ -70,7 +71,7 @@ class RemoteSSHClient:
                f"</dev/null 2>/{self.remote_workspace}/{os.path.basename(self.logs_dict['submit_stderr'])}" +
                f"& echo $!; wait $!; echo $? >> {self.remote_workspace}/$!.exit_status)'")
 
-        print(cmd)
+        print(repr(cmd))
         popen_pipe = os.popen(cmd)
         pid = popen_pipe.readline().rstrip()
         self.last_job_remotely = True
@@ -287,7 +288,8 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         self.host = None
         self.username = None
         self.known_hosts_filepath = None
-        self.remote_workspace = os.path.join(REMOTE_ROOT_DIR, identity_job_id)
+        self.remote_workspace = os.path.join(get_global_configuration_variable("SSH_JOBS_DEFAULT_REMOTE_WORKSPACE"),
+                                             identity_job_id)
         self.remote_client = None
         self.loop = asyncio.get_event_loop()
 
@@ -300,7 +302,7 @@ class JobExecutorWithSSH(JobExecutorAtResource):
     def check(self):
         not_accessible = os.system(f"ssh -o StrictHostKeyChecking=no -o " +
                                    f"UserKnownHostsFile={self.known_hosts_filepath} {self.username}@{self.host} " +
-                                   f"'sleep 0.01'")
+                                   f"'echo'")
         print(not_accessible)
         if not_accessible:  # if not_accessible is 0 the server is accessible else it is not
             return False
@@ -324,13 +326,20 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         self.loop.run_until_complete(self.remote_client.make_directory(self.remote_workspace))
 
     def job_workspace_exists(self):
-        if self.host == "localhost":
-            return None
+        cmd = f"ssh -G {self.host}" + " | awk 'FNR == 2 {print $2}'"
+        popen_pipe = os.popen(cmd)
+        host_ip = popen_pipe.readline().rstrip()
+        if host_ip == "127.0.0.1":
+            return os.path.isdir(self.remote_workspace)
         return self.loop.run_until_complete(self.remote_client.directory_exists(self.remote_workspace))
 
     def remove_job_workspace(self):
-        if not self.host == "localhost":
-            self.loop.run_until_complete(self.remote_client.remove_directory(self.remote_workspace))
+        cmd = f"ssh -G {self.host}" + " | awk 'FNR == 2 {print $2}'"
+        popen_pipe = os.popen(cmd)
+        host_ip = popen_pipe.readline().rstrip()
+        if host_ip == "127.0.0.1":
+            return rmtree(self.remote_workspace)
+        self.loop.run_until_complete(self.remote_client.remove_directory(self.remote_workspace))
 
     def exists(self, job_context):
         i = job_context["state_dict"]["idx"]

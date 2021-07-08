@@ -396,6 +396,7 @@ def wf1_transfer_data_to_resource(job_context: str) -> object:
         i = state_dict["idx"]
         n_attempts = state_dict["n_attempts"]
     else:
+        print(tmp)
         write_to_file(job_executor.log_filenames_dict["upload_stdout"],
                       "#" * 20 + " TRANSFER DATA TO SOURCE STEP " + "#" * 20)
         open(job_executor.log_filenames_dict["upload_stderr"], "x")
@@ -581,7 +582,7 @@ def wf1_wait_for_execution_end(job_context: str):
         job_context = json.dumps(tmp)
         return job_context
     elif status == "":
-        job_executor.write_submit_logs()
+        #TODO job_executor.write_submit_logs()
         write_to_file(job_executor.log_filenames_dict["submit_stdout"],
                       "Job execution finished in error.")
         write_to_universal_log_and_truncate(job_executor.log_filenames_dict["submit_stdout"],
@@ -864,7 +865,7 @@ def wf1_completed_error(job_context: str):
     """
     tmp = json.loads(job_context)
     tmp = change_status(tmp, "error")
-    write_to_file(CELERY_LOG, f"error: {tmp['error']}")
+    #TODO write_to_file(CELERY_LOG, f"error: {tmp['error']}")
     previous_state = tmp["state_dict"]["state"]
     if previous_state == "store" or previous_state == "cleanup":
         return job_context

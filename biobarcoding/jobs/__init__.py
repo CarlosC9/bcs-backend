@@ -3,6 +3,7 @@ from abc import ABC
 import abc
 from typing import Dict
 
+from biobarcoding import get_global_configuration_variable
 from biobarcoding.rest.file_manager import FilesAPI
 from biobarcoding.tasks import celery_app
 
@@ -42,8 +43,6 @@ class JobManagementAPI:
 
 
 class JobExecutorAtResource(ABC):
-    # TODO acordar el path con Rafa
-    LOCAL_WORKSPACE = os.sep + "tmp"# TODO leer desde config file
     LOG_FILENAMES_DICT = {
         "prepare_stdout": "bcs.prepare.stdout.log",
         "prepare_stderr": "bcs.prepare.stderr.log",
@@ -63,7 +62,10 @@ class JobExecutorAtResource(ABC):
     }
 
     def __init__(self, identity_job_id):
-        self.local_workspace = os.path.join(self.LOCAL_WORKSPACE, identity_job_id)
+        self.local_workspace = get_global_configuration_variable("JOBS_LOCAL_WORKSPACE")
+        if not os.path.exists(self.local_workspace):
+            os.mkdir(self.local_workspace)
+        self.local_workspace = os.path.join(self.local_workspace, identity_job_id)
         if not os.path.exists(self.local_workspace):
             os.mkdir(self.local_workspace)
         self.log_filenames_dict = {}

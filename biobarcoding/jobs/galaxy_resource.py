@@ -320,7 +320,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         i = job_context["state_dict"]["idx"]
         if job_context["state_dict"]["state"] == "upload":
             # check if exists locally
-            file_local_path = os.path.join(self.LOCAL_WORKSPACE, self.workspace,
+            file_local_path = os.path.join(self.local_workspace,
                                            self.get_upload_files_list(job_context)[i]["file"])
             try:
                 local_size = os.path.getsize(file_local_path)
@@ -339,7 +339,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
                 # if local_size == remote_size:
                 return True
         if job_context["state_dict"]["state"] == "download":
-            file_local_path = os.path.join(self.LOCAL_WORKSPACE,self.workspace,self.get_download_files_list(job_context)[i]["file"])
+            file_local_path = os.path.join(self.local_workspace, self.get_download_files_list(job_context)[i]["file"])
             if os.path.exists(os.path.join(file_local_path)):
                 return True
             else:
@@ -510,8 +510,8 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         i = job_context['state_dict'].get('idx')
         result =  job_context['results'][i]
         remote_name = result.get('remote_name')
-        download_path = os.path.join(self.LOCAL_WORKSPACE,self.workspace,result.get('file'))
-        job_dir = os.path.join(self.LOCAL_WORKSPACE,self.workspace)
+        download_path = os.path.join(self.local_workspace, result.get('file'))
+        job_dir = os.path.join(self.local_workspace)
         file_ext = result.get('type')
         history_name = self.workspace
         self.connect()
