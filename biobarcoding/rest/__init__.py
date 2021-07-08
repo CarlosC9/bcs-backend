@@ -138,7 +138,9 @@ def get_default_configuration_dict():
                 CHADO_SCHEMA="public",
                 ENDPOINT_URL="http://localhost:5000",
                 COOKIES_FILE_PATH="/tmp/bcs-cookies.txt",
-                RESOURCES_CONFIG_FILE_PATH="/home/resources_config.json"
+                RESOURCES_CONFIG_FILE_PATH="/home/resources_config.json",
+                JOBS_LOCAL_WORKSPACE=os.path.expanduser('~/ngd_jobs'),
+                SSH_JOBS_DEFAULT_REMOTE_WORKSPACE="/tmp"
                 )
 
 
@@ -175,8 +177,9 @@ def complete_configuration_file(file_name):
                 if key.strip() in default_cfg_keys:
                     default_cfg_keys.remove(key.strip())
                 else:
-                    print(f"{key.strip()} is not in the default config")
+                    print(f"WARNING: {key.strip()} is not in the default config")
         for key in default_cfg_keys:
+            print(f"{key} inserted to {file_name} with value {default_cfg[key]}")
             file.write(f'\n{key}="{default_cfg[key]}"')
 
 
@@ -304,53 +307,47 @@ def check_galaxy_tools(wf1_dic, wf2_dic):
 
 
 def initialize_ssh(flask_app):
-    with open(flask_app.config['RESOURCES_CONFIG_FILE_PATH']) as json_file:
-        resources_dict = json.load(json_file)
-    for res_uuid, res_dict in resources_dict.items():
-        if res_dict['job_management_type'] == 'ssh':
-            ssh_credentials = res_dict['job_management_credentials']
-            ssh_location = res_dict['job_management_location']
-            cmd = ["ssh", "-o", "StrictHostKeyChecking=no",
-                   "-o", f"UserKnownHostsFile={ssh_credentials['known_hosts_filepath']}",
-                   f"{ssh_credentials['username']}@{ssh_location['host']}", "'sleep 0.01'"]
-            subprocess.run(cmd)
+    '''ssh_resources = conn.execute("SELECT * FROM jobs_compute_resources join jobs_job_mgmt_types as jt" +
+                                 " on jm_type_id=jt.id where jt.name='ssh'").fetchall()'''
+    session = DBSession()
+    ssh_resources = session.query(ComputeResource, JobManagementType).filter(ComputeResource.jm_type_id == JobManagementType.id, JobManagementType.name == 'ssh').all()
+    for ssh_res in ssh_resources:
+        compute_resource = ssh_res.ComputeResource
+        ssh_credentials = compute_resource.jm_credentials
+        ssh_location = compute_resource.jm_location
+        cmd = ["ssh", "-o", "StrictHostKeyChecking=no",
+               "-o", f"UserKnownHostsFile={ssh_credentials['known_hosts_filepath']}",
+               f"{ssh_credentials['username']}@{ssh_location['host']}", "'echo'"]
+        subprocess.run(cmd)
 
 
 def initialize_galaxy(flask_app):
     session = DBSession()
-    with open(flask_app.config['RESOURCES_CONFIG_FILE_PATH']) as json_file:
-        resources_dict = json.load(json_file)
-    for res_uuid, res_dict in resources_dict.items():
-        if res_dict['job_management_type'] == "galaxy":
-            url = res_dict['job_management_location']['url']
-            api_key = res_dict['job_management_credentials']['api_key']
-            # Update resource location
-            r = session.query(ComputeResource).filter(ComputeResource.uuid == res_uuid).first()
-            if r:
-                r.jm_location = {"url": url}
-                r.jm_credentials = {"api_key": api_key}
-                session.commit()
-            DBSession.remove()
+    galaxy_resources = session.query(ComputeResource, JobManagementType).filter(
+        ComputeResource.jm_type_id == JobManagementType.id, JobManagementType.name == 'galaxy').all()
+    for galaxy_res in galaxy_resources:
+        compute_resource = galaxy_res.ComputeResource
+        url = compute_resource.jm_location['url']
+        api_key = compute_resource.jm_credentials['api_key']
 
-            # Install basic workflow if it is not installed
-            gi = galaxy.GalaxyInstance(url=url, key=api_key)
-            path = ROOT + '/biobarcoding/workflows/'
-            for workflow in os.listdir(path):
-                workflow_path = path + workflow
-                with open(workflow_path, 'r') as f:
-                    wf_dict_in = json.load(f)
-                name = wf_dict_in['name']
-                wf = gi.workflows.get_workflows(name=name)
-                w_id = wf[0].get('id') if wf else None
-                if w_id:
-                    gi.workflows.delete_workflow(w_id)
-                wf = gi.workflows.import_workflow_from_local_path(workflow_path)
-                wf_dict_out = gi.workflows.export_workflow_dict(wf['id'])
-                list_of_tools = check_galaxy_tools(wf_dict_out, wf_dict_in)
-                install_galaxy_tools(gi, list_of_tools)
-            # conversion of workflows galaxy into workflows formly
-            # TODO convert_workflows_to_formly()
-    session.commit()
+        # Install basic workflow if it is not installed
+        gi = galaxy.GalaxyInstance(url=url, key=api_key)
+        path = ROOT + '/biobarcoding/workflows/'
+        for workflow in os.listdir(path):
+            workflow_path = path + workflow
+            with open(workflow_path, 'r') as f:
+                wf_dict_in = json.load(f)
+            name = wf_dict_in['name']
+            wf = gi.workflows.get_workflows(name=name)
+            w_id = wf[0].get('id') if wf else None
+            if w_id:
+                gi.workflows.delete_workflow(w_id)
+            wf = gi.workflows.import_workflow_from_local_path(workflow_path)
+            wf_dict_out = gi.workflows.export_workflow_dict(wf['id'])
+            list_of_tools = check_galaxy_tools(wf_dict_out, wf_dict_in)
+            install_galaxy_tools(gi, list_of_tools)
+        # conversion of workflows galaxy into workflows formly
+        # TODO convert_workflows_to_formly()
 
 
 # SOCKET INITIALIZATION
@@ -451,6 +448,7 @@ tm_processes = {  # Preloaded processes
     "15aa399f-dd58-433f-8e94-5b2222cd06c9": "Clustal Omega",
     "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": "MSA ClustalW",
     "ec40143f-ae32-4dac-9cfb-caa047e1adb1": "ClustalW-PhyMl",
+    "c87f58b6-cb06-4d39-a0b3-72c2705c5ae1": "PAUP Parsimony",
 }
 
 tm_system_functions = {
@@ -483,7 +481,7 @@ tm_browser_filter_forms = [
 #
 #
 #
-# c87f58b6-cb06-4d39-a0b3-72c2705c5ae1
+#
 # c55280d0-f916-4401-a1a4-bb26d8179fd7
 # 3e0240e8-b978-48a2-8fdd-9f31f4264064
 # ce018826-7b20-4b70-b9b3-168c0ba46eec

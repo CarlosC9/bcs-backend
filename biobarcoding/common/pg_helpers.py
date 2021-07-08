@@ -51,15 +51,18 @@ RESOURCE_PROCESSES_DICT = {
     ],
     "localhost - ssh": [
         "MSA ClustalW",
+        "PAUP Parsimony"
     ],
     "balder - ssh": [
         "MSA ClustalW",
+        "PAUP Parsimony"
     ],
 }
 
 PROCESSES_INPUTS = {
     "ec40143f-ae32-4dac-9cfb-caa047e1adb1": 'biobarcoding/inputs_schema/clustalw_phyml_formly.json',
-    "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": 'biobarcoding/inputs_schema/clustalw_formly.json'
+    "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": 'biobarcoding/inputs_schema/clustalw_formly.json',
+    "c87f58b6-cb06-4d39-a0b3-72c2705c5ae1": 'biobarcoding/inputs_schema/paup_parsimony_formly.json'
 }
 
 
