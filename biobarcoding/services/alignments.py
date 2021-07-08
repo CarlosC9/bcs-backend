@@ -38,7 +38,7 @@ def update(id, **kwargs):
 
 def __delete_from_bcs(*args):
     from biobarcoding.db_models.bioinformatics import MultipleSequenceAlignment
-    db_session.query(MultipleSequenceAlignment).filter(MultipleSequenceAlignment.chado_analysis_id.in_(*args)) \
+    db_session.query(MultipleSequenceAlignment).filter(MultipleSequenceAlignment.chado_id.in_(*args)) \
         .delete(synchronize_session='fetch')
 
 
@@ -100,7 +100,7 @@ def __msafile2chado(input_file, msa, format):
 
 def __msa2bcs(msa):
     from biobarcoding.db_models.bioinformatics import MultipleSequenceAlignment
-    bcs_msa = get_or_create(db_session, MultipleSequenceAlignment, chado_analysis_id=msa.analysis_id)
+    bcs_msa = get_or_create(db_session, MultipleSequenceAlignment, chado_id=msa.analysis_id)
     db_session.add(bcs_msa)
     db_session.flush()
     return bcs_msa

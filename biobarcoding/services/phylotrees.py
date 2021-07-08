@@ -36,7 +36,7 @@ def update(phylotree_id, **kwargs):
 
 def __delete_from_bcs(*args):
     from biobarcoding.db_models.bioinformatics import PhylogeneticTree
-    db_session.query(PhylogeneticTree).filter(PhylogeneticTree.chado_phylotree_id.in_(args))\
+    db_session.query(PhylogeneticTree).filter(PhylogeneticTree.chado_id.in_(args))\
         .delete(synchronize_session='fetch')
 
 
@@ -121,7 +121,7 @@ def __phylotree2bcs(phylotree):
     from biobarcoding.services import get_or_create
     from biobarcoding.db_models.bioinformatics import PhylogeneticTree
     bcs_phylotree = get_or_create(db_session, PhylogeneticTree,
-        chado_phylotree_id = phylotree.phylotree_id,
+        chado_id = phylotree.phylotree_id,
         chado_table = 'phylotree',
         name = phylotree.name)
     db_session.merge(bcs_phylotree)
