@@ -7,7 +7,7 @@ def create(**kwargs):
     content = None
     try:
         if not kwargs.get('uniquename'):
-            raise
+            raise Exception('Missing the uniquename')
         if not kwargs.get('type_id'):
             from biobarcoding.db_models.chado import Cvterm
             kwargs['type_id'] = chado_session.query(Cvterm.cvterm_id).filter(Cvterm.name=='plant anatomical entity').one()
@@ -15,7 +15,7 @@ def create(**kwargs):
         issues, status = [Issue(IType.INFO, f'CREATE individuals: The individual "{kwargs.get("uniquename")}" created successfully.')], 201
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'CREATE individuals: The individual "{kwargs.get("uniquename")}" could not be created.')], 500
+        issues, status = [Issue(IType.ERROR, f'CREATE individuals: The individual "{kwargs.get("uniquename")}" could not be created.')], 409
     return issues, content, status
 
 
@@ -31,7 +31,7 @@ def read(id=None, **kwargs):
         issues, status = [Issue(IType.INFO, 'READ individuals: The individuals were successfully read.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'READ individuals: The individuals could not be read.')], 500
+        issues, status = [Issue(IType.ERROR, 'READ individuals: The individuals could not be read.')], 400
     return issues, content, count, status
 
 
@@ -43,7 +43,7 @@ def update(id, **kwargs):
         issues, status = [Issue(IType.INFO, f'UPDATE individuals: The individual "{id}" updated successfully.')], 201
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'UPDATE individuals: The individual "{id}" could not be updated.')], 500
+        issues, status = [Issue(IType.ERROR, f'UPDATE individuals: The individual "{id}" could not be updated.')], 409
     return issues, content, status
 
 
@@ -55,7 +55,7 @@ def delete(id=None, **kwargs):
         issues, status = [Issue(IType.INFO, f'DELETE individuals: The {resp} individuals were successfully removed.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'DELETE individuals: The individuals could not be removed.')], 500
+        issues, status = [Issue(IType.ERROR, 'DELETE individuals: The individuals could not be removed.')], 404
     return issues, content, status
 
 

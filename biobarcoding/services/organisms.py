@@ -16,7 +16,7 @@ def create(**kwargs):
         issues, status = [Issue(IType.INFO, f'CREATE organisms: The organism "{kwargs.get("genus")} {kwargs.get("species")}" was  successfully created.')], 201
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'CREATE organisms: The organism "{kwargs.get("genus")} {kwargs.get("species")}" could not be created.')], 500
+        issues, status = [Issue(IType.ERROR, f'CREATE organisms: The organism "{kwargs.get("genus")} {kwargs.get("species")}" could not be created.')], 409
     return issues, content, status
 
 
@@ -32,7 +32,7 @@ def read(id = None, **kwargs):
         issues, status = [Issue(IType.INFO, f'READ organisms: The organisms were successfully read.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'READ organisms: The organisms could not be read.')], 500
+        issues, status = [Issue(IType.ERROR, f'READ organisms: The organisms could not be read.')], 400
     return issues, content, count, status
 
 
@@ -48,7 +48,7 @@ def delete(id = None, **kwargs):
         issues, status = [Issue(IType.INFO, 'DELETE organisms: The organisms were successfully removed.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'DELETE organisms: The organisms could not be removed.')], 500
+        issues, status = [Issue(IType.ERROR, 'DELETE organisms: The organisms could not be removed.')], 404
     return issues, content, status
 
 
@@ -69,7 +69,7 @@ def export(id = None, format = None, output_file = None, **kwargs):
         print(e)
         if stdout:
             sys.stdout = stdout
-        issues, status = Issue(IType.ERROR, 'EXPORT organisms: The organisms could not be exported.'), 500
+        issues, status = Issue(IType.ERROR, 'EXPORT organisms: The organisms could not be exported.'), 404
     return issues, output_file, status
 
 

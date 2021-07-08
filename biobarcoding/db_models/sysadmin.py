@@ -200,7 +200,7 @@ class ACLDetail(ORMBase):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     acl_id = Column(Integer, ForeignKey(ACL.id), nullable=False)
-    acl = relationship(ACL, backref=backref("detail", cascade="all, delete-orphan"))
+    acl = relationship(ACL, backref=backref("details", cascade="all, delete-orphan"))
 
     # Origin of this record (can be NULL if directly specified)
     acl_expression_id = Column(Integer, ForeignKey(ACLExpression.id), nullable=True)

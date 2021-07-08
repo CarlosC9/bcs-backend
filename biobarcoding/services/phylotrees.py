@@ -1,9 +1,11 @@
-import os, time
+import os.path
+import time
 
 from biobarcoding.db_models import DBSession as db_session
 from biobarcoding.db_models import DBSessionChado as chado_session
 from biobarcoding.rest import Issue, IType, filter_parse, paginator
 from biobarcoding.db_models.chado import Phylotree, Phylonode
+
 
 def create(**kwargs):
     issues = [Issue(IType.WARNING, 'CREATE phylotrees: dummy completed')]
@@ -22,7 +24,7 @@ def read(id = None, **kwargs):
         issues, status = [Issue(IType.INFO, 'READ phylotrees: The phylotrees were successfully read.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'READ phylotrees: The phylotrees could not be read.')], 500
+        issues, status = [Issue(IType.ERROR, 'READ phylotrees: The phylotrees could not be read.')], 400
     return issues, content, count, status
 
 
@@ -34,7 +36,7 @@ def update(phylotree_id, **kwargs):
 
 def __delete_from_bcs(*args):
     from biobarcoding.db_models.bioinformatics import PhylogeneticTree
-    db_session.query(PhylogeneticTree).filter(PhylogeneticTree.chado_phylotree_id.in_(args))\
+    db_session.query(PhylogeneticTree).filter(PhylogeneticTree.chado_id.in_(args))\
         .delete(synchronize_session='fetch')
 
 
@@ -48,7 +50,7 @@ def delete(id=None, **kwargs):
         issues, status = [Issue(IType.INFO, f'DELETE phylotrees: The {resp} phylotrees were successfully removed.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'DELETE phylotrees: The phylotrees could not be removed.')], 500
+        issues, status = [Issue(IType.ERROR, 'DELETE phylotrees: The phylotrees could not be removed.')], 404
     return issues, content, status
 
 
@@ -71,7 +73,7 @@ def import_file(input_file, format='newick', **kwargs):
         tree = Phylo.read(input_file, format)
     except Exception as e:
         issues = [Issue(IType.ERROR, f'IMPORT phylotress: The file {input_file}.{format} could not be imported.')]
-        return issues, content, 500
+        return issues, content, 409
     try:
         if not kwargs.get('name'):
             kwargs['name'] = os.path.basename(input_file)
@@ -79,9 +81,13 @@ def import_file(input_file, format='newick', **kwargs):
         phylotree = __new_phylotree(kwargs.get('name'), kwargs.get('comment'), kwargs.get('analysis_id'))
         # Get phylonodes insertion
         phylonodes = __tree2phylonodes(phylotree.phylotree_id, tree.root, None, [0])
-        issues, status = [Issue(IType.INFO, 'IMPORT phylotrees: The phylotree was successfully imported.')], 200
+        issues, status = [Issue(IType.INFO,
+                                'IMPORT phylotrees: The phylotree was successfully imported.',
+                                os.path.basename(input_file))], 200
     except Exception as e:
-        issues, status = [Issue(IType.ERROR, f'IMPORT phylotress: The file {input_file}.{format} could not be imported.')], 500
+        issues, status = [Issue(IType.ERROR,
+                                f'IMPORT phylotress: The file {input_file}.{format} could not be imported.',
+                                os.path.basename(input_file))], 409
     return issues, content, status
 
 def __new_phylotree(name, comment = None, analysis_id = None):
@@ -115,7 +121,7 @@ def __phylotree2bcs(phylotree):
     from biobarcoding.services import get_or_create
     from biobarcoding.db_models.bioinformatics import PhylogeneticTree
     bcs_phylotree = get_or_create(db_session, PhylogeneticTree,
-        chado_phylotree_id = phylotree.phylotree_id,
+        chado_id = phylotree.phylotree_id,
         chado_table = 'phylotree',
         name = phylotree.name)
     db_session.merge(bcs_phylotree)
@@ -154,7 +160,7 @@ def export(id=None, format='newick', **kwargs):
         issues, status = [Issue(IType.INFO, 'EXPORT phylotrees: The phylotree were successfully exported.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, 'EXPORT phylotrees: The phylotree could not be exported.')], 500
+        issues, status = [Issue(IType.ERROR, 'EXPORT phylotrees: The phylotree could not be exported.')], 404
     return issues, f'/tmp/output_ngd.{format}', status
 
 def __tree2file(phylotree_id, format, output_file):

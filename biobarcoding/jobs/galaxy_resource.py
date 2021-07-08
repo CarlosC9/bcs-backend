@@ -1,9 +1,9 @@
 import time
 from urllib.parse import urljoin
 
+import requests
 from bioblend import galaxy
 import json
-
 from biobarcoding.common import ROOT
 from biobarcoding.db_models import DBSession
 from biobarcoding.db_models.jobs import ComputeResource
