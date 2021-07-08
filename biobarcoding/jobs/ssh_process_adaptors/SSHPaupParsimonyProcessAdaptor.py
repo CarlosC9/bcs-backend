@@ -36,7 +36,7 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
 
     def _get_script_params_string(self, process_parameters):
         parameters = process_parameters["PAUP Parsimony"]
-        taxset = {'sets': '\ttaxset myOutgroup = DROMTTGNC Dros;\n', 'assumptions': ''}
+        taxset = {'sets': '\t\ttaxset myOutgroup = DROMTTGNC Dros;\n', 'assumptions': ''}
         sets = parameters.get('charset').sets + taxset['sets']
         assumptions = parameters.get('charset').assumptions + taxset['assumptions']
         params_str = f"{parameters.get('outRoot')} {parameters.get('gapMode')} " + \
@@ -90,6 +90,18 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
             {
                 "remote_name": f"treescores.txt",
                 "file": "treescores.txt",
+                "subprocess": "PAUP Parsimony",
+                "type": "txt"
+            },
+            {
+                "remote_name": f"ngd_paup_parsimony.txt",
+                "file": "ngd_paup_parsimony.txt",
+                "subprocess": "PAUP Parsimony",
+                "type": "txt"
+            },
+            {
+                "remote_name": f"sets_and_assumptions.txt",
+                "file": "sets_and_assumptions.txt",
                 "subprocess": "PAUP Parsimony",
                 "type": "txt"
             },

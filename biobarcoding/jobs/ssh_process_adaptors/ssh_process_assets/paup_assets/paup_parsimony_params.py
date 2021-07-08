@@ -34,8 +34,18 @@ def create_sets_file(sets: str, assumptions: str):
         f.write('end;')
 
 
+def delete_templates_comments(file_content: str):
+    lines = file_content.splitlines()
+    new_lines = []
+    for l in lines:
+        if not (l.strip().startswith("[$") and l.strip().endswith("]")):
+            new_lines.append(l)
+    return "\n".join(new_lines)
+
+
 if __name__ == "__main__":
-    template_filename, output_filename, out_root, gap_mode, addseq, swap, hold, consensus_tree_type, le50, percent, n_replicas, search, method, sets, assumptions = argv[1:]
+    template_filename, output_filename, out_root, gap_mode, addseq, swap, hold, consensus_tree_type, le50, percent, n_replicas, search, method, sets, assumptions = argv[
+                                                                                                                                                                    1:]
     inputs_dict = {
         "$outRoot": out_root,
         "$gapMode": gap_mode,
@@ -55,9 +65,10 @@ if __name__ == "__main__":
 
     file_content = replace_inputs_dict(file_content, inputs_dict)
     file_content = delete_method_comment(file_content, method, search)
+    file_content = delete_templates_comments(file_content)
 
     with open(output_filename, "w") as f:
         f.write(file_content)
 
-    #Create Paup sets and assumptions in sets_and_assumptions.txt file
+    # Create Paup sets and assumptions in sets_and_assumptions.txt file
     create_sets_file(sets, assumptions)
