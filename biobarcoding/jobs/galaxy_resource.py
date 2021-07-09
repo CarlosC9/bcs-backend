@@ -587,13 +587,14 @@ def convert_workflows_to_formly():
                }
 
     path = ROOT + '/biobarcoding/inputs_schema/'
-    path = ROOT + 'tests/data_test'
+    path = ROOT + '/tests/data_test'
     lwdict = [wfdict1, wfdict2]
     for wfdict in lwdict:
         if wfdict['fname'] not in os.listdir(path):
             wfdict['fname'] = path + wfdict['fname']
             formyConverter = convertToFormly(wfdict['workflow_path'],path,'http://localhost:8080/')
             formyConverter.full_converter()
+
 
 def initialize_galaxy(flask_app):
     if {'GALAXY_API_KEY', 'GALAXY_LOCATION'} <= flask_app.config.keys():
