@@ -112,25 +112,46 @@ def get_default_configuration_dict():
     BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
     BACKEND_URL = BROKER_URL
 
-    return dict(CACHE_FILE_LOCATION=f"{cache_path}/cache",
-                REDIS_HOST_FILESYSTEM_DIR=f"{cache_path}/sessions",
-                REDIS_HOST="filesystem:local_session",
-                SAMESITE_NONE="True",
-                TESTING="True",
-                SELF_SCHEMA="",
+    return dict(
+                # BCS (SYSTEM DB)
                 DB_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432/",
-                POSTGIS_CONNECTION_STRING="postgresql://postgres:postgres@172.17.0.1:5435/",
-                CELERY_BROKER_URL=f"{BROKER_URL}",
-                CELERY_BACKEND_URL=f"{BACKEND_URL}",
-                GOOGLE_APPLICATION_CREDENTIALS=f"{data_path}/firebase-key.json",
+                # CHADO (MOLECULAR DATA DB)
                 CHADO_DATABASE="postgres",
                 CHADO_HOST="localhost",
                 CHADO_PORT="5432",
                 CHADO_USER="postgres",
                 CHADO_PASSWORD="postgres",
                 CHADO_SCHEMA="public",
+                # CELERY (TASK EXECUTION)
+                CELERY_BROKER_URL=f"{BROKER_URL}",
+                CELERY_BACKEND_URL=f"{BACKEND_URL}",
+                REDIS_HOST="filesystem:local_session",
+                REDIS_HOST_FILESYSTEM_DIR=f"{cache_path}/sessions",
+                # GEO (GEOSPATIAL DATA)
+                GEOSERVER_USER="admin",
+                GEOSERVER_PASSWORD="ngd_ad37",
+                GEOSERVER_HOST="geoserver",
+                GEOSERVER_PORT="8080",
+                POSTGIS_CONNECTION_STRING="postgresql://postgres:postgres@172.17.0.1:5435/",
+                POSTGIS_USER="postgres",
+                POSTGIS_PASSWORD="postgres",
+                POSTGIS_PORT="5432",
+                POSTGIS_HOST="localhost",
+                POSTGIS_DB="ngd_geoserver",
+                # COMPUTE RESOURCES
+                RESOURCES_CONFIG_FILE_PATH="/home/resources_config.json",
+                JOBS_LOCAL_WORKSPACE=os.path.expanduser('~/ngd_jobs'),
+                SSH_JOBS_DEFAULT_REMOTE_WORKSPACE="/tmp",
                 GALAXY_API_KEY="fakekey",
-                GALAXY_LOCATION="http://localhost:8080"
+                GALAXY_LOCATION="http://localhost:8080",
+                # MISC
+                GOOGLE_APPLICATION_CREDENTIALS=f"{data_path}/firebase-key.json",  # Firebase
+                ENDPOINT_URL="http://localhost:5000",  # Access to self (so Celery can update things)
+                COOKIES_FILE_PATH="/tmp/bcs-cookies.txt",  # Where cookies are stored by Celery
+                CACHE_FILE_LOCATION=f"{cache_path}/cache",  # Cached things
+                SAMESITE_NONE="True",
+                TESTING="True",
+                SELF_SCHEMA="",
                 )
 
 
@@ -646,7 +667,7 @@ def initialize_chado_edam(flask_app):
         sys.exit(1)
 
 
-def inizialice_postgis(flask_app):
+def initialize_postgis(flask_app):
     recreate_db = False
     if 'POSTGIS_CONNECTION_STRING' in flask_app.config:
         db_connection_string = flask_app.config['POSTGIS_CONNECTION_STRING']
