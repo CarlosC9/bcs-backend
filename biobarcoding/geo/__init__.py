@@ -13,14 +13,14 @@ check Expose primary keys
 geoserver_session = None
 
 
-def inizialice_geoserver(flask_app):
+def initialize_geoserver(flask_app):
     global geoserver_session
     if {'GEOSERVER_USER',
         'GEOSERVER_PASSWORD',
         'GEOSERVER_HOST',
         'GEOSERVER_PORT'} <= flask_app.config.keys():
         geoserver_url = f"http://{flask_app.config['GEOSERVER_HOST']}:{flask_app.config['GEOSERVER_PORT']}/geoserver"
-        geoserver_session = Geoserver(geoserver_url, username= flask_app.config['GEOSERVER_USER'], password= flask_app.config['GEOSERVER_PASSWORD'])
+        geoserver_session = Geoserver(geoserver_url, username=flask_app.config['GEOSERVER_USER'], password=flask_app.config['GEOSERVER_PASSWORD'])
         workspaces = geoserver_session.get_workspaces()
         print(workspaces)
         # CHECK GEOSERVER:
@@ -32,21 +32,23 @@ def inizialice_geoserver(flask_app):
         # print(status)
         # system_status = geoserver_session.get_system_status()
         # print(system_status)
-        if workspaces.get('workspaces') != '': #there at list a workspace
-            if {'name': 'ngd', 'href': f'{geoserver_url}/rest/workspaces/ngd.json'} in workspaces['workspaces'].get('workspace'):
-                print('workspace ngd ready')
+        if workspaces.get('workspaces') != '' and \
+                {'name': 'ngd', 'href': f'{geoserver_url}/rest/workspaces/ngd.json'} in workspaces['workspaces'].get('workspace'):
+            print('Workspace "ngd" ready')
         else:
             geoserver_session.create_workspace(workspace='ngd')
-            # the storage is always asociated to the workspace so, no need to ask if the feature storage already exists
-            # TODO ask for any other storage existance?
-            geoserver_session.create_featurestore(store_name = 'geo_data',
-                                    workspace='ngd',
-                                    db = flask_app.config['POSTGIS_DB'],
-                                    host = '172.17.0.1', # internal host TODO get this as variable
-                                    port = 5435, # internal port TODO get this as variable
-                                    pg_user= flask_app.config['POSTGIS_USER'],
-                                    pg_password= flask_app.config['POSTGIS_PASSWORD']
-                                )
+
+        ds = geoserver_session.get_datastores('ngd')
+        if ds.get('dataStores') == '':
+            # the storage is always associated to the workspace so, no need to ask if the feature storage already exists
+            geoserver_session.create_featurestore(store_name='geo_data',
+                                                  workspace='ngd',
+                                                  db=flask_app.config['POSTGIS_DB'],
+                                                  host=flask_app.config['POSTGIS_HOST'],
+                                                  port=int(flask_app.config['POSTGIS_PORT']),
+                                                  pg_user=flask_app.config['POSTGIS_USER'],
+                                                  pg_password=flask_app.config['POSTGIS_PASSWORD']
+                                                  )
     else:
         print("no geoserver data in config file cant open GEOSERVER session")
 

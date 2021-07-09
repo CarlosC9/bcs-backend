@@ -8,7 +8,7 @@ import biobarcoding
 from biobarcoding.jobs.galaxy_resource import initialize_galaxy
 from biobarcoding.rest import logger, log_level, load_configuration_file, construct_session_persistence_backend, \
     initialize_database, initialize_database_chado, bcs_gui_base, ResponseObject, initialize_chado_edam, \
-    inizialice_postgis, init_socket
+    initialize_postgis, init_socket
 from biobarcoding.rest.auth import bp_auth
 from biobarcoding.rest.file_manager import bp_files
 from biobarcoding.rest.identities_and_company import bp_identities, bp_sys_functions, bp_roles, bp_identities_roles, \
@@ -25,7 +25,7 @@ from biobarcoding.rest.views import bp_views
 from biobarcoding.rest.proxy import bp_proxy
 from biobarcoding.tasks import initialize_celery
 from biobarcoding.authentication import initialize_firebase
-from biobarcoding.geo import inizialice_geoserver
+from biobarcoding.geo import initialize_geoserver
 
 # Flask and configuration file
 socket_service_socketio = None
@@ -80,18 +80,18 @@ def create_app(debug, cfg_dict=None):
         initialize_chado_edam(app)
 
         # iniitalize postgis Database
-        inizialice_postgis(app)
+        initialize_postgis(app)
 
     finally:
         lock.release()
 
     # Galaxy
-    print("Initializing base Galaxy instance")
-    #initialize_galaxy(app)
-    print("Initializing base Galaxy instance - DONE")
+    print("Initializing Galaxy instances")
+    initialize_galaxy(app)
+    print("Initializing Galaxy instances - DONE")
 
     print("Initializing Geoserver")
-    inizialice_geoserver(app)
+    initialize_geoserver(app)
     print("Initializing Geoserver - DONE")
 
     # Security
@@ -123,7 +123,6 @@ def create_app(debug, cfg_dict=None):
 
     # Celery
     initialize_celery(app)
-
 
     # Logger
     app.logger.setLevel(log_level)
