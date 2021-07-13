@@ -3,19 +3,19 @@ begin paup;
 	execute alignment.txt;[don't delete this line]
 	execute sets_and_assumptions.txt;[don't delete this line]
 
+    $taxset_paup
+
 	set criterion=parsimony root=outgroup outRoot=$outRoot maxTrees=1 increase=auto autoinc=100;
 
 	pset gapMode=$gapMode;
 
-    outgroup myOutgroup;
-
-    [$bootstrap bootstrap nreps=$nReplicas search=$search treefile=bootstrap_replicas.tre format=nexus seed=1/ addseq=$addseq swap=$swap hold=$hold; $bootstrap]
+    [$bootstrap bootstrap nreps=$nReplicas search=$search treefile=bootstrap_replicas.tre format=nexus seed=1/ addseq=$addseq swap=$swap hold=$hold $enforce_converse; $bootstrap]
 	[$bootstrap savetrees file=bootstrap_consensus.tre from=1 to=1 MaxDecimals=0 SaveBootP=brlens root=yes replace; $bootstrap]
 
-	[$jackknife jackknife nreps=$nReplicas search=$search treefile=jackknife_replicas.tre format=nexus seed=1/ addseq=$addseq swap=$swap hold=$hold; $jackknife]
+	[$jackknife jackknife nreps=$nReplicas search=$search treefile=jackknife_replicas.tre format=nexus seed=1/ addseq=$addseq swap=$swap hold=$hold $enforce_converse; $jackknife]
 	[$jackknife savetrees file=jackknife_consensus.tre from=1 to=1 MaxDecimals=0 SaveBootP=brlens root=yes replace; $jackknife]
 
-	[$simple hsearch addseq=$addseq swap=$swap hold=$hold; $simple]
+	[$simple hsearch addseq=$addseq swap=$swap hold=$hold $enforce_converse; $simple]
 	[$simple savetrees File=heuristic_phylogeny.tre brlens=yes root=yes; $simple]
 	[$simple contree / $consensus_tree_type $le50 $percent treefile=hsearch_consensus.tre outRoot=$outRoot format=nexus saveAsRooted=yes saveSupport=both; $simple]
 

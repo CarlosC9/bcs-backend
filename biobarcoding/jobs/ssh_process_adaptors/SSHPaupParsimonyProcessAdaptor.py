@@ -36,15 +36,16 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
 
     def _get_script_params_string(self, process_parameters):
         parameters = process_parameters["PAUP Parsimony"]
-        taxset = {'sets': '\t\ttaxset myOutgroup = DROMTTGNC Dros;\n', 'assumptions': ''}
-        sets = parameters.get('charset').sets + taxset['sets']
-        assumptions = parameters.get('charset').assumptions + taxset['assumptions']
+        sets = parameters.get('charset').sets + parameters.get('taxset').sets
+        assumptions = parameters.get('charset').assumptions
+        taxset_paup = parameters.get('taxset').paup
         params_str = f"{parameters.get('outRoot')} {parameters.get('gapMode')} " + \
                      f"{parameters.get('addseq')} {parameters.get('swap')} " + \
                      f"{parameters.get('hold')} \"{parameters.get('consensus_tree_type')}\" " + \
                      f"{parameters.get('le50')} {parameters.get('percent')} " + \
                      f"{parameters.get('search')} {parameters.get('nReplicas')} " + \
-                     f"{parameters.get('method')} \"{sets}\" \"{assumptions}\""
+                     f"{parameters.get('method')} \"{parameters.get('taxset').enforce_converse}\" " + \
+                     f"\"{taxset_paup}\" \"{sets}\" \"{assumptions}\""
 
         return params_str
 

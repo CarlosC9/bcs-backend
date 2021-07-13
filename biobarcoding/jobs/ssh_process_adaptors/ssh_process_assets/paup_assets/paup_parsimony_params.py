@@ -44,7 +44,7 @@ def delete_templates_comments(file_content: str):
 
 
 if __name__ == "__main__":
-    template_filename, output_filename, out_root, gap_mode, addseq, swap, hold, consensus_tree_type, le50, percent, n_replicas, search, method, sets, assumptions = argv[
+    template_filename, output_filename, out_root, gap_mode, addseq, swap, hold, consensus_tree_type, le50, percent, n_replicas, search, method, enforce_converse, taxset_paup, sets, assumptions = argv[
                                                                                                                                                                     1:]
     inputs_dict = {
         "$outRoot": out_root,
@@ -56,7 +56,9 @@ if __name__ == "__main__":
         "$le50": f"le50={le50}" if le50 != 'None' else "",
         "$percent": f"percent={percent}" if percent != 'None' else "",
         "$nReplicas": n_replicas,
-        "$search": search
+        "$search": search,
+        "$enforce_converse": enforce_converse,
+        "$taxset_paup": taxset_paup
     }
 
     # Generate Paup script with user's parameters

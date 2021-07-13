@@ -3,6 +3,13 @@
     "key": "PAUP Parsimony",
     "fieldGroup": [
       {
+      "key": "taxset",
+      "type": "taxset-field",
+      "templateOptions": {
+          "taxons": ["DROMTTGNC", "Dros", "YMU09206", "LUCMTPIEA", "MSQNCATR", "Apis"]
+        }
+      },
+      {
         "key": "charset",
         "type": "charset-field",
         "templateOptions": {
@@ -77,6 +84,7 @@
       {
         "key": "nReplicas",
         "type": "input",
+        "className": "formly_subfield",
         "templateOptions": {
           "type": "number",
           "label": "Number of replicas",
@@ -92,6 +100,7 @@
         "key": "search",
         "type": "select",
         "defaultValue": "OFF",
+        "className": "formly_subfield",
         "templateOptions": {
           "label": "Search Strategy",
           "required": true,
@@ -117,77 +126,9 @@
         "hideExpression": "model.method=='simple'"
       },
       {
-        "key": "addseq",
-        "type": "select",
-        "templateOptions": {
-          "label": "Addition Sequence",
-          "required": true,
-          "options": [
-            {
-              "value": "simple",
-              "label": "simple"
-            },
-            {
-              "value": "closest",
-              "label": "closest"
-            },
-            {
-              "value": "asIs",
-              "label": "as is"
-            },
-            {
-              "value": "random",
-              "label": "random"
-            },
-            {
-              "value": "furthest",
-              "label": "furthest"
-            }
-          ]
-        },
-        "defaultValue": "random"
-      },
-      {
-        "key": "swap",
-        "type": "select",
-        "templateOptions": {
-          "label": "Branch Swapping",
-          "required": true,
-          "options": [
-            {
-              "value": "none",
-              "label": "No branch swapping"
-            },
-            {
-              "value": "TBR",
-              "label": "Tree bisection-reconnection (TBR)"
-            },
-            {
-              "value": "SPR",
-              "label": "Subtree pruning-regrafting (SPR)"
-            },
-            {
-              "value": "NNI",
-              "label": "Nearest-neighbor interchange (NNI)"
-            }
-          ]
-        },
-        "defaultValue": "TBR"
-      },
-      {
-        "key": "hold",
-        "type": "input",
-        "templateOptions": {
-          "label": "Number of trees to be held ",
-          "required": true,
-          "type": "number",
-          "min": 1
-        },
-        "defaultValue": 1
-      },
-      {
         "key": "consensus_tree_type",
         "type": "select",
+        "className": "formly_subfield",
         "templateOptions": {
           "label": "Consensus Tree Type",
           "options": [
@@ -218,6 +159,7 @@
       {
         "key": "le50",
         "type": "radio",
+        "className": "formly_sub_subfield",
         "templateOptions": {
           "label": "Retain less than 50% of the trees",
           "options": [
@@ -233,25 +175,101 @@
         },
         "defaultValue": "no",
         "expressionProperties": {
-          "templateOptions.required": "model.consensus_tree_type=='strict=no semistrict=no majRule=yes adams=no' && !model.percent && !model.grpfreq "
+          "templateOptions.required": "(model.consensus_tree_type=='strict=no semistrict=no majRule=yes adams=no' &&  model.method=='simple')"
         },
-        "hideExpression": "model.consensus_tree_type!='strict=no semistrict=no majRule=yes adams=no'"
+        "hideExpression": "(model.consensus_tree_type!='strict=no semistrict=no majRule=yes adams=no' || model.method!='simple')"
       },
       {
         "key": "percent",
         "type": "input",
+        "className": "formly_sub_subfield",
         "templateOptions": {
           "label": "Percentage of the trees on which a group must appear in order to be retained",
           "type": "number",
           "min": 0,
           "max": 100,
-          "pattern": "\\d{3}"
+          "pattern": "\\d"
         },
         "defaultValue": 50,
         "expressionProperties": {
-          "templateOptions.required": "model.consensus_tree_type=='strict=no semistrict=no majRule=yes adams=no'"
+          "templateOptions.required": "(model.consensus_tree_type!='strict=no semistrict=no majRule=yes adams=no' || model.method!='simple')"
         },
-        "hideExpression": "model.consensus_tree_type!='strict=no semistrict=no majRule=yes adams=no'"
+        "hideExpression": "(model.consensus_tree_type!='strict=no semistrict=no majRule=yes adams=no' || model.method!='simple')"
+      },
+      {
+        "key": "addseq",
+        "type": "select",
+        "templateOptions": {
+          "label": "Addition Sequence",
+          "required": true,
+          "options": [
+            {
+              "value": "simple",
+              "label": "simple"
+            },
+            {
+              "value": "closest",
+              "label": "closest"
+            },
+            {
+              "value": "asIs",
+              "label": "as is"
+            },
+            {
+              "value": "random",
+              "label": "random"
+            },
+            {
+              "value": "furthest",
+              "label": "furthest"
+            }
+          ]
+        },
+        "defaultValue": "random",
+        "hideExpression": "(model.search!='heuristic' && model.method!='simple')"
+      },
+      {
+        "key": "swap",
+        "type": "select",
+        "templateOptions": {
+          "label": "Branch Swapping",
+          "required": true,
+          "options": [
+            {
+              "value": "none",
+              "label": "No branch swapping"
+            },
+            {
+              "value": "TBR",
+              "label": "Tree bisection-reconnection (TBR)"
+            },
+            {
+              "value": "SPR",
+              "label": "Subtree pruning-regrafting (SPR)"
+            },
+            {
+              "value": "NNI",
+              "label": "Nearest-neighbor interchange (NNI)"
+            }
+          ]
+        },
+        "defaultValue": "TBR",
+        "hideExpression": "(model.search!='heuristic' && model.method!='simple')"
+      },
+      {
+        "key": "hold",
+        "type": "input",
+        "templateOptions": {
+          "label": "Number of trees to be held ",
+          "required": true,
+          "type": "number",
+          "min": 1
+        },
+        "defaultValue": 1,
+        "expressionProperties": {
+          "templateOptions.required": "(model.search=='heuristic' || model.method=='simple')"
+        },
+        "hideExpression": "(model.search!='heuristic' && model.method!='simple')"
       }
     ]
   }

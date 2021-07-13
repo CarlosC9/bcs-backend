@@ -11,7 +11,7 @@ check_error()
   fi
 }
 echo $#
-if [[ $# -eq 13 ]]
+if [[ $# -eq 15 ]]
 then
   outRoot=$1
   gapMode=$2
@@ -24,9 +24,11 @@ then
   n_replicas=$9
   search=${10}
   method=${11}
-  sets=${12}
-  assumptions=${13}
-  python3 paup_parsimony_params.py $TEMPLATE_FILENAME $INPUTS_FILENAME $outRoot $gapMode $addseq $swap $hold "$consensus_tree_type" $le50 $percent $search $n_replicas $method "$sets" "$assumptions"
+  enforce_converse=${12}
+  taxset_paup=${13}
+  sets=${14}
+  assumptions=${15}
+  python3 paup_parsimony_params.py $TEMPLATE_FILENAME $INPUTS_FILENAME $outRoot $gapMode $addseq $swap $hold "$consensus_tree_type" $le50 $percent $search $n_replicas $method "$enforce_converse" "$taxset_paup" "$sets" "$assumptions"
   paup ngd_paup_parsimony.txt
 else
   echo "Something went wrong with the arguments." >&2
