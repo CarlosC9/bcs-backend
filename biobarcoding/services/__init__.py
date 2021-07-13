@@ -53,3 +53,11 @@ def get_or_create(session, model, **kwargs):
 def get_simple_query(session, model, **kwargs):
     kwargs = {k:v for k,v in kwargs.items() if v is not None}
     return session.query(model).filter_by(**kwargs)
+
+
+def log_exception(e):
+    import os, sys
+    exc_type, exc_obj, exc_tb = sys.exc_info()
+    fname = os.path.split(exc_tb.tb_frame.f_code.co_filename)[1]
+    print(exc_type, fname, exc_tb.tb_lineno)
+    print(e)

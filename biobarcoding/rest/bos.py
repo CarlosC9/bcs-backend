@@ -18,10 +18,13 @@ class BioObjAPI(MethodView):
     def get(self, bos, id=None, format=None):
         print(f'GET {request.path}\nGetting {bos} {id}')
         kwargs = self._prepare(bos)
+        count = 0
         if format:
             issues, content, status = self.service.export(id, format=format, **kwargs)
-            return send_file(content, mimetype=f'text/{format}'), status
-        issues, content, count, status = self.service.read(id, **kwargs)
+            if content:
+                return send_file(content, mimetype=f'text/{format}'), status
+        else:
+            issues, content, count, status = self.service.read(id, **kwargs)
         return ResponseObject(content=content, count=count, issues=issues, status=status).get_response()
 
 
