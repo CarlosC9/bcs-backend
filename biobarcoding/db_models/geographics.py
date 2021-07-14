@@ -31,11 +31,15 @@ class GeographicLayer(ORMBase):
     name = Column(String(80))
     wks = Column(String(80))
     attributes = Column(JSON)
-    published = Column(Boolean,default= False)
-    in_postgis = Column(Boolean,default= False)
-    is_deleted = Column(Boolean,default= False)
-    layer_type = Column(String(80)) # CHOICES?
+    geoserver_name = Column(String(80))
+    published = Column(Boolean, default=False)
+    in_postgis = Column(Boolean, default=False)
+    is_deleted = Column(Boolean, default=False)
+    layer_type = Column(String(80))  # CHOICES?
 
+
+# This table is a PostGIS table (not in BCS; notice the parent class)
+# It is a special feature layer used to contain the geometry of regions
 class Regions(ORMBaseGeo):
      __tablename__ = 'Regions'
 
