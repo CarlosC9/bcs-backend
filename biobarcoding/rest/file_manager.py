@@ -9,7 +9,7 @@ from flask.views import MethodView
 from biobarcoding.authentication import bcs_session
 from biobarcoding.common.helpers import is_integer, download_file
 from biobarcoding.db_models.files import FileSystemObject, Folder, File, BioinformaticObjectInFile
-from biobarcoding.rest import register_api, bcs_api_base, ResponseObject
+from biobarcoding.rest import register_api, bcs_api_base, ResponseObject, Issue, IType
 
 bp_files = Blueprint('files', __name__)
 
@@ -212,6 +212,15 @@ curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/files/
 
         return r.get_response()
 
+    @staticmethod
+    def get_file_contents(session, internal_path):
+        if is_integer(internal_path):
+            fso = session.query(FileSystemObject).get(int(internal_path[1:]))
+        else:
+            fso = session.query(FileSystemObject).filter(FileSystemObject.full_name == internal_path).first()
+
+        return fso.content_type, fso.embedded_content
+
     @bcs_session()
     def get(self, fso_path):
         """
@@ -237,6 +246,7 @@ curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/files/
         else:
             get_content = False
             get_bos = False
+
         if is_integer(fso_path):
             fso = session.query(FileSystemObject).get(int(fso_path[1:]))
         else:
@@ -274,13 +284,34 @@ curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/files/
         """
         Delete a FileSystemObject, if possible
         * If it is a File
-        * If it is an empty Folder
+        * If it is an empty Folder (TODO)
 
         :param fso_path:
         :return:
         """
-        # TODO NOT IMPLEMENTED
+        session = g.bcs_session.db_session
         r = ResponseObject()
+        if fso_path is None:
+            # If nothing is passed after "/files/", return <empty>
+            return r.get_response()
+
+        fso_path = "/" + FilesAPI._clean_path(fso_path)
+        if fso_path.endswith(".content"):
+            fso_path = fso_path[:-len(".content")]
+        elif fso_path.endswith(".bos"):
+            fso_path = fso_path[:-len(".bos")]
+
+        if is_integer(fso_path):
+            fso = session.query(FileSystemObject).get(int(fso_path[1:]))
+        else:
+            fso = session.query(FileSystemObject).filter(FileSystemObject.full_name == fso_path).first()
+        if fso:
+            if isinstance(fso, File):
+                session.delete(fso)
+            else:
+                r.status = 501  # Not implemented
+                r.issues.append(Issue(IType.INFO, f'Can only delete Files. Deleting empty directories still not implemented.'))
+
         return r.get_response()
 
 
