@@ -132,7 +132,9 @@ def get_default_configuration_dict():
                 GEOSERVER_PASSWORD="ngd_ad37",
                 GEOSERVER_HOST="geoserver",
                 GEOSERVER_PORT="8080",
-                POSTGIS_CONNECTION_STRING="postgresql://postgres:postgres@172.17.0.1:5435/",
+                # PostGIS address from BCS-Backend
+                POSTGIS_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5435/",
+                # PostGIS address from Geoserver ("host", "port" could differ from those in POSTGIS_CONNECTION_STRING)
                 POSTGIS_USER="postgres",
                 POSTGIS_PASSWORD="postgres",
                 POSTGIS_PORT="5432",
@@ -146,7 +148,7 @@ def get_default_configuration_dict():
                 GALAXY_LOCATION="http://localhost:8080",
                 # MISC
                 GOOGLE_APPLICATION_CREDENTIALS=f"{data_path}/firebase-key.json",  # Firebase
-                ENDPOINT_URL="http://localhost:5000",  # Access to self (so Celery can update things)
+                ENDPOINT_URL="http://localhost:5000",  # Self "bcs-backend" address (so Celery can update things)
                 COOKIES_FILE_PATH="/tmp/bcs-cookies.txt",  # Where cookies are stored by Celery
                 CACHE_FILE_LOCATION=f"{cache_path}/cache",  # Cached things
                 SAMESITE_NONE="True",

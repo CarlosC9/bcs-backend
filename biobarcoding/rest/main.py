@@ -142,7 +142,7 @@ def index():
 @biobarcoding.flask_app.route("/test")
 def test_rest_open():
     r = ResponseObject()
-    r.content = dict(it_works="yes!", other_info={biobarcoding.flask_app.config['DB_CONNECTION_STRING']})
+    r.content = dict(it_works="yes!", other_info=dict(conn=biobarcoding.flask_app.config['DB_CONNECTION_STRING']))
     return r.get_response()
 
 
@@ -166,5 +166,7 @@ def after_a_request(response):
 
 
 if __name__ == "__main__":
-    biobarcoding.flask_app.run(host='0.0.0.0')
+    biobarcoding.flask_app.run(host='0.0.0.0',
+                               use_reloader=False,  # Avoid loading twice the application
+                               )
     socket_service_socketio.run(biobarcoding.flask_app, host='0.0.0.0')

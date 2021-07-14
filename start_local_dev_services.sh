@@ -34,6 +34,21 @@ elif [ "$(whoami)" == "daniel" ] ; then
   export COOKIES_FILE_PATH="/home/daniel/Documentos/Projects/curl/bcs-cookies.txt"
 fi
 
+
+# NOTE 1
+# Remove PostgreSQL, PostGIS, Geoserver:
+# sudo rm /home/rnebot/DATOS/pg_devel -fr
+# sudo rm /home/rnebot/DATOS/geoserver/pg -fr
+# sudo rm /home/rnebot/DATOS/geoserver/geoserver/ -fr
+#
+
+# NOTE 2
+# Before executing Geoserver "docker run" (below in the file), create data directory, for instance "/home/rnebot/DATOS/geoserver/geoserver"
+# and assign user 1000 as owner:
+#
+# mkdir /home/rnebot/DATOS/geoserver/geoserver
+# chown 1000 /home/rnebot/DATOS/geoserver/geoserver
+
 # PostgreSQL
 if [ ! "$(docker ps -q -f name=postgres_devel)" ] ; then
   echo Starting PostgreSQL-Chado
@@ -50,9 +65,9 @@ if [ ! "$(docker ps -q -f name=postgres_devel)" ] ; then
     docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v /home/daniel/Documentos/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
     init_chado "$(dirname $0)"
   fi
+# Galaxy
 fi
 
-# Galaxy
 # api key = fakekey; user = admin; password = password
 galaxy_started="yes"
 if [ "$(whoami)" == "rnebot" ] && [ "$#" -gt 0 ] ; then
@@ -158,13 +173,7 @@ if [ "$(whoami)" == "rnebot" ] && [ "$#" -gt 0 ] ; then
     geoserver_started=$(docker ps -q -f name=geoserver)
 fi
 
-# NOTE
-# Before executing this "docker run", create data directory, for instance "/home/rnebot/DATOS/geoserver/geoserver"
-# and assign user 1000 as owner:
-#
-# mkdir /home/rnebot/DATOS/geoserver/geoserver
-# chown 1000 /home/rnebot/DATOS/geoserver/geoserver
-#
+
 # IMPORTANT: the REST endpoint of GeoServer does not work properly (authenticates but does not authorize).
 # To disable authorization, move the filter directory
 # /home/rnebot/DATOS/geoserver/geoserver/security/filter/restInterceptor to another directory (for instance to

@@ -9,7 +9,7 @@ bp_auth = Blueprint('bp_auth', __name__)
 
 
 # Access from bcs-sys through 'bc_ecosys/conf.d/sub-auth.conf'
-@bp_auth.route("/auth", methods=["GET","POST","PUT","DELETE"])
+@bp_auth.route("/auth", methods=["GET", "POST", "PUT", "DELETE"])
 def token_verification():
     auth_token = None
     if 'Authorization' in request.headers:
