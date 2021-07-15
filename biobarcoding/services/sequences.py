@@ -5,12 +5,10 @@ from biobarcoding.db_models import DBSessionChado as chado_session
 from biobarcoding.db_models.chado import Feature
 
 from biobarcoding.rest import Issue, IType, filter_parse, paginator
-from biobarcoding.services import get_simple_query
+from biobarcoding.services import get_simple_query, log_exception
 
 
 def create(**kwargs):
-    # issues = [Issue(IType.WARNING, 'CREATE sequences: dummy completed')]
-    # return issues, None, 200
     content = None
     try:
         if not kwargs.get('uniquename'):
@@ -24,7 +22,7 @@ def create(**kwargs):
         chado_session.add(Feature(**kwargs))
         issues, status = [Issue(IType.INFO, f'CREATE sequences: The sequence "{kwargs.get("uniquename")}" created successfully.')], 201
     except Exception as e:
-        print(e)
+        log_exception(e)
         issues, status = [Issue(IType.ERROR, f'CREATE sequences: The sequence "{kwargs.get("uniquename")}" could not be created.')], 409
     return issues, content, status
 
@@ -39,7 +37,7 @@ def read(id=None, **kwargs):
             content = content.all()
         issues, status = [Issue(IType.INFO, 'READ sequences: The sequences were successfully read')], 200
     except Exception as e:
-        print(e)
+        log_exception(e)
         issues, status = [Issue(IType.ERROR, 'READ sequences: The sequences could not be read.')], 400
     return issues, content, count, status
 
@@ -64,7 +62,7 @@ def delete(id=None, **kwargs):
         resp = query.delete(synchronize_session='fetch')
         issues, status = [Issue(IType.INFO, f'DELETE sequences: {resp} sequences were successfully removed.')], 200
     except Exception as e:
-        print(e)
+        log_exception(e)
         issues, status = [Issue(IType.ERROR, f'DELETE sequences: The sequences could not be removed.')], 404
     return issues, content, status
 
@@ -88,7 +86,7 @@ def import_file(input_file, format='fasta', **kwargs):
                                 f'IMPORT sequences: {resp} sequences were successfully imported.',
                                 os.path.basename(input_file))], 200
     except Exception as e:
-        print(e)
+        log_exception(e)
         issues, status = [Issue(IType.ERROR,
                                 f'IMPORT sequences: file {input_file} could not be imported.',
                                 os.path.basename(input_file))], 409
@@ -116,24 +114,48 @@ def __feature2bcs(seq):
     return bcs_sequence
 
 
-def __seqs2file(output_file, format, seqs):
+def __seqs_header_parser(seqs, format):
+    # TODO: seqs header parser
+    # return dict(uniquename, header)
+    headers = {}
+    if format == 'organism':
+        from biobarcoding.db_models.chado import Organism
+        orgs = chado_session.query(Feature.uniquename, Organism.genus, Organism.species) \
+            .join(Organism).filter(Feature.uniquename.in_([x.uniquename for x in seqs])).all()
+        for i in orgs:
+            headers[i[0]] = i[1] + ' ' + i[2]
+    return headers
+
+
+def __seqs2file(seqs, format='fasta', output_file=f"/tmp/output_ngd", header_format=None):
+    headers = __seqs_header_parser(seqs, header_format) if header_format else {}
     with open(output_file, "w") as file:
         for seq in seqs:
             if format=='fasta':
-                file.write(f'>{seq.uniquename}\n{seq.residues}\n')
+                file.write(f'>{headers[seq.uniquename] if headers else seq.uniquename}\n{seq.residues}\n')
             else:
-                file.write(f'>{seq.uniquename}\n{seq.residues}\n')
+                file.write(f'>{headers[seq.uniquename] if headers else seq.uniquename}\n{seq.residues}\n')
+    if format in ('nexus'):
+        from Bio import SeqIO
+        res=[]
+        for s in SeqIO.parse(output_file, 'fasta'):
+            s.id = s.description
+            s.annotations['molecule_type'] = 'DNA'
+            res.append(s)
+        SeqIO.write(res, output_file, format=format)
+    return output_file
 
 
 def export(id=None, format='fasta', **kwargs):
+    content = None
     try:
         query = __get_query(id, **kwargs)
-        __seqs2file(f'/tmp/output_ngd.{format}', format, query.all())
+        content = __seqs2file(query.all(), f'/tmp/output_ngd.{format}', format)
         issues, status = [Issue(IType.INFO, f'EXPORT sequences: {query.count()} sequences were successfully exported.')], 200
     except Exception as e:
-        print(e)
+        log_exception(e)
         issues, status = [Issue(IType.ERROR, f'EXPORT sequences: The sequences could not be exported.')], 409
-    return issues, f'/tmp/output_ngd.{format}', status
+    return issues, content, status
 
 
 def __get_query(id=None, **kwargs):

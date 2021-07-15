@@ -3,7 +3,7 @@ import os.path
 from biobarcoding.db_models import DBSession as db_session
 from biobarcoding.db_models import DBSessionChado as chado_session
 from biobarcoding.rest import IType, Issue, filter_parse, paginator
-from biobarcoding.services import get_or_create
+from biobarcoding.services import get_or_create, log_exception, orm2json
 from biobarcoding.db_models.chado import Analysis, AnalysisCvterm, Cvterm, Organism, Feature, AnalysisFeature
 from sqlalchemy import or_
 
@@ -21,12 +21,21 @@ def read(id=None, **kwargs):
     try:
         content = __get_query(id, **kwargs)
         if id:
-            content = content.first()
+            content = orm2json(content.one())
+            from sqlalchemy.sql.expression import func, distinct
+            info = chado_session.query(func.max(func.length(Feature.residues)),
+                                       func.count(AnalysisFeature.analysis_id),
+                                       func.array_agg(distinct(Organism.genus + ' ' + Organism.species))) \
+                .select_from(AnalysisFeature).join(Feature).join(Organism) \
+                .filter(AnalysisFeature.analysis_id == content['analysis_id'])\
+                .group_by(AnalysisFeature.analysis_id)
+            content['seqlen'], content['seqnum'], content['taxa'] = info.one()
         else:
+            # TODO: add taxa list, seqs len and seqs num ?
             content = content.all()
         issues, status = [Issue(IType.INFO, 'READ alignments: The alignments were successfully read.')], 200
     except Exception as e:
-        print(e)
+        log_exception(e)
         issues, status = [Issue(IType.ERROR, 'READ alignments: The alignments could not be read.')], 400
     return issues, content, count, status
 
@@ -54,7 +63,7 @@ def delete(id=None, **kwargs):
         resp = query.delete(synchronize_session='fetch')
         issues, status = [Issue(IType.INFO, f'DELETE alignments: The {resp} alignments were successfully removed.')], 200
     except Exception as e:
-        print(e)
+        log_exception(e)
         issues, status = [Issue(IType.ERROR, 'DELETE alignments: The alignments could not be removed.')], 404
     return issues, content, status
 
@@ -129,21 +138,28 @@ def import_file(input_file, format='fasta', **kwargs):
                                 f'IMPORT alignments: The {format} alignment were successfully imported.',
                                 os.path.basename(input_file))], 200
     except Exception as e:
-        print(e)
+        log_exception(e)
         issues, status = [Issue(IType.ERROR,
                                 f'IMPORT alignments: The file {input_file} could not be imported.',
                                 os.path.basename(input_file))], 409
     return issues, content, status
 
 
-def export(id, format='fasta', **kwargs):
-    if format=='fasta':
-        from biobarcoding.services.sequences import export as export_sequences
-        return export_sequences(format='fasta',
-                                **{'filter': [{'analysis_id': {'op': 'eq', 'unary': id}}]})
-    else:
-        issues, status = [Issue(IType.ERROR, f'EXPORT alignments: The format {format} could not be exported.')], 404
-        return issues, None, status
+def export(id, format='fasta', value={}, **kwargs):
+    content = None
+    try:
+        if format in ('fasta', 'nexus'):
+            from biobarcoding.services.sequences import __get_query as get_seqs
+            seqs = get_seqs(filter={'analysis_id': {'op': 'eq', 'unary': id}})
+            from biobarcoding.services.sequences import __seqs2file as export_sequences
+            content = export_sequences(seqs.all(), format=format, header_format=value.get('header'))
+            issues, status = [Issue(IType.INFO, f'EXPORT alignments: The alignment was successfully imported.')], 200
+        else:
+            issues, status = [Issue(IType.ERROR, f'EXPORT alignments: The format {format} could not be exported.')], 404
+        return issues, content, status
+    except Exception as e:
+        log_exception(e)
+        return [Issue(IType.ERROR, f'EXPORT alignments: The alignment could not be exported.')], None, 404
 
 
 def __get_query(id=None, **kwargs):
