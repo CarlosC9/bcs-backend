@@ -3,7 +3,7 @@ import os.path
 from biobarcoding.db_models import DBSession as db_session
 from biobarcoding.db_models import DBSessionChado as chado_session
 from biobarcoding.rest import IType, Issue, filter_parse, paginator
-from biobarcoding.services import get_or_create, log_exception
+from biobarcoding.services import get_or_create, log_exception, orm2json
 from biobarcoding.db_models.chado import Analysis, AnalysisCvterm, Cvterm, Organism, Feature, AnalysisFeature
 from sqlalchemy import or_
 
@@ -21,10 +21,17 @@ def read(id=None, **kwargs):
     try:
         content = __get_query(id, **kwargs)
         if id:
-            # TODO: add taxa list and seqs len ?
-            content = content.first()
+            content = orm2json(content.one())
+            from sqlalchemy.sql.expression import func, distinct
+            info = chado_session.query(func.max(func.length(Feature.residues)),
+                                       func.count(AnalysisFeature.analysis_id),
+                                       func.array_agg(distinct(Organism.genus + ' ' + Organism.species))) \
+                .select_from(AnalysisFeature).join(Feature).join(Organism) \
+                .filter(AnalysisFeature.analysis_id == content['analysis_id'])\
+                .group_by(AnalysisFeature.analysis_id)
+            content['seqlen'], content['seqnum'], content['taxa'] = info.one()
         else:
-            # TODO: add taxa list and seqs len ?
+            # TODO: add taxa list, seqs len and seqs num ?
             content = content.all()
         issues, status = [Issue(IType.INFO, 'READ alignments: The alignments were successfully read.')], 200
     except Exception as e:
