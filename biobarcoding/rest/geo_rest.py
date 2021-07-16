@@ -1,14 +1,20 @@
 import io
+import os
+import seaborn as sns
+from matplotlib.colors import rgb2hex
 
 import geopandas
 import marshmallow.exceptions
 import pandas as pd
 from flask import Blueprint, request, g
 from flask.views import MethodView
+from typing import List
+
 from biobarcoding.authentication import bcs_session
 from biobarcoding.geo import geoserver_session, workspace_names, postgis_store_name
 from biobarcoding.rest import bcs_api_base, ResponseObject, Issue, IType, register_api
 from biobarcoding.db_models.geographics import GeographicRegion, Regions, GeographicLayer
+from geo import Style
 import geopandas as gpd
 import json
 import regex as re
@@ -128,8 +134,8 @@ def get_json_from_schema(entity, input_):
     return json.loads(t_json)
 
 
-# TODO Seems specific to BIOTA
-def import_file_as_geojson(path):
+# TODO Specific to BIOTA, should not be in the generic GeoAPI but in a special preprocessing module
+def read_biota_file(path):
     def f(x):
         return x[["RIQUEZA", "RAREZALOCA", "RAREZAINSU", "RAREZAREGI", "CODIGOTAX", "DENOMTAX"]].to_json(
             orient="records")
@@ -141,6 +147,97 @@ def import_file_as_geojson(path):
     df = gdf.groupby("IDCELDA").apply(f).to_frame("taxa").reset_index()
     new_gdf = gpd.GeoDataFrame(df, crs=gdf.crs, geometry=df["IDCELDA"].replace(tmp))
     return new_gdf
+
+
+def generate_ramp_sld_file(
+    style_name: str,
+    column_name: str,
+    values: List[float],
+    n_intervals: int = 5,
+    color_ramp: str = None,
+    geom_type: str = "polygon",
+):
+    """
+
+
+    Base on function "Style.classified_xml"
+
+    :param style_name:
+    :param column_name:
+    :param values:
+    :param n_intervals:
+    :param color_ramp:
+    :param geom_type:
+    :return:
+    """
+    max_value = max(values)
+    min_value = min(values)
+    diff = max_value - min_value
+    n = n_intervals
+    interval = diff / 5
+    palette = sns.color_palette(color_ramp, int(n))
+    palette_hex = [rgb2hex(i) for i in palette]
+    # interval = N/4
+    # color_values = [{value: color} for value, color in zip(values, palette_hex)]
+    # print(color_values)
+    rule = ""
+    for i, color in enumerate(palette_hex):
+        rule += """
+            <sld:Rule>
+                <sld:Name>{1}</sld:Name>
+                <sld:Title>{4}</sld:Title>
+                <ogc:Filter xmlns:ogc="http://www.opengis.net/ogc">
+                    <ogc:And>
+                    <ogc:PropertyIsGreaterThan{6}>
+                        <ogc:PropertyName>{0}</ogc:PropertyName>
+                        <ogc:Literal>{4}</ogc:Literal>
+                    </ogc:PropertyIsGreaterThan{6}>
+                    <ogc:PropertyIsLessThanOrEqualTo>
+                        <ogc:PropertyName>{0}</ogc:PropertyName>
+                        <ogc:Literal>{5}</ogc:Literal>
+                    </ogc:PropertyIsLessThanOrEqualTo>
+                    </ogc:And>
+                </ogc:Filter>
+                <sld:PolygonSymbolizer>
+                    <sld:Fill>
+                      <sld:CssParameter name="fill">{2}</sld:CssParameter>
+                    </sld:Fill>
+                    <sld:Stroke>
+                      <sld:CssParameter name="stroke">{3}</sld:CssParameter>
+                      <sld:CssParameter name="stroke-width">1</sld:CssParameter>
+                      <sld:CssParameter name="stroke-linejoin">mitre</sld:CssParameter>
+                    </sld:Stroke>
+                </sld:PolygonSymbolizer>
+            </sld:Rule>
+
+        """.format(
+            column_name,
+            style_name,
+            color,
+            "#000000",
+            min_value + interval * i,
+            min_value + interval * (i + 1),
+            "OrEqualTo" if i == 0 else ""
+        )
+
+    style = """
+            <sld:StyledLayerDescriptor xmlns="http://www.opengis.net/sld" xmlns:sld="http://www.opengis.net/sld" xmlns:gml="http://www.opengis.net/gml" xmlns:ogc="http://www.opengis.net/ogc" version="1.0.0">
+                <sld:NamedLayer>
+                    <sld:Name>{0}</sld:Name>
+                    <sld:UserStyle>
+                    <sld:Name>{0}</sld:Name>
+                        <sld:FeatureTypeStyle>
+                            {1}
+                        </sld:FeatureTypeStyle>
+                    </sld:UserStyle>
+                </sld:NamedLayer>
+            </sld:StyledLayerDescriptor>
+        """.format(
+        style_name, rule
+    )
+
+    with open("style.sld", "w") as f:
+        f.write(style)
 
 
 class RegionsAPI(MethodView):
@@ -272,7 +369,7 @@ class LayersAPI(MethodView):
         USAGE (CURL EXAMPLE):
         export API_BASE_URL=http://localhost:5000/api
         curl --cookie-jar bcs-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user"
-        curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/"
+        curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/"
 
         @param _id: ID of a layer; empty for ALL layers (if no query params specified)
         @return:
@@ -333,7 +430,7 @@ class LayersAPI(MethodView):
 
         export API_BASE_URL=http://localhost:5000/api
         curl --cookie-jar bcs-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user"
-        curl --cookie bcs-cookies.txt -F "layer_file=@/home/rnebot/GoogleDrive/AA_NEXTGENDEM/plantae_canarias/Plantas.zip;type=application/zip" -F "metadata={\"name\": \"capa_1\", \"wks\": \"ngd\", \"attributes\": {\"tags\": [\"tag1\", \"tag2\"]}};type=application/json" "$API_BASE_URL/geo/layers/"
+        curl --cookie bcs-cookies.txt -F "layer_file=@/home/rnebot/GoogleDrive/AA_NEXTGENDEM/plantae_canarias/Plantas.zip;type=application/zip" -F "metadata={\"name\": \"capa_1\", \"wks\": \"ngd\", \"property\": \"RIQUEZA\", \"attributes\": {\"tags\": [\"tag1\", \"tag2\"]}};type=application/json" "$API_BASE_URL/geo/layers/"
         """
         db = g.bcs_session.db_session
         self.issues = []
@@ -353,15 +450,22 @@ class LayersAPI(MethodView):
         # Receive file
         self._receive_and_prepare_file()
         # Store file in PostGIS
+        lower_case_attributes = True
         layer_name = f"layer_{geographic_layer.id}"  # (internal) Geoserver layer name
-
-        status = self._post_in_postgis(layer_name)
+        status, gdf = self._post_in_postgis(layer_name, lower_case_attributes)
         # TODO Delete temporary file
 
         # Publish layer in Geoserver
         if status == 200:
             geographic_layer.in_postgis = True
-        status, layer_type = self._publish_in_geoserver(layer_name)
+        if self.kwargs.get("property"):
+            prop = self.kwargs["property"]
+            if lower_case_attributes:
+                prop = prop.lower()
+            tmp = gdf[prop].values
+            status, layer_type = self._publish_in_geoserver(layer_name, prop, min(tmp), max(tmp))
+        else:
+            status, layer_type = self._publish_in_geoserver(layer_name)
         if status == 200:
             geographic_layer.published = True
             geographic_layer.geoserver_name = layer_name
@@ -393,12 +497,17 @@ class LayersAPI(MethodView):
                     self._receive_and_prepare_file()
                 if not self.kwargs.get("wks"):
                     self.kwargs["wks"] = geographic_layer.wks
-                status = self._post_in_postgis(layer_name)
+                status, gdf = self._post_in_postgis(layer_name)
                 if status == 200:
                     geographic_layer.in_postgis = True
                 # re-publish in geoserver is need when the layer is changed (why?)
                 # (note that it is not necessary when sql_view layer)
-                status, layer_type = self._publish_in_geoserver(layer_name)
+                if self.kwargs.get("property"):
+                    prop = self.kwargs["property"]
+                    tmp = gdf[prop].values
+                    status, layer_type = self._publish_in_geoserver(layer_name, prop, min(tmp), max(tmp))
+                else:
+                    status, layer_type = self._publish_in_geoserver(layer_name)
                 if status == 200:
                     geographic_layer.published = True
                     geographic_layer.layer_type = layer_type
@@ -458,17 +567,19 @@ class LayersAPI(MethodView):
         # _filter = _filter.encode('utf-8')
         return _filter
 
-    def _post_in_postgis(self, layer_name):
+    def _post_in_postgis(self, layer_name, lower_columns=True):
         """
         Create (store) feature layer in PostGIS
+        NOTE: implicit parameters in self.kwargs
 
         :param layer_name:
+        :param lower_columns: rename all columns to lower case
         :return: None if error, status if success
         """
         from biobarcoding import postgis_engine
         from biobarcoding.geo import geoserver_session
         if self.kwargs["path"] != "":
-            df = self._import_vector_file()
+            df = self._read_vector_file()
             if not isinstance(df, geopandas.GeoDataFrame):
                 return None
         elif "data" in self.kwargs.keys():
@@ -495,21 +606,51 @@ class LayersAPI(MethodView):
                 with postgis_engine.connect() as con:
                     con.execute(f'ALTER TABLE {layer_name} ADD PRIMARY KEY ({idx_column});')
             else:
+                # All columns to lower case
+                df.columns = [c.lower() for c in df.columns]
+                # Write to PostGIS
                 df.to_postgis(layer_name, postgis_engine, if_exists="replace")
         except ValueError as e:
             _, self.status = self.issues.append(Issue(IType.INFO, f"Layer named as {layer_name} error {e}")), 400
         else:
             self.kwargs["data"] = "dummy"  # "add geoserver layer" function looks for any value in "data" to create a layer that is stored in PostGIS
             _, self.status = self.issues.append(Issue(IType.INFO, f"layer stored in geo database")), 200
-        return self.status
+        return self.status, df
 
-    def _publish_in_geoserver(self, layer_name):
+    def _publish_in_geoserver(self, layer_name, attribute=None, min_value=None, max_value=None):
         """
         Publish a layer -already in a registered store- in Geoserver
+        NOTE: implicit parameters in self.kwargs
+
+        NOTE!!!: min_value and max_value were previously a "range" list with two elements. For some reason,
+                 using [min(tmp), max(tmp)] to prepare the parameter in the call, breaks "list" reserved word
 
         :param layer_name:
+        :param attribute: attribute name for default style
+        :param min_value: mininum for default style
+        :param max_value: maximum for default style
         :return:
         """
+        def create_and_publish_ramp_style(wkspc,
+                                          layer_name, attribute, min_value, max_value,
+                                          style_name, color_ramp: str = "RdYlGn_r", cmap_type: str = "ramp",
+                                          number_of_classes: int = 5, overwrite: bool = False):
+            sld_version = "1.0.0"
+            generate_ramp_sld_file(style_name=style_name,
+                                   column_name=attribute,
+                                   values=[min_value, max_value],
+                                   n_intervals=number_of_classes,
+                                   color_ramp=color_ramp)
+            # Style.classified_xml(style_name=style_name,
+            #                      column_name=attribute,
+            #                      values=[min_value, max_value],
+            #                      color_ramp=color_ramp)
+            # sld_version = "1.1.0"
+
+            geoserver_session.upload_style("style.sld", style_name, wkspc, sld_version=sld_version, overwrite=overwrite)
+            os.remove("style.sld")
+            geoserver_session.publish_style(layer_name, style_name, wkspc)
+
         from biobarcoding.geo import geoserver_session
         layer_type = "vector"
         if "data" in self.kwargs.keys():
@@ -518,7 +659,14 @@ class LayersAPI(MethodView):
             r = geoserver_session.publish_featurestore(workspace=self.kwargs['wks'],
                                                        store_name=postgis_store_name,
                                                        pg_table=layer_name)
-            print(r)
+            if attribute:
+                style_name = f"{layer_name}_{attribute}"
+                create_and_publish_ramp_style(wkspc=self.kwargs['wks'],
+                                              layer_name=layer_name,
+                                              attribute=attribute,
+                                              min_value=min_value, max_value=max_value,
+                                              number_of_classes=7,
+                                              style_name=style_name)
         elif "layer_name" in self.kwargs.keys():
             layer = geoserver_session.get_layer(layer_name=self.kwargs["layer_name"])
             if isinstance(layer, dict):
@@ -538,9 +686,8 @@ class LayersAPI(MethodView):
                                                                key_column=key_col,
                                                                workspace=self.kwargs['wks'])
             layer_type = "sqlview"
-
         elif request.files:
-            r, layer_type = self._import_raster_file(layer_name)
+            r, layer_type = self._read_raster_file(layer_name)
         else:
             r = "No  valid geographic data specified, 400"
 
@@ -599,21 +746,21 @@ class LayersAPI(MethodView):
 
     def _receive_and_prepare_file(self):
         import os
-        formats = [".tif", ".gpkg", ".zip"]
+        formats = [".tif", ".gpkg", ".zip", ".json", ".geojson"]
         path = ""
         folder = tempfile.mkdtemp(prefix="bcs_")
         from werkzeug.utils import secure_filename
 
         # Download to a local file if self.kwargs.data contains a FilesAPI path
-        if self.kwargs.get("data"):
+        if self.kwargs.get("data"):  # TODO Incomplete (it could be used to import the output of a Geoprocess)
             ctype, contents = FilesAPI.get_file_contents(g.bcs_session, self.kwargs.get("data"))
-            file = f"submitted_file.zip"
+            file = f"submitted_file.zip"  # TODO Extension may be different (change depending on content-type)
             file_path = os.path.join(folder, secure_filename(file))
             with open(file_path, "wb") as f:
                 f.write(contents)
         elif len(request.files) > 0:
             files = request.files.to_dict(flat=False)
-            for _, value in files.items():
+            for _, value in files.items():  # TODO It will consider just the last file
                 for file in value:
                     file_path = os.path.join(folder, secure_filename(file.filename))
                     file.save(file_path)
@@ -635,24 +782,24 @@ class LayersAPI(MethodView):
             self.issues.append(Issue(IType.ERROR, 'unrecognised input file'))
         self.kwargs["path"] = path
 
-    def _import_vector_file(self):
+    def _read_vector_file(self):
         path = self.kwargs["path"]
-        if self.kwargs.get("convert_to"):
+        if self.kwargs.get("convert_to"):  # TODO RNEBOT: remove, too specific. Instead, process layer BEFORE submission
             if self.kwargs["convert_to"] == "geojson":
-                gdf = import_file_as_geojson(path)
+                gdf = read_biota_file(path)
                 return gdf
             else:
                 self.issues.append(Issue(IType.ERROR, "No valid data to convert"))
                 self.status = 400
                 return None
-        else:
+        else:  # Main
             try:
                 gdf = gpd.read_file(path)
                 return gdf
             except:
                 return None
 
-    def _import_raster_file(self, layer_name):
+    def _read_raster_file(self, layer_name):
         from biobarcoding.geo import geoserver_session
         path = self.kwargs["path"]
         file_extension = pathlib.Path(path).suffix
@@ -693,8 +840,8 @@ class StylesAPI(MethodView):
     """
     Create Styles:
 
-    # 1. Dynamic styles from rasters corverages specifying color_Ramp
-        input: color_ramp : dictionary,  maplorlib colormaps
+    # 1. Dynamic styles from rasters coverages specifying color_Ramp
+        input: color_ramp : dictionary,  matplotlib colormaps
         (https://matplotlib.org/3.3.0/tutorials/colors/colormaps.html), or list of colors
         c_ramp_1 = {
             'label 1 value': '#ffff55',
