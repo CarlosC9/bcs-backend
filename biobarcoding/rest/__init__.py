@@ -132,8 +132,8 @@ def get_default_configuration_dict():
                 # GEO (GEOSPATIAL DATA)
                 GEOSERVER_USER="admin",
                 GEOSERVER_PASSWORD="ngd_ad37",
-                GEOSERVER_HOST="localhost",
-                GEOSERVER_PORT="9180",
+                GEOSERVER_HOST="geoserver",
+                GEOSERVER_PORT="8080",
                 # PostGIS address from BCS-Backend
                 POSTGIS_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5435/",
                 # PostGIS address from Geoserver ("host", "port" could differ from those in POSTGIS_CONNECTION_STRING)
