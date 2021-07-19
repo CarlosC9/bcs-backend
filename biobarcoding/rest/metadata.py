@@ -6,7 +6,7 @@ from biobarcoding.rest.bos import BioObjAPI
 bp_metadata = Blueprint('bp_metadata', __name__)
 
 from biobarcoding.authentication import bcs_session
-from biobarcoding.rest import bcs_api_base, ResponseObject
+from biobarcoding.rest import bcs_api_base, ResponseObject, check_request_params
 
 metadata = ['taxonomies', 'organisms', 'ontologies', 'analyses' ]
 
@@ -71,9 +71,9 @@ class CvtermsAPI(BioObjAPI):
     @bcs_session(read_only=True)
     def get(self, cv_id=None, cvterm_id=None):
         print(f'GET {request.path}\nGetting ontology terms {id}')
-        self._check_data()
+        kwargs = check_request_params()
         from biobarcoding.services.ontologies import read_cvterms
-        issues, content, status = read_cvterms(cv_id, cvterm_id, **self.kwargs)
+        issues, content, status = read_cvterms(cv_id, cvterm_id, **kwargs)
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
