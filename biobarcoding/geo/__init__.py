@@ -6,7 +6,7 @@ https://geoserver-rest.readthedocs.io/en/latest/how_to_use.html#getting-started-
 geo_sesion inizialization (just object with admin and password information)
 
 IMPORTANT!:
-Expose Primary Key in geoserserver 
+Expose Primary Key in geoserver 
 http://localhost:9180/geoserver/web/wicket/bookmarkable/org.geoserver.web.data.store.DataAccessEditPage?8&storeName=geo_data&wsName=ngd
 check Expose primary keys
 '''
