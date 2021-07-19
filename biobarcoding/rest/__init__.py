@@ -8,6 +8,7 @@ from urllib.parse import unquote
 import redis
 from alchemyjsonschema import SchemaFactory, StructuralWalker
 from attr import attrs, attrib
+from bioblend import galaxy
 from flask import Response, Blueprint, g, request
 from flask.views import MethodView
 from flask_socketio import SocketIO
@@ -17,7 +18,7 @@ from typing import Dict, List
 
 import biobarcoding
 from biobarcoding.authentication import bcs_session
-from biobarcoding.common import generate_json
+from biobarcoding.common import generate_json, ROOT
 from biobarcoding.common.helpers import get_module_logger
 from biobarcoding.common.pg_helpers import create_pg_database_engine, load_table, load_many_to_many_table, \
     load_computing_resources, load_processes_in_computing_resources, load_process_input_schema, load_table_extended
@@ -26,6 +27,7 @@ from biobarcoding.db_models.sysadmin import *
 from biobarcoding.db_models.geographics import *
 from biobarcoding.db_models.jobs import *
 from biobarcoding.db_models.hierarchies import *
+from biobarcoding.inputs_schema.workflows2formly import convert_workflows_to_formly
 from biobarcoding.rest.socket_service import SocketService
 
 bcs_api_base = "/api"  # Base for all RESTful calls
@@ -179,29 +181,46 @@ def prepare_default_configuration(create_directories):
            data_path + os.sep + "bcs_local.conf"
 
 
+def complete_configuration_file(file_name):
+    default_cfg = get_default_configuration_dict()
+    default_cfg_keys = list(default_cfg.keys())
+    with open(file_name, 'r+') as file:
+        constants = file.read().splitlines()
+        for const in constants:
+            if const and not const.strip().startswith('#'):
+                key, _ = const.split("=")
+                if key.strip() in default_cfg_keys:
+                    default_cfg_keys.remove(key.strip())
+                else:
+                    print(f"WARNING: {key.strip()} is not in the default config")
+        for key in default_cfg_keys:
+            print(f"{key} inserted to {file_name} with value {default_cfg[key]}")
+            file.write(f'\n{key}="{default_cfg[key]}"')
+
+
 def load_configuration_file(flask_app):
     # Initialize configuration
     try:
         _, file_name = prepare_default_configuration(False)
         if not os.environ.get(biobarcoding.config_file_var):
-            found = False
             logger.debug(f"Trying {file_name}")
-            for f in [file_name]:
-                if os.path.isfile(f):
-                    print(f"Assuming {f} as configuration file")
-                    logger.debug(f"Assuming {f} as configuration file")
-                    found = True
-                    os.environ[biobarcoding.config_file_var] = f
-                    break
-                else:
-                    logger.debug(f"Creating {f} as configuration file")
+            if os.path.isfile(file_name):
+                print(f"Assuming {file_name} as configuration file")
+                logger.debug(f"Assuming {file_name} as configuration file")
+                found = True
+                complete_configuration_file(file_name)
+                os.environ[biobarcoding.config_file_var] = file_name
+            else:
+                found = False
+                logger.debug(f"Creating {file_name} as configuration file")
             if not found:
                 cfg, file_name = prepare_default_configuration(True)
                 print(f"Generating {file_name} as configuration file:\n{cfg}")
                 with open(file_name, "wt") as f:
                     f.write(cfg)
                 os.environ[biobarcoding.config_file_var] = file_name
-
+        else:
+            complete_configuration_file(os.environ.get(biobarcoding.config_file_var))
         print("-----------------------------------------------")
         print(f'Configuration file at: {os.environ[biobarcoding.config_file_var]}')
         print("-----------------------------------------------")
@@ -261,6 +280,92 @@ def construct_session_persistence_backend(flask_app):
     return d
 
 
+# GALAXY INIZIALIZATION
+def install_galaxy_tools(gi, tools):
+    '''
+    tool_shed_url, name, owner,
+    changeset_revision,
+    install_tool_dependencies = False,
+    install_repository_dependencies = False,
+    install_resolver_dependencies = False,
+    tool_panel_section_id = None,
+    new_tool_panel_section_label = Non
+    '''
+    if isinstance(tools, list):
+        for tool in tools:
+            tool_shed_url = 'https://' + tool['tool_shed']
+            gi.toolshed.install_repository_revision(tool_shed_url=tool_shed_url,
+                                                    name=tool['name'],
+                                                    owner=tool['owner'],
+                                                    changeset_revision=tool['changeset_revision'],
+                                                    install_tool_dependencies=True,
+                                                    install_repository_dependencies=True,
+                                                    install_resolver_dependencies=True,
+                                                    new_tool_panel_section_label='New'
+                                                    )
+
+
+def check_galaxy_tools(wf1_dic, wf2_dic):
+    steps1 = wf1_dic['steps']
+    steps2 = wf2_dic['steps']
+    tool_list = list()
+    for step, content in steps1.items():
+        if 'errors' in content:
+            if content['errors'] == "Tool is not installed":
+                # TODO depende de la versión de galaxy esto lleva un punto al final o no xq lo que hay que buscar
+                #  otra cosa
+                tool_list.append(steps2[step]['tool_shed_repository'])
+    if len(tool_list) == 0:
+        return 'all tools are installed'
+    else:
+        return tool_list
+
+
+def initialize_ssh(flask_app):
+    '''ssh_resources = conn.execute("SELECT * FROM jobs_compute_resources join jobs_job_mgmt_types as jt" +
+                                 " on jm_type_id=jt.id where jt.name='ssh'").fetchall()'''
+    session = DBSession()
+    ssh_resources = session.query(ComputeResource, JobManagementType).filter(ComputeResource.jm_type_id == JobManagementType.id, JobManagementType.name == 'ssh').all()
+    for ssh_res in ssh_resources:
+        compute_resource = ssh_res.ComputeResource
+        ssh_credentials = compute_resource.jm_credentials
+        ssh_location = compute_resource.jm_location
+        cmd = ["ssh", "-o", "StrictHostKeyChecking=no",
+               "-o", f"UserKnownHostsFile={ssh_credentials['known_hosts_filepath']}",
+               f"{ssh_credentials['username']}@{ssh_location['host']}", "'echo'"]
+        subprocess.run(cmd)
+
+
+def initialize_galaxy(flask_app):
+    session = DBSession()
+    galaxy_resources = session.query(ComputeResource, JobManagementType).filter(
+        ComputeResource.jm_type_id == JobManagementType.id, JobManagementType.name == 'galaxy').all()
+    for galaxy_res in galaxy_resources:
+        compute_resource = galaxy_res.ComputeResource
+        url = compute_resource.jm_location['url']
+        api_key = compute_resource.jm_credentials['api_key']
+
+        # Install basic workflow if it is not installed
+        gi = galaxy.GalaxyInstance(url=url, key=api_key)
+        path = ROOT + '/biobarcoding/workflows/'
+        for workflow in os.listdir(path):
+            workflow_path = path + workflow
+            with open(workflow_path, 'r') as f:
+                wf_dict_in = json.load(f)
+            name = wf_dict_in['name']
+            wf = gi.workflows.get_workflows(name=name)
+            w_id = wf[0].get('id') if wf else None
+            if w_id:
+                gi.workflows.delete_workflow(w_id)
+            wf = gi.workflows.import_workflow_from_local_path(workflow_path)
+            wf_dict_out = gi.workflows.export_workflow_dict(wf['id'])
+            list_of_tools = check_galaxy_tools(wf_dict_out, wf_dict_in)
+            install_galaxy_tools(gi, list_of_tools)
+        # conversion of workflows galaxy into workflows formly
+        # TODO convert_workflows_to_formly()
+
+
+# SOCKET INITIALIZATION
 def init_socket(socketio):
     SocketService(socketio)
 
@@ -358,6 +463,7 @@ tm_processes = {  # Preloaded processes
     "15aa399f-dd58-433f-8e94-5b2222cd06c9": "Clustal Omega",
     "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": "MSA ClustalW",
     "ec40143f-ae32-4dac-9cfb-caa047e1adb1": "ClustalW-PhyMl",
+    "c87f58b6-cb06-4d39-a0b3-72c2705c5ae1": "PAUP Parsimony",
 }
 
 tm_system_functions = {
@@ -389,8 +495,8 @@ tm_browser_filter_forms = [
 #
 #
 #
-# 5a01d289-8534-40c0-9f56-dc116b609afd
-# c87f58b6-cb06-4d39-a0b3-72c2705c5ae1
+#
+#
 # c55280d0-f916-4401-a1a4-bb26d8179fd7
 # 3e0240e8-b978-48a2-8fdd-9f31f4264064
 # ce018826-7b20-4b70-b9b3-168c0ba46eec
@@ -475,11 +581,14 @@ def initialize_database_data():
                             [["sysadmin", "test_user"]])
     load_many_to_many_table(DBSession, GroupIdentity, Group, Identity, ["group_id", "identity_id"],
                             [["all-identified", "test_user"]])
-    load_many_to_many_table(DBSession, ObjectTypePermissionType, ObjectType, PermissionType, ["object_type_id", "permission_type_id"],
+    load_many_to_many_table(DBSession, ObjectTypePermissionType, ObjectType, PermissionType,
+                            ["object_type_id", "permission_type_id"],
                             [["sequence", "read"], ["sequence", "annotate"], ["sequence", "delete"],
-                            ["multiple-sequence-alignment", "read"], ["multiple-sequence-alignment", "annotate"], ["multiple-sequence-alignment", "delete"],
-                            ["phylogenetic-tree", "read"], ["phylogenetic-tree", "annotate"], ["phylogenetic-tree", "delete"],
-                            ["process", "read"], ["process", "execute"]])
+                             ["multiple-sequence-alignment", "read"], ["multiple-sequence-alignment", "annotate"],
+                             ["multiple-sequence-alignment", "delete"],
+                             ["phylogenetic-tree", "read"], ["phylogenetic-tree", "annotate"],
+                             ["phylogenetic-tree", "delete"],
+                             ["process", "read"], ["process", "execute"]])
 
     # Insert a test BOS
     # session = DBSession()

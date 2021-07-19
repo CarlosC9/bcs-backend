@@ -1,0 +1,22 @@
+#NEXUS
+[   Sample file from SeqApp-139638 -- data title]
+
+[Name: DROMTTGNC         Len:    36  Check:  1ADB7C5]
+[Name: Dros              Len:    36  Check: C8051EB0]
+[Name: YMU09206          Len:    36  Check: E84CA691]
+[Name: LUCMTPIEA         Len:    36  Check: 80147A4E]
+[Name: MSQNCATR          Len:    36  Check:   31F0A8]
+[Name: Apis              Len:    36  Check: 736F31AC]
+
+begin data;
+ dimensions ntax=6 nchar=36;
+ format datatype=dna interleave missing=. gap=-; ["missing=;" changed to "missing=. gap=- ;" ]
+  matrix
+DROMTTGNC  TACTACCCTGCTCTTTCTTT ATTATTAGTAAGAAGA
+     Dros  ...TATCCTGCTCTTTCTTT ATTATTAGTAAGAAGA
+ YMU09206  TATTATCCATCCTTAACACT ATTAATTTCTAGAAGA
+LUCMTPIEA  TTTTATCCTGCAT--ACTTT ACTATTAGTAAGTAGT
+ MSQNCATR  TATTACCCCTCTTTAACTCT TCTAA-TTCTAGAAGT
+     Apis  TACTTTCCCTCATTATTTAT ACTTTTATTAAGAAAT
+;
+  end;

@@ -5,10 +5,9 @@ from NamedAtomicLock import NamedAtomicLock
 from flask_socketio import SocketIO
 
 import biobarcoding
-from biobarcoding.jobs.galaxy_resource import initialize_galaxy
 from biobarcoding.rest import logger, log_level, load_configuration_file, construct_session_persistence_backend, \
     initialize_database, initialize_database_chado, bcs_gui_base, ResponseObject, initialize_chado_edam, \
-    initialize_postgis, init_socket
+    init_socket, initialize_postgis, initialize_ssh, initialize_galaxy
 from biobarcoding.rest.auth import bp_auth
 from biobarcoding.rest.file_manager import bp_files
 from biobarcoding.rest.identities_and_company import bp_identities, bp_sys_functions, bp_roles, bp_identities_roles, \
@@ -82,13 +81,18 @@ def create_app(debug, cfg_dict=None):
         # iniitalize postgis Database
         initialize_postgis(app)
 
+        # Galaxy
+        print("Initializing Galaxy instances")
+        initialize_galaxy(app)
+        print("Initializing Galaxy instances - DONE")
+
+        # SSH
+        print("Initializing SSH resources connections")
+        initialize_ssh(app)
+        print("Initializing SSH resources connections - DONE")
+
     finally:
         lock.release()
-
-    # Galaxy
-    print("Initializing Galaxy instances")
-    initialize_galaxy(app)
-    print("Initializing Galaxy instances - DONE")
 
     print("Initializing Geoserver")
     initialize_geoserver(app)
@@ -163,7 +167,6 @@ def after_a_request(response):
                     response.headers[i] = (h[0], f"{h[1]}; SameSite=None")
 
     return response
-
 
 if __name__ == "__main__":
     biobarcoding.flask_app.run(host='0.0.0.0',

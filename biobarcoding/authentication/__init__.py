@@ -6,6 +6,7 @@ https://github.com/mbreese/subauth
 import collections
 import inspect
 import json
+import subprocess
 import sys
 import traceback
 from datetime import datetime
@@ -29,7 +30,6 @@ from biobarcoding.common.helpers import serialize_from_object, deserialize_to_ob
 from biobarcoding.db_models import DBSession, ObjectType, DBSessionChado, DBSessionGeo
 from biobarcoding.db_models.sysadmin import Authenticator, Identity, IdentityAuthenticator, ACLExpression, ACL, \
     SystemFunction
-
 
 def initialize_firebase(app):
     cert_path = app.config['GOOGLE_APPLICATION_CREDENTIALS']
