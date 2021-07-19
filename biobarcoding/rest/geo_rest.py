@@ -240,6 +240,27 @@ def generate_ramp_sld_file(
         f.write(style)
 
 
+def create_and_publish_ramp_style(wkspc,
+                                  layer_name, attribute, min_value, max_value,
+                                  style_name, color_ramp: str = "RdYlGn_r", cmap_type: str = "ramp",
+                                  number_of_classes: int = 5, overwrite: bool = False):
+    sld_version = "1.0.0"
+    generate_ramp_sld_file(style_name=style_name,
+                           column_name=attribute,
+                           values=[min_value, max_value],
+                           n_intervals=number_of_classes,
+                           color_ramp=color_ramp)
+    # Style.classified_xml(style_name=style_name,
+    #                      column_name=attribute,
+    #                      values=[min_value, max_value],
+    #                      color_ramp=color_ramp)
+    # sld_version = "1.1.0"
+
+    geoserver_session.upload_style("style.sld", style_name, wkspc, sld_version=sld_version, overwrite=overwrite)
+    os.remove("style.sld")
+    geoserver_session.publish_style(layer_name, style_name, wkspc)
+
+
 class RegionsAPI(MethodView):
     """
     Management of special "regions" layer through RESTful API
@@ -335,7 +356,7 @@ class LayersAPI(MethodView):
     GET:    the list of layers info from Geographiclayer table on bcs
             publish a result of filtering a layer (with geoserver_session.publish_featurestore_sqlview(sql_string))
 
-    POST:   Three post cases (at least):
+    POST:   Three post cases:
             1. post all new vector layer from geoJSON format (PDA case)
             2. Import a Raster o Vector layer from a file (via command)
             3. Save a temporal layer created by geoserver_session.publish_featurestore_sqlview(sql_string)
@@ -631,26 +652,6 @@ class LayersAPI(MethodView):
         :param max_value: maximum for default style
         :return:
         """
-        def create_and_publish_ramp_style(wkspc,
-                                          layer_name, attribute, min_value, max_value,
-                                          style_name, color_ramp: str = "RdYlGn_r", cmap_type: str = "ramp",
-                                          number_of_classes: int = 5, overwrite: bool = False):
-            sld_version = "1.0.0"
-            generate_ramp_sld_file(style_name=style_name,
-                                   column_name=attribute,
-                                   values=[min_value, max_value],
-                                   n_intervals=number_of_classes,
-                                   color_ramp=color_ramp)
-            # Style.classified_xml(style_name=style_name,
-            #                      column_name=attribute,
-            #                      values=[min_value, max_value],
-            #                      color_ramp=color_ramp)
-            # sld_version = "1.1.0"
-
-            geoserver_session.upload_style("style.sld", style_name, wkspc, sld_version=sld_version, overwrite=overwrite)
-            os.remove("style.sld")
-            geoserver_session.publish_style(layer_name, style_name, wkspc)
-
         from biobarcoding.geo import geoserver_session
         layer_type = "vector"
         if "data" in self.kwargs.keys():
