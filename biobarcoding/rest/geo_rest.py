@@ -1,6 +1,7 @@
 import io
 import os
 import seaborn as sns
+from marshmallow import EXCLUDE
 from matplotlib.colors import rgb2hex
 
 import geopandas
@@ -496,45 +497,76 @@ class LayersAPI(MethodView):
 
     @bcs_session()
     def put(self, _id=None):
-        self.issues = []
-        self.kwargs = {}
+        """
+        Update geographic layer metadata
+
+        {"name":"",
+        "wks": "ngd",
+        "attributes" -> json attributes like {"tags"["tag1", "tag2"]
+        "data":"", -> import layer from geojson data
+        "layer_name":'', -> publish tmp view
+         }
+
+        USAGE (CURL EXAMPLE):
+          1) Define base URL, 2) Login, 3) Post multipart-form with a file and a JSON to "/api/geo/layers"
+
+        export API_BASE_URL=http://localhost:5000/api
+        curl --cookie-jar bcs-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user"
+        curl --cookie bcs-cookies.txt -X PUT -F "metadata={\"name\": \"capa_12\", \"wks\": \"ngd\", \"property\": \"RIQUEZA\", \"attributes\": {\"tags\": [\"tag1\", \"tag2\", \"tag3\"]}};type=application/json" "$API_BASE_URL/geo/layers/"
+
+        :param _id:
+        :return:
+        """
         db = g.bcs_session.db_session
-        # no puedo tener valores por defecto en el post
+        self.issues = []
+        system_layer = True
+        self.kwargs = dict(name="unnamed")
         self._update_kwargs_from_request_data()
+        self.kwargs["wks"] = workspace_names[0] if system_layer else workspace_names[1]
         geographic_layer_schema = getattr(GeographicRegion, "Schema")()
+        geographic_layer_data = get_json_from_schema(GeographicLayer, self.kwargs)
+        # Remove unmodifiable keys
+        for k in ["geoserver_name", "id", "identity_id", "in_postgis", "is_deleted", "layer_type", "published", "uuid", "wks"]:
+            if k in geographic_layer_data:
+                del geographic_layer_data[k]
         self.issues, geographic_layer, count, self.status = get_content(db, GeographicLayer, self.issues, _id)
         if geographic_layer:
-            try:
-                geographic_layer = geographic_layer_schema.load(self.kwargs, instance=geographic_layer)
-            except marshmallow.exceptions.ValidationError as field:
-                geographic_layer_data = get_json_from_schema(GeographicLayer, self.kwargs)
-                geographic_layer = geographic_layer_schema.load(geographic_layer_data, instance=geographic_layer)
-            if self.kwargs.get("data") or request.files:
-                layer_name = f"layer_{geographic_layer.id}"
-                geographic_layer.published = False
-                geographic_layer.in_postgis = False
-                db.flush()
-                if request.files:
-                    self._receive_and_prepare_file()
-                if not self.kwargs.get("wks"):
-                    self.kwargs["wks"] = geographic_layer.wks
-                status, gdf = self._post_in_postgis(layer_name)
-                if status == 200:
-                    geographic_layer.in_postgis = True
-                # re-publish in geoserver is need when the layer is changed (why?)
-                # (note that it is not necessary when sql_view layer)
-                if self.kwargs.get("property"):
-                    prop = self.kwargs["property"]
-                    tmp = gdf[prop].values
-                    status, layer_type = self._publish_in_geoserver(layer_name, prop, min(tmp), max(tmp))
-                else:
-                    status, layer_type = self._publish_in_geoserver(layer_name)
-                if status == 200:
-                    geographic_layer.published = True
-                    geographic_layer.layer_type = layer_type
-                    db.flush()
-                else:
-                    db.rollback()
+            # Update layer metadata
+            geographic_layer = geographic_layer_schema.load(geographic_layer_data,
+                                                            instance=geographic_layer,
+                                                            partial=True, unknown=EXCLUDE)
+            # TODO Update layer content disabled (not defined how to
+            # if self.kwargs.get("data") or request.files:
+            #     layer_name = f"layer_{geographic_layer.id}"
+            #     geographic_layer.published = False
+            #     geographic_layer.in_postgis = False
+            #     db.flush()
+            #     if request.files:
+            #         self._receive_and_prepare_file()
+            #     if not self.kwargs.get("wks"):
+            #         self.kwargs["wks"] = geographic_layer.wks
+            #     status, gdf = self._post_in_postgis(layer_name)
+            #     if status == 200:
+            #         geographic_layer.in_postgis = True
+            #     # re-publish in geoserver is need when the layer is changed (why?)
+            #     # (note that it is not necessary when sql_view layer)
+            #     if self.kwargs.get("property"):
+            #         prop = self.kwargs["property"]
+            #         tmp = gdf[prop].values
+            #         status, layer_type = self._publish_in_geoserver(layer_name, prop, min(tmp), max(tmp))
+            #     else:
+            #         status, layer_type = self._publish_in_geoserver(layer_name)
+            #     if status == 200:
+            #         geographic_layer.published = True
+            #         geographic_layer.layer_type = layer_type
+            #         db.flush()
+            #     else:
+            #         db.rollback()
+        else:
+            if _id is None:
+                self.issues.append(Issue(IType.ERROR, '<id> not specified'))
+            else:
+                self.issues.append(Issue(IType.ERROR, f'Layer with specified id ({_id}) was not found'))
         return ResponseObject(content=geographic_layer, issues=self.issues, status=self.status).get_response()
 
     @bcs_session()
