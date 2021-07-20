@@ -168,6 +168,7 @@ def after_a_request(response):
 
     return response
 
+# FLASK_ENV=development FLASK_APP=biobarcoding.rest.main flask run
 if __name__ == "__main__":
     biobarcoding.flask_app.run(host='0.0.0.0',
                                use_reloader=False,  # Avoid loading twice the application
