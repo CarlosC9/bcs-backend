@@ -150,7 +150,7 @@ def export(id=None, format='fasta', **kwargs):
     content = None
     try:
         query = __get_query(id, **kwargs)
-        content = __seqs2file(query.all(), f'/tmp/output_ngd.{format}', format)
+        content = __seqs2file(query.all(), format=format, output_file=f'/tmp/output_ngd.{format}')
         issues, status = [Issue(IType.INFO, f'EXPORT sequences: {query.count()} sequences were successfully exported.')], 200
     except Exception as e:
         log_exception(e)
