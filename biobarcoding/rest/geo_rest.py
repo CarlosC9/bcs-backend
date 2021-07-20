@@ -241,7 +241,8 @@ def generate_ramp_sld_file(
         f.write(style)
 
 
-def create_and_publish_ramp_style(wkspc,
+def create_and_publish_ramp_style(gs_session,
+                                  wkspc,
                                   layer_name, attribute, min_value, max_value,
                                   style_name, color_ramp: str = "RdYlGn_r", cmap_type: str = "ramp",
                                   number_of_classes: int = 5, overwrite: bool = False):
@@ -257,9 +258,9 @@ def create_and_publish_ramp_style(wkspc,
     #                      color_ramp=color_ramp)
     # sld_version = "1.1.0"
 
-    geoserver_session.upload_style("style.sld", style_name, wkspc, sld_version=sld_version, overwrite=overwrite)
+    gs_session.upload_style("style.sld", style_name, wkspc, sld_version=sld_version, overwrite=overwrite)
     os.remove("style.sld")
-    geoserver_session.publish_style(layer_name, style_name, wkspc)
+    gs_session.publish_style(layer_name, style_name, wkspc)
 
 
 class RegionsAPI(MethodView):
@@ -694,7 +695,8 @@ class LayersAPI(MethodView):
                                                        pg_table=layer_name)
             if attribute:
                 style_name = f"{layer_name}_{attribute}"
-                create_and_publish_ramp_style(wkspc=self.kwargs['wks'],
+                create_and_publish_ramp_style(geoserver_session,
+                                              wkspc=self.kwargs['wks'],
                                               layer_name=layer_name,
                                               attribute=attribute,
                                               min_value=min_value, max_value=max_value,
