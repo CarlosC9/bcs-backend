@@ -129,6 +129,8 @@ def get_default_configuration_dict():
                 CELERY_BACKEND_URL=f"{BACKEND_URL}",
                 REDIS_HOST="filesystem:local_session",
                 REDIS_HOST_FILESYSTEM_DIR=f"{cache_path}/sessions",
+                # GEOSERVER address from BCS-Backend
+                GEOSERVER_URL="localhost:9180",
                 # GEO (GEOSPATIAL DATA)
                 GEOSERVER_USER="admin",
                 GEOSERVER_PASSWORD="ngd_ad37",
