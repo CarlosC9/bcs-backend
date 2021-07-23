@@ -1,6 +1,8 @@
 [
   {
     "key": "MSA ClustalW",
+    "wrappers": ["subprocess-wrapper"],
+    "templateOptions": { "label": "MSA ClustalW" },
     "fieldGroup": [
       {
         "key": "dnarna",

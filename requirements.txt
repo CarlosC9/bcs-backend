@@ -89,3 +89,4 @@ gevent-websocket== 0.10.1
 setuptools~=51.1.2
 biopython==1.78
 chado==2.3.4
+bioconvert==0.4.3

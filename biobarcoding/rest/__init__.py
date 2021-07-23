@@ -464,6 +464,7 @@ tm_processes = {  # Preloaded processes
     "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": "MSA ClustalW",
     "ec40143f-ae32-4dac-9cfb-caa047e1adb1": "ClustalW-PhyMl",
     "c87f58b6-cb06-4d39-a0b3-72c2705c5ae1": "PAUP Parsimony",
+    "c55280d0-f916-4401-a1a4-bb26d8179fd7": "MSA ClustalW + PAUP Parsimony"
 }
 
 tm_system_functions = {
@@ -491,13 +492,6 @@ tm_browser_filter_forms = [
 ]
 
 
-#
-#
-#
-#
-#
-#
-# c55280d0-f916-4401-a1a4-bb26d8179fd7
 # 3e0240e8-b978-48a2-8fdd-9f31f4264064
 # ce018826-7b20-4b70-b9b3-168c0ba46eec
 # 5b315dc5-ad12-4214-bb6a-bf013f0e4b8c

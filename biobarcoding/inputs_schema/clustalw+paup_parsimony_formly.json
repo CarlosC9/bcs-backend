@@ -1,5 +1,152 @@
 [
   {
+    "key": "MSA ClustalW",
+    "wrappers": ["subprocess-wrapper"],
+    "templateOptions": { "label": "MSA ClustalW" },
+    "fieldGroup": [
+      {
+        "key": "dnarna",
+        "type": "select",
+        "templateOptions": {
+          "label": "Data type",
+          "required": true,
+          "options": [
+            {
+              "value": "DNA",
+              "label": "DNA nucleotide sequences"
+            },
+            {
+              "value": "PROTEIN",
+              "label": "Protein sequences"
+            }
+          ]
+        },
+        "defaultValue": "DNA",
+        "hideExpression": true
+      },
+      {
+        "key": "outform",
+        "type": "select",
+        "templateOptions": {
+          "label": "Output alignment format",
+          "required": true,
+          "hideExpression": true,
+          "options": [
+            {
+              "value": "clustal",
+              "label": "Native Clustal output format"
+            },
+            {
+              "value": "phylip",
+              "label": "PHYLIP format"
+            },
+            {
+              "value": "fa",
+              "label": "FASTA format"
+            }
+          ]
+        },
+        "defaultValue": "fa"
+      },
+      {
+        "key": "out_seqnos",
+        "type": "radio",
+        "defaultValue": "OFF",
+        "templateOptions": {
+          "label": "Show residue numbers in clustal format output",
+          "required": true,
+          "options": [
+            {
+              "value": "ON",
+              "label": "Yes"
+            },
+            {
+              "value": "OFF",
+              "label": "No"
+            }
+          ]
+        },
+        "hideExpression": "model.outform!='clustal'"
+      },
+      {
+        "key": "out_order",
+        "type": "select",
+        "templateOptions": {
+          "label": "Output order",
+          "required": true,
+          "options": [
+            {
+              "value": "ALIGNED",
+              "label": "Aligned"
+            },
+            {
+              "value": "INPUT",
+              "label": "Same order as input file"
+            }
+          ]
+        },
+        "defaultValue": "ALIGNED"
+      },
+      {
+        "key": "mode",
+        "type": "select",
+        "templateOptions": {
+          "label": "Output complete alignment (or specify part to output)",
+          "required": true,
+          "options": [
+            {
+              "value": "complete",
+              "label": "Complete alignment"
+            },
+            {
+              "value": "part",
+              "label": "Only part of the alignment"
+            }
+          ]
+        },
+        "defaultValue": "complete"
+      },
+      {
+        "key": "seq_range_start",
+        "type": "input",
+        "templateOptions": {
+          "label": "Start point",
+          "required": true,
+          "description": "Sequence range to write",
+          "type": "number"
+        },
+        "defaultValue": "1",
+        "hideExpression": "model.mode!='part'"
+      },
+      {
+        "key": "seq_range_end",
+        "type": "input",
+        "templateOptions": {
+          "label": "End point",
+          "required": true,
+          "type": "number"
+        },
+        "defaultValue": "99999",
+        "hideExpression": "model.mode!='part'"
+      },
+      {
+        "key": "sequence_selector",
+        "type": "sequence-selector",
+        "validators": {
+          "validation": [
+            "sequence-selector"
+          ]
+        },
+        "templateOptions": {
+          "filename": "input_dataset",
+          "label": "Sequences Selector",
+          "required": true,
+          "extension": "fasta"
+        }
+      }
+    ]
+  },
+  {
     "key": "PAUP Parsimony",
     "wrappers": ["subprocess-wrapper"],
     "templateOptions": { "label": "PAUP Parsimony" },
@@ -8,7 +155,7 @@
       "key": "taxset",
       "type": "taxset-field",
       "templateOptions": {
-          "taxons": ["DROMTTGNC", "Dros", "YMU09206", "LUCMTPIEA", "MSQNCATR", "Apis"]
+          "taxons": ["fjHelianthemumbystropogophyllum","fkHelianthemuminaguae","kwLimoniumsventenii","KP2307361Anagyrisfoetida","G2605Telinestenopetalamicrophylla","faGlobulariaascanii","fcGlobulariasarcophylla","lbPericallishadrosoma","jiSideritisdasygnaphala"]
         }
       },
       {

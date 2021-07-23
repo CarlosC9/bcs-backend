@@ -9,10 +9,14 @@ import json
 class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
     INPUT_FILENAME = "paup_assets/alignment.txt"
 
-    def _get_script_filename(self):
-        return "paup_parsimony.sh"
+    def get_script_filenames(self):
+        return [{
+                  "remote_name": "paup_parsimony.sh",
+                  "file": os.path.join(self.ASSETS_FOLDER, "paup_parsimony.sh"),
+                  "type": "sh"
+                }]
 
-    def _get_script_files_list(self):
+    def get_script_files_list(self):
         return [
             {
                 "remote_name": "paup_parsimony.txt",
@@ -34,7 +38,7 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
             }
         ]
 
-    def _get_script_params_string(self, process_parameters):
+    def get_script_params_string(self, process_parameters):
         parameters = process_parameters["PAUP Parsimony"]
         sets = parameters.get('charset').sets + parameters.get('taxset').sets
         assumptions = parameters.get('charset').assumptions
@@ -49,7 +53,7 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
 
         return params_str
 
-    def _get_results_files_list(self, process_parameters):
+    def get_results_files_list(self, process_parameters):
         consensus_tree_filename = ""
         parameters = process_parameters["PAUP Parsimony"]
         files = []

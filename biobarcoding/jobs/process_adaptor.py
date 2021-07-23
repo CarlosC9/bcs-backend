@@ -29,6 +29,9 @@ class ProcessAdaptorFactory:
         elif tm_processes[process_id] == "PAUP Parsimony":
             from biobarcoding.jobs.ssh_process_adaptors.SSHPaupParsimonyProcessAdaptor import SSHPaupParsimonyProcessAdaptor
             ssh_process_adaptor = SSHPaupParsimonyProcessAdaptor()
+        elif tm_processes[process_id] == "MSA ClustalW + PAUP Parsimony":
+            from biobarcoding.jobs.ssh_process_adaptors.SSHClustal_PaupParsimonyProcessAdaptor import SSHClustal_PaupParsimonyProcessAdaptor
+            ssh_process_adaptor = SSHClustal_PaupParsimonyProcessAdaptor()
 
         return ssh_process_adaptor
 
