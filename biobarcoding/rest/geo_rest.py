@@ -4,7 +4,6 @@ import seaborn as sns
 from marshmallow import EXCLUDE
 from matplotlib.colors import rgb2hex
 
-import geopandas
 import marshmallow.exceptions
 import pandas as pd
 from flask import Blueprint, request, g
@@ -13,9 +12,9 @@ from typing import List
 
 from biobarcoding.authentication import bcs_session
 from biobarcoding.geo import geoserver_session, workspace_names, postgis_store_name
+from biobarcoding.geo.biota import read_biota_file
 from biobarcoding.rest import bcs_api_base, ResponseObject, Issue, IType, register_api
 from biobarcoding.db_models.geographics import GeographicRegion, Regions, GeographicLayer
-from geo import Style
 import geopandas as gpd
 import json
 import regex as re
@@ -133,21 +132,6 @@ def get_json_from_schema(entity, input_):
     entity_schema = getattr(entity, "Schema")()
     t_json = entity_schema.dumps(input_)
     return json.loads(t_json)
-
-
-# TODO Specific to BIOTA, should not be in the generic GeoAPI but in a special preprocessing module
-def read_biota_file(path):
-    def f(x):
-        return x[["RIQUEZA", "RAREZALOCA", "RAREZAINSU", "RAREZAREGI", "CODIGOTAX", "DENOMTAX"]].to_json(
-            orient="records")
-
-    gdf = gpd.read_file(path)
-    for c in ["IDCELDA", "CODIGOTAX"]:
-        gdf[c] = gdf[c].astype(np.int64)
-    tmp = dict(zip(gdf["IDCELDA"], gdf["geometry"]))
-    df = gdf.groupby("IDCELDA").apply(f).to_frame("taxa").reset_index()
-    new_gdf = gpd.GeoDataFrame(df, crs=gdf.crs, geometry=df["IDCELDA"].replace(tmp))
-    return new_gdf
 
 
 def generate_ramp_sld_file(
@@ -634,7 +618,7 @@ class LayersAPI(MethodView):
         from biobarcoding.geo import geoserver_session
         if self.kwargs["path"] != "":
             df = self._read_vector_file()
-            if not isinstance(df, geopandas.GeoDataFrame):
+            if not isinstance(df, gpd.GeoDataFrame):
                 return None
         elif "data" in self.kwargs.keys():
             df = gpd.GeoDataFrame.from_features(self.kwargs["data"]['features'])
