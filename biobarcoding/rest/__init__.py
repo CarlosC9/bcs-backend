@@ -813,6 +813,7 @@ def register_api(bp: Blueprint, view, endpoint: str, url: str, pk='id', pk_type=
     bp.add_url_rule(url, defaults={pk: None}, view_func=view_func, methods=['GET'])
     bp.add_url_rule(url, view_func=view_func, methods=['POST'])
     bp.add_url_rule(f'{url}<{pk_type}:{pk}>', view_func=view_func, methods=['GET', 'PUT', 'DELETE'])
+    return view_func
 
 
 def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, str] = {}):

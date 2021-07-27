@@ -29,9 +29,11 @@ class GeographicLayer(ORMBase):
     id = Column(Integer, primary_key=True, autoincrement=True)
     identity_id = Column(Integer)
     name = Column(String(80))
-    wks = Column(String(80))
-    attributes = Column(JSON)
+    wks = Column(String(80))  # Workspace
+    attributes = Column(JSON)  # Metadata about the layer: categories, tags, ...
     geoserver_name = Column(String(80))
+    wms_url = Column(String(255))
+    properties = Column(JSON)  # Store information about fields in a vectorial layer. Name, style, range, ...
     published = Column(Boolean, default=False)
     in_postgis = Column(Boolean, default=False)
     is_deleted = Column(Boolean, default=False)

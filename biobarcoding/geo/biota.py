@@ -13,7 +13,10 @@ def generate_pda_species_file_from_layer(layer_name: str) -> str:
         db_connection_string = get_global_configuration_variable('POSTGIS_CONNECTION_STRING')
         postgis_engine = create_pg_database_engine(db_connection_string, "ngd_geoserver", recreate_db=False)
     line_blocks = []
-    gdf = gpd.read_postgis(f"SELECT * FROM {layer_name} ORDER BY IDCELDA", postgis_engine, geom_col="geometry")
+    try:
+        gdf = gpd.read_postgis(f"SELECT * FROM {layer_name} ORDER BY IDCELDA", postgis_engine, geom_col="geometry")
+    except:
+        return None
     # Map lower case column names to actual column names
     cols = {c.lower(): c for c in gdf.columns}
     # Check columns
