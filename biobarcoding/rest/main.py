@@ -58,7 +58,7 @@ def create_app(debug, cfg_dict=None):
 
     # CORS
     cors = CORS(app,
-         resources={r"/api/*": {"origins": "*"}},
+         resources={r"/api/*": {"origins": "*"}, r"/pxy/*": {"origins": "*"}},
          supports_credentials=True
          )
 
