@@ -3,8 +3,8 @@ import abc
 
 from biobarcoding.jobs.process_adaptor import ProcessAdaptor
 
-SCRIPT_KEY = "script"
-SCRIPT_FILES_KEY = "script_files"
+SCRIPT_KEY = "scripts"
+SCRIPT_FILES_KEY = "scripts_files"
 SCRIPT_PARAMS_KEY = "script_params"
 RESULTS_KEY = "results"
 
@@ -14,36 +14,33 @@ class SSHProcessAdaptor(ProcessAdaptor, abc.ABC):
 
     ASSETS_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                  "ssh_process_assets")
+    CONVERTERS_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                 "converters")
 
     def adapt_job_context(self, job_context):
         process_parameters = job_context["process"]["inputs"]["parameters"]
         print(process_parameters)
         new_process_parameters = {
-            SCRIPT_KEY: self._get_script_filename(),
-            SCRIPT_FILES_KEY: self._get_script_files_list() +
-                              [{
-                                  "remote_name": self._get_script_filename(),
-                                  "file": os.path.join(self.ASSETS_FOLDER, self._get_script_filename()),
-                                  "type": "sh"
-                              }],
-            SCRIPT_PARAMS_KEY: self._get_script_params_string(process_parameters),
+            SCRIPT_KEY: self.get_script_filenames(),
+            SCRIPT_FILES_KEY: self.get_script_files_list(),
+            SCRIPT_PARAMS_KEY: self.get_script_params_string(process_parameters),
         }
         job_context["process"]["inputs"]["parameters"] = new_process_parameters
-        job_context[RESULTS_KEY] = self._get_results_files_list(process_parameters)
+        job_context[RESULTS_KEY] = self.get_results_files_list(process_parameters)
         return job_context
 
     @abc.abstractmethod
-    def _get_script_filename(self):
+    def get_script_filenames(self):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def _get_script_files_list(self):
+    def get_script_files_list(self):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def _get_script_params_string(self, process_parameters):
+    def get_script_params_string(self, process_parameters):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def _get_results_files_list(self, process_parameters):
+    def get_results_files_list(self, process_parameters):
         raise NotImplementedError

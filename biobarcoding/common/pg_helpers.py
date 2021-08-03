@@ -22,47 +22,37 @@ from biobarcoding.db_models.jobs import ComputeResource, JobManagementType, Proc
 
 RESOURCE_PROCESSES_DICT = {
     "localhost - galaxy": [
-        "klustal-1",
-        "blast",
-        "mrbayes",
-        "pd-1.0",
-        "migrate-3.7.2",
-        "import-sequences",
-        "import-msa",
-        "import-phylotree",
-        "Clustal Omega",
-        "MSA ClustalW",
-        "ClustalW-PhyMl",
         "MSA ClustalW",
     ],
     "balder - galaxy": [
-        "klustal-1",
-        "blast",
-        "mrbayes",
-        "pd-1.0",
-        "migrate-3.7.2",
-        "import-sequences",
-        "import-msa",
-        "import-phylotree",
-        "Clustal Omega",
-        "MSA ClustalW",
-        "ClustalW-PhyMl",
         "MSA ClustalW",
     ],
     "localhost - ssh": [
         "MSA ClustalW",
-        "PAUP Parsimony"
+        "PAUP Parsimony",
+        "Phylogenetic Diversity Analyzer",
+        "MSA ClustalW + PAUP Parsimony",
+        "PAUP Parsimony + Phylogenetic Diversity Analyzer",
+        "MSA ClustalW + PAUP Parsimony + Phylogenetic Diversity Analyzer"
     ],
     "balder - ssh": [
         "MSA ClustalW",
-        "PAUP Parsimony"
+        "PAUP Parsimony",
+        "Phylogenetic Diversity Analyzer",
+        "MSA ClustalW + PAUP Parsimony",
+        "PAUP Parsimony + Phylogenetic Diversity Analyzer",
+        "MSA ClustalW + PAUP Parsimony + Phylogenetic Diversity Analyzer"
     ],
 }
 
 PROCESSES_INPUTS = {
     "ec40143f-ae32-4dac-9cfb-caa047e1adb1": 'biobarcoding/inputs_schema/clustalw_phyml_formly.json',
     "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": 'biobarcoding/inputs_schema/clustalw_formly.json',
-    "c87f58b6-cb06-4d39-a0b3-72c2705c5ae1": 'biobarcoding/inputs_schema/paup_parsimony_formly.json'
+    "c87f58b6-cb06-4d39-a0b3-72c2705c5ae1": 'biobarcoding/inputs_schema/paup_parsimony_formly.json',
+    "3e0240e8-b978-48a2-8fdd-9f31f4264064": 'biobarcoding/inputs_schema/pda_formly.json',
+    "c55280d0-f916-4401-a1a4-bb26d8179fd7": 'biobarcoding/inputs_schema/clustalw+paup_parsimony_formly.json',
+    "ce018826-7b20-4b70-b9b3-168c0ba46eec": 'biobarcoding/inputs_schema/paup_parsimony+pda_formly.json',
+    "5b315dc5-ad12-4214-bb6a-bf013f0e4b8c": 'biobarcoding/inputs_schema/clustalw+paup_parsimony+pda_formly.json',
 }
 
 

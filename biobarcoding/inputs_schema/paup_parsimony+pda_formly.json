@@ -274,5 +274,30 @@
         "hideExpression": "(model.search!='heuristic' && model.method!='simple')"
       }
     ]
+  },
+  {
+    "key": "Phylogenetic Diversity Analyzer",
+    "wrappers": [
+      "subprocess-wrapper"
+    ],
+    "templateOptions": {
+      "label": "Phylogenetic Diversity Analyzer"
+    },
+    "fieldGroup": [
+      {
+        "key": "endem",
+        "type": "checkbox",
+        "templateOptions": {
+          "label": "Compute endemic PD/SD"
+        }
+      },
+      {
+        "key": "excl",
+        "type": "checkbox",
+        "templateOptions": {
+          "label": "Compute exclusive PD/SD"
+        }
+      }
+    ]
   }
 ]

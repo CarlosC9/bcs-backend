@@ -65,7 +65,6 @@ def create_app(debug, cfg_dict=None):
     global socket_service_socketio
     socket_service_socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
     init_socket(socket_service_socketio)
-
     lock = NamedAtomicLock("bcs-backend-lock")
     lock.acquire()
     try:

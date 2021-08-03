@@ -29,6 +29,18 @@ class ProcessAdaptorFactory:
         elif tm_processes[process_id] == "PAUP Parsimony":
             from biobarcoding.jobs.ssh_process_adaptors.SSHPaupParsimonyProcessAdaptor import SSHPaupParsimonyProcessAdaptor
             ssh_process_adaptor = SSHPaupParsimonyProcessAdaptor()
+        elif tm_processes[process_id] == "MSA ClustalW + PAUP Parsimony":
+            from biobarcoding.jobs.ssh_process_adaptors.SSHClustal_PaupParsimonyProcessAdaptor import SSHClustal_PaupParsimonyProcessAdaptor
+            ssh_process_adaptor = SSHClustal_PaupParsimonyProcessAdaptor()
+        elif tm_processes[process_id] == "Phylogenetic Diversity Analyzer":
+            from biobarcoding.jobs.ssh_process_adaptors.SSHPdaProcessAdaptor import SSHPdaProcessAdaptor
+            ssh_process_adaptor = SSHPdaProcessAdaptor()
+        elif tm_processes[process_id] == "PAUP Parsimony + Phylogenetic Diversity Analyzer":
+            from biobarcoding.jobs.ssh_process_adaptors.SSHPaupParsimony_PdaProcessAdaptor import SSHPaupParsimony_PdaProcessAdaptor
+            ssh_process_adaptor = SSHPaupParsimony_PdaProcessAdaptor()
+        elif tm_processes[process_id] == "MSA ClustalW + PAUP Parsimony + Phylogenetic Diversity Analyzer":
+            from biobarcoding.jobs.ssh_process_adaptors.SSHClustal_PaupParsimony_PdaProcessAdaptor import SSHClustal_PaupParsimony_PdaProcessAdaptor
+            ssh_process_adaptor = SSHClustal_PaupParsimony_PdaProcessAdaptor()
 
         return ssh_process_adaptor
 
