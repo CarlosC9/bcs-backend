@@ -87,7 +87,7 @@ class BaseMixin(object):
                 name = k.columns[0].name
                 getattr(self, name, None)
             elif isinstance(k, RelationshipProperty):
-                #if k.back_populates:
+                # if k.back_populates:
                 name = k.strategy.key
                 getattr(self, name, None)
 
@@ -129,9 +129,9 @@ class GeoString(SchemaString):
         if not isinstance(value, (dict, WKBElement)):
             raise self.make_error("invalid")
         if isinstance(value, WKBElement):
-            multi  = to_shape(value)
+            multi = to_shape(value)
             polygons = list(multi)
-            geojson =  geopandas.GeoSeries(polygons).to_json()
+            geojson = geopandas.GeoSeries(polygons).to_json()
             geodict = json.loads(geojson)
             # parse geodict to get rid og bbox attribute.
             # I assume that it will be a bbox attribute for feature and one bbox for the Feature collection
@@ -150,8 +150,10 @@ class GeoString(SchemaString):
             geom = MultiPolygon([shape(i['geometry']) for i in value["features"]])
             return f'SRID=4326; {geom.wkt}'
 
+
 def setup_schema(Base, session):
     from biobarcoding.db_models.geographics import Regions
+
     # Create a function which incorporates the Base and session information
     def setup_schema_fn():
 
@@ -176,6 +178,7 @@ def setup_schema(Base, session):
                         "For safety, setup_schema can not be used when a"
                         "Model class ends with 'Schema'"
                     )
+
                 class Meta(object):
                     include_fk = True
                     model = class_
@@ -184,7 +187,7 @@ def setup_schema(Base, session):
 
                 schema_class_name = "%sSchema" % class_.__name__
 
-                if class_.__name__ ==  "Regions":
+                if class_.__name__ == "Regions":
                     schema_class = type(schema_class_name, (GeoSchema,), {"Meta": Meta})
                 else:
                     schema_class = type(schema_class_name, (ModelSchema,), {"Meta": Meta})

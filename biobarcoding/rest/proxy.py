@@ -5,7 +5,7 @@ from flask import Blueprint, request, abort, url_for, Response
 from werkzeug.datastructures import Headers
 
 from biobarcoding.authentication import bcs_session
-from biobarcoding.rest import bcs_proxy_base
+from biobarcoding.rest import bcs_proxy_base, Issue, IType
 
 bp_proxy = Blueprint('bp_proxy', __name__)
 
@@ -97,15 +97,22 @@ def after_proxy_prepare(proxy_resp):
 def make_proxy_response(service_response, response_headers, redirected_url=None):
     # Rewrite URLs in the content to point to our URL scheme instead.
     # Ugly, but seems to mostly work.
+    contents = service_response.read()
+    # TODO: check service_response.info().get_content_maintype() in (json,) ?
     if redirected_url:
-        root = request.host + url_for(request.endpoint)
-        root = root[:-1] if root.endswith('/') else root
-        redirected_url = redirected_url[:-1] if redirected_url.endswith('/') else redirected_url
-        for residue in ['http://','https://']:
-            root = root.replace(residue, '')
-            redirected_url = redirected_url.replace(residue, '')
+        try:
+            contents = contents.decode("utf-8")
 
-        contents = service_response.read().decode("utf-8").replace(redirected_url, root)
+            root = request.host + url_for(request.endpoint)
+            root = root[:-1] if root.endswith('/') else root
+            redirected_url = redirected_url[:-1] if redirected_url.endswith('/') else redirected_url
+            for residue in ['http://','https://']:
+                root = root.replace(residue, '')
+                redirected_url = redirected_url.replace(residue, '')
+
+            contents = contents.replace(redirected_url, root)
+        except Exception as e:
+            pass
     return Response(response=contents,
                     status=service_response.status,
                     headers=response_headers,
@@ -128,7 +135,13 @@ def geoserver_gate(path=None):
     # <previo de proxy>
     path, headers, data = prev_proxy(path)
     # <hacer la petición a Geoserver>
-    host = current_app.config['GEOSERVER_URL']
+    if 'GEOSERVER_URL' in current_app.config:
+        host = current_app.config['GEOSERVER_URL']
+    else:
+        print("no geoserver data in config file cant open GEOSERVER session")
+        return Response(status=500,
+                        response={'issues':[
+                            Issue(IType.ERROR,'no geoserver data in config file cant open GEOSERVER session')]})
     response = run_request(host, f'/geoserver{path}', headers, data)
     # <modificación cabeceras de proxy>
     after_proxy_prepare(response)

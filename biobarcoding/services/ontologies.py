@@ -95,10 +95,10 @@ def __get_query(id=None, **kwargs):
             query = paginator(query, kwargs.get('pagination'))
     return query
 
-def __aux_own_filter(**kwargs):
+def __aux_own_filter(filter):
     return []
 
-def __get_query_ordered(query, **kwargs):
+def __get_query_ordered(query, order):
     return query
 
 

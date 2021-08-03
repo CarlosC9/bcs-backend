@@ -21,7 +21,7 @@ psycopg2==2.8.5  # Removed because it requires having PostgreSQL installed. It i
 bioblend==0.14.0
 pyyaml==5.3.1
 # May be troublesome in generating Windows executable
-celery>=4.4.0
+celery>=4.4.0,<5.0.0
 pykml==0.1.3
 geojson>=2.4.1
 nbformat>=5.0.7
@@ -70,9 +70,12 @@ chado==2.3.4
 # GDAL==`gdal-config --version`
 GeoAlchemy2>=0.8.5
 geopandas>=0.9.0
-geoserver-rest>=1.6.1
+geoserver-rest>=1.6.1,<2.0.0
 flask-socketio==5.1.0
 gevent-websocket== 0.10.1
+biopython==1.78
+chado==2.3.4
+chardet>=3.0.0,<4.0.0
 
 
 
@@ -87,5 +90,3 @@ gevent-websocket== 0.10.1
 # JSONPath
 
 setuptools~=51.1.2
-biopython==1.78
-chado==2.3.4

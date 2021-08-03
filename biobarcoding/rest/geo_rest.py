@@ -1,20 +1,19 @@
 import io
 import os
 import seaborn as sns
+from marshmallow import EXCLUDE
 from matplotlib.colors import rgb2hex
-
-import geopandas
-import marshmallow.exceptions
+from urllib.parse import urlparse
 import pandas as pd
-from flask import Blueprint, request, g
+from flask import Blueprint, request, g, Response
 from flask.views import MethodView
 from typing import List
 
 from biobarcoding.authentication import bcs_session
 from biobarcoding.geo import geoserver_session, workspace_names, postgis_store_name
-from biobarcoding.rest import bcs_api_base, ResponseObject, Issue, IType, register_api
+from biobarcoding.geo.biota import read_biota_file, generate_pda_species_file_from_layer
+from biobarcoding.rest import bcs_api_base, ResponseObject, Issue, IType, register_api, bcs_proxy_base
 from biobarcoding.db_models.geographics import GeographicRegion, Regions, GeographicLayer
-from geo import Style
 import geopandas as gpd
 import json
 import regex as re
@@ -134,21 +133,6 @@ def get_json_from_schema(entity, input_):
     return json.loads(t_json)
 
 
-# TODO Specific to BIOTA, should not be in the generic GeoAPI but in a special preprocessing module
-def read_biota_file(path):
-    def f(x):
-        return x[["RIQUEZA", "RAREZALOCA", "RAREZAINSU", "RAREZAREGI", "CODIGOTAX", "DENOMTAX"]].to_json(
-            orient="records")
-
-    gdf = gpd.read_file(path)
-    for c in ["IDCELDA", "CODIGOTAX"]:
-        gdf[c] = gdf[c].astype(np.int64)
-    tmp = dict(zip(gdf["IDCELDA"], gdf["geometry"]))
-    df = gdf.groupby("IDCELDA").apply(f).to_frame("taxa").reset_index()
-    new_gdf = gpd.GeoDataFrame(df, crs=gdf.crs, geometry=df["IDCELDA"].replace(tmp))
-    return new_gdf
-
-
 def generate_ramp_sld_file(
     style_name: str,
     column_name: str,
@@ -240,7 +224,8 @@ def generate_ramp_sld_file(
         f.write(style)
 
 
-def create_and_publish_ramp_style(wkspc,
+def create_and_publish_ramp_style(gs_session,
+                                  wkspc,
                                   layer_name, attribute, min_value, max_value,
                                   style_name, color_ramp: str = "RdYlGn_r", cmap_type: str = "ramp",
                                   number_of_classes: int = 5, overwrite: bool = False):
@@ -256,9 +241,9 @@ def create_and_publish_ramp_style(wkspc,
     #                      color_ramp=color_ramp)
     # sld_version = "1.1.0"
 
-    geoserver_session.upload_style("style.sld", style_name, wkspc, sld_version=sld_version, overwrite=overwrite)
+    gs_session.upload_style("style.sld", style_name, wkspc, sld_version=sld_version, overwrite=overwrite)
     os.remove("style.sld")
-    geoserver_session.publish_style(layer_name, style_name, wkspc)
+    gs_session.publish_style(layer_name, style_name, wkspc)
 
 
 class RegionsAPI(MethodView):
@@ -374,8 +359,25 @@ class LayersAPI(MethodView):
     issues = []
     status = int()
 
+    def _export(self, lay: GeographicLayer, format):
+        # TODO Check "tags" attribute, the layer should have a "Biota" tag
+        if format.lower() == "pda_simple":
+            _ = generate_pda_species_file_from_layer(lay.geoserver_name)
+            if _ is None:
+                self.issues.append(Issue(IType.ERROR, f'Could not export Biota layer {lay.name} (internal name "{lay.geoserver_name}").', f"Export {lay.name} as Simple PDA text file"))
+                return None
+            elif _ == "":
+                self.issues.append(Issue(IType.ERROR,
+                                         f'Empty Biota layer {lay.name} (internal name "{lay.geoserver_name}").',
+                                         f"Export {lay.name} as Simple PDA text file"))
+                return None
+            else:
+                return _
+        elif format.lower() == "nexus":
+            return None
+
     @bcs_session()
-    def get(self, _id=None):
+    def get(self, _id=None, format=None):
         """
         - get the list of layers in postgis
         - create a temporal layer from a sql filter
@@ -392,24 +394,39 @@ class LayersAPI(MethodView):
         curl --cookie-jar bcs-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user"
         curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/"
 
+        curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/1"
+
+        curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/1.pda_simple"
+
         @param _id: ID of a layer; empty for ALL layers (if no query params specified)
+        @param format: export format
         @return:
         """
         self.issues = []
         from biobarcoding.geo import geoserver_session
-        layers = None
+        layer = None
         _filter = request.args.get("filter")
         key_col = request.args.get("key_col")
         db = g.bcs_session.db_session
         if _id:  # A layer
-            self.issues, layers, count, self.status = get_content(db, GeographicLayer, self.issues, _id)
-            if layers and layers.is_deleted:
-                layers = None
+            self.issues, layer, count, self.status = get_content(db, GeographicLayer, self.issues, _id)
+            if layer and layer.is_deleted:
+                layer = None
                 _, self.status = self.issues.append(Issue(IType.INFO, f'no data available')), 200
+            else:
+                if format:
+                    content = self._export(layer, format=format)
+                    if content:
+                        return Response(content, mimetype=f"text/{format}", status=200)
+                else:
+                    if layer:
+                        serializer = layer.Schema()
+                        serializer.dump(layer)
+
         elif not _filter and not key_col:  # All layers
-            self.issues, layers, count, self.status = get_content(db, GeographicLayer, self.issues)
-            if layers:
-                layers = list(filter(lambda x: (x.is_deleted is False), layers))
+            self.issues, layer, count, self.status = get_content(db, GeographicLayer, self.issues)
+            if layer:
+                layer = list(filter(lambda x: (x.is_deleted is False), layer))
         elif _filter and key_col:  # Temporary layer
             # TODO Ensure Temporary layer is also registered as BCS GeographicLayer
             tmp_view = f'tmpview_{g.bcs_session.identity.id}'
@@ -424,11 +441,16 @@ class LayersAPI(MethodView):
             if not self._check_layer():
                 _, self.status = self.issues.append(Issue(IType.ERROR, f"Error executing request for geoserver")), 500
             self.issues.append(issue)
-            layers = dict(tmpview=tmp_view, sql=sql, key_col=key_col)
+            layer = dict(tmpview=tmp_view, sql=sql, key_col=key_col)
         else:  # No information to elaborate a response
             _, self.status = self.issues.append(Issue(IType.ERROR, f"missing data")), 400
 
-        return ResponseObject(issues=self.issues, status=self.status, content=layers).get_response()
+        return ResponseObject(issues=self.issues, status=self.status, content=layer).get_response()
+
+    @staticmethod
+    def _exclude(c):
+        s = c.lower()
+        return s.startswith("id") or s.endswith("id") or "codigo" in s or s in ["coordx", "coordy", "geom", "geometry"]
 
     @bcs_session()
     def post(self):
@@ -469,72 +491,130 @@ class LayersAPI(MethodView):
         db.add(geographic_layer)
         db.flush()
         # Receive file
-        self._receive_and_prepare_file()
-        # Store file in PostGIS
-        lower_case_attributes = True
-        layer_name = f"layer_{geographic_layer.id}"  # (internal) Geoserver layer name
-        status, gdf = self._post_in_postgis(layer_name, lower_case_attributes)
-        # TODO Delete temporary file
+        if self._file_posted():
+            # Set URL
+            tmp = urlparse(request.base_url)
+            base_url = f"{tmp.scheme}://{tmp.netloc}"
+            geographic_layer.wms_url = f"{base_url}{bcs_proxy_base}/geoserver/wms"
+            # Store file locally
+            self._receive_and_prepare_file()
+            # Store file in PostGIS
+            lower_case_attributes = True
+            layer_name = f"layer_{geographic_layer.id}"  # (internal) Geoserver layer name
+            status, gdf = self._post_in_postgis(layer_name, lower_case_attributes)
+            # TODO Delete temporary file
 
-        # Publish layer in Geoserver
-        if status == 200:
-            geographic_layer.in_postgis = True
-        if self.kwargs.get("property"):
-            prop = self.kwargs["property"]
-            if lower_case_attributes:
-                prop = prop.lower()
-            tmp = gdf[prop].values
-            status, layer_type = self._publish_in_geoserver(layer_name, prop, min(tmp), max(tmp))
-        else:
-            status, layer_type = self._publish_in_geoserver(layer_name)
-        if status == 200:
-            geographic_layer.published = True
-            geographic_layer.geoserver_name = layer_name
-        geographic_layer.layer_type = layer_type
-        db.flush()
+            # Publish layer in Geoserver
+            if status == 200:
+                geographic_layer.in_postgis = True
+            if self.kwargs.get("property"):
+                prop = self.kwargs["property"]
+                if lower_case_attributes:
+                    prop = prop.lower()
+                tmp = gdf[prop].values
+                style_name = f"{layer_name}_{prop}"
+                status, layer_type = self._publish_in_geoserver(layer_name, prop, style_name, min(tmp), max(tmp))
+            else:
+                style_name = None
+                status, layer_type = self._publish_in_geoserver(layer_name)
+            if status == 200:
+                geographic_layer.published = True
+                geographic_layer.geoserver_name = layer_name
+                _ = []
+                for c in gdf.columns:
+                    if self._exclude(c):
+                        continue
+                    tmp = gdf[c].values
+                    try:
+                        min_v = min(tmp)
+                        max_v = max(tmp)
+                        p_type = "numeric"
+                    except:
+                        min_v = None
+                        max_v = None
+                        p_type = "string"
+
+                    if prop and c == prop:
+                        _.append(dict(name=c, type=p_type, style=style_name, min=min_v, max=max_v))
+                    else:
+                        _.append(dict(name=c, type=p_type, style="", min=min_v, max=max_v))
+                geographic_layer.properties = _
+            geographic_layer.layer_type = layer_type
+            db.flush()
         return ResponseObject(issues=self.issues, status=self.status, content=geographic_layer).get_response()
 
     @bcs_session()
     def put(self, _id=None):
-        self.issues = []
-        self.kwargs = {}
+        """
+        Update geographic layer metadata
+
+        {"name":"",
+        "wks": "ngd",
+        "attributes" -> json attributes like {"tags"["tag1", "tag2"]
+        "data":"", -> import layer from geojson data
+        "layer_name":'', -> publish tmp view
+         }
+
+        USAGE (CURL EXAMPLE):
+          1) Define base URL, 2) Login, 3) Post multipart-form with a file and a JSON to "/api/geo/layers"
+
+        export API_BASE_URL=http://localhost:5000/api
+        curl --cookie-jar bcs-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user"
+        curl --cookie bcs-cookies.txt -X PUT -F "metadata={\"name\": \"capa_12\", \"wks\": \"ngd\", \"property\": \"RIQUEZA\", \"attributes\": {\"tags\": [\"tag1\", \"tag2\", \"tag3\"]}};type=application/json" "$API_BASE_URL/geo/layers/"
+
+        :param _id:
+        :return:
+        """
         db = g.bcs_session.db_session
-        # no puedo tener valores por defecto en el post
+        self.issues = []
+        system_layer = True
+        self.kwargs = dict(name="unnamed")
         self._update_kwargs_from_request_data()
+        self.kwargs["wks"] = workspace_names[0] if system_layer else workspace_names[1]
         geographic_layer_schema = getattr(GeographicRegion, "Schema")()
+        geographic_layer_data = get_json_from_schema(GeographicLayer, self.kwargs)
+        # Remove unmodifiable keys
+        for k in ["geoserver_name", "id", "identity_id", "in_postgis", "is_deleted", "layer_type", "published", "uuid", "wks"]:
+            if k in geographic_layer_data:
+                del geographic_layer_data[k]
         self.issues, geographic_layer, count, self.status = get_content(db, GeographicLayer, self.issues, _id)
         if geographic_layer:
-            try:
-                geographic_layer = geographic_layer_schema.load(self.kwargs, instance=geographic_layer)
-            except marshmallow.exceptions.ValidationError as field:
-                geographic_layer_data = get_json_from_schema(GeographicLayer, self.kwargs)
-                geographic_layer = geographic_layer_schema.load(geographic_layer_data, instance=geographic_layer)
-            if self.kwargs.get("data") or request.files:
-                layer_name = f"layer_{geographic_layer.id}"
-                geographic_layer.published = False
-                geographic_layer.in_postgis = False
-                db.flush()
-                if request.files:
-                    self._receive_and_prepare_file()
-                if not self.kwargs.get("wks"):
-                    self.kwargs["wks"] = geographic_layer.wks
-                status, gdf = self._post_in_postgis(layer_name)
-                if status == 200:
-                    geographic_layer.in_postgis = True
-                # re-publish in geoserver is need when the layer is changed (why?)
-                # (note that it is not necessary when sql_view layer)
-                if self.kwargs.get("property"):
-                    prop = self.kwargs["property"]
-                    tmp = gdf[prop].values
-                    status, layer_type = self._publish_in_geoserver(layer_name, prop, min(tmp), max(tmp))
-                else:
-                    status, layer_type = self._publish_in_geoserver(layer_name)
-                if status == 200:
-                    geographic_layer.published = True
-                    geographic_layer.layer_type = layer_type
-                    db.flush()
-                else:
-                    db.rollback()
+            # Update layer metadata
+            geographic_layer = geographic_layer_schema.load(geographic_layer_data,
+                                                            instance=geographic_layer,
+                                                            partial=True, unknown=EXCLUDE)
+            # TODO Update layer content disabled (not defined how to
+            # if self.kwargs.get("data") or request.files:
+            #     layer_name = f"layer_{geographic_layer.id}"
+            #     geographic_layer.published = False
+            #     geographic_layer.in_postgis = False
+            #     db.flush()
+            #     if request.files:
+            #         self._receive_and_prepare_file()
+            #     if not self.kwargs.get("wks"):
+            #         self.kwargs["wks"] = geographic_layer.wks
+            #     status, gdf = self._post_in_postgis(layer_name)
+            #     if status == 200:
+            #         geographic_layer.in_postgis = True
+            #     # re-publish in geoserver is need when the layer is changed (why?)
+            #     # (note that it is not necessary when sql_view layer)
+            #     if self.kwargs.get("property"):
+            #         prop = self.kwargs["property"]
+            #         tmp = gdf[prop].values
+            #         status, layer_type = self._publish_in_geoserver(layer_name, prop, min(tmp), max(tmp))
+            #     else:
+            #         status, layer_type = self._publish_in_geoserver(layer_name)
+            #     if status == 200:
+            #         geographic_layer.published = True
+            #         geographic_layer.layer_type = layer_type
+            #         db.flush()
+            #     else:
+            #         db.rollback()
+        else:
+            if _id is None:
+                self.issues.append(Issue(IType.ERROR, '<id> not specified'))
+            else:
+                self.issues.append(Issue(IType.ERROR, f'Layer with specified id ({_id}) was not found'))
         return ResponseObject(content=geographic_layer, issues=self.issues, status=self.status).get_response()
 
     @bcs_session()
@@ -601,7 +681,7 @@ class LayersAPI(MethodView):
         from biobarcoding.geo import geoserver_session
         if self.kwargs["path"] != "":
             df = self._read_vector_file()
-            if not isinstance(df, geopandas.GeoDataFrame):
+            if not isinstance(df, gpd.GeoDataFrame):
                 return None
         elif "data" in self.kwargs.keys():
             df = gpd.GeoDataFrame.from_features(self.kwargs["data"]['features'])
@@ -638,7 +718,7 @@ class LayersAPI(MethodView):
             _, self.status = self.issues.append(Issue(IType.INFO, f"layer stored in geo database")), 200
         return self.status, df
 
-    def _publish_in_geoserver(self, layer_name, attribute=None, min_value=None, max_value=None):
+    def _publish_in_geoserver(self, layer_name, attribute=None, style_name=None, min_value=None, max_value=None):
         """
         Publish a layer -already in a registered store- in Geoserver
         NOTE: implicit parameters in self.kwargs
@@ -648,6 +728,7 @@ class LayersAPI(MethodView):
 
         :param layer_name:
         :param attribute: attribute name for default style
+        :param style_name: name of the style to create
         :param min_value: mininum for default style
         :param max_value: maximum for default style
         :return:
@@ -661,8 +742,8 @@ class LayersAPI(MethodView):
                                                        store_name=postgis_store_name,
                                                        pg_table=layer_name)
             if attribute:
-                style_name = f"{layer_name}_{attribute}"
-                create_and_publish_ramp_style(wkspc=self.kwargs['wks'],
+                create_and_publish_ramp_style(geoserver_session,
+                                              wkspc=self.kwargs['wks'],
                                               layer_name=layer_name,
                                               attribute=attribute,
                                               min_value=min_value, max_value=max_value,
@@ -744,6 +825,9 @@ class LayersAPI(MethodView):
                         self.kwargs.update(item)
                     except json.decoder.JSONDecodeError:
                         self.kwargs.update(t)
+
+    def _file_posted(self):
+        return len(request.files) > 0
 
     def _receive_and_prepare_file(self):
         import os
@@ -830,7 +914,8 @@ class LayersAPI(MethodView):
         return r, layer_type
 
 
-register_api(bp_geo, LayersAPI, "geo/layers", f"{bcs_api_base}/geo/layers/", pk="_id")
+_ = register_api(bp_geo, LayersAPI, "geo/layers", f"{bcs_api_base}/geo/layers/", pk="_id")
+bp_geo.add_url_rule(bcs_api_base + '/geo/layers/<_id>.<string:format>', view_func=_, methods=['GET'])
 
 # view_func = LayerAPI.as_view("geo/layers")
 # bp_geo.add_url_rule(f"{bcs_api_base}/geo/layers/", defaults={"_id": None}, view_func=view_func, methods=['GET', 'POST'])

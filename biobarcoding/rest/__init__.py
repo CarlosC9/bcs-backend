@@ -129,6 +129,8 @@ def get_default_configuration_dict():
                 CELERY_BACKEND_URL=f"{BACKEND_URL}",
                 REDIS_HOST="filesystem:local_session",
                 REDIS_HOST_FILESYSTEM_DIR=f"{cache_path}/sessions",
+                # GEOSERVER address from BCS-Backend
+                GEOSERVER_URL="localhost:9180",
                 # GEO (GEOSPATIAL DATA)
                 GEOSERVER_USER="admin",
                 GEOSERVER_PASSWORD="ngd_ad37",
@@ -811,6 +813,7 @@ def register_api(bp: Blueprint, view, endpoint: str, url: str, pk='id', pk_type=
     bp.add_url_rule(url, defaults={pk: None}, view_func=view_func, methods=['GET'])
     bp.add_url_rule(url, view_func=view_func, methods=['POST'])
     bp.add_url_rule(f'{url}<{pk_type}:{pk}>', view_func=view_func, methods=['GET', 'PUT', 'DELETE'])
+    return view_func
 
 
 def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, str] = {}):
