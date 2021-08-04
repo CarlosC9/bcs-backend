@@ -1,4 +1,10 @@
 #!/bin/bash
+
+#
+# If Docker containers do not respond after a laptop suspend (workaround):
+# sudo systemctl restart NetworkManager docker.service
+#
+
 # REDIS
 if [ ! "$(docker ps -q -f name=redis)" ] ; then
   echo Starting REDIS

@@ -1,6 +1,7 @@
 # GEOGRAPHIC data
 from marshmallow_sqlalchemy import SQLAlchemySchema, fields
 from sqlalchemy import Column, Integer, String, BigInteger, ForeignKey, JSON, Boolean
+from sqlalchemy.dialects.postgresql import JSONB
 
 from biobarcoding.db_models import ORMBase, ORMBaseGeo, GUID
 from biobarcoding.db_models.bioinformatics import BioinformaticObject, bio_object_type_id
@@ -30,10 +31,10 @@ class GeographicLayer(ORMBase):
     identity_id = Column(Integer)
     name = Column(String(80))
     wks = Column(String(80))  # Workspace
-    attributes = Column(JSON)  # Metadata about the layer: categories, tags, ...
+    attributes = Column(JSONB)  # Metadata about the layer: categories, tags, ...
     geoserver_name = Column(String(80))
     wms_url = Column(String(255))
-    properties = Column(JSON)  # Store information about fields in a vectorial layer. Name, style, range, ...
+    properties = Column(JSONB)  # Store information about fields in a vectorial layer. Name, style, range, ...
     published = Column(Boolean, default=False)
     in_postgis = Column(Boolean, default=False)
     is_deleted = Column(Boolean, default=False)

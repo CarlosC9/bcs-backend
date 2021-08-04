@@ -1011,6 +1011,9 @@ def filter_parse(orm, filter, aux_filter=None):
             return obj <= value
         if op == "ge":
             return obj >= value
+        if op == "contains":
+            return value.in_(obj)
+
         return True
 
     try:

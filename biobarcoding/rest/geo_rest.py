@@ -11,7 +11,7 @@ from typing import List
 
 from biobarcoding.authentication import bcs_session
 from biobarcoding.geo import geoserver_session, workspace_names, postgis_store_name
-from biobarcoding.geo.biota import read_biota_file, generate_pda_species_file_from_layer
+from biobarcoding.geo.biota import read_biota_file, generate_pda_species_file_from_layer, import_pda_result
 from biobarcoding.rest import bcs_api_base, ResponseObject, Issue, IType, register_api, bcs_proxy_base
 from biobarcoding.db_models.geographics import GeographicRegion, Regions, GeographicLayer
 import geopandas as gpd
@@ -19,7 +19,6 @@ import json
 import regex as re
 import requests
 import pathlib
-import numpy as np
 import tempfile
 
 from biobarcoding.rest.file_manager import FilesAPI
@@ -246,6 +245,10 @@ def create_and_publish_ramp_style(gs_session,
     gs_session.publish_style(layer_name, style_name, wkspc)
 
 
+def __aux_attributes_filter(filter):
+    clause = []
+
+
 class RegionsAPI(MethodView):
     """
     Management of special "regions" layer through RESTful API
@@ -359,25 +362,27 @@ class LayersAPI(MethodView):
     issues = []
     status = int()
 
-    def _export(self, lay: GeographicLayer, format):
-        # TODO Check "tags" attribute, the layer should have a "Biota" tag
-        if format.lower() == "pda_simple":
-            _ = generate_pda_species_file_from_layer(lay.geoserver_name)
-            if _ is None:
-                self.issues.append(Issue(IType.ERROR, f'Could not export Biota layer {lay.name} (internal name "{lay.geoserver_name}").', f"Export {lay.name} as Simple PDA text file"))
-                return None
-            elif _ == "":
-                self.issues.append(Issue(IType.ERROR,
-                                         f'Empty Biota layer {lay.name} (internal name "{lay.geoserver_name}").',
-                                         f"Export {lay.name} as Simple PDA text file"))
-                return None
-            else:
-                return _
-        elif format.lower() == "nexus":
+    def _export(self, lay: GeographicLayer, _format):
+        if _format not in ["pda_simple", "nexus"]:
+            self.issues.append(
+                Issue(IType.ERROR, f'Could not export Biota layer {lay.name} (internal name "{lay.geoserver_name}") '
+                                   f'to format "{_format}". Supported "pda_simple" and "nexus"', f"Export {lay.name}"))
             return None
+        # TODO Check "tags" attribute, the layer should have a "Biota" tag
+        _ = generate_pda_species_file_from_layer(lay.id, lay.geoserver_name, _format)
+        if _ is None:
+            self.issues.append(Issue(IType.ERROR, f'Could not export Biota layer {lay.name} (internal name "{lay.geoserver_name}").', f"Export {lay.name} as Simple PDA text file"))
+            return None
+        elif _ == "":
+            self.issues.append(Issue(IType.ERROR,
+                                     f'Empty Biota layer {lay.name} (internal name "{lay.geoserver_name}").',
+                                     f"Export {lay.name}"))
+            return None
+        else:
+            return _
 
     @bcs_session()
-    def get(self, _id=None, format=None):
+    def get(self, _id=None, _format=None):
         """
         - get the list of layers in postgis
         - create a temporal layer from a sql filter
@@ -399,7 +404,7 @@ class LayersAPI(MethodView):
         curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/1.pda_simple"
 
         @param _id: ID of a layer; empty for ALL layers (if no query params specified)
-        @param format: export format
+        @param _format: export format
         @return:
         """
         self.issues = []
@@ -414,10 +419,10 @@ class LayersAPI(MethodView):
                 layer = None
                 _, self.status = self.issues.append(Issue(IType.INFO, f'no data available')), 200
             else:
-                if format:
-                    content = self._export(layer, format=format)
+                if _format:
+                    content = self._export(layer, _format=_format)
                     if content:
-                        return Response(content, mimetype=f"text/{format}", status=200)
+                        return Response(content, mimetype=f"text/{_format}", status=200)
                 else:
                     if layer:
                         serializer = layer.Schema()
@@ -477,7 +482,7 @@ class LayersAPI(MethodView):
         """
         db = g.bcs_session.db_session
         self.issues = []
-        system_layer = True
+        system_layer = True  # or user layer
         self.kwargs = dict(name="unnamed")
         self._update_kwargs_from_request_data()
         self.kwargs["wks"] = workspace_names[0] if system_layer else workspace_names[1]
@@ -882,7 +887,11 @@ class LayersAPI(MethodView):
                 gdf = gpd.read_file(path)
                 return gdf
             except:
-                return None
+                try:
+                    gdf = import_pda_result(path, session=g.bcs_session.db_session)
+                    return gdf
+                except:
+                    return None
 
     def _read_raster_file(self, layer_name):
         from biobarcoding.geo import geoserver_session
@@ -915,7 +924,7 @@ class LayersAPI(MethodView):
 
 
 _ = register_api(bp_geo, LayersAPI, "geo/layers", f"{bcs_api_base}/geo/layers/", pk="_id")
-bp_geo.add_url_rule(bcs_api_base + '/geo/layers/<_id>.<string:format>', view_func=_, methods=['GET'])
+bp_geo.add_url_rule(bcs_api_base + '/geo/layers/<_id>.<string:_format>', view_func=_, methods=['GET'])
 
 # view_func = LayerAPI.as_view("geo/layers")
 # bp_geo.add_url_rule(f"{bcs_api_base}/geo/layers/", defaults={"_id": None}, view_func=view_func, methods=['GET', 'POST'])
