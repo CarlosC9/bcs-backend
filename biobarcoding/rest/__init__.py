@@ -27,6 +27,7 @@ from biobarcoding.db_models.sysadmin import *
 from biobarcoding.db_models.geographics import *
 from biobarcoding.db_models.jobs import *
 from biobarcoding.db_models.hierarchies import *
+from biobarcoding.db_models.metadata import *
 from biobarcoding.inputs_schema.workflows2formly import convert_workflows_to_formly
 from biobarcoding.rest.socket_service import SocketService
 

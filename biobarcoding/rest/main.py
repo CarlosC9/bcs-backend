@@ -16,7 +16,7 @@ from biobarcoding.rest.bos import bp_bos
 from biobarcoding.rest.metadata import bp_metadata
 from biobarcoding.rest.jobs import bp_jobs
 from biobarcoding.rest.tasks import bp_tasks
-from biobarcoding.rest.processes import  bp_processes, bp_resources
+from biobarcoding.rest.processes import bp_processes, bp_resources
 from biobarcoding.rest.geo_rest import bp_geo
 from biobarcoding.rest.gui_static import bp_gui
 from biobarcoding.rest.browser_filters import bp_bfilters
@@ -57,7 +57,7 @@ def create_app(debug, cfg_dict=None):
     FlaskSessionServerSide(app)
 
     # CORS
-    cors = CORS(app,
+    CORS(app,
          resources={r"/api/*": {"origins": "*"}, r"/pxy/*": {"origins": "*"}},
          supports_credentials=True
          )
@@ -166,6 +166,7 @@ def after_a_request(response):
                     response.headers[i] = (h[0], f"{h[1]}; SameSite=None")
 
     return response
+
 
 # FLASK_ENV=development FLASK_APP=biobarcoding.rest.main flask run
 if __name__ == "__main__":
