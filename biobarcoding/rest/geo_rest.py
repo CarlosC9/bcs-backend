@@ -9,17 +9,18 @@ from flask import Blueprint, request, g, Response
 from flask.views import MethodView
 from typing import List
 
+from sqlalchemy import text
+
 from biobarcoding.authentication import bcs_session
 from biobarcoding.geo import geoserver_session, workspace_names, postgis_store_name
-from biobarcoding.geo.biota import read_biota_file, generate_pda_species_file_from_layer
-from biobarcoding.rest import bcs_api_base, ResponseObject, Issue, IType, register_api, bcs_proxy_base
+from biobarcoding.geo.biota import read_biota_file, generate_pda_species_file_from_layer, import_pda_result
+from biobarcoding.rest import bcs_api_base, ResponseObject, Issue, IType, register_api, bcs_proxy_base, filter_parse
 from biobarcoding.db_models.geographics import GeographicRegion, Regions, GeographicLayer
 import geopandas as gpd
 import json
 import regex as re
 import requests
 import pathlib
-import numpy as np
 import tempfile
 
 from biobarcoding.rest.file_manager import FilesAPI
@@ -91,7 +92,24 @@ def geoserver_response(response) -> Issue:
         return Issue(IType.INFO, "layer succesfully published"), 200
 
 
-def get_content(session, feature_class, issues, id_=None):
+def get_content(session, feature_class, issues, id_=None, filter_=None):
+
+    def __aux_own_filter(filt_):
+        """
+            Example clause:
+                {"tags": "biota"} meaning "the layer contains 'biota' as one of the tags"
+        """
+        clause = []
+
+        if 'tags' in filt_:
+            v = filt_.get('tags')
+            # 3 implementations
+            # clause.append(text(f"attributes->'tags' ? :n").params(n=v))
+            # clause.append(GeographicLayer.attributes["tags"].op("?")(v))
+            clause.append(GeographicLayer.attributes["tags"].has_key(v))
+
+        return clause
+
     content = None
     count = 0
     try:
@@ -99,6 +117,8 @@ def get_content(session, feature_class, issues, id_=None):
         if id_:
             content = content.filter(feature_class.id == id_).first()
         else:
+            if filter_:
+                content = content.filter(filter_parse(GeographicLayer, filter_, __aux_own_filter))
             content = content.order_by(feature_class.id).all()
             count = len(content)
     except Exception as e:
@@ -359,25 +379,27 @@ class LayersAPI(MethodView):
     issues = []
     status = int()
 
-    def _export(self, lay: GeographicLayer, format):
-        # TODO Check "tags" attribute, the layer should have a "Biota" tag
-        if format.lower() == "pda_simple":
-            _ = generate_pda_species_file_from_layer(lay.geoserver_name)
-            if _ is None:
-                self.issues.append(Issue(IType.ERROR, f'Could not export Biota layer {lay.name} (internal name "{lay.geoserver_name}").', f"Export {lay.name} as Simple PDA text file"))
-                return None
-            elif _ == "":
-                self.issues.append(Issue(IType.ERROR,
-                                         f'Empty Biota layer {lay.name} (internal name "{lay.geoserver_name}").',
-                                         f"Export {lay.name} as Simple PDA text file"))
-                return None
-            else:
-                return _
-        elif format.lower() == "nexus":
+    def _export(self, lay: GeographicLayer, _format):
+        if _format not in ["pda_simple", "nexus"]:
+            self.issues.append(
+                Issue(IType.ERROR, f'Could not export Biota layer {lay.name} (internal name "{lay.geoserver_name}") '
+                                   f'to format "{_format}". Supported "pda_simple" and "nexus"', f"Export {lay.name}"))
             return None
+        # TODO Check "tags" attribute, the layer should have a "Biota" tag
+        _ = generate_pda_species_file_from_layer(lay.id, lay.geoserver_name, _format)
+        if _ is None:
+            self.issues.append(Issue(IType.ERROR, f'Could not export Biota layer {lay.name} (internal name "{lay.geoserver_name}").', f"Export {lay.name} as Simple PDA text file"))
+            return None
+        elif _ == "":
+            self.issues.append(Issue(IType.ERROR,
+                                     f'Empty Biota layer {lay.name} (internal name "{lay.geoserver_name}").',
+                                     f"Export {lay.name}"))
+            return None
+        else:
+            return _
 
     @bcs_session()
-    def get(self, _id=None, format=None):
+    def get(self, _id=None, _format=None):
         """
         - get the list of layers in postgis
         - create a temporal layer from a sql filter
@@ -393,19 +415,22 @@ class LayersAPI(MethodView):
         export API_BASE_URL=http://localhost:5000/api
         curl --cookie-jar bcs-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user"
         curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/"
+        curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/?filter=%7B%22tags%22%3A%20%22biota%22%7D"
 
         curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/1"
 
         curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/1.pda_simple"
 
         @param _id: ID of a layer; empty for ALL layers (if no query params specified)
-        @param format: export format
+        @param _format: export format
         @return:
         """
         self.issues = []
         from biobarcoding.geo import geoserver_session
         layer = None
         _filter = request.args.get("filter")
+        if _filter != "":
+            _filter = json.loads(_filter)
         key_col = request.args.get("key_col")
         db = g.bcs_session.db_session
         if _id:  # A layer
@@ -414,17 +439,17 @@ class LayersAPI(MethodView):
                 layer = None
                 _, self.status = self.issues.append(Issue(IType.INFO, f'no data available')), 200
             else:
-                if format:
-                    content = self._export(layer, format=format)
+                if _format:
+                    content = self._export(layer, _format=_format)
                     if content:
-                        return Response(content, mimetype=f"text/{format}", status=200)
+                        return Response(content, mimetype=f"text/{_format}", status=200)
                 else:
                     if layer:
                         serializer = layer.Schema()
                         serializer.dump(layer)
 
-        elif not _filter and not key_col:  # All layers
-            self.issues, layer, count, self.status = get_content(db, GeographicLayer, self.issues)
+        elif not key_col:  # All layers (maybe filtered)
+            self.issues, layer, count, self.status = get_content(db, GeographicLayer, self.issues, filter_=_filter)
             if layer:
                 layer = list(filter(lambda x: (x.is_deleted is False), layer))
         elif _filter and key_col:  # Temporary layer
@@ -477,7 +502,7 @@ class LayersAPI(MethodView):
         """
         db = g.bcs_session.db_session
         self.issues = []
-        system_layer = True
+        system_layer = True  # or user layer
         self.kwargs = dict(name="unnamed")
         self._update_kwargs_from_request_data()
         self.kwargs["wks"] = workspace_names[0] if system_layer else workspace_names[1]
@@ -882,7 +907,11 @@ class LayersAPI(MethodView):
                 gdf = gpd.read_file(path)
                 return gdf
             except:
-                return None
+                try:
+                    gdf = import_pda_result(path, session=g.bcs_session.db_session)
+                    return gdf
+                except:
+                    return None
 
     def _read_raster_file(self, layer_name):
         from biobarcoding.geo import geoserver_session
@@ -915,7 +944,7 @@ class LayersAPI(MethodView):
 
 
 _ = register_api(bp_geo, LayersAPI, "geo/layers", f"{bcs_api_base}/geo/layers/", pk="_id")
-bp_geo.add_url_rule(bcs_api_base + '/geo/layers/<_id>.<string:format>', view_func=_, methods=['GET'])
+bp_geo.add_url_rule(bcs_api_base + '/geo/layers/<_id>.<string:_format>', view_func=_, methods=['GET'])
 
 # view_func = LayerAPI.as_view("geo/layers")
 # bp_geo.add_url_rule(f"{bcs_api_base}/geo/layers/", defaults={"_id": None}, view_func=view_func, methods=['GET', 'POST'])

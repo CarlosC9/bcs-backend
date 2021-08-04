@@ -653,7 +653,7 @@ def initialize_database_chado(flask_app):
         print("Connecting to Chado database server")
         print(db_connection_string)
         print("-----------------------------")
-        biobarcoding.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=True)
+        biobarcoding.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=False)
         # global DBSessionChado # global DBSessionChado registry to get the scoped_session
         DBSessionChado.configure(
             bind=biobarcoding.chado_engine)  # reconfigure the sessionmaker used by this scoped_session
@@ -1012,6 +1012,9 @@ def filter_parse(orm, filter, aux_filter=None):
             return obj <= value
         if op == "ge":
             return obj >= value
+        if op == "contains":
+            return value.in_(obj)
+
         return True
 
     try:
