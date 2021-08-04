@@ -17,7 +17,7 @@ from biobarcoding.rest.metadata import bp_metadata
 from biobarcoding.rest.jobs import bp_jobs
 from biobarcoding.rest.tasks import bp_tasks
 from biobarcoding.rest.processes import  bp_processes, bp_resources
-from biobarcoding.rest.geo_rest import bp_geo
+from biobarcoding.rest.geo_ import bp_geo
 from biobarcoding.rest.gui_static import bp_gui
 from biobarcoding.rest.browser_filters import bp_bfilters
 from biobarcoding.rest.views import bp_views
