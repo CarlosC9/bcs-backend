@@ -63,3 +63,12 @@ def get_canonical_species_names(sess, in_: List[str]) -> List[str]:
             v = None
         _.append(v)
     return v
+
+
+lst = ["Euphorbia lathyris L.",
+       'Lobularia libyca (Viv.) Meisn.',
+       'Schizogyne sericea (L. f.) DC.',
+       'Wahlenbergia lobelioides (L. f.) Link subsp. lobelioides',
+       'Cistus monspeliensis L. subsp. canariensis Rivas-Mart., Martín-Osorio & Wildpret']
+s = get_canonical_species_names(None, )
+print(s)
