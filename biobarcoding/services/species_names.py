@@ -14,6 +14,14 @@ def get_canonical_species_names(sess, in_: List[str]) -> List[str]:
     :param in_: List of species names to canonicalize
     :return: List of canonicalized species names. None if it was not possible to do
     """
+    from biobarcoding import engine, postgis_engine, get_global_configuration_variable
+    from biobarcoding.common.pg_helpers import create_pg_database_engine
+    if engine is None:
+        from biobarcoding.db_models import DBSession
+        db_connection_string = get_global_configuration_variable('DB_CONNECTION_STRING')
+        engine = create_pg_database_engine(db_connection_string, "bcs", recreate_db=False)
+        DBSession.configure(bind=engine)  # reconfigure the sessionmaker used by this scoped_session
+        sess = DBSession()
 
     _ = []
     for sn in in_:
