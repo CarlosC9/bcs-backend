@@ -31,17 +31,20 @@ class GeographicLayer(ORMBase):
     identity_id = Column(Integer)
     name = Column(String(80))
     wks = Column(String(80))  # Workspace
+    # TODO To migrate existing "geo_layers" table:
+    #  alter table geo_layers alter column properties type jsonb using properties::jsonb;
+    #  alter table geo_layers alter column attributes type jsonb using attributes::jsonb;
     attributes = Column(JSONB)  # Metadata about the layer: categories, tags, ...
+    properties = Column(JSONB)  # Store information about fields of a vectorial layer: field name, type, style, range...
     geoserver_name = Column(String(80))
     wms_url = Column(String(255))
-    properties = Column(JSONB)  # Store information about fields in a vectorial layer. Name, style, range, ...
     published = Column(Boolean, default=False)
     in_postgis = Column(Boolean, default=False)
     is_deleted = Column(Boolean, default=False)
     layer_type = Column(String(80))  # CHOICES?
 
 
-# This table is a PostGIS table (not in BCS; notice the parent class)
+# NOTE!!! This table is a PostGIS table (not in BCS; notice the parent class)
 # It is a special feature layer used to contain the geometry of regions
 class Regions(ORMBaseGeo):
      __tablename__ = 'Regions'
@@ -49,7 +52,3 @@ class Regions(ORMBaseGeo):
      uuid = Column(GUID, unique=True, default=uuid.uuid4)
      id = Column(Integer, primary_key=True, autoincrement=True)
      geometry = Column(Geometry(geometry_type='MULTIPOLYGON', srid=4326))
-
-
-
-
