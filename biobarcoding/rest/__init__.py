@@ -935,7 +935,7 @@ def get_decoded_params(data):
 
 
 def check_request_params(data=None):
-    kwargs = {}
+    kwargs = {'filter': [], 'order': [], 'pagination': {}, 'value': {}, 'searchValue': ''}
     if not data:
         if request.json:
             kwargs.update(check_request_params(request.json))
@@ -945,12 +945,11 @@ def check_request_params(data=None):
         print(f'DATA: {data}')
         input = get_decoded_params(data)
         for key in ('filter', 'order', 'pagination', 'value', 'searchValue'):
-            i = input.get(key)
-            if i:
-                kwargs[key] = i
-                input.pop(key)
-            else:
-                kwargs[key] = {}
+            try:
+                i = input.pop(key)
+            except Exception as e:
+                continue
+            kwargs[key] = i if i else kwargs[key]
         kwargs['value'].update(input)
     print(f'KWARGS: {kwargs}')
     return kwargs
@@ -1081,6 +1080,7 @@ def paginator(query, pagination):
     return query
 
 
+# reserved keywords: ['value', 'filter', 'order', 'pagination', 'searchValue']
 def get_query(session, orm, id=None, aux_filter=None, aux_order=None, **kwargs):
     query = session.query(orm)
     count = 0
@@ -1098,7 +1098,7 @@ def get_query(session, orm, id=None, aux_filter=None, aux_order=None, **kwargs):
             query = query.filter(filter_parse(orm, kwargs.get('filter'), aux_filter))
         if kwargs.get('order'):
             query = query.order_by(order_parse(orm, kwargs.get('order'), aux_order))
+        count = query.count()
         if kwargs.get('pagination'):
-            count = query.count()
             query = paginator(query, kwargs.get('pagination'))
     return query, count

@@ -29,7 +29,7 @@ def create_acls(**kwargs):
         if isinstance(details, (list, tuple)):
             for d in details:
                 DBSession.add(ACLDetail(acl_id=acl.id, **d))
-        issues, status = [Issue(IType.INFO, f'CREATE acls: The acl created successfully.')], 201
+        issues, status = [Issue(IType.INFO, f'CREATE acls: The acl was created successfully.')], 201
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, f'CREATE acls: The acl could not be created.')], 409
