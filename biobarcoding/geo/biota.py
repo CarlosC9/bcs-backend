@@ -7,6 +7,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 
+from biobarcoding.services.species_names import get_canonical_species_names
+
 """
 NOTE
 GBIF service to parse species names, with 3 species from Biota:
@@ -15,7 +17,7 @@ curl "https://api.gbif.org/v1/parser/name?name=Euphorbia%20balsamifera%20Aiton%2
 """
 
 
-def generate_pda_species_file_from_layer(layer_id: int, layer_name: str, format_: str) -> str:
+def generate_pda_species_file_from_layer(db_sess, layer_id: int, layer_name: str, format_: str) -> str:
     from biobarcoding import postgis_engine, get_global_configuration_variable
     if not layer_name:
         return None
@@ -42,20 +44,24 @@ def generate_pda_species_file_from_layer(layer_id: int, layer_name: str, format_
     if "riqueza" in cols:
         # Unprocessed Biota. Read from "DENOMTAX" column
         for t, cell in gdf.groupby(cols["idcelda"]):
-            if format_ == "nexus":
-                id_celda = int(cell[cols['idcelda']].values[0])
-                _ = ' '.join(f"'{taxon}'" for taxon in filter(None, cell[cols["denomtax"]].values))
+            if format_ == "nexus" or format_ == "pda_simple":
                 # Re-encode
-                _ = bytes(_.encode("iso-8859-1")).decode("utf8")
-                line_blocks.append(f"    taxset L{layer_id}_C{id_celda} = {_}")
-            elif format_ == "pda_simple":
-                line_blocks.append(str(len(cell)))
-                line_blocks.append('\n'.join(filter(None, cell[cols["denomtax"]].values)))
+                _ = [bytes(taxon.encode("iso-8859-1")).decode("utf8")
+                     for taxon in filter(None, cell[cols["denomtax"]].values)]
+                # Normalize species names and discard None's (could not normalize species)
+                _ = filter(None, get_canonical_species_names(db_sess, _))
+                # Generate text lines for the cell ("celda")
+                if format_ == "pda_simple":
+                    line_blocks.append(str(len(cell)))
+                    line_blocks.append('\n'.join(_))
+                else:
+                    id_celda = int(cell[cols['idcelda']].values[0])
+                    _ = ' '.join(f"'{sp}'" for sp in _)
+                    line_blocks.append(f"    taxset L{layer_id}_C{id_celda} = {_}")
             elif format_ == "pda_species":
                 species.update([bytes(taxon.encode("iso-8859-1")).decode("utf8")
                                 for taxon in filter(None, cell[cols["denomtax"]].values)
                                 ])
-
     else:
         # Processed Biota. Read from "taxa" JSON column
         for t, r in gdf.iterrows():

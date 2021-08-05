@@ -2,6 +2,7 @@ import urllib.parse
 from typing import List
 import requests
 
+from biobarcoding.db_models.metadata import SpeciesNameToCanonical
 
 species_names_map = {}
 
@@ -14,12 +15,9 @@ def get_canonical_species_names(sess, in_: List[str]) -> List[str]:
     :return: List of canonicalized species names. None if it was not possible to do
     """
     from biobarcoding import engine
-    commit_after = False
     if sess is None:
-        commit_after = True
         if engine is None:
             from biobarcoding.common.pg_helpers import create_pg_database_engine
-            from biobarcoding.db_models.metadata import SpeciesNameToCanonical
             from biobarcoding.db_models import DBSession
             from biobarcoding import get_global_configuration_variable
             db_connection_string = get_global_configuration_variable('DB_CONNECTION_STRING')
@@ -28,6 +26,7 @@ def get_canonical_species_names(sess, in_: List[str]) -> List[str]:
         sess = DBSession()
 
     _ = []
+    any_gbif_request = False
     for sn in in_:
         lsn = sn.lower().strip()
         found = False
@@ -60,6 +59,7 @@ def get_canonical_species_names(sess, in_: List[str]) -> List[str]:
                         species_name.scientific_name = r["scientificName"]
                         species_names_map[lsn] = species_name.canonical_name
                         found = True
+                    any_gbif_request = True
                     sess.add(species_name)
         else:
             found = True
@@ -68,7 +68,7 @@ def get_canonical_species_names(sess, in_: List[str]) -> List[str]:
         else:
             v = None
         _.append(v)
-    if commit_after:
+    if any_gbif_request:
         sess.commit()
 
     return _
