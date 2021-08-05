@@ -41,7 +41,7 @@
               "label": "PHYLIP format"
             },
             {
-              "value": "fa",
+              "value": "fasta",
               "label": "FASTA format"
             }
           ]

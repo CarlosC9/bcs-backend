@@ -199,25 +199,3 @@ def get_module_logger(mod_name,
     return logger
 
 
-''' Content-Types '''
-files_metadata = [
-    ("fasta", "application/x-fasta", "sequences"),
-    ("gff3", "text/gff3", "geneannotations"),
-    ("dnd", "application/x-nhx", "phylotrees"),
-    ("log", "text/plain", None),
-    ("clustal", "application/x-clustal", "alignment"),
-    ("phylip", "application/x-phylip", "phylotrees"),
-    ("fa", "application/x-fasta", "alignment")
-]
-
-
-def get_content_type_from_extension(wanted_extension):
-    for extension, content_type, _ in files_metadata:
-        if wanted_extension == extension:
-            return content_type
-
-
-def get_bioinformatic_object_from_extension(wanted_extension):
-    for extension, _, bioinformatic_object in files_metadata:
-        if wanted_extension == extension:
-            return bioinformatic_object
