@@ -25,7 +25,7 @@ begin paup;
 
 	pscores 1 / NonparamTest=yes single=var ci=yes ri=yes hi=yes scorefile=treescores.txt;
 
-	describetrees 1 / plot=cladogram outRoot=$outRoot file=treedescription.txt;
+	describetrees 1 / plot=cladogram outRoot=$outRoot file=cladogram.txt;
 
 	quit;
 END;
