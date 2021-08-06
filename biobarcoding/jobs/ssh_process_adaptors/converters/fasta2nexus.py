@@ -1,5 +1,6 @@
-from bioconvert.fasta2nexus import FASTA2NEXUS
 from sys import argv
+
+from bioconvert.fasta2nexus import FASTA2NEXUS
 
 if __name__ == "__main__":
     fasta_file, nexus_file, missing, gap = argv[1:]

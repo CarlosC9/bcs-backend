@@ -1,6 +1,6 @@
-from biobarcoding.db_models import DBSessionChado as chado_session
-from biobarcoding.db_models.chado import Organism
-from biobarcoding.rest import Issue, IType, filter_parse, paginator
+from ..db_models import DBSessionChado as chado_session
+from ..db_models.chado import Organism
+from ..rest import Issue, IType, filter_parse, paginator
 
 
 def create(**kwargs):

@@ -6,6 +6,7 @@ from typing import IO, Dict
 from celery import Celery
 from flask import after_this_request, request
 
+
 # Some decorators from "https://wiki.python.org/moin/PythonDecoratorLibrary"
 
 
@@ -122,6 +123,7 @@ class Memoize:
     """
     Cache of function calls (non-persistent, non-refreshable)
     """
+
     def __init__(self, fn):
         self.fn = fn
         self.memo = {}
@@ -176,6 +178,7 @@ def gzipped(f):
     """
     Decorator to ZIP the response in a RESTful call
     """
+
     @functools.wraps(f)
     def view_func(*args, **kwargs):
         @after_this_request
@@ -188,8 +191,8 @@ def gzipped(f):
             response.direct_passthrough = False
 
             if (response.status_code < 200 or
-                response.status_code >= 300 or
-                'Content-Encoding' in response.headers):
+                    response.status_code >= 300 or
+                    'Content-Encoding' in response.headers):
                 return response
             gzip_buffer = IO()
             gzip_file = gzip.GzipFile(mode='wb',
@@ -232,6 +235,7 @@ class celery_wf(object):
     See "definitions.py" for examples of use.
 
     """
+
     def __init__(self, cel_app: Celery, wf_def: Dict, name: str):
         self.celery_app = cel_app
         self.wf_def = wf_def

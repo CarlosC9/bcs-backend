@@ -1,9 +1,6 @@
 import os
 
-from dotted.collection import DottedDict
-
-from biobarcoding.jobs.ssh_process_adaptors import SSHProcessAdaptor
-import json
+from ..ssh_process_adaptors import SSHProcessAdaptor
 
 
 class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):

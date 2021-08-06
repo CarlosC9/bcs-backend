@@ -1,15 +1,16 @@
-from biobarcoding.db_models import DBSessionChado as chado_session
-from biobarcoding.rest import Issue, IType, filter_parse, paginator
-
-from biobarcoding.db_models.chado import Phylotree
+from ..db_models import DBSessionChado as chado_session
+from ..db_models.chado import Phylotree
+from ..rest import Issue, IType, filter_parse, paginator
 
 
 def create(**kwargs):
-    return {'status':'success','message':'CREATE: taxonomies dummy completed'}, 200
+    return {'status': 'success', 'message': 'CREATE: taxonomies dummy completed'}, 200
 
 
 count = 0
-def read(id = None, **kwargs):
+
+
+def read(id=None, **kwargs):
     content = None
     try:
         query = __get_query()
@@ -34,19 +35,20 @@ def delete(id=None, **kwargs):
     content = None
     try:
         resp = __get_query(id=id, **kwargs).delete(synchronize_session='fetch')
-        issues, status = [Issue(IType.INFO, f'DELETE taxonomies: The {resp} taxonomies were successfully removed.')], 200
+        issues, status = [Issue(IType.INFO,
+                                f'DELETE taxonomies: The {resp} taxonomies were successfully removed.')], 200
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, f'DELETE taxonomies: The taxonomies could not be removed.')], 404
     return issues, content, status
 
 
-def import_file(input_file, format = 'obo', **kwargs):
+def import_file(input_file, format='obo', **kwargs):
     content = None
     try:
         from flask import current_app
         cfg = current_app.config
-        named=''
+        named = ''
         if kwargs.get("name"):
             named = f' -n {kwargs.get("name")} '
         import os
@@ -61,33 +63,37 @@ def import_file(input_file, format = 'obo', **kwargs):
                 -d Pg\
                 -i {input_file}\
                 {named})''')
-        chado_session.execute("SELECT setval('phylonode_phylonode_id_seq', (SELECT MAX(phylonode_id) FROM phylonode)+1);")
+        chado_session.execute(
+            "SELECT setval('phylonode_phylonode_id_seq', (SELECT MAX(phylonode_id) FROM phylonode)+1);")
         # chado_session.execute("ALTER SEQUENCE phylonode_phylonode_id_seq RESTART WITH (SELECT MAX(phylonode_id) FROM phylonode)+1;")
-        issues, status = [Issue(IType.INFO, f'IMPORT taxonomies: The taxonomy {os.path.basename(input_file)} was successfully imported.')], 200
+        issues, status = [Issue(IType.INFO,
+                                f'IMPORT taxonomies: The taxonomy {os.path.basename(input_file)} was successfully imported.')], 200
         if err:
-            issues, status = [Issue(IType.INFO, f'IMPORT taxonomies: The taxonomy {os.path.basename(input_file)} was barely imported.')], 200
+            issues, status = [Issue(IType.INFO,
+                                    f'IMPORT taxonomies: The taxonomy {os.path.basename(input_file)} was barely imported.')], 200
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'IMPORT taxonomies: The taxonomy {os.path.basename(input_file)} could not be imported.')], 409
+        issues, status = [Issue(IType.ERROR,
+                                f'IMPORT taxonomies: The taxonomy {os.path.basename(input_file)} could not be imported.')], 409
     return issues, content, status
 
 
-def export(id = None, **kwargs):
+def export(id=None, **kwargs):
     issues = [Issue(IType.WARNING, 'EXPORT taxonomies: dummy completed')]
     content = None
     return issues, content, 200
 
 
-def __get_query(id = None, **kwargs):
+def __get_query(id=None, **kwargs):
     from biobarcoding.db_models.chado import Dbxref
-    _tax_tag = chado_session.query(Dbxref.dbxref_id)\
-        .filter(Dbxref.accession=='taxonomy').first()
-    query = chado_session.query(Phylotree)\
-        .filter(Phylotree.dbxref_id==_tax_tag)
+    _tax_tag = chado_session.query(Dbxref.dbxref_id) \
+        .filter(Dbxref.accession == 'taxonomy').first()
+    query = chado_session.query(Phylotree) \
+        .filter(Phylotree.dbxref_id == _tax_tag)
     global count
     count = 0
     if id:
-        query = query.filter(Phylotree.phylotree_id==id)
+        query = query.filter(Phylotree.phylotree_id == id)
     else:
         if 'filter' in kwargs:
             query = query.filter(filter_parse(Phylotree, kwargs.get('filter')))
@@ -100,7 +106,7 @@ def __get_query(id = None, **kwargs):
 
 
 def __aux_own_filter(filter):
-    clause=[]
+    clause = []
     # if 'analysis_id' in filter:
     #     from biobarcoding.db_models.chado import AnalysisFeature
     #     _ids = chado_session.query(AnalysisFeature.feature_id)\

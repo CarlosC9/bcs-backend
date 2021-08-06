@@ -1,8 +1,9 @@
+import json
 import logging
 import os
 import sys
 from enum import Enum
-import json
+from typing import Dict, List
 from urllib.parse import unquote
 
 import redis
@@ -11,25 +12,22 @@ from attr import attrs, attrib
 from bioblend import galaxy
 from flask import Response, Blueprint, g, request
 from flask.views import MethodView
-from flask_socketio import SocketIO
 from sqlalchemy import orm, and_, or_
 from sqlalchemy.pool import StaticPool
-from typing import Dict, List
 
 import biobarcoding
-from biobarcoding.authentication import bcs_session
-from biobarcoding.common import generate_json, ROOT
-from biobarcoding.common.helpers import get_module_logger
-from biobarcoding.common.pg_helpers import create_pg_database_engine, load_table, load_many_to_many_table, \
+from ..authentication import n_session
+from ..common import generate_json, ROOT
+from ..common.helpers import get_module_logger
+from ..common.pg_helpers import create_pg_database_engine, load_table, load_many_to_many_table, \
     load_computing_resources, load_processes_in_computing_resources, load_process_input_schema, load_table_extended
-from biobarcoding.db_models import DBSession, DBSessionChado, ORMBaseChado, ObjectType, DBSessionGeo
-from biobarcoding.db_models.sysadmin import *
-from biobarcoding.db_models.geographics import *
-from biobarcoding.db_models.jobs import *
-from biobarcoding.db_models.hierarchies import *
-from biobarcoding.db_models.metadata import *
-from biobarcoding.inputs_schema.workflows2formly import convert_workflows_to_formly
-from biobarcoding.rest.socket_service import SocketService
+from ..db_models import DBSession, DBSessionChado, ORMBaseChado, DBSessionGeo
+from ..db_models.bioinformatics import *
+from ..db_models.geographics import *
+from ..db_models.jobs import *
+from ..db_models.metadata import *
+from ..db_models.sysadmin import *
+from ..rest.socket_service import SocketService
 
 bcs_api_base = "/api"  # Base for all RESTful calls
 bcs_gui_base = "/gui"  # Base for the Angular2 GUI
@@ -116,50 +114,50 @@ def get_default_configuration_dict():
     BACKEND_URL = BROKER_URL
 
     return dict(
-                # BCS (SYSTEM DB)
-                DB_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432/",
-                # CHADO (MOLECULAR DATA DB)
-                CHADO_DATABASE="postgres",
-                CHADO_HOST="localhost",
-                CHADO_PORT="5432",
-                CHADO_USER="postgres",
-                CHADO_PASSWORD="postgres",
-                CHADO_SCHEMA="public",
-                # CELERY (TASK EXECUTION)
-                CELERY_BROKER_URL=f"{BROKER_URL}",
-                CELERY_BACKEND_URL=f"{BACKEND_URL}",
-                REDIS_HOST="filesystem:local_session",
-                REDIS_HOST_FILESYSTEM_DIR=f"{cache_path}/sessions",
-                # GEOSERVER address from BCS-Backend
-                GEOSERVER_URL="localhost:9180",
-                # GEO (GEOSPATIAL DATA)
-                GEOSERVER_USER="admin",
-                GEOSERVER_PASSWORD="ngd_ad37",
-                GEOSERVER_HOST="geoserver",
-                GEOSERVER_PORT="8080",
-                # PostGIS address from BCS-Backend
-                POSTGIS_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5435/",
-                # PostGIS address from Geoserver ("host", "port" could differ from those in POSTGIS_CONNECTION_STRING)
-                POSTGIS_USER="postgres",
-                POSTGIS_PASSWORD="postgres",
-                POSTGIS_PORT="5432",
-                POSTGIS_HOST="localhost",
-                POSTGIS_DB="ngd_geoserver",
-                # COMPUTE RESOURCES
-                RESOURCES_CONFIG_FILE_PATH="/home/resources_config.json",
-                JOBS_LOCAL_WORKSPACE=os.path.expanduser('~/ngd_jobs'),
-                SSH_JOBS_DEFAULT_REMOTE_WORKSPACE="/tmp",
-                GALAXY_API_KEY="fakekey",
-                GALAXY_LOCATION="http://localhost:8080",
-                # MISC
-                GOOGLE_APPLICATION_CREDENTIALS=f"{data_path}/firebase-key.json",  # Firebase
-                ENDPOINT_URL="http://localhost:5000",  # Self "bcs-backend" address (so Celery can update things)
-                COOKIES_FILE_PATH="/tmp/bcs-cookies.txt",  # Where cookies are stored by Celery
-                CACHE_FILE_LOCATION=f"{cache_path}/cache",  # Cached things
-                SAMESITE_NONE="True",
-                TESTING="True",
-                SELF_SCHEMA="",
-                )
+        # BCS (SYSTEM DB)
+        DB_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432/",
+        # CHADO (MOLECULAR DATA DB)
+        CHADO_DATABASE="postgres",
+        CHADO_HOST="localhost",
+        CHADO_PORT="5432",
+        CHADO_USER="postgres",
+        CHADO_PASSWORD="postgres",
+        CHADO_SCHEMA="public",
+        # CELERY (TASK EXECUTION)
+        CELERY_BROKER_URL=f"{BROKER_URL}",
+        CELERY_BACKEND_URL=f"{BACKEND_URL}",
+        REDIS_HOST="filesystem:local_session",
+        REDIS_HOST_FILESYSTEM_DIR=f"{cache_path}/sessions",
+        # GEOSERVER address from BCS-Backend
+        GEOSERVER_URL="localhost:9180",
+        # GEO (GEOSPATIAL DATA)
+        GEOSERVER_USER="admin",
+        GEOSERVER_PASSWORD="ngd_ad37",
+        GEOSERVER_HOST="geoserver",
+        GEOSERVER_PORT="8080",
+        # PostGIS address from BCS-Backend
+        POSTGIS_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5435/",
+        # PostGIS address from Geoserver ("host", "port" could differ from those in POSTGIS_CONNECTION_STRING)
+        POSTGIS_USER="postgres",
+        POSTGIS_PASSWORD="postgres",
+        POSTGIS_PORT="5432",
+        POSTGIS_HOST="localhost",
+        POSTGIS_DB="ngd_geoserver",
+        # COMPUTE RESOURCES
+        RESOURCES_CONFIG_FILE_PATH="/home/resources_config.json",
+        JOBS_LOCAL_WORKSPACE=os.path.expanduser('~/ngd_jobs'),
+        SSH_JOBS_DEFAULT_REMOTE_WORKSPACE="/tmp",
+        GALAXY_API_KEY="fakekey",
+        GALAXY_LOCATION="http://localhost:8080",
+        # MISC
+        GOOGLE_APPLICATION_CREDENTIALS=f"{data_path}/firebase-key.json",  # Firebase
+        ENDPOINT_URL="http://localhost:5000",  # Self "bcs-backend" address (so Celery can update things)
+        COOKIES_FILE_PATH="/tmp/bcs-cookies.txt",  # Where cookies are stored by Celery
+        CACHE_FILE_LOCATION=f"{cache_path}/cache",  # Cached things
+        SAMESITE_NONE="True",
+        TESTING="True",
+        SELF_SCHEMA="",
+    )
 
 
 def prepare_default_configuration(create_directories):
@@ -325,10 +323,15 @@ def check_galaxy_tools(wf1_dic, wf2_dic):
 
 
 def initialize_ssh(flask_app):
-    '''ssh_resources = conn.execute("SELECT * FROM jobs_compute_resources join jobs_job_mgmt_types as jt" +
-                                 " on jm_type_id=jt.id where jt.name='ssh'").fetchall()'''
+    """
+    ssh_resources = conn.execute("SELECT * FROM jobs_compute_resources join jobs_job_mgmt_types as jt" +
+                                 " on jm_type_id=jt.id where jt.name='ssh'").fetchall()
+    :param flask_app:
+    :return:
+    """
     session = DBSession()
-    ssh_resources = session.query(ComputeResource, JobManagementType).filter(ComputeResource.jm_type_id == JobManagementType.id, JobManagementType.name == 'ssh').all()
+    ssh_resources = session.query(ComputeResource, JobManagementType).filter(
+        ComputeResource.jm_type_id == JobManagementType.id, JobManagementType.name == 'ssh').all()
     for ssh_res in ssh_resources:
         compute_resource = ssh_res.ComputeResource
         ssh_credentials = compute_resource.jm_credentials
@@ -823,9 +826,9 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
 
     class CrudAPI(MethodView):
 
-        @bcs_session(read_only=True, authr=execution_rules.get("r"))
+        @n_session(read_only=True, authr=execution_rules.get("r"))
         def get(self, _id=None):  # List or Read
-            db = g.bcs_session.db_session
+            db = g.n_session.db_session
             r = ResponseObject()
             if _id is None:
                 # List of all
@@ -848,18 +851,18 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
 
             return r.get_response()
 
-        @bcs_session(authr=execution_rules.get("c"))
+        @n_session(authr=execution_rules.get("c"))
         def post(self):  # Create
-            db = g.bcs_session.db_session
+            db = g.n_session.db_session
             r = ResponseObject()
             t = request.json
             s = entity.Schema().load(t, instance=entity(), partial=True)
             db.add(s)
             return r.get_response()
 
-        @bcs_session(authr=execution_rules.get("u"))
+        @n_session(authr=execution_rules.get("u"))
         def put(self, _id):  # Update (total or partial)
-            db = g.bcs_session.db_session
+            db = g.n_session.db_session
             r = ResponseObject()
             t = request.json
             s = db.query(entity).filter(entity.id == _id).first()
@@ -867,9 +870,9 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
             db.add(s)
             return r.get_response()
 
-        @bcs_session(authr=execution_rules.get("d"))
+        @n_session(authr=execution_rules.get("d"))
         def delete(self, _id):  # Delete
-            db = g.bcs_session.db_session
+            db = g.n_session.db_session
             r = ResponseObject()
             # TODO Multiple delete
             # if _id is None:
@@ -893,9 +896,9 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
 
         return r.get_response()
 
-    @bcs_session()
+    @n_session()
     def get_entity_json_schema(_id):
-        db = g.bcs_session.db_session
+        db = g.n_session.db_session
         r = ResponseObject()
         factory = SchemaFactory(StructuralWalker)
         ent = db.query(entity).filter(entity.id == _id).first()
@@ -1088,7 +1091,7 @@ def get_query(session, orm, id=None, aux_filter=None, aux_order=None, **kwargs):
     else:
         if not kwargs.get('value'):
             kwargs['value'] = {}
-        for k,v in kwargs.items():
+        for k, v in kwargs.items():
             if not k in ['value', 'filter', 'order', 'pagination', 'searchValue'] and v:
                 kwargs['value'][k] = v
         if kwargs.get('value'):

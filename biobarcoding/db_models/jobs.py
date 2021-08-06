@@ -8,14 +8,13 @@ How to manage file Inputs and Outputs NOT in BCS, but in other places
 
 # ALGORITHMS
 import datetime
+import uuid
 
 from sqlalchemy import Integer, Column, String, Text, ForeignKey, JSON, DateTime
 from sqlalchemy.orm import relationship, backref
 
-from biobarcoding.db_models import ORMBase, GUID
-import uuid
-
-from biobarcoding.db_models.sysadmin import Identity
+from . import ORMBase, GUID
+from .sysadmin import Identity
 
 prefix = "jobs_"
 

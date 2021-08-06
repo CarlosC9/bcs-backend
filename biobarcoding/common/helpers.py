@@ -1,24 +1,25 @@
+import logging
 import io
 import logging
 import os
+import os.path
+import pickle
 import sys
 import tempfile
 import urllib
 from urllib.parse import urlparse
-import io
-import pickle
-import os.path
-from googleapiclient.discovery import build
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
-
-# If modifying these scopes, delete the file token.pickle.
 
 import jsonpickle
+from google.auth.transport.requests import Request
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
 
-from biobarcoding import get_global_configuration_variable
+from .. import get_global_configuration_variable
+
+
+# If modifying these scopes, delete the file token.pickle.
 
 
 def serialize_from_object(obj):
@@ -197,5 +198,3 @@ def get_module_logger(mod_name,
     logger.addHandler(handler)
     logger.setLevel(level)
     return logger
-
-

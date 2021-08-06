@@ -1,22 +1,26 @@
-from biobarcoding.db_models import DBSessionChado as chado_session
-from biobarcoding.db_models.chado import Analysis
-from biobarcoding.rest import Issue, IType, filter_parse, paginator
+from ..db_models import DBSessionChado as chado_session
+from ..db_models.chado import Analysis
+from ..rest import Issue, IType, filter_parse, paginator
 
 
 def create(**kwargs):
     content = None
     try:
         if not kwargs.get('name'):
-            kwargs['name']= f"{kwargs['program']} {kwargs['programversion']}"
+            kwargs['name'] = f"{kwargs['program']} {kwargs['programversion']}"
         chado_session.add(Analysis(**kwargs))
-        issues, status = [Issue(IType.INFO, f'CREATE analyses: The analysis "{kwargs.get("program")} {kwargs.get("programversion")}" created successfully.')], 201
+        issues, status = [Issue(IType.INFO,
+                                f'CREATE analyses: The analysis "{kwargs.get("program")} {kwargs.get("programversion")}" created successfully.')], 201
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'CREATE analyses: The analysis "{kwargs.get("program")} {kwargs.get("programversion")}" could not be created.')], 409
+        issues, status = [Issue(IType.ERROR,
+                                f'CREATE analyses: The analysis "{kwargs.get("program")} {kwargs.get("programversion")}" could not be created.')], 409
     return issues, content, status
 
 
 count = 0
+
+
 def read(id=None, **kwargs):
     content = None
     try:
@@ -82,16 +86,16 @@ def __aux_own_filter(filter):
 
     if filter.get('feature_id'):
         from biobarcoding.db_models.chado import AnalysisFeature
-        _ids = chado_session.query(AnalysisFeature.analysis_id)\
+        _ids = chado_session.query(AnalysisFeature.analysis_id) \
             .filter(filter_parse(AnalysisFeature, {'feature_id': filter.get('feature_id')}))
         clause.append(Analysis.analysis_id.in_(_ids))
 
     if filter.get('organism_id'):
         from biobarcoding.db_models.chado import Feature
-        _ids = chado_session.query(Feature.feature_id)\
+        _ids = chado_session.query(Feature.feature_id) \
             .filter(filter_parse(Feature, {'organism_id': filter.get('organism_id')}))
         from biobarcoding.db_models.chado import AnalysisFeature
-        _ids = chado_session.query(AnalysisFeature.analysis_id)\
+        _ids = chado_session.query(AnalysisFeature.analysis_id) \
             .filter(AnalysisFeature.feature_id.in_(_ids))
         clause.append(Analysis.analysis_id.in_(_ids))
 
@@ -117,12 +121,12 @@ def __aux_own_filter(filter):
     if "added-from" in filter:
         filter["added-from"]['unary'] = datetime.strptime(filter.get("added-from")['unary'], '%Y-%m-%d')
         _ids = chado_session.query(Analysis.analysis_id) \
-            .filter(filter_parse(Analysis, {'timeexecuted':filter.get("added-from")}))
+            .filter(filter_parse(Analysis, {'timeexecuted': filter.get("added-from")}))
         clause.append(Analysis.analysis_id.in_(_ids))
     if "added-to" in filter:
         filter["added-to"]['unary'] = datetime.strptime(filter.get("added-to")['unary'], '%Y-%m-%d')
         _ids = chado_session.query(Analysis.analysis_id) \
-            .filter(filter_parse(Analysis, {'timeexecuted':filter.get("added-to")}))
+            .filter(filter_parse(Analysis, {'timeexecuted': filter.get("added-to")}))
         clause.append(Analysis.analysis_id.in_(_ids))
 
     return clause

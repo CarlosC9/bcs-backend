@@ -5,6 +5,7 @@ from celery import Celery
 import biobarcoding
 from .celeryconfig import celery_config
 
+
 def is_port_open(host="localhost", port=6379):
     a_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     location = (host, port)
@@ -15,7 +16,6 @@ def is_port_open(host="localhost", port=6379):
     a_socket.close()
 
     return result_of_check == 0
-
 
 
 def get_redis_host():

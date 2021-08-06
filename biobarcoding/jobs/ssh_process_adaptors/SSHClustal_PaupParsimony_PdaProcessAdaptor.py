@@ -1,9 +1,9 @@
 import os
 
-from biobarcoding.jobs.ssh_process_adaptors import SSHProcessAdaptor
-from biobarcoding.jobs.ssh_process_adaptors.SSHClustalProcessAdaptor import SSHClustalProcessAdaptor
-from biobarcoding.jobs.ssh_process_adaptors.SSHPaupParsimonyProcessAdaptor import SSHPaupParsimonyProcessAdaptor
-from biobarcoding.jobs.ssh_process_adaptors.SSHPdaProcessAdaptor import SSHPdaProcessAdaptor
+from ..ssh_process_adaptors import SSHProcessAdaptor
+from ..ssh_process_adaptors.SSHClustalProcessAdaptor import SSHClustalProcessAdaptor
+from ..ssh_process_adaptors.SSHPaupParsimonyProcessAdaptor import SSHPaupParsimonyProcessAdaptor
+from ..ssh_process_adaptors.SSHPdaProcessAdaptor import SSHPdaProcessAdaptor
 
 
 class SSHClustal_PaupParsimony_PdaProcessAdaptor(SSHProcessAdaptor):
@@ -31,12 +31,12 @@ class SSHClustal_PaupParsimony_PdaProcessAdaptor(SSHProcessAdaptor):
                    "subprocess": "MSA ClustalW + PAUP Parsimony + Phylogenetic Diversity Analyzer",
                    "type": "python"
                },
-               {
-                   "remote_name": "nexus2newick.py",
-                   "file": os.path.join(self.CONVERTERS_FOLDER, "nexus2newick.py"),
-                   "subprocess": "MSA ClustalW + PAUP Parsimony + Phylogenetic Diversity Analyzer",
-                   "type": "python"
-               }]
+                   {
+                       "remote_name": "nexus2newick.py",
+                       "file": os.path.join(self.CONVERTERS_FOLDER, "nexus2newick.py"),
+                       "subprocess": "MSA ClustalW + PAUP Parsimony + Phylogenetic Diversity Analyzer",
+                       "type": "python"
+                   }]
 
     def get_script_params_string(self, process_parameters):
         return f"{self.clustalAdaptor.get_script_params_string(process_parameters)} " + \

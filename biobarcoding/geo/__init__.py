@@ -1,6 +1,5 @@
 from geo.Geoserver import Geoserver
 
-
 '''
 https://geoserver-rest.readthedocs.io/en/latest/how_to_use.html#getting-started-with-geoserver-rest
 geo_sesion inizialization (just object with admin and password information)
@@ -22,7 +21,8 @@ def initialize_geoserver(flask_app):
         'GEOSERVER_HOST',
         'GEOSERVER_PORT'} <= flask_app.config.keys():
         geoserver_url = f"http://{flask_app.config['GEOSERVER_HOST']}:{flask_app.config['GEOSERVER_PORT']}/geoserver"
-        geoserver_session = Geoserver(geoserver_url, username=flask_app.config['GEOSERVER_USER'], password=flask_app.config['GEOSERVER_PASSWORD'])
+        geoserver_session = Geoserver(geoserver_url, username=flask_app.config['GEOSERVER_USER'],
+                                      password=flask_app.config['GEOSERVER_PASSWORD'])
         # CHECK GEOSERVER:
         # get geoserver version
         version = geoserver_session.get_version()
@@ -36,7 +36,8 @@ def initialize_geoserver(flask_app):
         workspaces = geoserver_session.get_workspaces()
         for wkspc in workspace_names:
             if workspaces.get('workspaces') != '' and \
-                    {'name': wkspc, 'href': f'{geoserver_url}/rest/workspaces/{wkspc}.json'} in workspaces['workspaces'].get('workspace'):
+                    {'name': wkspc, 'href': f'{geoserver_url}/rest/workspaces/{wkspc}.json'} in workspaces[
+                'workspaces'].get('workspace'):
                 print(f'Workspace {wkspc} ready')
             else:
                 geoserver_session.create_workspace(workspace=wkspc)
@@ -55,4 +56,3 @@ def initialize_geoserver(flask_app):
                                                       )
     else:
         print("no geoserver data in config file cant open GEOSERVER session")
-

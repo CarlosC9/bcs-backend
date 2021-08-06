@@ -1,30 +1,29 @@
+import json
 import uuid
 from copy import deepcopy
 
-from geoalchemy2.shape import to_shape
+import geopandas
 from geoalchemy2.elements import WKBElement
-from marshmallow_sqlalchemy import ModelConversionError, ModelSchema, SQLAlchemySchema, fields
+from geoalchemy2.shape import to_shape
+from geoalchemy2.types import Geometry as Multipolygon
+from marshmallow.fields import String as SchemaString
+from marshmallow_sqlalchemy import ModelConversionError, ModelSchema
+from marshmallow_sqlalchemy import ModelConverter as BaseModelConverter
+from shapely.geometry import shape
+from shapely.geometry.multipolygon import MultiPolygon
 from sqlalchemy import event, TypeDecorator, CHAR, Column, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker, class_mapper, ColumnProperty, RelationshipProperty, mapper
 from sqlalchemy_continuum import make_versioned
-from geoalchemy2.types import Geometry as Multipolygon
-from marshmallow_sqlalchemy import ModelConverter as BaseModelConverter
-from marshmallow.fields import String as SchemaString
-from shapely.geometry import shape
-from shapely.geometry.multipolygon import MultiPolygon
-from shapely.geometry.polygon import Polygon
-import geopandas
-import json
 
 # make_versioned(user_cls=None, options={'native_versioning': True})
 make_versioned(user_cls=None)
 
-
 DBSession = scoped_session(sessionmaker())
 DBSessionChado = scoped_session(sessionmaker())
 DBSessionGeo = scoped_session(sessionmaker())
+
 
 class GUID(TypeDecorator):
     """
@@ -140,7 +139,7 @@ class GeoString(SchemaString):
             for geo in geodict['features']:
                 geo.pop('bbox', None)
             return geodict
-        if isinstance(value,dict):
+        if isinstance(value, dict):
             return value
 
     def _deserialize(self, value, attr, data, **kwargs):
