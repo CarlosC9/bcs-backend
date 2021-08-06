@@ -15,8 +15,8 @@ class SSHPdaProcessAdaptor(SSHProcessAdaptor):
     def get_script_files_list(self):
         return [
             {
-                "remote_name": "area.txt",
-                "file": os.path.join(self.ASSETS_FOLDER, "pda_assets", "area.txt"),
+                "remote_name": "area.nexus",
+                "file": os.path.join(self.ASSETS_FOLDER, "pda_assets", "area.nexus"),
                 "subprocess": "Phylogenetic Diversity Analyzer",
                 "type": "txt"
             },
