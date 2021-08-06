@@ -1,36 +1,77 @@
 import os.path
+import re
+
+from Bio import SeqIO
 
 from biobarcoding.db_models import DBSession as db_session
 from biobarcoding.db_models import DBSessionChado as chado_session
 from biobarcoding.db_models.chado import Feature
 
-from biobarcoding.rest import Issue, IType, filter_parse, paginator
-from biobarcoding.services import get_simple_query, log_exception
+from biobarcoding.rest import Issue, IType, filter_parse, get_query
+from biobarcoding.services import get_simple_query, log_exception, get_bioformat, get_or_create
+
+
+##
+# CREATE
+##
+
+def __check_seq_values(**values):
+    if not values.get('uniquename'):
+        raise Exception('Missing the uniquename (sequences ID)')
+
+    if not values.get('organism_id'):
+        from biobarcoding.db_models.chado import Organism
+        org = values.get('organism')
+        if org:
+            # TODO: check canónical name
+            values['organism_id'] = get_or_create(chado_session, Organism, genus=org.split(' ')[-2], species=org.split(' ')[-1]).organism_id
+        if not values.get('organism_id'):
+            values['organism_id'] = get_or_create(chado_session, Organism, genus='organism', species='undefined').organism_id
+
+    if not values.get('type_id'):
+        from biobarcoding.db_models.chado import Cvterm, Cv
+        # TODO: focus on SO ?
+        sont = get_simple_query(chado_session, Cv, name='sequence')
+        # Possible cvterms
+        moltype = values.get('molecule_type')
+        if moltype:
+            try:
+                values['type_id'] = get_simple_query(chado_session, Cvterm, name=moltype,
+                                                     cv_id=sont.one().cv_id).one().cvterm_id
+            except Exception as e:
+                pass
+        # Default 'contig' cvterm for sequences
+        if not values.get('type_id'):
+            try:
+                values['type_id'] = get_simple_query(chado_session, Cvterm, name='contig',
+                                                     cv_id=sont.one().cv_id).one().cvterm_id
+            except Exception as e:
+                pass
+        if not values.get('type_id'):
+            raise Exception(f'Missing the type_id for {values.get("uniquename")}')
+    return dict([(k, v) for k, v in values.items() if k in Feature.__table__.columns])
 
 
 def create(**kwargs):
     content = None
     try:
-        if not kwargs.get('uniquename'):
-            raise Exception('Missing the uniquename')
-        if not kwargs.get('organism_id'):
-            from biobarcoding.db_models.chado import Organism
-            try:
-                kwargs['organism_id'] = get_simple_query(chado_session, Organism, genus='organism', species='undefined').organism_id
-            except Exception as e:
-                kwargs['organism_id'] = get_simple_query(chado_session, Organism, genus='organism', species='undefined').organism_id
-        chado_session.add(Feature(**kwargs))
-        issues, status = [Issue(IType.INFO, f'CREATE sequences: The sequence "{kwargs.get("uniquename")}" created successfully.')], 201
+        values = __check_seq_values(**kwargs)
+        chado_session.add(Feature(**values))
+        issues, status = [Issue(IType.INFO, f'CREATE sequences: The sequence "{kwargs.get("uniquename")}" was created successfully.')], 201
     except Exception as e:
         log_exception(e)
         issues, status = [Issue(IType.ERROR, f'CREATE sequences: The sequence "{kwargs.get("uniquename")}" could not be created.')], 409
     return issues, content, status
 
-count = 0
+
+##
+# READ
+##
+
 def read(id=None, **kwargs):
-    content = None
+    content, count = None, 0
     try:
-        content = __get_query(id, **kwargs)
+        content, count = get_seqs_query(id, **kwargs)
         if id:
             content = content.first()
         else:
@@ -42,10 +83,18 @@ def read(id=None, **kwargs):
     return issues, content, count, status
 
 
+##
+# UPDATE
+##
+
 def update(id, **kwargs):
     issues = [Issue(IType.WARNING, 'UPDATE sequences: dummy completed')]
     return issues, None, 200
 
+
+##
+# DELETE
+##
 
 def __delete_from_bcs(feature_id):
     from biobarcoding.db_models.bioinformatics import Sequence
@@ -56,7 +105,7 @@ def __delete_from_bcs(feature_id):
 def delete(id=None, **kwargs):
     content = None
     try:
-        query = __get_query(id, **kwargs)
+        query, count = get_seqs_query(id, **kwargs)
         for seq in query.all():
             __delete_from_bcs(seq.feature_id)
         resp = query.delete(synchronize_session='fetch')
@@ -66,25 +115,114 @@ def delete(id=None, **kwargs):
         issues, status = [Issue(IType.ERROR, f'DELETE sequences: The sequences could not be removed.')], 404
     return issues, content, status
 
-# TODO: replace python-chado lib?
-def import_file(input_file, format='fasta', **kwargs):
-    # FASTA HEADER: > genus species mregion isle georegion individual
-    content = None
-    from biobarcoding.services import conn_chado
-    conn = conn_chado()
-    if not kwargs.get('organism_id'):
-        try:
-            kwargs['organism_id'] = conn.organism.add_organism(genus='organism',
-                                                     species='undefined', common='', abbr='')['organism_id']
-        except Exception as e:
-            kwargs['organism_id'] = conn.organism.get_organisms(species='undefined')[0]['organism_id']
+
+##
+# IMPORT
+##
+
+def __simpleSeq2chado(seq, **params):
+    return create(uniquename=seq.id, residues=str(seq.seq), seqlen=len(seq.seq))[0]
+
+
+def __fasSeq2chado(seq, meta, **params):
+    return create(uniquename=seq.id, name=seq.name, residues=str(seq.seq), seqlen=len(seq.seq))[0]
+
+
+def __gbSeq2chado(seq, **params):
+    # seq.id, seq.name, seq.seq, seq.description, seq.dbxrefs, seq.letter_annotations
+    # seq.annotations # (<class 'dict'>):
+    """
+    {
+        'molecule_type': 'DNA',
+        'topology': 'linear',
+        'data_file_division': 'PLN',
+        'date': '03-DEC-2018',
+        'accessions': ['Seq1_18037'],
+        'keywords': [''],
+        'source': 'plastid Ruta montana',
+        'organism': 'Ruta montana',
+        'taxonomy': ['Eukaryota', 'Viridiplantae', 'Streptophyta', 'Embryophyta', 'Tracheophyta', 'Spermatophyta', 'Magnoliophyta', 'eudicotyledons', 'Gunneridae', 'Pentapetalae', 'rosids', 'malvids', 'Sapindales', 'Rutaceae', 'Rutoideae', 'Ruta'],
+        'references': [
+            {
+                'location': '[0: 1509]',
+                'authors': 'Jaen-Molina,R., Soto,M., Marrero,A., Mesa,R. and Caujape-Castells,J.',
+                'title': 'Genetic data on the three Canarian endemic Ruta (Rutaceae) provide evidences of overlooked diversification and a complex evolutionary history',
+                'journal': 'unpublished',
+                'medline_id':'',
+                'pubmed_id':'',
+                'comment':'',
+            }],
+        'comment': 'Bankit Comment: ALT EMAIL:rjaenm@grancanaria.com\nBankit Comment: TOTAL # OF SEQS:34',
+        'structured_comment': # OrderedDict
+            {'Assembly-Data': # OrderedDict
+                 {'Sequencing Technology': 'Sanger dideoxy sequencing'}
+             }
+    }
+    """
+    # seq.features # (<class 'list'>):
+    """
+    [
+        # .location .type
+        SeqFeature(
+            location=FeatureLocation(ExactPosition(0), ExactPosition(1509), strand=1),
+            qualifiers= # OrderedDict
+            {
+                'organism': ['Ruta montana'],
+                'organelle': ['plastid'],
+                'mol_type': ['genomic DNA'],
+                'specimen_voucher': ['LPA s.n.'],
+                'bio_material': ['JBCVC: DNABANK: 18037'],
+                'db_xref': ['taxon:266085'],
+                'country': ['Morocco: Between Tanalt to Tidli'],
+                'collection_date': ['2015'],
+                'collected_by': ['J. Caujape-Castells, C. Harrouni, F. Msanda, et al']
+            },
+            type='source'),
+        SeqFeature(...,
+                   qualifiers=OrderedDict({'gene': ['matK']}),
+                   type='gene'),
+        SeqFeature(...,
+                   qualifiers=OrderedDict({'gene': ['matK'],
+                                           'note': ['maturase K']}),
+                   type='gene'),
+        SeqFeature(...,
+                   qualifiers=OrderedDict({'gene': ['matK'],
+                                           'codon_start': ['1'],
+                                           'transl_table': ['11'],
+                                           'product': ['maturase K'],
+                                           'translation': ['FQVYFELDRSQQHNF...']}),
+                   type='CDS')
+    ]
+    """
+    return create(uniquename=seq.id, name=seq.name, residues=str(seq.seq), seqlen=len(seq.seq),
+                  description=seq.description, dbxrefs=seq.dbxrefs, **seq.annotations, features=seq.features)[0]
+
+
+# ?META: accession, genus, species, molec_region, molec_origin, isle, georegion, individual, collection
+def __bio2chado(seq, format, **params):
+    seq.name = f'{seq.id} {seq.description}' if seq.id == seq.name else seq.name
+    if format == 'fasta':    # fasta
+        # p.e.: >Seq1_18037 [organism=Ruta montana] maturase K (matk) gene, partial sequence, partial cds; chloroplast
+        pattern = '^(?P<id>\w+?) *\[organism=(?P<organism>.+?)\] *(?P<genes>.+?); *(?P<origin>.+?)$'
+        meta = re.match(pattern, seq.description)
+        if meta:
+            return __fasSeq2chado(seq, meta.groupdict(), **params)
+        else:
+            return __simpleSeq2chado(seq, **params)
+    elif format == 'genbank':   # genbank
+        return __gbSeq2chado(seq, **params)
+    return [Issue(IType.ERROR, f'IMPORT sequences: {seq.id} could not be imported.')]
+
+
+def import_file(input_file, format=None, **kwargs):
+    issues, content, status, nseqs = [], None, 200, 0
+    format = get_bioformat(input_file, format)
     try:
-        resp = conn.feature.load_fasta(input_file, kwargs.get('organism_id'), analysis_id=kwargs.get('analysis_id'), update=True)
-        from Bio import SeqIO
-        __seqs2bcs([seq.id for seq in SeqIO.parse(input_file, format or 'fasta')])
-        issues, status = [Issue(IType.INFO,
-                                f'IMPORT sequences: {resp} sequences were successfully imported.',
-                                os.path.basename(input_file))], 200
+        from biobarcoding.services import seqs_parser
+        for s in seqs_parser(input_file, format):
+            iss = __bio2chado(s, format, **kwargs)
+            issues += [ Issue(i.itype, i.message, os.path.basename(input_file)) for i in iss ]
+        __seqs2bcs([seq.id for seq in SeqIO.parse(input_file, format)])
     except Exception as e:
         log_exception(e)
         issues, status = [Issue(IType.ERROR,
@@ -113,6 +251,10 @@ def __feature2bcs(seq):
                                  specimen_id=bcs_specimen.id)
     return bcs_sequence
 
+
+##
+# EXPORT
+##
 
 def __seqs_header_parser(seqs, format):
     # TODO: seqs header parser
@@ -149,30 +291,24 @@ def __seqs2file(seqs, format='fasta', output_file=f"/tmp/output_ngd", header_for
 def export(id=None, format='fasta', **kwargs):
     content = None
     try:
-        query = __get_query(id, **kwargs)
+        query, count = get_seqs_query(id, **kwargs)
         content = __seqs2file(query.all(), format=format, output_file=f'/tmp/output_ngd.{format}')
-        issues, status = [Issue(IType.INFO, f'EXPORT sequences: {query.count()} sequences were successfully exported.')], 200
+        issues, status = [Issue(IType.INFO, f'EXPORT sequences: {count} sequences were successfully exported.')], 200
     except Exception as e:
         log_exception(e)
         issues, status = [Issue(IType.ERROR, f'EXPORT sequences: The sequences could not be exported.')], 409
     return issues, content, status
 
 
-def __get_query(id=None, **kwargs):
-    query = chado_session.query(Feature)
-    global count
-    count = 0
+##
+# GETTER AND OTHERS
+##
+
+def get_seqs_query(id=None, **kwargs):
     if id:
-        query = query.filter(Feature.feature_id == id)
-    else:
-        if 'filter' in kwargs:
-            query = query.filter(filter_parse(Feature, kwargs.get('filter'), __aux_own_filter))
-        if 'order' in kwargs:
-            query = __get_query_ordered(query, kwargs.get('order'))
-        if 'pagination' in kwargs:
-            count = query.count()
-            query = paginator(query, kwargs.get('pagination'))
-    return query
+        query = chado_session.query(Feature).filter(Feature.feature_id == id)
+        return query, query.count()
+    return get_query(chado_session, Feature, aux_filter=__aux_own_filter, aux_order=__aux_own_order, **kwargs)
 
 
 def __aux_own_filter(filter):
@@ -248,6 +384,7 @@ def __aux_own_filter(filter):
     return clause
 
 
-def __get_query_ordered(query, order):
+def __aux_own_order(order):
+    clause=[]
     # query = query.order(order_parse(Feature, kwargs.get('order'), __aux_own_order))
-    return query
+    return clause
