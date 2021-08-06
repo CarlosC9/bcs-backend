@@ -1,24 +1,22 @@
 """
 REST interface to manage JOBS API
 """
-from dotted.collection import DottedDict, DottedList, DottedJSONEncoder, DottedCollection
-from flask import Blueprint
-from flask import request, make_response, Response, jsonify, g, session as flask_session
-from flask.views import MethodView
 import json
 
+from dotted.collection import DottedDict
+from flask import Blueprint
+from flask import request, make_response, Response, jsonify, g
+from flask.views import MethodView
 from sqlalchemy import and_
-from alchemyjsonschema import SchemaFactory, StructuralWalker
 
-from biobarcoding.common.helpers import is_integer
-from biobarcoding.db_models import DBSession
-from biobarcoding.db_models.jobs import ProcessInComputeResource
-from biobarcoding.jobs import JobManagementAPI
-from biobarcoding.jobs.process_adaptor import ProcessAdaptorFactory
-from biobarcoding.rest import bcs_api_base, register_api, Job, ComputeResource, Process, ResponseObject, \
+from ..authentication import n_session
+from ..common.helpers import is_integer
+from ..db_models import DBSession
+from ..db_models.jobs import ProcessInComputeResource
+from ..jobs import JobManagementAPI
+from ..jobs.process_adaptor import ProcessAdaptorFactory
+from . import bcs_api_base, register_api, Job, ComputeResource, Process, ResponseObject, \
     get_decoded_params, SocketService
-from biobarcoding.authentication import bcs_session, deserialize_session, BCSSession
-from biobarcoding.rest import make_simple_rest_crud
 
 bp_jobs = Blueprint('jobs', __name__)
 
@@ -32,10 +30,10 @@ class JobAPI(MethodView):
     page_size: int = None
     decorators = []  # Add decorators: identity, function execution permissions, logging, etc.
 
-    @bcs_session(read_only=True)
+    @n_session(read_only=True)
     def get(self, job_id=None):
         # return "<h1 style='color:blue'>Hello JOBS!</h1>"
-        db = g.bcs_session.db_session
+        db = g.n_session.db_session
         r = ResponseObject()
         status = request.args.get("status")
         if job_id is None:
@@ -60,7 +58,7 @@ class JobAPI(MethodView):
             r.content = query.first()
         return r.get_response()
 
-    @bcs_session(read_only=True)
+    @n_session(read_only=True)
     def post(self):
         """
         curl -i -XPOST http://localhost:5000/api/jobs/ --data-urlencode "{}"
@@ -71,12 +69,12 @@ class JobAPI(MethodView):
         msg = f'POST {request.path}\nPosting job'
 
         # Get Identity ID
-        identity_id = g.bcs_session.identity_id
+        identity_id = g.n_session.identity_id
         if identity_id is None:
             return Response("User not authorized", status=401)
 
         # Start session
-        session = g.bcs_session.db_session
+        session = g.n_session.db_session
 
         # Start JSON for processing
         d = DottedDict()
@@ -167,7 +165,7 @@ class JobAPI(MethodView):
 
         return make_response(jsonify(response_object)), 200
 
-    @bcs_session()
+    @n_session()
     def delete(self, job_id):
         # Cancel Job
         msg = f'DELETE {request.path}\nDeleting job {id}'
@@ -178,12 +176,12 @@ class JobAPI(MethodView):
         }
         return make_response(jsonify(responseObject)), 200
 
-    @bcs_session()
+    @n_session()
     def put(self, job_id):
         # Update job? What would be the utility
         msg = f'PUT {request.path}\nModifying job {job_id}'
         print(msg)
-        db = g.bcs_session.db_session
+        db = g.n_session.db_session
         # r = ResponseObject()
         req = request.get_json()
         job = db.query(Job).filter(Job.id == job_id).first()

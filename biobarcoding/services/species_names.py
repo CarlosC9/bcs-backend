@@ -1,8 +1,9 @@
 import urllib.parse
 from typing import List
+
 import requests
 
-from biobarcoding.db_models.metadata import SpeciesNameToCanonical
+from ..db_models.metadata import SpeciesNameToCanonical
 
 species_names_map = {}
 
@@ -72,7 +73,6 @@ def get_canonical_species_names(sess, in_: List[str]) -> List[str]:
         sess.commit()
 
     return _
-
 
 # lst = ["Euphorbia lathyris L.",
 #        'Lobularia libyca (Viv.) Meisn.',

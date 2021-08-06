@@ -1,9 +1,9 @@
+from firebase_admin import auth
 from flask import Blueprint, abort, request, make_response, jsonify, session as flask_session
 from flask.views import MethodView
 
-from biobarcoding.authentication import serialize_session, BCSSession, deserialize_session, obtain_idauth_from_request
-from biobarcoding.rest import bcs_api_base, register_api
-from firebase_admin import auth
+from ..authentication import serialize_session, BCSSession, deserialize_session, obtain_idauth_from_request
+from . import bcs_api_base
 
 bp_auth = Blueprint('bp_auth', __name__)
 
@@ -112,4 +112,3 @@ class AuthnAPI(MethodView):
 # POST not implemented
 view_func = AuthnAPI.as_view("authn")
 bp_auth.add_url_rule(f"{bcs_api_base}/authn", view_func=view_func, methods=['GET', 'PUT', 'DELETE'])
-

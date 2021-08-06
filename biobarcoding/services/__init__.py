@@ -2,11 +2,11 @@ def conn_chado():
     from flask import current_app
     from chado import ChadoInstance
     conn = ChadoInstance(dbhost=current_app.config["CHADO_HOST"],
-        dbname=current_app.config["CHADO_DATABASE"],
-        dbuser=current_app.config["CHADO_USER"],
-        dbpass=current_app.config["CHADO_PASSWORD"],
-        dbschema=current_app.config["CHADO_SCHEMA"],
-        dbport=current_app.config["CHADO_PORT"])
+                         dbname=current_app.config["CHADO_DATABASE"],
+                         dbuser=current_app.config["CHADO_USER"],
+                         dbpass=current_app.config["CHADO_PASSWORD"],
+                         dbschema=current_app.config["CHADO_SCHEMA"],
+                         dbport=current_app.config["CHADO_PORT"])
     return conn
 
 
@@ -16,9 +16,9 @@ def exec_cmds(*args):
     for cmd in args:
         print(cmd)
         process = subprocess.Popen(cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            shell=True)
+                                   stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE,
+                                   shell=True)
         o, e = process.communicate()
         out.append(o)
         print(f'OUT: \n{o.decode("utf-8")}\n')
@@ -50,7 +50,7 @@ def get_or_create(session, model, **kwargs):
 
 
 def get_simple_query(session, model, **kwargs):
-    kwargs = {k:v for k,v in kwargs.items() if v is not None}
+    kwargs = {k: v for k, v in kwargs.items() if v is not None}
     return session.query(model).filter_by(**kwargs)
 
 

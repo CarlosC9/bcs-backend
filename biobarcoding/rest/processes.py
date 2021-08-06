@@ -1,11 +1,12 @@
 from operator import and_
 
-from biobarcoding.authentication import bcs_session
-from biobarcoding.rest import make_simple_rest_crud, ResponseObject, register_api
-from biobarcoding.db_models.jobs import Process, ComputeResource, ProcessInComputeResource
+from flask import g
+from flask import request
 from flask.views import MethodView
-from flask import Response, Blueprint, g, request
-from flask import request, make_response, jsonify, send_file
+
+from ..authentication import n_session
+from ..db_models.jobs import Process, ComputeResource, ProcessInComputeResource
+from . import make_simple_rest_crud, ResponseObject
 
 bp_processes, ProcessesAPI = make_simple_rest_crud(Process, "processes")
 bp_resources, ResourcesAPI = make_simple_rest_crud(ComputeResource, "resources")
@@ -19,12 +20,13 @@ class ResourcesInProcessAPI(MethodView):
     page: int = None
     page_size: int = None
 
-    @bcs_session(read_only=True)
+    @n_session(read_only=True)
     def get(self, pid, _id=None):
-        db = g.bcs_session.db_session
+        db = g.n_session.db_session
         r = ResponseObject()
         if _id is None:
-            query = db.query(ComputeResource).join(ProcessInComputeResource).filter(ProcessInComputeResource.process_id == pid)
+            query = db.query(ComputeResource).join(ProcessInComputeResource).filter(
+                ProcessInComputeResource.process_id == pid)
             self.__check_data(request.args)
             if self.page and self.page_size:
                 query = query.offset((self.page - 1) * self.page_size).limit(self.page_size)
@@ -36,9 +38,9 @@ class ResourcesInProcessAPI(MethodView):
 
         return r.get_response()
 
-    @bcs_session(authr=None)
+    @n_session(authr=None)
     def post(self, pid):  # Create
-        db = g.bcs_session.db_session
+        db = g.n_session.db_session
         r = ResponseObject()
         t = request.json
         # TODO check process id.. etc
@@ -46,9 +48,9 @@ class ResourcesInProcessAPI(MethodView):
         # db.add(s)
         return r.get_response()
 
-    @bcs_session(authr=None)
+    @n_session(authr=None)
     def put(self, pid, _id):  # Update (total or partial)
-        db = g.bcs_session.db_session
+        db = g.n_session.db_session
         r = ResponseObject()
         t = request.json
         # s = db.query(ProcessInComputeResource).filter(
@@ -57,9 +59,9 @@ class ResourcesInProcessAPI(MethodView):
         # db.add(s)
         return r.get_response()
 
-    @bcs_session(authr=None)
+    @n_session(authr=None)
     def delete(self, pid, _id):  # Delete
-        db = g.bcs_session.db_session
+        db = g.n_session.db_session
         r = ResponseObject()
         s = db.query(ProcessInComputeResource).filter(
             and_(ProcessInComputeResource.process_id == pid, ProcessInComputeResource.resource_id == _id)).first()

@@ -2,7 +2,7 @@ import datetime
 
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
 
-from biobarcoding.db_models import ORMBase, GUID
+from . import ORMBase, GUID
 
 prefix = "md_"
 

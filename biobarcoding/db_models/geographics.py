@@ -1,12 +1,11 @@
 # GEOGRAPHIC data
-from marshmallow_sqlalchemy import SQLAlchemySchema, fields
-from sqlalchemy import Column, Integer, String, BigInteger, ForeignKey, JSON, Boolean
+import uuid
+
+from geoalchemy2 import Geometry
+from sqlalchemy import Column, Integer, String, JSON, Boolean
 from sqlalchemy.dialects.postgresql import JSONB
 
-from biobarcoding.db_models import ORMBase, ORMBaseGeo, GUID
-from biobarcoding.db_models.bioinformatics import BioinformaticObject, bio_object_type_id
-from geoalchemy2 import Geometry
-import uuid
+from . import ORMBase, ORMBaseGeo, GUID
 
 prefix = "geo_"
 
@@ -47,8 +46,8 @@ class GeographicLayer(ORMBase):
 # NOTE!!! This table is a PostGIS table (not in BCS; notice the parent class)
 # It is a special feature layer used to contain the geometry of regions
 class Regions(ORMBaseGeo):
-     __tablename__ = 'Regions'
+    __tablename__ = 'Regions'
 
-     uuid = Column(GUID, unique=True, default=uuid.uuid4)
-     id = Column(Integer, primary_key=True, autoincrement=True)
-     geometry = Column(Geometry(geometry_type='MULTIPOLYGON', srid=4326))
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    geometry = Column(Geometry(geometry_type='MULTIPOLYGON', srid=4326))

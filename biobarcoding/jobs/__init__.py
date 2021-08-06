@@ -1,11 +1,10 @@
+import abc
 import os
 from abc import ABC
-import abc
 from typing import Dict
 
-from biobarcoding import get_global_configuration_variable
-from biobarcoding.rest.file_manager import FilesAPI
-from biobarcoding.tasks import celery_app
+from ..tasks import celery_app
+from .. import get_global_configuration_variable
 
 
 class JobManagementAPI:

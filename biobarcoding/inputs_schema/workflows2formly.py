@@ -1,7 +1,7 @@
 import json
 import os
 
-from biobarcoding.common import ROOT
+from ..common import ROOT
 
 
 class ToFormlyConverter:
@@ -68,8 +68,9 @@ class ToFormlyConverter:
                     l.append(forms)
         return l
 
+
 class convertBooleanToolParameter(ToFormlyConverter):
-    def __init__(self,step_label):
+    def __init__(self, step_label):
         super(convertBooleanToolParameter, self).__init__(step_label)
 
     def convert(self, g_input):
@@ -99,8 +100,9 @@ class convertSelectToolParameter(ToFormlyConverter):
         form['templateOptions']['options'] = self.options(g_input)
         return form
 
+
 class converterIntegerToolParameter(ToFormlyConverter):
-    def __init__(self,step_label):
+    def __init__(self, step_label):
         super(converterIntegerToolParameter, self).__init__(step_label)
 
     def convert(self, g_input):
@@ -115,8 +117,9 @@ class converterIntegerToolParameter(ToFormlyConverter):
 
 
 class converterTextToolParameter(ToFormlyConverter):
-    def __init__(self,step_label):
+    def __init__(self, step_label):
         super(converterTextToolParameter, self).__init__(step_label)
+
     def convert(self, input):
         form = self.conversion(input)
         form['type'] = 'textarea'
@@ -124,7 +127,7 @@ class converterTextToolParameter(ToFormlyConverter):
 
 
 class converterConditional(ToFormlyConverter):
-    def __init__(self,step_label):
+    def __init__(self, step_label):
         super(converterConditional, self).__init__(step_label)
         self.selector = None
         self.cases = None
@@ -146,6 +149,7 @@ class converterConditional(ToFormlyConverter):
                     form.append(case_form)
         return form
 
+
 class inputCreation:
 
     def __init__(self, workflow_path):
@@ -164,12 +168,13 @@ class inputCreation:
         input = []
         workflow = self.workflow
         steps = workflow.get("steps")
-        for _,step in steps.items():
+        for _, step in steps.items():
             if len(step.get("input_connections")) == 0:
                 for step_input in step["inputs"]:
                     input.append({"name": step_input.get("name"),
-                                  "bo_type": step_input.get("bo_type","no specified"), # TODO DONDE ESTA ESTA INFORMACIÓN
-                                  "bo_format": step_input.get("bo_format","no specified")
+                                  "bo_type": step_input.get("bo_type", "no specified"),
+                                  # TODO DONDE ESTA ESTA INFORMACIÓN
+                                  "bo_format": step_input.get("bo_format", "no specified")
                                   }
                                  )
 
@@ -190,22 +195,22 @@ class inputCreation:
                 },
                 "defaultValue": input["name"]
             },
-            {
-                "key": "type",
-                "type": "input",
-                "templateOptions": {
-                    "label": "type"
+                {
+                    "key": "type",
+                    "type": "input",
+                    "templateOptions": {
+                        "label": "type"
+                    },
+                    "defaultValue": input["bo_format"]
                 },
-                "defaultValue": input["bo_format"]
-            },
-        {
-            "key": "bo_type",
-            "type": "input",
-            "templateOptions": {
-                "label": "bo type"
-            },
-            "defaultValue": input["bo_type"]
-        }]
+                {
+                    "key": "bo_type",
+                    "type": "input",
+                    "templateOptions": {
+                        "label": "bo type"
+                    },
+                    "defaultValue": input["bo_type"]
+                }]
             inputs_fieldGroups.append(form)
         # a esto le tengo que hacer el append de los parámetros de los algoritmos
         return inputs_fieldGroups
@@ -216,14 +221,14 @@ def convert_workflows_to_formly():
 
     wfdict1 = {'steps': {'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json',
                          'phyml': ROOT + '/biobarcoding/inputs_schema/phyml_galaxy.json'}
-               ,
-               'fname' : 'clustalw_phyml_formly.json',
+        ,
+               'fname': 'clustalw_phyml_formly.json',
                'workflow_path': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/workflows/Galaxy-Workflow-ClustalW-PhyMl.ga'
                }
     wfdict2 = {'steps':
                    [{'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json'}
                     ],
-               'fname' : 'clustalw_formly.json',
+               'fname': 'clustalw_formly.json',
                'workflow_path': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/workflows/Galaxy-Workflow-MSA_ClustalW.ga'
                }
 
@@ -232,7 +237,8 @@ def convert_workflows_to_formly():
     for wfdict in lwdict:
         if wfdict['fname'] not in os.listdir(path):
             wfdict['fname'] = path + wfdict['fname']
-            convertToFormly(wfdict['steps'],wfdict['workflow_path'],wfdict['fname'])
+            convertToFormly(wfdict['steps'], wfdict['workflow_path'], wfdict['fname'])
+
 
 def convertToFormly(wf_steps, path_to_workflow, newpath):
     '''
@@ -254,6 +260,6 @@ def convertToFormly(wf_steps, path_to_workflow, newpath):
         fieldGroup.append(form)
     formly['fieldGroup'] = fieldGroup
     formly_json = json.dumps([formly], indent=3)
-    file =  open(newpath, 'w')
+    file = open(newpath, 'w')
     file.write(formly_json)
     file.close()

@@ -6,10 +6,10 @@ import urllib
 from flask import Blueprint, request, g
 from flask.views import MethodView
 
-from biobarcoding.authentication import bcs_session
-from biobarcoding.common.helpers import is_integer, download_file
-from biobarcoding.db_models.files import FileSystemObject, Folder, File, BioinformaticObjectInFile
-from biobarcoding.rest import register_api, bcs_api_base, ResponseObject, Issue, IType
+from ..authentication import n_session
+from ..common.helpers import is_integer, download_file
+from ..db_models.files import FileSystemObject, Folder, File, BioinformaticObjectInFile
+from . import register_api, bcs_api_base, ResponseObject, Issue, IType
 
 bp_files = Blueprint('files', __name__)
 
@@ -128,7 +128,7 @@ curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/files/
 
         return content_type, buffer, len(buffer)
 
-    @bcs_session()
+    @n_session()
     def put(self, fso_path):
         """
         Create a file or a folder.
@@ -139,7 +139,7 @@ curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/files/
         :param fso_path: Full path of the file or folder. If File it does not end in "/", and contents are provided. Else, it is a Folder
         :return:
         """
-        session = g.bcs_session.db_session
+        session = g.n_session.db_session
         r = ResponseObject()
         # Translate characters. Split "fso_path" in parts
         p = FilesAPI._clean_path(fso_path)
@@ -203,7 +203,7 @@ curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/files/
                         lst = lst.decode("utf-8")
                         lst = json.loads(lst)
                     # Delete all BOS of file
-                    session.query(BioinformaticObjectInFile).filter(BioinformaticObjectInFile.file==file).delete()
+                    session.query(BioinformaticObjectInFile).filter(BioinformaticObjectInFile.file == file).delete()
                     for i in lst:
                         bos_file = BioinformaticObjectInFile()
                         bos_file.file = file
@@ -221,7 +221,7 @@ curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/files/
 
         return fso.content_type, fso.embedded_content
 
-    @bcs_session()
+    @n_session()
     def get(self, fso_path):
         """
         Get a file or the list of files of a folder
@@ -229,7 +229,7 @@ curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/files/
         :param fso_path:
         :return:
         """
-        session = g.bcs_session.db_session
+        session = g.n_session.db_session
         r = ResponseObject()
         if fso_path is None:
             # If nothing is passed after "/files/", return <empty>
@@ -258,7 +258,8 @@ curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/files/
                     r.content = fso.embedded_content
                 else:
                     if get_bos:
-                        r.content = [bos_file.bos_id for bos_file in session.query(BioinformaticObjectInFile).filter(BioinformaticObjectInFile.file==fso)]
+                        r.content = [bos_file.bos_id for bos_file in session.query(BioinformaticObjectInFile).filter(
+                            BioinformaticObjectInFile.file == fso)]
                     else:
                         r.content = FilesAPI._get_fso_dict(fso)
             elif isinstance(fso, Folder):
@@ -279,7 +280,7 @@ curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/files/
         r = ResponseObject()
         return r.get_response()
 
-    @bcs_session()
+    @n_session()
     def delete(self, fso_path):
         """
         Delete a FileSystemObject, if possible
@@ -289,7 +290,7 @@ curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/files/
         :param fso_path:
         :return:
         """
-        session = g.bcs_session.db_session
+        session = g.n_session.db_session
         r = ResponseObject()
         if fso_path is None:
             # If nothing is passed after "/files/", return <empty>
@@ -310,7 +311,8 @@ curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt "$API_BASE_URL/files/
                 session.delete(fso)
             else:
                 r.status = 501  # Not implemented
-                r.issues.append(Issue(IType.INFO, f'Can only delete Files. Deleting empty directories still not implemented.'))
+                r.issues.append(
+                    Issue(IType.INFO, f'Can only delete Files. Deleting empty directories still not implemented.'))
 
         return r.get_response()
 

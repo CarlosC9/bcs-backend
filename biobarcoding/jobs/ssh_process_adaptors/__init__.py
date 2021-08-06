@@ -1,7 +1,7 @@
-import os
 import abc
+import os
 
-from biobarcoding.jobs.process_adaptor import ProcessAdaptor
+from ..process_adaptor import ProcessAdaptor
 
 SCRIPT_KEY = "scripts"
 SCRIPT_FILES_KEY = "scripts_files"
@@ -15,7 +15,7 @@ class SSHProcessAdaptor(ProcessAdaptor, abc.ABC):
     ASSETS_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                  "ssh_process_assets")
     CONVERTERS_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                                 "converters")
+                                     "converters")
 
     def adapt_job_context(self, job_context):
         process_parameters = job_context["process"]["inputs"]["parameters"]

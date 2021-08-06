@@ -1,4 +1,4 @@
-from biobarcoding.rest.main import app
+from .main import app
 
 # Example:
 #

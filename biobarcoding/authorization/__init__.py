@@ -8,8 +8,7 @@ from pyparsing import ParserElement, Literal, oneOf, CaselessKeyword, Word, alph
     delimitedList, Group, operatorPrecedence, Or, opAssoc, Dict
 
 import biobarcoding
-from biobarcoding.db_models.sysadmin import Identity, Role, Organization, RoleIdentity, GroupIdentity, \
-    OrganizationIdentity
+from ..db_models.sysadmin import Identity, Role, Organization, RoleIdentity, GroupIdentity, OrganizationIdentity
 
 ParserElement.enablePackrat()
 lparen, rparen, lbracket, rbracket, lcurly, rcurly, dot, equals, hash = map(Literal, "()[]{}.=#")
@@ -21,8 +20,10 @@ andop = CaselessKeyword("AND")
 orop = CaselessKeyword("OR")
 notop = CaselessKeyword("NOT")
 inop = CaselessKeyword("IN")
-simple_ident = Word(alphas, alphanums+"_")  # Start in letter, then "_" + letters + numbers
-in_expression = Group(simple_ident + inop.suppress() + lparen.suppress() + delimitedList(Or([QuotedString('"'), QuotedString("'")]), ",") + rparen.suppress()).\
+simple_ident = Word(alphas, alphanums + "_")  # Start in letter, then "_" + letters + numbers
+in_expression = Group(
+    simple_ident + inop.suppress() + lparen.suppress() + delimitedList(Or([QuotedString('"'), QuotedString("'")]),
+                                                                       ",") + rparen.suppress()). \
     setParseAction(lambda t: {'type': 'in',
                               'attribute': t[0][0],
                               'values': t[0][1:]}
@@ -30,26 +31,26 @@ in_expression = Group(simple_ident + inop.suppress() + lparen.suppress() + delim
 
 authr_expression = operatorPrecedence(Or([in_expression, simple_ident, QuotedString('"'), QuotedString("'")]),
                                       [
-                                         (comparisonop, 2, opAssoc.LEFT, lambda _s, l, t: {
-                                             'type': 'comparison',
-                                             'terms': t.asList()[0][0::2],
-                                             'ops': t.asList()[0][1::2]
-                                         }),
-                                         (notop, 1, opAssoc.RIGHT, lambda _s, l, t: {
-                                             'type': 'not',
-                                             'terms': [t.asList()[0][1]],
-                                             'ops': [t.asList()[0][0]]
-                                         }),
-                                         (andop, 2, opAssoc.LEFT, lambda _s, l, t: {
-                                             'type': 'and',
-                                             'terms': t.asList()[0][0::2],
-                                             'ops': t.asList()[0][1::2]
-                                         }),
-                                         (orop, 2, opAssoc.LEFT, lambda _s, l, t: {
-                                             'type': 'or',
-                                             'terms': t.asList()[0][0::2],
-                                             'ops': t.asList()[0][1::2]
-                                         }),
+                                          (comparisonop, 2, opAssoc.LEFT, lambda _s, l, t: {
+                                              'type': 'comparison',
+                                              'terms': t.asList()[0][0::2],
+                                              'ops': t.asList()[0][1::2]
+                                          }),
+                                          (notop, 1, opAssoc.RIGHT, lambda _s, l, t: {
+                                              'type': 'not',
+                                              'terms': [t.asList()[0][1]],
+                                              'ops': [t.asList()[0][0]]
+                                          }),
+                                          (andop, 2, opAssoc.LEFT, lambda _s, l, t: {
+                                              'type': 'and',
+                                              'terms': t.asList()[0][0::2],
+                                              'ops': t.asList()[0][1::2]
+                                          }),
+                                          (orop, 2, opAssoc.LEFT, lambda _s, l, t: {
+                                              'type': 'or',
+                                              'terms': t.asList()[0][0::2],
+                                              'ops': t.asList()[0][1::2]
+                                          }),
                                       ],
                                       lpar=lparen.suppress(),
                                       rpar=rparen.suppress()
@@ -86,11 +87,11 @@ def string_to_ast(rule: ParserElement, input_: str) -> Dict:
 
 # Comparison operators
 op_map = {
-        "==": lambda a, b: a == b,
-        "=": lambda a, b: a == b,
-        "!=": lambda a, b: a != b,
-        "<>": lambda a, b: a != b,
-        }
+    "==": lambda a, b: a == b,
+    "=": lambda a, b: a == b,
+    "!=": lambda a, b: a != b,
+    "<>": lambda a, b: a != b,
+}
 
 
 def ast_evaluator(ast: Dict, ident: Identity):
@@ -119,7 +120,7 @@ def ast_evaluator(ast: Dict, ident: Identity):
                     if op == "not":
                         current = not bool(following)
                 else:
-                    op = ast["ops"][i-1].lower()
+                    op = ast["ops"][i - 1].lower()
                     if op == "and":
                         current = current and following
                     elif op == "or":
@@ -157,23 +158,24 @@ if __name__ == '__main__':
                    "group in ('nextgendem', 'students')"]
 
     # Example combining several IN conditions with AND and ON
-    full_examples = ["(role in ('admin', 'advanced_user') and group in ('nextgendem')) or not role in ('people') and not group in ('students')"]
+    full_examples = [
+        "(role in ('admin', 'advanced_user') and group in ('nextgendem')) or not role in ('people') and not group in ('students')"]
 
     for e in in_examples:
         # try:
-            ast = string_to_ast(in_expression, e)
-            print(ast)
-            res = ast_evaluator(ast, ident)
-            print(res)
-        # except:
-        #     print("Incorrect")
+        ast = string_to_ast(in_expression, e)
+        print(ast)
+        res = ast_evaluator(ast, ident)
+        print(res)
+    # except:
+    #     print("Incorrect")
 
     for e in full_examples:
         # try:
-            print(e)
-            ast = string_to_ast(authr_expression, e)
-            print(ast)
-            res = ast_evaluator(ast, ident)
-            print(res)
-        # except:
-        #     print("Incorrect")
+        print(e)
+        ast = string_to_ast(authr_expression, e)
+        print(ast)
+        res = ast_evaluator(ast, ident)
+        print(res)
+    # except:
+    #     print("Incorrect")

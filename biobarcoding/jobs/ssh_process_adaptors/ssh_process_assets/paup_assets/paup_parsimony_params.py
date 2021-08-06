@@ -45,7 +45,7 @@ def delete_templates_comments(file_content: str):
 
 if __name__ == "__main__":
     template_filename, output_filename, out_root, gap_mode, addseq, swap, hold, consensus_tree_type, le50, percent, n_replicas, search, method, enforce_converse, taxset_paup, sets, assumptions = argv[
-                                                                                                                                                                    1:]
+                                                                                                                                                                                                   1:]
     inputs_dict = {
         "$outRoot": out_root,
         "$gapMode": gap_mode,

@@ -1,6 +1,6 @@
 import os
 
-from biobarcoding.jobs.ssh_process_adaptors import SSHProcessAdaptor
+from ..ssh_process_adaptors import SSHProcessAdaptor
 
 
 class SSHClustalProcessAdaptor(SSHProcessAdaptor):
@@ -8,10 +8,10 @@ class SSHClustalProcessAdaptor(SSHProcessAdaptor):
 
     def get_script_filenames(self):
         return [{
-                  "remote_name": "clustalw.sh",
-                  "file": os.path.join(self.ASSETS_FOLDER, "clustalw.sh"),
-                  "type": "sh"
-                }]
+            "remote_name": "clustalw.sh",
+            "file": os.path.join(self.ASSETS_FOLDER, "clustalw.sh"),
+            "type": "sh"
+        }]
 
     def get_script_files_list(self):
         return []

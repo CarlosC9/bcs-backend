@@ -7,7 +7,7 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 
-from biobarcoding.services.species_names import get_canonical_species_names
+from ..services.species_names import get_canonical_species_names
 
 """
 NOTE
@@ -85,7 +85,7 @@ def generate_pda_species_file_from_layer(db_sess, layer_id: int, layer_name: str
 #     f.write(generate_pda_species_file_from_layer(layer_id=2, layer_name="layer_32", format_="pda_species"))
 
 
-def import_pda_result(file_name: str, layer_id: str=None, session=None):
+def import_pda_result(file_name: str, layer_id: str = None, session=None):
     # NOTE: this initial section is only for testing purposes
     from biobarcoding import engine, postgis_engine, get_global_configuration_variable
     from biobarcoding.common.pg_helpers import create_pg_database_engine
@@ -149,7 +149,7 @@ def import_pda_result(file_name: str, layer_id: str=None, session=None):
                 return None  # Could not read the source Biota layer
 
             # Generate column "idcelda" from "name" column
-            df["idcelda"] = df["name"].str[len(f"L{layer_id}_")+1:].astype(np.int64)
+            df["idcelda"] = df["name"].str[len(f"L{layer_id}_") + 1:].astype(np.int64)
             del df["name"]
             # Join and return the layer
             return gdf.merge(df, on="idcelda")

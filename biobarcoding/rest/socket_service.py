@@ -1,7 +1,9 @@
-from flask_socketio import SocketIO, ConnectionRefusedError
-from flask import request, session as flask_session
 import copy
-from biobarcoding.authentication import deserialize_session, BCSSession
+
+from flask import request, session as flask_session
+from flask_socketio import SocketIO, ConnectionRefusedError
+
+from ..authentication import deserialize_session, BCSSession
 
 
 class SocketService:
@@ -11,6 +13,7 @@ class SocketService:
 
         def __init__(self, socketio: SocketIO):
             self.socketio = socketio
+
             @socketio.on('connect')
             def connect(auth):
                 print('Connect to socket')
