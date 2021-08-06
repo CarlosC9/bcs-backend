@@ -113,7 +113,7 @@ def write_to_universal_log_and_truncate(step_stdout, step_stderr, universal_log)
     with open(universal_log, "a+") as universal_log_file:
         universal_log_file.write(step_log)
 
-def generate_data_api_curl(file_dict: dict, tmp_path: str):
+def generate_export_cmd(file_dict: dict, tmp_path: str, job_executor):
     endpoint: str = get_global_configuration_variable("ENDPOINT_URL")
     cookies_file_path: str = get_global_configuration_variable("COOKIES_FILE_PATH")
     extension: str = file_dict['type']
@@ -125,17 +125,23 @@ def generate_data_api_curl(file_dict: dict, tmp_path: str):
         with_filter = True
     api_login()
     url = ""
-    if "bio" in object_type.keys():
-        url = f"{endpoint}{bcs_api_base}/bos/{object_type['bio']}.{extension}"
+    if "bos" in object_type.keys():
+        url = f"{endpoint}{bcs_api_base}/bos/{object_type['bos']}.{extension}"
     if "geo" in object_type.keys():
         if object_type['geo'] == "layers":
             url = f"{endpoint}{bcs_api_base}/geo/{object_type['geo']}/{selection}.{extension}"
 
     if with_filter:
-        return (f"curl --cookie-jar {cookies_file_path} --cookie {cookies_file_path} -X GET -d \'{selection_json}\' " +
+        curl = (f"curl --cookie-jar {cookies_file_path} --cookie {cookies_file_path} -X GET -d \'{selection_json}\' " +
                 f"-H \'Content-Type:application/json\' {url} -o \'{tmp_path}\'")
+        return (f"(nohup bash -c &quot;{curl}&quot; >>{job_executor.log_filenames_dict['export_stdout']} " +
+               f"</dev/null 2>>{job_executor.log_filenames_dict['export_stderr']} & echo $!; wait $!; " +
+               f"echo $? >> {job_executor.local_workspace}/$!.exit_status)")
     else:
-        return f"curl --cookie-jar {cookies_file_path} --cookie {cookies_file_path} -X GET {url} -o \'{tmp_path}\'"
+        curl = f"curl --cookie {cookies_file_path} -X GET {url} -o \'{tmp_path}\'"
+        return (f"(nohup bash -c \"{curl}\" >>{job_executor.log_filenames_dict['export_stdout']} " +
+                f"</dev/null 2>>{job_executor.log_filenames_dict['export_stderr']} & echo $!; wait $!; " +
+                f"echo $? >> {job_executor.local_workspace}/$!.exit_status)")
 
 
 # TODO: Hay que prepararlo para las colecciones y los ficheros que suba el usuario de manera
@@ -150,10 +156,7 @@ def export(file_dict, job_executor) -> object:
     @return: pid: PID of the executed script process
     """
     tmp_path = os.path.join(job_executor.local_workspace, file_dict["remote_name"])
-    curl = generate_data_api_curl(file_dict, tmp_path)
-    cmd = (f"(nohup bash -c &quot;{curl}&quot; >>{job_executor.log_filenames_dict['export_stdout']} " +
-           f"</dev/null 2>>{job_executor.log_filenames_dict['export_stderr']} & echo $!; wait $!; " +
-           f"echo $? >> {job_executor.local_workspace}/$!.exit_status)")
+    cmd = generate_export_cmd(file_dict, tmp_path, job_executor)
     print(cmd)
     popen_pipe = os.popen(cmd)
     pid = popen_pipe.readline().rstrip()
@@ -161,7 +164,7 @@ def export(file_dict, job_executor) -> object:
     return pid
 
 
-def is_bos_file(input_file):
+def is_file_exported(input_file):
     if os.path.exists(input_file):  # and check that it is not an error file:
         with open(input_file) as file:
             file_content = file.read()
@@ -169,10 +172,10 @@ def is_bos_file(input_file):
         if not re.search(r'\b<!DOCTYPE HTML PUBLIC\b', file_content):
             return True
         else:
-            print(f"print {input_file} is a html file")
+            print(f"{input_file} is a html file")
             return False
     else:
-        print(f"print {input_file} does not exists")
+        print(f"{input_file} does not exists")
         return False
 
 
@@ -349,7 +352,7 @@ def wf1_export_to_supported_file_formats(job_context: str):
         tmp["pid"] = None
         job_context = json.dumps(tmp)
         return None, job_context
-    elif is_bos_file(os.path.join(job_executor.local_workspace, file_dict["remote_name"])):
+    elif is_file_exported(os.path.join(job_executor.local_workspace, file_dict["remote_name"])):
         print(f"File {file_dict['remote_name']} transferred -> Moving to next")
         write_to_file(job_executor.log_filenames_dict["export_stdout"],
                       f"File {file_dict['remote_name']} exported -> Moving to next")
