@@ -1,8 +1,27 @@
+import sys
+from pathlib import Path
+
 from NamedAtomicLock import NamedAtomicLock
 from flask import (Flask, request, session as flask_session, redirect, current_app)
 from flask_cors import CORS
 from flask_session import Session as FlaskSessionServerSide
 from flask_socketio import SocketIO
+
+# Workaround for relative imports in a "__main__"
+# From: https://stackoverflow.com/a/28154841
+if __name__ == '__main__' and __package__ is None:
+    file = Path(__file__).resolve()
+    parent, top = file.parent, file.parents[3]
+
+    sys.path.append(str(top))
+    try:
+        sys.path.remove(str(parent))
+    except ValueError:  # Already removed
+        pass
+
+    import biobarcoding.rest
+    __package__ = 'biobarcoding.rest'
+# End of workaround
 
 import biobarcoding
 from ..authentication import initialize_firebase
