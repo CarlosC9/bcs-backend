@@ -1,6 +1,6 @@
-from biobarcoding.db_models import DBSessionChado as chado_session
-from biobarcoding.db_models.chado import Stock
-from biobarcoding.rest import Issue, IType, filter_parse, paginator
+from ..db_models import DBSessionChado as chado_session
+from ..db_models.chado import Stock
+from ..rest import Issue, IType, filter_parse, paginator
 
 
 def create(**kwargs):
@@ -10,16 +10,21 @@ def create(**kwargs):
             raise Exception('Missing the uniquename')
         if not kwargs.get('type_id'):
             from biobarcoding.db_models.chado import Cvterm
-            kwargs['type_id'] = chado_session.query(Cvterm.cvterm_id).filter(Cvterm.name=='plant anatomical entity').one()
+            kwargs['type_id'] = chado_session.query(Cvterm.cvterm_id).filter(
+                Cvterm.name == 'plant anatomical entity').one()
         chado_session.add(Stock(**kwargs))
-        issues, status = [Issue(IType.INFO, f'CREATE individuals: The individual "{kwargs.get("uniquename")}" created successfully.')], 201
+        issues, status = [Issue(IType.INFO,
+                                f'CREATE individuals: The individual "{kwargs.get("uniquename")}" created successfully.')], 201
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'CREATE individuals: The individual "{kwargs.get("uniquename")}" could not be created.')], 409
+        issues, status = [Issue(IType.ERROR,
+                                f'CREATE individuals: The individual "{kwargs.get("uniquename")}" could not be created.')], 409
     return issues, content, status
 
 
 count = 0
+
+
 def read(id=None, **kwargs):
     content = None
     try:
@@ -52,7 +57,8 @@ def delete(id=None, **kwargs):
     try:
         query = __get_query(id, **kwargs)
         resp = query.delete(synchronize_session='fetch')
-        issues, status = [Issue(IType.INFO, f'DELETE individuals: The {resp} individuals were successfully removed.')], 200
+        issues, status = [Issue(IType.INFO,
+                                f'DELETE individuals: The {resp} individuals were successfully removed.')], 200
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, 'DELETE individuals: The individuals could not be removed.')], 404
@@ -81,17 +87,17 @@ def __aux_own_filter(filter):
 
     if filter.get('feature_id'):
         from biobarcoding.db_models.chado import StockFeature
-        _ids = chado_session.query(StockFeature.stock_id)\
+        _ids = chado_session.query(StockFeature.stock_id) \
             .filter(filter_parse(StockFeature, {'feature_id': filter.get('feature_id')}))
         clause.append(Stock.stock_id.in_(_ids))
 
     if 'phylotree_id' in filter:
         from biobarcoding.db_models.chado import Phylonode
-        _ids = chado_session.query(Phylonode.feature_id)\
-                .filter(
-                    filter_parse(Phylonode, [{'phylotree_id': filter.get('phylotree_id')}]))
+        _ids = chado_session.query(Phylonode.feature_id) \
+            .filter(
+            filter_parse(Phylonode, [{'phylotree_id': filter.get('phylotree_id')}]))
         from biobarcoding.db_models.chado import StockFeature
-        _ids = chado_session.query(StockFeature.stock_id)\
+        _ids = chado_session.query(StockFeature.stock_id) \
             .filter(filter_parse(StockFeature, {'feature_id': filter.get('feature_id')}))
         clause.append(Stock.stock_id.in_(_ids))
 

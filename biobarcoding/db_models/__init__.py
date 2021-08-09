@@ -1,30 +1,29 @@
+import json
 import uuid
 from copy import deepcopy
 
-from geoalchemy2.shape import to_shape
+import geopandas
 from geoalchemy2.elements import WKBElement
-from marshmallow_sqlalchemy import ModelConversionError, ModelSchema, SQLAlchemySchema, fields
+from geoalchemy2.shape import to_shape
+from geoalchemy2.types import Geometry as Multipolygon
+from marshmallow.fields import String as SchemaString
+from marshmallow_sqlalchemy import ModelConversionError, ModelSchema
+from marshmallow_sqlalchemy import ModelConverter as BaseModelConverter
+from shapely.geometry import shape
+from shapely.geometry.multipolygon import MultiPolygon
 from sqlalchemy import event, TypeDecorator, CHAR, Column, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker, class_mapper, ColumnProperty, RelationshipProperty, mapper
 from sqlalchemy_continuum import make_versioned
-from geoalchemy2.types import Geometry as Multipolygon
-from marshmallow_sqlalchemy import ModelConverter as BaseModelConverter
-from marshmallow.fields import String as SchemaString
-from shapely.geometry import shape
-from shapely.geometry.multipolygon import MultiPolygon
-from shapely.geometry.polygon import Polygon
-import geopandas
-import json
 
 # make_versioned(user_cls=None, options={'native_versioning': True})
 make_versioned(user_cls=None)
 
-
 DBSession = scoped_session(sessionmaker())
 DBSessionChado = scoped_session(sessionmaker())
 DBSessionGeo = scoped_session(sessionmaker())
+
 
 class GUID(TypeDecorator):
     """
@@ -87,7 +86,7 @@ class BaseMixin(object):
                 name = k.columns[0].name
                 getattr(self, name, None)
             elif isinstance(k, RelationshipProperty):
-                #if k.back_populates:
+                # if k.back_populates:
                 name = k.strategy.key
                 getattr(self, name, None)
 
@@ -129,9 +128,9 @@ class GeoString(SchemaString):
         if not isinstance(value, (dict, WKBElement)):
             raise self.make_error("invalid")
         if isinstance(value, WKBElement):
-            multi  = to_shape(value)
+            multi = to_shape(value)
             polygons = list(multi)
-            geojson =  geopandas.GeoSeries(polygons).to_json()
+            geojson = geopandas.GeoSeries(polygons).to_json()
             geodict = json.loads(geojson)
             # parse geodict to get rid og bbox attribute.
             # I assume that it will be a bbox attribute for feature and one bbox for the Feature collection
@@ -140,7 +139,7 @@ class GeoString(SchemaString):
             for geo in geodict['features']:
                 geo.pop('bbox', None)
             return geodict
-        if isinstance(value,dict):
+        if isinstance(value, dict):
             return value
 
     def _deserialize(self, value, attr, data, **kwargs):
@@ -150,8 +149,10 @@ class GeoString(SchemaString):
             geom = MultiPolygon([shape(i['geometry']) for i in value["features"]])
             return f'SRID=4326; {geom.wkt}'
 
+
 def setup_schema(Base, session):
     from biobarcoding.db_models.geographics import Regions
+
     # Create a function which incorporates the Base and session information
     def setup_schema_fn():
 
@@ -176,6 +177,7 @@ def setup_schema(Base, session):
                         "For safety, setup_schema can not be used when a"
                         "Model class ends with 'Schema'"
                     )
+
                 class Meta(object):
                     include_fk = True
                     model = class_
@@ -184,7 +186,7 @@ def setup_schema(Base, session):
 
                 schema_class_name = "%sSchema" % class_.__name__
 
-                if class_.__name__ ==  "Regions":
+                if class_.__name__ == "Regions":
                     schema_class = type(schema_class_name, (GeoSchema,), {"Meta": Meta})
                 else:
                     schema_class = type(schema_class_name, (ModelSchema,), {"Meta": Meta})

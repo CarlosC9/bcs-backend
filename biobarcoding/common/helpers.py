@@ -1,24 +1,25 @@
+import logging
 import io
 import logging
 import os
+import os.path
+import pickle
 import sys
 import tempfile
 import urllib
 from urllib.parse import urlparse
-import io
-import pickle
-import os.path
-from googleapiclient.discovery import build
-from google_auth_oauthlib.flow import InstalledAppFlow
-from google.auth.transport.requests import Request
-
-# If modifying these scopes, delete the file token.pickle.
 
 import jsonpickle
+from google.auth.transport.requests import Request
+from google_auth_oauthlib.flow import InstalledAppFlow
+from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaIoBaseDownload
 
-from biobarcoding import get_global_configuration_variable
+from .. import get_global_configuration_variable
+
+
+# If modifying these scopes, delete the file token.pickle.
 
 
 def serialize_from_object(obj):
@@ -197,27 +198,3 @@ def get_module_logger(mod_name,
     logger.addHandler(handler)
     logger.setLevel(level)
     return logger
-
-
-''' Content-Types '''
-files_metadata = [
-    ("fasta", "application/x-fasta", "sequences"),
-    ("gff3", "text/gff3", "geneannotations"),
-    ("dnd", "application/x-nhx", "phylotrees"),
-    ("log", "text/plain", None),
-    ("clustal", "application/x-clustal", "alignment"),
-    ("phylip", "application/x-phylip", "phylotrees"),
-    ("fa", "application/x-fasta", "alignment")
-]
-
-
-def get_content_type_from_extension(wanted_extension):
-    for extension, content_type, _ in files_metadata:
-        if wanted_extension == extension:
-            return content_type
-
-
-def get_bioinformatic_object_from_extension(wanted_extension):
-    for extension, _, bioinformatic_object in files_metadata:
-        if wanted_extension == extension:
-            return bioinformatic_object

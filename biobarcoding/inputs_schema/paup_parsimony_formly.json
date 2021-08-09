@@ -1,12 +1,14 @@
 [
   {
     "key": "PAUP Parsimony",
+    "wrappers": ["subprocess-wrapper"],
+    "templateOptions": { "label": "PAUP Parsimony" },
     "fieldGroup": [
       {
       "key": "taxset",
       "type": "taxset-field",
       "templateOptions": {
-          "taxons": ["DROMTTGNC", "Dros", "YMU09206", "LUCMTPIEA", "MSQNCATR", "Apis"]
+          "taxons": ["fjHelianthemumbystropogophyllum","fkHelianthemuminaguae","kwLimoniumsventenii","KP2307361Anagyrisfoetida","G2605Telinestenopetalamicrophylla","faGlobulariaascanii","fcGlobulariasarcophylla","lbPericallishadrosoma","jiSideritisdasygnaphala"]
         }
       },
       {

@@ -1,0 +1,39 @@
+[
+  {
+    "key": "Phylogenetic Diversity Analyzer",
+    "wrappers": [
+      "subprocess-wrapper"
+    ],
+    "templateOptions": {
+      "label": "Phylogenetic Diversity Analyzer"
+    },
+    "fieldGroup": [
+      {
+        "key": "geolayer_selector",
+        "type": "geolayer-selector",
+        "templateOptions": {
+          "filename": "area",
+          "label": "Geolayer Selector",
+          "required": true,
+          "extension": "nexus"
+        }
+      },
+      {
+        "key": "endem",
+        "type": "checkbox",
+        "templateOptions": {
+          "label": "Compute endemic PD/SD"
+        }
+      },
+      {
+        "key": "excl",
+        "type": "checkbox",
+        "templateOptions": {
+          "label": "Compute exclusive PD/SD"
+        }
+      }
+    ]
+  }
+]
+
+

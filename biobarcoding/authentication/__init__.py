@@ -3,33 +3,27 @@ Perhaps, although functionality can be here, move authentication/authorization
 to NGINX so it can filter ALL requests. An example seemingly interesting project:
 https://github.com/mbreese/subauth
 """
-import collections
 import inspect
-import json
-import subprocess
-import sys
 import traceback
+from dataclasses import dataclass
 from datetime import datetime
+from functools import wraps
+from typing import Dict
 
 import blosc
-import jsonpickle
-from flask import request, abort, Response, current_app, session as flask_session, g
-from functools import wraps
 import firebase_admin
 from firebase_admin import credentials, auth
-from dataclasses import dataclass, field
-from typing import List, Dict, Any
-import numpy as np
-from multidict import MultiDict, CIMultiDict
+from flask import request, abort, Response, session as flask_session, g
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
-from biobarcoding.authorization import ast_evaluator, authr_expression, string_to_ast
-from biobarcoding.common import generate_json
-from biobarcoding.common.helpers import serialize_from_object, deserialize_to_object
-from biobarcoding.db_models import DBSession, ObjectType, DBSessionChado, DBSessionGeo
-from biobarcoding.db_models.sysadmin import Authenticator, Identity, IdentityAuthenticator, ACLExpression, ACL, \
+from ..authorization import ast_evaluator, authr_expression, string_to_ast
+from ..common import generate_json
+from ..common.helpers import serialize_from_object, deserialize_to_object
+from ..db_models import DBSession, ObjectType, DBSessionChado, DBSessionGeo
+from ..db_models.sysadmin import Authenticator, Identity, IdentityAuthenticator, ACLExpression, ACL, \
     SystemFunction
+
 
 def initialize_firebase(app):
     cert_path = app.config['GOOGLE_APPLICATION_CREDENTIALS']
@@ -56,12 +50,15 @@ def token_required(func):
             print(e)
             abort(401, 'The session token is not valid or has expired')
         return func(*args, **kwargs)
+
     return decorated
+
 
 """
 login -> starts session, which is serialized
 logout -> ends session, 
 """
+
 
 # ------------------------------
 
@@ -86,7 +83,7 @@ class BCSSession:
     postgis_db_session: Session = None
 
 
-EXEMPT_METHODS = set(['OPTIONS'])
+EXEMPT_METHODS = {'OPTIONS'}
 NO_SESS_RESPONSE = build_json_response({"error": "No active session. Please, open one first ('PUT /api/authn')"}, 400)
 
 
@@ -108,7 +105,6 @@ def obtain_idauth_from_request() -> str:
         name = None
         email = None
         auth_type = None
-        autocreate = True
         session = DBSession()
         if "auth_method" in tok_dict:
             if tok_dict["auth_method"] == "local-api-key":
@@ -133,7 +129,8 @@ def obtain_idauth_from_request() -> str:
             iden.name = name
             session.add(iden)
 
-        iden_authenticator = session.query(IdentityAuthenticator).filter(and_(IdentityAuthenticator.identity == iden, IdentityAuthenticator.authenticator == auth_type)).first()
+        iden_authenticator = session.query(IdentityAuthenticator).filter(
+            and_(IdentityAuthenticator.identity == iden, IdentityAuthenticator.authenticator == auth_type)).first()
         if not iden_authenticator and auth_type.name == "firebase":  # Create (others must exist previously)
             iden_authenticator = IdentityAuthenticator()
             iden_authenticator.email = email
@@ -201,11 +198,12 @@ def deserialize_session(s, return_error_response_if_none=True) -> BCSSession:
         return sess
 
 
-class bcs_session(object):
+class n_session(object):
     """
     Decorator for RESTful methods requiring: Session, and Authentication/Authorization
     @bcs_session(read_only=False)
     """
+
     def __init__(self, read_only=False, authr=None):
         """
         The authentication "can execute" rule can be:
@@ -236,18 +234,18 @@ class bcs_session(object):
             sess = deserialize_session(flask_session.get("session"))
             if isinstance(sess, BCSSession):
                 try:
-                    g.bcs_session = sess
+                    g.n_session = sess
                     db_session = DBSession()
-                    g.bcs_session.db_session = db_session
-                    ident = db_session.query(Identity).get(g.bcs_session.identity_id)
-                    g.bcs_session.identity = ident
+                    g.n_session.db_session = db_session
+                    ident = db_session.query(Identity).get(g.n_session.identity_id)
+                    g.n_session.identity = ident
                     chado_db_session = DBSessionChado()  # Chado test
-                    g.bcs_session.chado_db_session = chado_db_session   # Chado test
+                    g.n_session.chado_db_session = chado_db_session  # Chado test
                     postgis_db_session = DBSessionGeo()
-                    g.bcs_session.postgis_db_session = postgis_db_session
+                    g.n_session.postgis_db_session = postgis_db_session
                     try:  # Protect "db_session"
                         # Get execution rule
-                        if self.authr is None or bcs_session.is_function_name(self.authr):
+                        if self.authr is None or n_session.is_function_name(self.authr):
                             if self.authr is None:
                                 # (be careful of refactorizations)
                                 f_code_name = f"{inspect.getmodule(f).__name__}.{f.__name__}"
@@ -255,7 +253,8 @@ class bcs_session(object):
                                 f_code_name = self.authr
                             # Search authorization database "f_code_name"
                             ahora = datetime.now()
-                            function = db_session.query(SystemFunction).filter(SystemFunction.name == f_code_name).first()
+                            function = db_session.query(SystemFunction).filter(
+                                SystemFunction.name == f_code_name).first()
                             if function:
                                 obj_type = db_session.query(ObjectType).filter(
                                     ObjectType.name == "sys-functions").first()
@@ -284,7 +283,8 @@ class bcs_session(object):
                             chado_db_session.commit()  # Chado test
                             postgis_db_session.commit()
                         else:
-                            raise Exception(f"Current user ({sess.identity_name}) cannot execute function {f_code_name}")
+                            raise Exception(
+                                f"Current user ({sess.identity_name}) cannot execute function {f_code_name}")
                     except:
                         traceback.print_exc()
                         db_session.rollback()
@@ -299,15 +299,14 @@ class bcs_session(object):
                     res = None
                 finally:
                     if not self.read_only:
-                        g.bcs_session.identity = None
-                        g.bcs_session.db_session = None
-                        g.bcs_session.chado_db_session = None   # Chado test
-                        g.bcs_session.postgis_db_session = None
-                        flask_session["session"] = serialize_session(g.bcs_session)
+                        g.n_session.identity = None
+                        g.n_session.db_session = None
+                        g.n_session.chado_db_session = None  # Chado test
+                        g.n_session.postgis_db_session = None
+                        flask_session["session"] = serialize_session(g.n_session)
                     # g.bcs_session = None  -- NO need for this line, "g" is reset after every request
                 return res
             else:
                 return sess
 
         return wrapped_f
-

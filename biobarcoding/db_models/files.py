@@ -1,12 +1,10 @@
-import datetime
-
-from sqlalchemy import Integer, Column, String, Text, ForeignKey, JSON, DateTime, BigInteger, LargeBinary
-from sqlalchemy.orm import relationship, backref
-
-from biobarcoding.db_models import ORMBase, GUID
 import uuid
 
-from biobarcoding.db_models.bioinformatics import BioinformaticObject
+from sqlalchemy import Integer, Column, String, ForeignKey, JSON, BigInteger, LargeBinary
+from sqlalchemy.orm import relationship, backref
+
+from . import ORMBase, GUID
+from .bioinformatics import BioinformaticObject
 
 prefix = "fs_"
 

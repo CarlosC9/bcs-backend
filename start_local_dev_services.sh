@@ -1,4 +1,10 @@
 #!/bin/bash
+
+#
+# If Docker containers do not respond after a laptop suspend (workaround):
+# sudo systemctl restart NetworkManager docker.service
+#
+
 # REDIS
 if [ ! "$(docker ps -q -f name=redis)" ] ; then
   echo Starting REDIS
@@ -19,7 +25,6 @@ function init_chado {
   cd $1/docker_init
   ./init.sh
 }
-
 
 if [ "$(whoami)" == "rnebot" ] && [ "$#" -gt 0 ] ; then
   export ENDPOINT_URL="http://localhost:5000"
@@ -48,12 +53,19 @@ fi
 # chown 1000 /home/rnebot/DATOS/geoserver/geoserver
 
 # PostgreSQL
-if [ ! "$(docker ps -q -f name=postgres_devel)" ] ; then
+postgres_started="yes"
+if [ "$(whoami)" == "rnebot2" ] && [ "$#" -gt 0 ] ; then
+  postgres_started=$(ssh rnebot@balder docker ps -q -f name=postgres_devel_rnebot)
+else
+  postgres_started=$(docker ps -q -f name=postgres_devel)
+fi
+
+if [ ! "$postgres_started" ] ; then
   echo Starting PostgreSQL-Chado
   if [ "$(whoami)" == "rnebot" ] ; then
+#    ssh rnebot@balder docker run --name postgres_devel_rnebot -d -p 8132:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v /home/rnebot/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
     docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v /home/rnebot/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
     init_chado "$(dirname $0)"
-#    docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -v /home/rnebot/DATOS/pg_devel:/var/lib/postgresql/data postgres
   elif [ "$(whoami)" == "acurbelo" ] ; then
     docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v /var/lib/nextgendem/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
     init_chado "$(dirname $0)"
@@ -63,7 +75,7 @@ if [ ! "$(docker ps -q -f name=postgres_devel)" ] ; then
     docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v /home/daniel/Documentos/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
     init_chado "$(dirname $0)"
   fi
-# Galaxy
+
 fi
 
 # api key = fakekey; user = admin; password = password

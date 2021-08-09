@@ -1,6 +1,6 @@
-from biobarcoding.db_models import DBSession as bcs_session
-from biobarcoding.db_models.sysadmin import BrowserFilter
-from biobarcoding.rest import Issue, IType, filter_parse, paginator
+from ..db_models import DBSession as db_session
+from ..db_models.sysadmin import BrowserFilter
+from ..rest import Issue, IType, filter_parse, paginator
 
 
 def create(datatype, **kwargs):
@@ -10,8 +10,8 @@ def create(datatype, **kwargs):
         # get Identity
         new_filter = BrowserFilter(**kwargs, type=datatype)
         from flask import g
-        new_filter.user_id = g.bcs_session.identity.id
-        bcs_session.add(new_filter)
+        new_filter.user_id = g.n_session.identity.id
+        db_session.add(new_filter)
         issues, status = [Issue(IType.INFO, f'CREATE browser_filters: It was created successfully.')], 201
     except Exception as e:
         print(e)
@@ -20,6 +20,8 @@ def create(datatype, **kwargs):
 
 
 count = 0
+
+
 def read(datatype, id=None, **kwargs):
     content = None
     try:
@@ -49,7 +51,8 @@ def delete(datatype, id=None, **kwargs):
     content = None
     try:
         resp = __get_query(datatype, id, **kwargs).delete(synchronize_session='fetch')
-        issues, status = [Issue(IType.INFO, f'DELETE browser_filters: The {resp} browser_filters were successfully removed.')], 200
+        issues, status = [Issue(IType.INFO,
+                                f'DELETE browser_filters: The {resp} browser_filters were successfully removed.')], 200
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, 'DELETE browser_filters: The browser_filters could not be removed.')], 404
@@ -57,7 +60,7 @@ def delete(datatype, id=None, **kwargs):
 
 
 def __get_query(type=None, id=None, **kwargs):
-    query = bcs_session.query(BrowserFilter)
+    query = db_session.query(BrowserFilter)
     global count
     count = 0
     if id:

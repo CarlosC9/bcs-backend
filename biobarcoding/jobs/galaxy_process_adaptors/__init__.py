@@ -1,17 +1,18 @@
 import abc
 from abc import ABC
 
-from biobarcoding.jobs.process_adaptor import ProcessAdaptor
+from ..process_adaptor import ProcessAdaptor
 
 
 class GalaxyProcessAdaptor(ProcessAdaptor, ABC):
     '''The methods of the subinterfaces are all private'''
 
     @abc.abstractmethod
-    def _complete_inputs_with_labels(self,job_context):
+    def _complete_inputs_with_labels(self, job_context):
         raise NotImplementedError
+
     @abc.abstractmethod
-    def _complete_with_outputs_files(self,job_context):
+    def _complete_with_outputs_files(self, job_context):
         raise NotImplementedError
 
     @abc.abstractmethod

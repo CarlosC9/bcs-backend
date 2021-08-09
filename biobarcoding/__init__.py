@@ -1,4 +1,3 @@
-
 # GLOBAL VARIABLES
 import configparser
 import os

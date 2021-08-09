@@ -1,30 +1,27 @@
 import io
+import json
 import os
+import pathlib
+import tempfile
+from typing import List, Tuple
+from urllib.parse import urlparse
+
+import geopandas as gpd
+import pandas as pd
+import regex as re
+import requests
 import seaborn as sns
+from flask import Blueprint, request, g, Response
+from flask.views import MethodView
 from marshmallow import EXCLUDE
 from matplotlib.colors import rgb2hex
 
-import geopandas
-import marshmallow.exceptions
-import pandas as pd
-from flask import Blueprint, request, g
-from flask.views import MethodView
-from typing import List
-
-from biobarcoding.authentication import bcs_session
-from biobarcoding.geo import geoserver_session, workspace_names, postgis_store_name
-from biobarcoding.rest import bcs_api_base, ResponseObject, Issue, IType, register_api
-from biobarcoding.db_models.geographics import GeographicRegion, Regions, GeographicLayer
-from geo import Style
-import geopandas as gpd
-import json
-import regex as re
-import requests
-import pathlib
-import numpy as np
-import tempfile
-
-from biobarcoding.rest.file_manager import FilesAPI
+from ..authentication import n_session
+from ..db_models.geographics import GeographicRegion, Regions, GeographicLayer
+from ..geo import workspace_names, postgis_store_name
+from ..geo.biota import read_biota_file, generate_pda_species_file_from_layer, import_pda_result
+from . import bcs_api_base, ResponseObject, Issue, IType, register_api, bcs_proxy_base, filter_parse
+from .file_manager import FilesAPI
 
 """
 Support operations regarding Geographical layers
@@ -76,7 +73,7 @@ Four areas:
 bp_geo = Blueprint('geo', __name__)
 
 
-def geoserver_response(response) -> Issue:
+def geoserver_response(response) -> Tuple[Issue, int]:
     """
     Encode GeoServer response into an Issue
 
@@ -93,7 +90,24 @@ def geoserver_response(response) -> Issue:
         return Issue(IType.INFO, "layer succesfully published"), 200
 
 
-def get_content(session, feature_class, issues, id_=None):
+def get_content(session, feature_class, issues, id_=None, filter_=None):
+    def __aux_own_filter(filt_):
+        """
+            Example clause:
+                {"tags": "biota"} meaning "the layer contains 'biota' as one of the tags"
+        """
+        clause = []
+
+        if 'tags' in filt_:
+            v = filt_.get('tags')
+            # 3 implementations
+            # from sqlalchemy import text
+            # clause.append(text(f"attributes->'tags' ? :n").params(n=v))
+            # clause.append(GeographicLayer.attributes["tags"].op("?")(v))
+            clause.append(GeographicLayer.attributes["tags"].has_key(v))
+
+        return clause
+
     content = None
     count = 0
     try:
@@ -101,6 +115,8 @@ def get_content(session, feature_class, issues, id_=None):
         if id_:
             content = content.filter(feature_class.id == id_).first()
         else:
+            if filter_:
+                content = content.filter(filter_parse(GeographicLayer, filter_, __aux_own_filter))
             content = content.order_by(feature_class.id).all()
             count = len(content)
     except Exception as e:
@@ -135,28 +151,13 @@ def get_json_from_schema(entity, input_):
     return json.loads(t_json)
 
 
-# TODO Specific to BIOTA, should not be in the generic GeoAPI but in a special preprocessing module
-def read_biota_file(path):
-    def f(x):
-        return x[["RIQUEZA", "RAREZALOCA", "RAREZAINSU", "RAREZAREGI", "CODIGOTAX", "DENOMTAX"]].to_json(
-            orient="records")
-
-    gdf = gpd.read_file(path)
-    for c in ["IDCELDA", "CODIGOTAX"]:
-        gdf[c] = gdf[c].astype(np.int64)
-    tmp = dict(zip(gdf["IDCELDA"], gdf["geometry"]))
-    df = gdf.groupby("IDCELDA").apply(f).to_frame("taxa").reset_index()
-    new_gdf = gpd.GeoDataFrame(df, crs=gdf.crs, geometry=df["IDCELDA"].replace(tmp))
-    return new_gdf
-
-
 def generate_ramp_sld_file(
-    style_name: str,
-    column_name: str,
-    values: List[float],
-    n_intervals: int = 5,
-    color_ramp: str = None,
-    geom_type: str = "polygon",
+        style_name: str,
+        column_name: str,
+        values: List[float],
+        n_intervals: int = 5,
+        color_ramp: str = None,
+        geom_type: str = "polygon",
 ):
     """
 
@@ -263,100 +264,12 @@ def create_and_publish_ramp_style(gs_session,
     gs_session.publish_style(layer_name, style_name, wkspc)
 
 
-class RegionsAPI(MethodView):
-    """
-    Management of special "regions" layer through RESTful API
-    """
-
-    @bcs_session(read_only=True)
-    def get(self, region_id=None):
-        """
-        ?? dede la GUI recibo el polígono marcado por el usuario
-        @return:
-        # dar lista de regiones para visualizar
-        # entregar región a PDA
-        """
-        r = ResponseObject()
-        db = g.bcs_session.db_session
-        pg = g.bcs_session.postgis_db_session
-        issues = []
-        issues, geographic_region, count, status = get_content(db, GeographicRegion, issues, region_id)
-        if status == 200 and geographic_region:
-            if region_id is None:
-                lines = False
-                issues, regions, count, status = get_content(pg, Regions, issues, region_id)
-            else:
-                lines = True
-                issues, regions, count, status = get_content(pg, Regions, issues, geographic_region.geo_id)
-
-            bcs_df = pd.read_json(response_to_dataframe(geographic_region), lines=lines)
-            postgis_df = pd.read_json(response_to_dataframe(regions), lines=lines)
-            bcs_df = bcs_df.set_index(bcs_df["geo_id"]).drop(columns=["geo_id", "uuid"])
-            postgis_df = postgis_df.set_index(postgis_df["id"]).drop(columns=["uuid", "id"])
-            content = pd.concat([bcs_df, postgis_df], axis=1, join="inner")
-        else:
-            content = None
-        return ResponseObject(issues=issues, status=status, content=content, content_type="application/json",
-                              count=count).get_response()
-
-    @bcs_session()
-    def post(self):
-        db = g.bcs_session.db_session
-        pg = g.bcs_session.postgis_db_session
-        t = request.json
-        geographic_region_schema = getattr(GeographicRegion, "Schema")()
-        regions_schema = getattr(Regions, "Schema")()
-        regions_data = get_json_from_schema(Regions, t)
-        geographic_region_data = get_json_from_schema(GeographicRegion, t)
-        regions = regions_schema.load(regions_data, instance=Regions())
-        pg.add(regions)
-        pg.flush()
-        geographic_region = geographic_region_schema.load(geographic_region_data, instance=GeographicRegion())
-        geographic_region.uuid = regions.uuid
-        geographic_region.geo_id = regions.id
-        geographic_region.identity_id = g.bcs_session.identity.id
-        db.add(geographic_region)
-        db.flush()
-        return ResponseObject(content=geographic_region, content_type="application/json").get_response()
-
-    @bcs_session()
-    def delete(self, region_id=None):
-        issues = []
-        db = g.bcs_session.db_session
-        pg = g.bcs_session.postgis_db_session
-        issues, geographic_region, count, status = get_content(db, GeographicRegion, issues, region_id)
-        if status == 200 and geographic_region:
-            issues, region, count, status = get_content(pg, Regions, issues, geographic_region.geo_id)
-            db.delete(geographic_region)
-            pg.delete(region)
-        return ResponseObject(issues=issues, status=status).get_response()
-
-    @bcs_session()
-    def put(self, region_id=None):
-        issues = []
-        db = g.bcs_session.db_session
-        pg = g.bcs_session.postgis_db_session
-        t = request.json
-        geographic_region_schema = getattr(GeographicRegion, "Schema")()
-        regions_schema = getattr(Regions, "Schema")()
-        issues, geographic_region, count, status = get_content(db, GeographicRegion, issues, region_id)
-        if status == 200 and geographic_region:
-            issues, region, count, status = get_content(pg, Regions, issues, geographic_region.geo_id)
-            geographic_region = geographic_region_schema.load(get_json_from_schema(GeographicRegion, t),
-                                                              instance=geographic_region)
-            regions = regions_schema.load(get_json_from_schema(Regions, t), instance=region)
-            db.add(geographic_region)
-            pg.add(regions)
-        return ResponseObject(issues=issues, status=status, count=count).get_response()
-
-
-register_api(bp_geo, RegionsAPI, "geo/regions", f"{bcs_api_base}/geo/regions/", pk="region_id")
-
-
 class LayersAPI(MethodView):
     """
     GET:    the list of layers info from Geographiclayer table on bcs
             publish a result of filtering a layer (with geoserver_session.publish_featurestore_sqlview(sql_string))
+            TODO: Move the dynamic layer behavior to PUT, because it is a -assumed preexisting- virtual layer
+                  that is modified. PUT /api/geo/layers/0?definition=... ("0" would be a special ID)
 
     POST:   Three post cases:
             1. post all new vector layer from geoJSON format (PDA case)
@@ -371,13 +284,34 @@ class LayersAPI(MethodView):
     DELETE: delete completely from GeographicLayer table (bcs) postgis and geoserver
     """
 
-    # some default
+    # Some defaults
     kwargs = {}
     issues = []
     status = int()
 
-    @bcs_session()
-    def get(self, _id=None):
+    def _export(self, sess, lay: GeographicLayer, _format):
+        if _format not in ["nexus", "pda_simple", "pda_species"]:
+            self.issues.append(
+                Issue(IType.ERROR, f'Could not export Biota layer {lay.name} (internal name "{lay.geoserver_name}") '
+                                   f'to format "{_format}". Supported "pda_simple" and "nexus"', f"Export {lay.name}"))
+            return None
+        # TODO Check "tags" attribute, the layer should have a "Biota" tag
+        _ = generate_pda_species_file_from_layer(sess, lay.id, lay.geoserver_name, _format)
+        if _ is None:
+            self.issues.append(
+                Issue(IType.ERROR, f'Could not export Biota layer {lay.name} (internal name "{lay.geoserver_name}").',
+                      f"Export {lay.name} as Simple PDA text file"))
+            return None
+        elif _ == "":
+            self.issues.append(Issue(IType.ERROR,
+                                     f'Empty Biota layer {lay.name} (internal name "{lay.geoserver_name}").',
+                                     f"Export {lay.name}"))
+            return None
+        else:
+            return _
+
+    @n_session()
+    def get(self, _id=None, _format=None):
         """
         - get the list of layers in postgis
         - create a temporal layer from a sql filter
@@ -393,28 +327,45 @@ class LayersAPI(MethodView):
         export API_BASE_URL=http://localhost:5000/api
         curl --cookie-jar bcs-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user"
         curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/"
+        curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/?filter=%7B%22tags%22%3A%20%22biota%22%7D"
+
+        curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/1"
+
+        curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/1.pda_simple"
 
         @param _id: ID of a layer; empty for ALL layers (if no query params specified)
+        @param _format: export format
         @return:
         """
-        self.issues = []
         from biobarcoding.geo import geoserver_session
-        layers = None
+        self.issues = []
+        layer = None
         _filter = request.args.get("filter")
+        if _filter:
+            _filter = json.loads(_filter)
         key_col = request.args.get("key_col")
-        db = g.bcs_session.db_session
+        db_sess = g.n_session.db_session
         if _id:  # A layer
-            self.issues, layers, count, self.status = get_content(db, GeographicLayer, self.issues, _id)
-            if layers and layers.is_deleted:
-                layers = None
+            self.issues, layer, count, self.status = get_content(db_sess, GeographicLayer, self.issues, _id)
+            if layer and layer.is_deleted:
+                layer = None
                 _, self.status = self.issues.append(Issue(IType.INFO, f'no data available')), 200
-        elif not _filter and not key_col:  # All layers
-            self.issues, layers, count, self.status = get_content(db, GeographicLayer, self.issues)
-            if layers:
-                layers = list(filter(lambda x: (x.is_deleted is False), layers))
+            else:
+                if _format:
+                    content = self._export(db_sess, layer, _format=_format)
+                    if content:
+                        return Response(content, mimetype=f"text/{_format}", status=200)
+                else:
+                    if layer:
+                        serializer = layer.Schema()
+                        serializer.dump(layer)
+        elif not key_col:  # ALL LAYERS layers (maybe filtered)
+            self.issues, layer, count, self.status = get_content(db_sess, GeographicLayer, self.issues, filter_=_filter)
+            if layer:
+                layer = list(filter(lambda x: (x.is_deleted is False), layer))
         elif _filter and key_col:  # Temporary layer
             # TODO Ensure Temporary layer is also registered as BCS GeographicLayer
-            tmp_view = f'tmpview_{g.bcs_session.identity.id}'
+            tmp_view = f'tmpview_{g.n_session.identity.id}'
             sql = self._create_sql(_filter)
             r = geoserver_session.delete_layer(layer_name=tmp_view, workspace=workspace_names[1])
             print(r)
@@ -426,13 +377,57 @@ class LayersAPI(MethodView):
             if not self._check_layer():
                 _, self.status = self.issues.append(Issue(IType.ERROR, f"Error executing request for geoserver")), 500
             self.issues.append(issue)
-            layers = dict(tmpview=tmp_view, sql=sql, key_col=key_col)
+            layer = dict(tmpview=tmp_view, sql=sql, key_col=key_col)
         else:  # No information to elaborate a response
             _, self.status = self.issues.append(Issue(IType.ERROR, f"missing data")), 400
 
-        return ResponseObject(issues=self.issues, status=self.status, content=layers).get_response()
+        return ResponseObject(issues=self.issues, status=self.status, content=layer).get_response()
 
-    @bcs_session()
+    @staticmethod
+    def _exclude(c):
+        """
+        Check if column "c" has to be excluded from the list of attributes of a layer showed to users
+
+        :param c:
+        :return:
+        """
+        s = c.lower()
+        return s.startswith("id") or s.endswith("id") or "codigo" in s or s in ["coordx", "coordy", "geom", "geometry"]
+
+    def _create_properties_and_geoserver_styles(self, gdf, wks, layer_name, lc_attributes):
+        from biobarcoding.geo import geoserver_session
+        _ = []
+        for c in gdf.columns:
+            if self._exclude(c):
+                continue
+            if lc_attributes:
+                c = c.lower()
+            tmp = gdf[c].values
+            try:
+                min_v = min(tmp)
+                max_v = max(tmp)
+                p_type = "numeric"
+                style_name = f"{layer_name}_{c}"
+            except:
+                min_v = None
+                max_v = None
+                p_type = "string"
+                style_name = None
+
+            # Create style for properties (_publish_in_geoserver
+            if style_name:
+                create_and_publish_ramp_style(geoserver_session,
+                                              wkspc=wks,
+                                              layer_name=layer_name,
+                                              attribute=c,
+                                              min_value=min_v, max_value=max_v,
+                                              number_of_classes=7,
+                                              style_name=style_name)
+
+            _.append(dict(name=c, type=p_type, style=style_name, min=min_v, max=max_v))
+        return _
+
+    @n_session()
     def post(self):
         """
         1. import a raster file (tif and twf file)
@@ -453,11 +448,11 @@ class LayersAPI(MethodView):
 
         export API_BASE_URL=http://localhost:5000/api
         curl --cookie-jar bcs-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user"
-        curl --cookie bcs-cookies.txt -F "layer_file=@/home/rnebot/GoogleDrive/AA_NEXTGENDEM/plantae_canarias/Plantas.zip;type=application/zip" -F "metadata={\"name\": \"capa_1\", \"wks\": \"ngd\", \"property\": \"RIQUEZA\", \"attributes\": {\"tags\": [\"tag1\", \"tag2\"]}};type=application/json" "$API_BASE_URL/geo/layers/"
+        curl --cookie bcs-cookies.txt -F "layer_file=@/home/rnebot/GoogleDrive/AA_NEXTGENDEM/plantae_canarias/Plantas.zip;type=application/zip" -F "metadata={\"name\": \"capa_1\", \"wks\": \"ngd\", \"attributes\": {\"tags\": [\"tag1\", \"tag2\"]}};type=application/json" "$API_BASE_URL/geo/layers/"
         """
-        db = g.bcs_session.db_session
+        db = g.n_session.db_session
         self.issues = []
-        system_layer = True
+        system_layer = True  # or user layer
         self.kwargs = dict(name="unnamed")
         self._update_kwargs_from_request_data()
         self.kwargs["wks"] = workspace_names[0] if system_layer else workspace_names[1]
@@ -466,37 +461,52 @@ class LayersAPI(MethodView):
         geographic_layer_data = get_json_from_schema(GeographicLayer, self.kwargs)
         # Create object in memory
         geographic_layer = geographic_layer_schema.load(geographic_layer_data, instance=GeographicLayer())
-        geographic_layer.identity_id = g.bcs_session.identity.id
+        geographic_layer.identity_id = g.n_session.identity.id
         # Persist object in BCS DB
         db.add(geographic_layer)
         db.flush()
         # Receive file
-        self._receive_and_prepare_file()
-        # Store file in PostGIS
-        lower_case_attributes = True
-        layer_name = f"layer_{geographic_layer.id}"  # (internal) Geoserver layer name
-        status, gdf = self._post_in_postgis(layer_name, lower_case_attributes)
-        # TODO Delete temporary file
+        if self._file_posted():
+            # Set URL
+            tmp = urlparse(request.base_url)
+            base_url = f"{tmp.scheme}://{tmp.netloc}"
+            geographic_layer.wms_url = f"{base_url}{bcs_proxy_base}/geoserver/wms"
+            # Store file locally
+            self._receive_and_prepare_file()
+            # Store file in PostGIS
+            lower_case_attributes = True
+            layer_name = f"layer_{geographic_layer.id}"  # (internal) Geoserver layer name
+            status, gdf = self._post_in_postgis(layer_name, lower_case_attributes)
+            # TODO Delete temporary file
 
-        # Publish layer in Geoserver
-        if status == 200:
-            geographic_layer.in_postgis = True
-        if self.kwargs.get("property"):
-            prop = self.kwargs["property"]
-            if lower_case_attributes:
-                prop = prop.lower()
-            tmp = gdf[prop].values
-            status, layer_type = self._publish_in_geoserver(layer_name, prop, min(tmp), max(tmp))
-        else:
+            # Publish layer in Geoserver
+            if status == 200:
+                geographic_layer.in_postgis = True
+
             status, layer_type = self._publish_in_geoserver(layer_name)
-        if status == 200:
-            geographic_layer.published = True
-            geographic_layer.geoserver_name = layer_name
-        geographic_layer.layer_type = layer_type
-        db.flush()
+            # if self.kwargs.get("property"):
+            #     prop = self.kwargs["property"]
+            #     if lower_case_attributes:
+            #         prop = prop.lower()
+            #     tmp = gdf[prop].values
+            #     style_name = f"{layer_name}_{prop}"
+            #     status, layer_type = self._publish_in_geoserver(layer_name, prop, style_name, min(tmp), max(tmp))
+            # else:
+            #     prop = None
+            #     status, layer_type = self._publish_in_geoserver(layer_name)
+
+            if status == 200:
+                geographic_layer.published = True
+                geographic_layer.geoserver_name = layer_name
+                geographic_layer.properties = self._create_properties_and_geoserver_styles(gdf,
+                                                                                           self.kwargs["wks"],
+                                                                                           layer_name,
+                                                                                           lower_case_attributes)
+            geographic_layer.layer_type = layer_type
+            db.flush()
         return ResponseObject(issues=self.issues, status=self.status, content=geographic_layer).get_response()
 
-    @bcs_session()
+    @n_session()
     def put(self, _id=None):
         """
         Update geographic layer metadata
@@ -513,12 +523,12 @@ class LayersAPI(MethodView):
 
         export API_BASE_URL=http://localhost:5000/api
         curl --cookie-jar bcs-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user"
-        curl --cookie bcs-cookies.txt -X PUT -F "metadata={\"name\": \"capa_12\", \"wks\": \"ngd\", \"property\": \"RIQUEZA\", \"attributes\": {\"tags\": [\"tag1\", \"tag2\", \"tag3\"]}};type=application/json" "$API_BASE_URL/geo/layers/"
+        curl --cookie bcs-cookies.txt -X PUT -F "metadata={\"name\": \"capa_12\", \"wks\": \"ngd\", \"attributes\": {\"tags\": [\"tag1\", \"tag2\", \"tag3\"]}};type=application/json" "$API_BASE_URL/geo/layers/"
 
         :param _id:
         :return:
         """
-        db = g.bcs_session.db_session
+        db = g.n_session.db_session
         self.issues = []
         system_layer = True
         self.kwargs = dict(name="unnamed")
@@ -527,7 +537,8 @@ class LayersAPI(MethodView):
         geographic_layer_schema = getattr(GeographicRegion, "Schema")()
         geographic_layer_data = get_json_from_schema(GeographicLayer, self.kwargs)
         # Remove unmodifiable keys
-        for k in ["geoserver_name", "id", "identity_id", "in_postgis", "is_deleted", "layer_type", "published", "uuid", "wks"]:
+        for k in ["geoserver_name", "id", "identity_id", "in_postgis", "is_deleted", "layer_type", "published", "uuid",
+                  "wks"]:
             if k in geographic_layer_data:
                 del geographic_layer_data[k]
         self.issues, geographic_layer, count, self.status = get_content(db, GeographicLayer, self.issues, _id)
@@ -570,7 +581,7 @@ class LayersAPI(MethodView):
                 self.issues.append(Issue(IType.ERROR, f'Layer with specified id ({_id}) was not found'))
         return ResponseObject(content=geographic_layer, issues=self.issues, status=self.status).get_response()
 
-    @bcs_session()
+    @n_session()
     def delete(self, _id):
         """
         delete layer from PostGIS
@@ -578,10 +589,10 @@ class LayersAPI(MethodView):
         @param _id:
         @return:
         """
-        from biobarcoding.geo import geoserver_session
         from biobarcoding import postgis_engine
+        from biobarcoding.geo import geoserver_session
         self.issues = []
-        db = g.bcs_session.db_session
+        db = g.n_session.db_session
         self.issues, geographic_layer, count, self.status = get_content(db, GeographicLayer, self.issues, _id)
         if geographic_layer is None:
             return ResponseObject(content=None, issues=self.issues, status=self.status).get_response()
@@ -613,7 +624,7 @@ class LayersAPI(MethodView):
     def _create_sql(self, _filter):
         """
         TODO create sintaxis
-        @param filter: filter build by the user in GUI
+        @param _filter: filter build by the user in GUI
         @return: sql query for postgis
         """
         # key_col = _filter["key"]
@@ -632,9 +643,10 @@ class LayersAPI(MethodView):
         """
         from biobarcoding import postgis_engine
         from biobarcoding.geo import geoserver_session
+
         if self.kwargs["path"] != "":
             df = self._read_vector_file()
-            if not isinstance(df, geopandas.GeoDataFrame):
+            if not isinstance(df, gpd.GeoDataFrame):
                 return None
         elif "data" in self.kwargs.keys():
             df = gpd.GeoDataFrame.from_features(self.kwargs["data"]['features'])
@@ -667,11 +679,12 @@ class LayersAPI(MethodView):
         except ValueError as e:
             _, self.status = self.issues.append(Issue(IType.INFO, f"Layer named as {layer_name} error {e}")), 400
         else:
-            self.kwargs["data"] = "dummy"  # "add geoserver layer" function looks for any value in "data" to create a layer that is stored in PostGIS
+            self.kwargs[
+                "data"] = "dummy"  # "add geoserver layer" function looks for any value in "data" to create a layer that is stored in PostGIS
             _, self.status = self.issues.append(Issue(IType.INFO, f"layer stored in geo database")), 200
         return self.status, df
 
-    def _publish_in_geoserver(self, layer_name, attribute=None, min_value=None, max_value=None):
+    def _publish_in_geoserver(self, layer_name, attribute=None, style_name=None, min_value=None, max_value=None):
         """
         Publish a layer -already in a registered store- in Geoserver
         NOTE: implicit parameters in self.kwargs
@@ -681,6 +694,7 @@ class LayersAPI(MethodView):
 
         :param layer_name:
         :param attribute: attribute name for default style
+        :param style_name: name of the style to create
         :param min_value: mininum for default style
         :param max_value: maximum for default style
         :return:
@@ -694,7 +708,6 @@ class LayersAPI(MethodView):
                                                        store_name=postgis_store_name,
                                                        pg_table=layer_name)
             if attribute:
-                style_name = f"{layer_name}_{attribute}"
                 create_and_publish_ramp_style(geoserver_session,
                                               wkspc=self.kwargs['wks'],
                                               layer_name=layer_name,
@@ -779,6 +792,9 @@ class LayersAPI(MethodView):
                     except json.decoder.JSONDecodeError:
                         self.kwargs.update(t)
 
+    def _file_posted(self):
+        return len(request.files) > 0
+
     def _receive_and_prepare_file(self):
         import os
         formats = [".tif", ".gpkg", ".zip", ".json", ".geojson"]
@@ -788,7 +804,7 @@ class LayersAPI(MethodView):
 
         # Download to a local file if self.kwargs.data contains a FilesAPI path
         if self.kwargs.get("data"):  # TODO Incomplete (it could be used to import the output of a Geoprocess)
-            ctype, contents = FilesAPI.get_file_contents(g.bcs_session, self.kwargs.get("data"))
+            ctype, contents = FilesAPI.get_file_contents(g.n_session, self.kwargs.get("data"))
             file = f"submitted_file.zip"  # TODO Extension may be different (change depending on content-type)
             file_path = os.path.join(folder, secure_filename(file))
             with open(file_path, "wb") as f:
@@ -832,7 +848,11 @@ class LayersAPI(MethodView):
                 gdf = gpd.read_file(path)
                 return gdf
             except:
-                return None
+                try:
+                    gdf = import_pda_result(path, session=g.n_session.db_session)
+                    return gdf
+                except:
+                    return None
 
     def _read_raster_file(self, layer_name):
         from biobarcoding.geo import geoserver_session
@@ -864,11 +884,103 @@ class LayersAPI(MethodView):
         return r, layer_type
 
 
-register_api(bp_geo, LayersAPI, "geo/layers", f"{bcs_api_base}/geo/layers/", pk="_id")
+_ = register_api(bp_geo, LayersAPI, "geo/layers", f"{bcs_api_base}/geo/layers/", pk="_id")
+bp_geo.add_url_rule(bcs_api_base + '/geo/layers/<_id>.<string:_format>', view_func=_, methods=['GET'])
+
 
 # view_func = LayerAPI.as_view("geo/layers")
 # bp_geo.add_url_rule(f"{bcs_api_base}/geo/layers/", defaults={"_id": None}, view_func=view_func, methods=['GET', 'POST'])
 # bp_geo.add_url_rule(f"{bcs_api_base}/geo/layers/<int:_id>", view_func=view_func, methods=['GET', 'PUT', 'DELETE'])
+
+
+class RegionsAPI(MethodView):
+    """
+    Management of special "regions" layer through RESTful API
+    """
+
+    @n_session(read_only=True)
+    def get(self, region_id=None):
+        """
+        ?? dede la GUI recibo el polígono marcado por el usuario
+        @return:
+        # dar lista de regiones para visualizar
+        # entregar región a PDA
+        """
+        r = ResponseObject()
+        db = g.n_session.db_session
+        pg = g.n_session.postgis_db_session
+        issues = []
+        issues, geographic_region, count, status = get_content(db, GeographicRegion, issues, region_id)
+        if status == 200 and geographic_region:
+            if region_id is None:
+                lines = False
+                issues, regions, count, status = get_content(pg, Regions, issues, region_id)
+            else:
+                lines = True
+                issues, regions, count, status = get_content(pg, Regions, issues, geographic_region.geo_id)
+
+            bcs_df = pd.read_json(response_to_dataframe(geographic_region), lines=lines)
+            postgis_df = pd.read_json(response_to_dataframe(regions), lines=lines)
+            bcs_df = bcs_df.set_index(bcs_df["geo_id"]).drop(columns=["geo_id", "uuid"])
+            postgis_df = postgis_df.set_index(postgis_df["id"]).drop(columns=["uuid", "id"])
+            content = pd.concat([bcs_df, postgis_df], axis=1, join="inner")
+        else:
+            content = None
+        return ResponseObject(issues=issues, status=status, content=content, content_type="application/json",
+                              count=count).get_response()
+
+    @n_session()
+    def post(self):
+        db = g.n_session.db_session
+        pg = g.n_session.postgis_db_session
+        t = request.json
+        geographic_region_schema = getattr(GeographicRegion, "Schema")()
+        regions_schema = getattr(Regions, "Schema")()
+        regions_data = get_json_from_schema(Regions, t)
+        geographic_region_data = get_json_from_schema(GeographicRegion, t)
+        regions = regions_schema.load(regions_data, instance=Regions())
+        pg.add(regions)
+        pg.flush()
+        geographic_region = geographic_region_schema.load(geographic_region_data, instance=GeographicRegion())
+        geographic_region.uuid = regions.uuid
+        geographic_region.geo_id = regions.id
+        geographic_region.identity_id = g.n_session.identity.id
+        db.add(geographic_region)
+        db.flush()
+        return ResponseObject(content=geographic_region, content_type="application/json").get_response()
+
+    @n_session()
+    def delete(self, region_id=None):
+        issues = []
+        db = g.n_session.db_session
+        pg = g.n_session.postgis_db_session
+        issues, geographic_region, count, status = get_content(db, GeographicRegion, issues, region_id)
+        if status == 200 and geographic_region:
+            issues, region, count, status = get_content(pg, Regions, issues, geographic_region.geo_id)
+            db.delete(geographic_region)
+            pg.delete(region)
+        return ResponseObject(issues=issues, status=status).get_response()
+
+    @n_session()
+    def put(self, region_id=None):
+        issues = []
+        db = g.n_session.db_session
+        pg = g.n_session.postgis_db_session
+        t = request.json
+        geographic_region_schema = getattr(GeographicRegion, "Schema")()
+        regions_schema = getattr(Regions, "Schema")()
+        issues, geographic_region, count, status = get_content(db, GeographicRegion, issues, region_id)
+        if status == 200 and geographic_region:
+            issues, region, count, status = get_content(pg, Regions, issues, geographic_region.geo_id)
+            geographic_region = geographic_region_schema.load(get_json_from_schema(GeographicRegion, t),
+                                                              instance=geographic_region)
+            regions = regions_schema.load(get_json_from_schema(Regions, t), instance=region)
+            db.add(geographic_region)
+            pg.add(regions)
+        return ResponseObject(issues=issues, status=status, count=count).get_response()
+
+
+register_api(bp_geo, RegionsAPI, "geo/regions", f"{bcs_api_base}/geo/regions/", pk="region_id")
 
 
 class StylesAPI(MethodView):
@@ -904,7 +1016,7 @@ class StylesAPI(MethodView):
         geo.create_classified_featurestyle(style_name='name_of_style' column_name='name_of_column', column_distinct_values=[1,2,3,4,5,6,7], workspace='demo')
     """
 
-    @bcs_session()
+    @n_session()
     def get(self):
         """
         apply an style in a layer and publish
@@ -913,10 +1025,10 @@ class StylesAPI(MethodView):
         """
         # geo.publish_style(layer_name=layer, style_name='sld_file_name', workspace=style_name,
         #                 sld_version='1.0.0')# version?
+        from biobarcoding.geo import geoserver_session
         styles = geoserver_session.get_styles()
-        pass
 
-    @bcs_session()
+    @n_session()
     def put(self, rampa):
         """
         create a new stylein geoserver
@@ -927,11 +1039,12 @@ class StylesAPI(MethodView):
         # geo.upload_style(path=r'path\to\sld\file.sld', workspace='demo')
         pass
 
-    @bcs_session()
+    @n_session()
     def post(self):
         pass
 
     def post_style_from_raster_file(self):
+        from biobarcoding.geo import geoserver_session
         c_ramp = {
             'label 1 value': '#ffff55',
             'label 2 value': '#505050',
@@ -948,6 +1061,7 @@ class StylesAPI(MethodView):
         pass
 
     def post_vector_style(self):
+        from biobarcoding.geo import geoserver_session
         # - Outline featurestyle: change boundary
         geoserver_session.create_outline_featurestyle(style_name='new_style', color="#3579b1", geom_type='multipolygon',
                                                       workspace='ngd')

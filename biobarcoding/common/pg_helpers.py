@@ -1,68 +1,55 @@
 import collections
 import json
+import os
+from typing import List, Tuple
 
 import sqlalchemy
 from multidict import MultiDict, CIMultiDict
-from typing import List, Tuple
-
 from sqlalchemy import and_
 from sqlalchemy.pool import QueuePool
 
 import biobarcoding
-from biobarcoding.db_models import ORMBase
-
-import os
-from biobarcoding.common import ROOT
-
-
+from . import ROOT
+from ..db_models import ORMBase
+from ..db_models.jobs import ComputeResource, JobManagementType, Process, ProcessInComputeResource
 # #####################################################################################################################
 # >>>> DATABASE FUNCTIONS <<<<
 # #####################################################################################################################
-from biobarcoding.db_models.jobs import ComputeResource, JobManagementType, Process, ProcessInComputeResource
+
 
 RESOURCE_PROCESSES_DICT = {
     "localhost - galaxy": [
-        "klustal-1",
-        "blast",
-        "mrbayes",
-        "pd-1.0",
-        "migrate-3.7.2",
-        "import-sequences",
-        "import-msa",
-        "import-phylotree",
-        "Clustal Omega",
-        "MSA ClustalW",
-        "ClustalW-PhyMl",
         "MSA ClustalW",
     ],
     "balder - galaxy": [
-        "klustal-1",
-        "blast",
-        "mrbayes",
-        "pd-1.0",
-        "migrate-3.7.2",
-        "import-sequences",
-        "import-msa",
-        "import-phylotree",
-        "Clustal Omega",
-        "MSA ClustalW",
-        "ClustalW-PhyMl",
         "MSA ClustalW",
     ],
     "localhost - ssh": [
         "MSA ClustalW",
-        "PAUP Parsimony"
+        "PAUP Parsimony",
+        "Phylogenetic Diversity Analyzer",
+        "MSA ClustalW + PAUP Parsimony",
+        "PAUP Parsimony + Phylogenetic Diversity Analyzer",
+        "MSA ClustalW + PAUP Parsimony + Phylogenetic Diversity Analyzer"
     ],
     "balder - ssh": [
         "MSA ClustalW",
-        "PAUP Parsimony"
+        "PAUP Parsimony",
+        "Phylogenetic Diversity Analyzer",
+        "MSA ClustalW + PAUP Parsimony",
+        "PAUP Parsimony + Phylogenetic Diversity Analyzer",
+        "MSA ClustalW + PAUP Parsimony + Phylogenetic Diversity Analyzer"
     ],
 }
 
 PROCESSES_INPUTS = {
     "ec40143f-ae32-4dac-9cfb-caa047e1adb1": 'biobarcoding/inputs_schema/clustalw_phyml_formly.json',
     "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": 'biobarcoding/inputs_schema/clustalw_formly.json',
-    "c87f58b6-cb06-4d39-a0b3-72c2705c5ae1": 'biobarcoding/inputs_schema/paup_parsimony_formly.json'
+    "c87f58b6-cb06-4d39-a0b3-72c2705c5ae1": 'biobarcoding/inputs_schema/paup_parsimony_formly.json',
+    "3e0240e8-b978-48a2-8fdd-9f31f4264064": 'biobarcoding/inputs_schema/pda_formly.json',
+    "c55280d0-f916-4401-a1a4-bb26d8179fd7": 'biobarcoding/inputs_schema/clustalw+paup_parsimony_formly.json',
+    "ce018826-7b20-4b70-b9b3-168c0ba46eec": 'biobarcoding/inputs_schema/paup_parsimony+pda_formly.json',
+    "5b315dc5-ad12-4214-bb6a-bf013f0e4b8c": 'biobarcoding/inputs_schema/clustalw+paup_parsimony+pda_formly.json',
 }
 
 
@@ -72,7 +59,7 @@ def drop_pg_database(sa_str, database_name):
     conn = data_engine.connect()
     conn.execute("commit")
     try:
-        conn.execute("drop database "+database_name)
+        conn.execute("drop database " + database_name)
     except:
         pass
     conn.close()
@@ -87,13 +74,13 @@ def create_pg_database_engine(sa_str, database_name, recreate_db=False):
     conn = data_engine.connect()
     conn.execute("commit")
     try:
-        conn.execute("create database "+database_name)
+        conn.execute("create database " + database_name)
     except:
         pass
     conn.close()
     data_engine.dispose()
-    db_connection_string = sa_str+database_name
-    return sqlalchemy.create_engine(db_connection_string, echo=False, poolclass=QueuePool, pool_size=0,  max_overflow=-1)
+    db_connection_string = sa_str + database_name
+    return sqlalchemy.create_engine(db_connection_string, echo=False, poolclass=QueuePool, pool_size=0, max_overflow=-1)
 
 
 def load_table(sf, clazz, d):
@@ -162,7 +149,8 @@ def load_many_to_many_table(sf, clazz, lclazz, rclazz, attributes: List[str], va
         # Find id of left and right sides
         left = session.query(lclazz).filter(lclazz.name == t[0]).first()
         right = session.query(rclazz).filter(rclazz.name == t[1]).first()
-        i = session.query(clazz).filter(and_(getattr(clazz, attributes[0]) == left.id, getattr(clazz, attributes[1]) == right.id)).first()
+        i = session.query(clazz).filter(
+            and_(getattr(clazz, attributes[0]) == left.id, getattr(clazz, attributes[1]) == right.id)).first()
         if not i:
             ins = clazz()
             setattr(ins, attributes[0], left.id)
@@ -215,7 +203,6 @@ def load_processes_in_computing_resources(sf):
                     session.add(r)
     session.commit()
     sf.remove()
-
 
 
 def load_process_input_schema(sf):
@@ -272,6 +259,7 @@ class CaseInsensitiveDict(collections.MutableMapping):
     A dictionary with case insensitive Keys.
     Prepared also to support TUPLES as keys, required because compound keys are required
     """
+
     def __init__(self, data=None, **kwargs):
         from collections import OrderedDict
         self._store = OrderedDict()
@@ -444,7 +432,7 @@ class PartialRetrievalDictionary:
 
         # Obtain list of results
         if full_key and len(result) > 1:
-            raise Exception("Zero or one results were expected. "+str(len(result)+" obtained."))
+            raise Exception("Zero or one results were expected. " + str(len(result) + " obtained."))
         if not key_and_value:
             return [self._objs[oid][1] for oid in result]
         else:
@@ -471,7 +459,8 @@ class PartialRetrievalDictionary:
             if biobarcoding.case_sensitive:
                 key2 = {k.lower(): v for k, v in key.items()}
             else:
-                key2 = {k.lower(): v if k.startswith("__") else v.lower() if isinstance(v, str) else v for k, v in key.items()}
+                key2 = {k.lower(): v if k.startswith("__") else v.lower() if isinstance(v, str) else v for k, v in
+                        key.items()}
         else:
             key2 = key
         # Arrays containing key: values "not-present" and "present"
@@ -519,7 +508,7 @@ class PartialRetrievalDictionary:
                 s.add(oid)
         else:
             if ptype == 'i':
-                raise Exception("Key '+"+str(key2)+"' already exists")
+                raise Exception("Key '+" + str(key2) + "' already exists")
             # Update
             # Find the ID for the key
             res = self.get(key, just_oid=True)

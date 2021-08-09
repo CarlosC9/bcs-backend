@@ -4,11 +4,10 @@ from urllib import parse
 from flask import Blueprint, request, abort, url_for, Response
 from werkzeug.datastructures import Headers
 
-from biobarcoding.authentication import bcs_session
-from biobarcoding.rest import bcs_proxy_base, Issue, IType
+from ..authentication import n_session
+from . import bcs_proxy_base, Issue, IType
 
 bp_proxy = Blueprint('bp_proxy', __name__)
-
 
 """
 Proxy tools
@@ -25,7 +24,7 @@ def iter_form_data(multidict):
 
 def check_identity_access():
     from flask import g
-    check = g.bcs_session.identity and request.path
+    check = g.n_session.identity and request.path
     if not check:
         abort(403)
     pass
@@ -106,7 +105,7 @@ def make_proxy_response(service_response, response_headers, redirected_url=None)
             root = request.host + url_for(request.endpoint)
             root = root[:-1] if root.endswith('/') else root
             redirected_url = redirected_url[:-1] if redirected_url.endswith('/') else redirected_url
-            for residue in ['http://','https://']:
+            for residue in ['http://', 'https://']:
                 root = root.replace(residue, '')
                 redirected_url = redirected_url.replace(residue, '')
 
@@ -126,7 +125,7 @@ GeoServe Proxy
 
 @bp_proxy.route(bcs_proxy_base + '/geoserver', methods=["GET"])
 @bp_proxy.route(bcs_proxy_base + '/geoserver/<path:path>', methods=["GET"])
-@bcs_session(read_only=True)
+@n_session(read_only=True)
 def geoserver_gate(path=None):
     print(f'<PROXY> GET {request.path}\nGetting {path}')
     from flask import current_app
@@ -140,8 +139,8 @@ def geoserver_gate(path=None):
     else:
         print("no geoserver data in config file cant open GEOSERVER session")
         return Response(status=500,
-                        response={'issues':[
-                            Issue(IType.ERROR,'no geoserver data in config file cant open GEOSERVER session')]})
+                        response={'issues': [
+                            Issue(IType.ERROR, 'no geoserver data in config file cant open GEOSERVER session')]})
     response = run_request(host, f'/geoserver{path}', headers, data)
     # <modificación cabeceras de proxy>
     after_proxy_prepare(response)

@@ -3,7 +3,6 @@ import json
 from typing import Any, Dict
 import numpy as np
 from pathlib import Path
-from flask import jsonify
 import pandas
 from multidict import MultiDict, CIMultiDict
 
@@ -146,7 +145,7 @@ def _json_serial(obj):
         return str(obj)
     elif isinstance(obj, np.int64):
         return int(obj)
-    elif isinstance(obj,pandas.DataFrame):
+    elif isinstance(obj, pandas.DataFrame):
         return obj.to_dict("records")
     elif getattr(obj, "Schema"):
         # Use "marshmallow"

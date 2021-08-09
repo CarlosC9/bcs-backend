@@ -1,9 +1,11 @@
-from biobarcoding import get_global_configuration_variable
-from biobarcoding.jobs import JobExecutorAtResource
+import asyncio
 import os
 from shutil import rmtree
-import asyncio
+
 import asyncssh
+
+from .. import get_global_configuration_variable
+from ..jobs import JobExecutorAtResource
 
 SSH_OPTIONS = "-o StrictHostKeyChecking=no"
 
@@ -379,7 +381,8 @@ class JobExecutorWithSSH(JobExecutorAtResource):
 
     def submit(self, process):
         params = process["inputs"]["parameters"]
-        return self.loop.run_until_complete(self.remote_client.run_client(params["script"], params["script_params"]))
+        return self.loop.run_until_complete(
+            self.remote_client.run_client(params["scripts"][0]["remote_name"], params["script_params"]))
 
     def step_status(self, job_context):
         pid = job_context["pid"]
@@ -408,7 +411,8 @@ class JobExecutorWithSSH(JobExecutorAtResource):
 
     def get_upload_files_list(self, job_context):
         return job_context["process"]["inputs"]["data"] + \
-               job_context["process"]["inputs"]["parameters"]["script_files"]
+               job_context["process"]["inputs"]["parameters"]["scripts_files"] + \
+               job_context["process"]["inputs"]["parameters"]["scripts"]
 
     def get_download_files_list(self, job_context):
         return job_context["results"]

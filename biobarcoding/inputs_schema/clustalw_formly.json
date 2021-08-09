@@ -1,7 +1,24 @@
 [
   {
     "key": "MSA ClustalW",
+    "wrappers": ["subprocess-wrapper"],
+    "templateOptions": { "label": "MSA ClustalW" },
     "fieldGroup": [
+      {
+        "key": "sequence_selector",
+        "type": "sequence-selector",
+        "validators": {
+          "validation": [
+            "sequence-selector"
+          ]
+        },
+        "templateOptions": {
+          "filename": "input_dataset",
+          "label": "Sequences Selector",
+          "required": true,
+          "extension": "fasta"
+        }
+      },
       {
         "key": "dnarna",
         "type": "select",
@@ -38,7 +55,7 @@
               "label": "PHYLIP format"
             },
             {
-              "value": "fa",
+              "value": "fasta",
               "label": "FASTA format"
             }
           ]
@@ -125,21 +142,6 @@
         },
         "defaultValue": "99999",
         "hideExpression": "model.mode!='part'"
-      },
-      {
-        "key": "sequence_selector",
-        "type": "sequence-selector",
-        "validators": {
-          "validation": [
-            "sequence-selector"
-          ]
-        },
-        "templateOptions": {
-          "filename": "input_dataset",
-          "label": "Sequences Selector",
-          "required": true,
-          "extension": "fasta"
-        }
       }
     ]
   }

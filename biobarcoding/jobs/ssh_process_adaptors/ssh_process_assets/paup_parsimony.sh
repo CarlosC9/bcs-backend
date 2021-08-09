@@ -29,10 +29,10 @@ then
   sets=${14}
   assumptions=${15}
   python3 paup_parsimony_params.py $TEMPLATE_FILENAME $INPUTS_FILENAME $outRoot $gapMode $addseq $swap $hold "$consensus_tree_type" $le50 $percent $search $n_replicas $method "$enforce_converse" "$taxset_paup" "$sets" "$assumptions"
+  check_error $?
   paup ngd_paup_parsimony.txt
+  check_error $?
 else
   echo "Something went wrong with the arguments." >&2
   exit 1
 fi
-
-check_error $?

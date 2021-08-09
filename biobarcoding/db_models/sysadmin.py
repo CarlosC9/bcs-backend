@@ -2,11 +2,10 @@ import datetime
 import uuid
 
 import sqlalchemy
-from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, JSON, Boolean
+from sqlalchemy import Column, Integer, String, ForeignKey, DateTime, Text, JSON
 from sqlalchemy.orm import relationship, backref
 
-from biobarcoding.db_models import ORMBase, GUID, ObjectType
-
+from . import ORMBase, GUID, ObjectType
 
 # AUTHENTICATION / AUTHORIZATION
 

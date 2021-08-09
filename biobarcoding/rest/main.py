@@ -1,30 +1,49 @@
-from flask import (Flask, request, session as flask_session, redirect, current_app)
-from flask_session import Session as FlaskSessionServerSide
-from flask_cors import CORS
+import sys
+from pathlib import Path
+
 from NamedAtomicLock import NamedAtomicLock
+from flask import (Flask, request, session as flask_session, redirect, current_app)
+from flask_cors import CORS
+from flask_session import Session as FlaskSessionServerSide
 from flask_socketio import SocketIO
 
+# Workaround for relative imports in a "__main__"
+# From: https://stackoverflow.com/a/28154841
+if __name__ == '__main__' and __package__ is None:
+    file = Path(__file__).resolve()
+    parent, top = file.parent, file.parents[3]
+
+    sys.path.append(str(top))
+    try:
+        sys.path.remove(str(parent))
+    except ValueError:  # Already removed
+        pass
+
+    import biobarcoding.rest
+    __package__ = 'biobarcoding.rest'
+# End of workaround
+
 import biobarcoding
-from biobarcoding.rest import logger, log_level, load_configuration_file, construct_session_persistence_backend, \
+from ..authentication import initialize_firebase
+from ..geo import initialize_geoserver
+from . import logger, log_level, load_configuration_file, construct_session_persistence_backend, \
     initialize_database, initialize_database_chado, bcs_gui_base, ResponseObject, initialize_chado_edam, \
     init_socket, initialize_postgis, initialize_ssh, initialize_galaxy
-from biobarcoding.rest.auth import bp_auth
-from biobarcoding.rest.file_manager import bp_files
-from biobarcoding.rest.identities_and_company import bp_identities, bp_sys_functions, bp_roles, bp_identities_roles, \
+from .auth import bp_auth
+from .bos import bp_bos
+from .browser_filters import bp_bfilters
+from .file_manager import bp_files
+from .geo_rest import bp_geo
+from .gui_static import bp_gui
+from .identities_and_company import bp_identities, bp_sys_functions, bp_roles, bp_identities_roles, \
     bp_groups, bp_organizations, bp_acl
-from biobarcoding.rest.bos import bp_bos
-from biobarcoding.rest.metadata import bp_metadata
-from biobarcoding.rest.jobs import bp_jobs
-from biobarcoding.rest.tasks import bp_tasks
-from biobarcoding.rest.processes import  bp_processes, bp_resources
-from biobarcoding.rest.geo_rest import bp_geo
-from biobarcoding.rest.gui_static import bp_gui
-from biobarcoding.rest.browser_filters import bp_bfilters
-from biobarcoding.rest.views import bp_views
-from biobarcoding.rest.proxy import bp_proxy
-from biobarcoding.tasks import initialize_celery
-from biobarcoding.authentication import initialize_firebase
-from biobarcoding.geo import initialize_geoserver
+from .jobs import bp_jobs
+from .metadata import bp_metadata
+from .processes import bp_processes, bp_resources
+from .proxy import bp_proxy
+from .tasks import bp_tasks
+from .views import bp_views
+from ..tasks import initialize_celery
 
 # Flask and configuration file
 socket_service_socketio = None
@@ -57,15 +76,14 @@ def create_app(debug, cfg_dict=None):
     FlaskSessionServerSide(app)
 
     # CORS
-    cors = CORS(app,
-         resources={r"/api/*": {"origins": "*"}},
+    CORS(app,
+         resources={r"/api/*": {"origins": "*"}, r"/pxy/*": {"origins": "*"}},
          supports_credentials=True
          )
 
     global socket_service_socketio
     socket_service_socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
     init_socket(socket_service_socketio)
-
     lock = NamedAtomicLock("bcs-backend-lock")
     lock.acquire()
     try:
@@ -167,6 +185,7 @@ def after_a_request(response):
                     response.headers[i] = (h[0], f"{h[1]}; SameSite=None")
 
     return response
+
 
 # FLASK_ENV=development FLASK_APP=biobarcoding.rest.main flask run
 if __name__ == "__main__":

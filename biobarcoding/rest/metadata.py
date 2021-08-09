@@ -1,33 +1,32 @@
 from flask import Blueprint, request
-from flask.views import MethodView
 
-from biobarcoding.rest.bos import BioObjAPI
+from ..authentication import n_session
+from . import bcs_api_base, ResponseObject, check_request_params
+from .bos import BioObjAPI
 
 bp_metadata = Blueprint('bp_metadata', __name__)
 
-from biobarcoding.authentication import bcs_session
-from biobarcoding.rest import bcs_api_base, ResponseObject, check_request_params
+metadata = ['taxonomies', 'organisms', 'ontologies', 'analyses']
 
-metadata = ['taxonomies', 'organisms', 'ontologies', 'analyses' ]
 
 class MetadataAPI(BioObjAPI):
     """
     Taxonomies Resource
     """
 
-    @bcs_session(read_only=True)
+    @n_session(read_only=True)
     def get(self, id=None, format=None):
         return super(MetadataAPI, self).get(self.getMetadata(), id, format)
 
-    @bcs_session()
+    @n_session()
     def post(self, format=None):
         return super(MetadataAPI, self).post(self.getMetadata(), format)
 
-    @bcs_session()
+    @n_session()
     def put(self, id, format=None):
         return super(MetadataAPI, self).put(self.getMetadata(), id, format)
 
-    @bcs_session()
+    @n_session()
     def delete(self, id=None, format=None):
         return super(MetadataAPI, self).delete(self.getMetadata(), id, format)
 
@@ -68,7 +67,7 @@ class CvtermsAPI(BioObjAPI):
     Cvterms Resource
     """
 
-    @bcs_session(read_only=True)
+    @n_session(read_only=True)
     def get(self, cv_id=None, cvterm_id=None):
         print(f'GET {request.path}\nGetting ontology terms {id}')
         kwargs = check_request_params()

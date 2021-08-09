@@ -1,4 +1,5 @@
-from biobarcoding.jobs.galaxy_process_adaptors import GalaxyProcessAdaptor
+from . import GalaxyProcessAdaptor
+
 
 # clustal process job context example
 
@@ -24,6 +25,7 @@ class GalaxyClustalAdaptator(GalaxyProcessAdaptor):
     def _complete_with_worlflow_name(self):
         name = 'MSA ClustalW'
         return name
+
 
 '''
 job_context = {'process':
