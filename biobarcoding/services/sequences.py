@@ -23,7 +23,7 @@ def __check_seq_values(**values):
         from biobarcoding.db_models.chado import Organism
         org = values.get('organism')
         if org:
-            # TODO: check canónical name
+            # TODO: check canónical name (getting genus and species?)
             values['organism_id'] = get_or_create(chado_session, Organism, genus=org.split(' ')[-2], species=org.split(' ')[-1]).organism_id
         if not values.get('organism_id'):
             values['organism_id'] = get_or_create(chado_session, Organism, genus='organism', species='undefined').organism_id
@@ -121,11 +121,22 @@ def delete(id=None, **kwargs):
 ##
 
 def __simpleSeq2chado(seq, **params):
-    return create(uniquename=seq.id, residues=str(seq.seq), seqlen=len(seq.seq))[0]
+    return create(uniquename=seq.id, name=seq.description, residues=str(seq.seq), seqlen=len(seq.seq), **params)[0]
 
 
-def __fasSeq2chado(seq, meta, **params):
-    return create(uniquename=seq.id, name=seq.name, residues=str(seq.seq), seqlen=len(seq.seq))[0]
+def __fasSeq2chado(seq, **params):
+    # params = { organism:<organism>, features=<features>, origin:<origin> }
+    features = params.get('features')
+    origin = params.get('origin')
+    if features:
+        if isinstance(features, str):
+            features = features.split(',')
+        features = [ {'type': f.split()[-1], 'qualifiers': {f.split()[-1]:f[:-len(f.split()[-1])].strip()}} for f in features ]
+        params['features'] = features if hasattr(features, '__iter__') else params['features']
+        params['molecule_type'] = features[-1]['type']
+    elif origin:
+        params['molecule_type'] = params.get('origin')
+    return create(uniquename=seq.id, name=seq.description, residues=str(seq.seq), seqlen=len(seq.seq), **params)[0]
 
 
 def __gbSeq2chado(seq, **params):
@@ -194,24 +205,25 @@ def __gbSeq2chado(seq, **params):
                    type='CDS')
     ]
     """
+    seq.name = f'{seq.id} {seq.description}' if seq.id == seq.name else seq.name
     return create(uniquename=seq.id, name=seq.name, residues=str(seq.seq), seqlen=len(seq.seq),
-                  description=seq.description, dbxrefs=seq.dbxrefs, **seq.annotations, features=seq.features)[0]
+                  description=seq.description, dbxrefs=seq.dbxrefs, **seq.annotations, features=seq.features, **params)[0]
 
 
 # ?META: accession, genus, species, molec_region, molec_origin, isle, georegion, individual, collection
 def __bio2chado(seq, format, **params):
-    seq.name = f'{seq.id} {seq.description}' if seq.id == seq.name else seq.name
-    if format == 'fasta':    # fasta
-        # p.e.: >Seq1_18037 [organism=Ruta montana] maturase K (matk) gene, partial sequence, partial cds; chloroplast
-        pattern = '^(?P<id>\w+?) *\[organism=(?P<organism>.+?)\] *(?P<genes>.+?); *(?P<origin>.+?)$'
-        meta = re.match(pattern, seq.description)
-        if meta:
-            return __fasSeq2chado(seq, meta.groupdict(), **params)
-        else:
-            return __simpleSeq2chado(seq, **params)
-    elif format == 'genbank':   # genbank
-        return __gbSeq2chado(seq, **params)
-    return [Issue(IType.ERROR, f'IMPORT sequences: {seq.id} could not be imported.')]
+    try:
+        if format == 'fasta':    # fasta
+            pattern = '^(?P<id>\w+?) *\[organism=(?P<organism>.+?)\] *(?P<features>.+?); *(?P<origin>.+?)$'
+            # p.e.: >Seq1_18037 [organism=Ruta montana] maturase K (matk) gene, partial sequence, partial cds; chloroplast
+            meta = re.match(pattern, seq.description)
+            if meta:
+                return __fasSeq2chado(seq, **meta.groupdict(), **params)
+        elif format == 'genbank':   # genbank
+            return __gbSeq2chado(seq, **params)
+        return __simpleSeq2chado(seq, **params)
+    except Exception as e:
+        return [Issue(IType.ERROR, f'IMPORT sequences: {seq.id} could not be imported.')]
 
 
 def import_file(input_file, format=None, **kwargs):
