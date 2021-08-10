@@ -41,8 +41,8 @@ class SSHPdaProcessAdaptor(SSHProcessAdaptor):
                 "remote_name": "output.pda",
                 "file": "output.pda",
                 "subprocess": "Phylogenetic Diversity Analyzer",
-                "object_type": {"bio": "pda"},
+                "object_type": {"geo": "layers"},
                 "content_type": "text/plain+geolayer",
                 "type": "pda"
-            },
+            }
         ]

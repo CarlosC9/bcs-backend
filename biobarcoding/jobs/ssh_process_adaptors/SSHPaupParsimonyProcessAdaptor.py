@@ -61,7 +61,7 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
                     "remote_name": f"bootstrap_replicas.tre",
                     "file": f"bootstrap_replicas.tre",
                     "subprocess": "PAUP Parsimony",
-                    "object_type": {"bio": "tree"},
+                    "object_type": {"bos": "tree"},
                     "content_type": "text/x-nexus",
                     "type": "nexus"
                 },
@@ -73,7 +73,7 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
                     "remote_name": f"jackknife_replicas.tre",
                     "file": f"jackknife_replicas.tre",
                     "subprocess": "PAUP Parsimony",
-                    "object_type": {"bio": "tree"},
+                    "object_type": {"bos": "tree"},
                     "content_type": "text/x-nexus",
                     "type": "nexus"
                 },
@@ -85,7 +85,7 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
                 "remote_name": consensus_tree_filename,
                 "file": consensus_tree_filename,
                 "subprocess": "PAUP Parsimony",
-                "object_type": {"bio": "tree"},
+                "object_type": {"bos": "tree"},
                 "content_type": "text/x-nexus",
                 "type": "nexus"
             },
@@ -93,7 +93,7 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
                 "remote_name": f"cladogram.txt",
                 "file": "cladogram.txt",
                 "subprocess": "PAUP Parsimony",
-                "object_type": {"bio": "paup_cladogram"},
+                "object_type": {"bos": "paup_cladogram"},
                 "content_type": "text/plain",
                 "type": "txt"
             },
@@ -101,7 +101,7 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
                 "remote_name": f"treescores.txt",
                 "file": "treescores.txt",
                 "subprocess": "PAUP Parsimony",
-                "object_type": {"bio": "paup_scores"},
+                "object_type": {"bos": "paup_scores"},
                 "content_type": "text/tab-separated-values",
                 "type": "txt"
             },
@@ -109,7 +109,7 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
                 "remote_name": f"ngd_paup_parsimony.txt",
                 "file": "ngd_paup_parsimony.txt",
                 "subprocess": "PAUP Parsimony",
-                "object_type": {"bio": "tree"},
+                "object_type": {"bos": "tree"},
                 "content_type": "text/x-nhx",
                 "type": "txt"
             },
@@ -117,7 +117,7 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
                 "remote_name": f"sets_and_assumptions.txt",
                 "file": "sets_and_assumptions.txt",
                 "subprocess": "PAUP Parsimony",
-                "object_type": {"bio": "tree"},
+                "object_type": {"bos": "tree"},
                 "content_type": "text/x-nhx",
                 "type": "txt"
             },
