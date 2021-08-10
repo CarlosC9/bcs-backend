@@ -21,7 +21,8 @@ from ..db_models.geographics import GeographicRegion, Regions, GeographicLayer
 from ..geo import workspace_names, postgis_store_name
 from ..geo.biota import read_biota_file, generate_pda_species_file_from_layer, import_pda_result
 from . import bcs_api_base, ResponseObject, Issue, IType, register_api, bcs_proxy_base, filter_parse
-from .file_manager import FilesAPI
+from .files import FilesAPI
+from ..services.files import get_file_contents
 
 """
 Support operations regarding Geographical layers
@@ -804,7 +805,7 @@ class LayersAPI(MethodView):
 
         # Download to a local file if self.kwargs.data contains a FilesAPI path
         if self.kwargs.get("data"):  # TODO Incomplete (it could be used to import the output of a Geoprocess)
-            ctype, contents = FilesAPI.get_file_contents(g.n_session, self.kwargs.get("data"))
+            ctype, contents = get_file_contents(g.n_session, self.kwargs.get("data"))
             file = f"submitted_file.zip"  # TODO Extension may be different (change depending on content-type)
             file_path = os.path.join(folder, secure_filename(file))
             with open(file_path, "wb") as f:

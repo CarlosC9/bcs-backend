@@ -9,7 +9,7 @@ import requests
 import os
 import subprocess
 
-from biobarcoding.rest.file_manager import FilesAPI
+from biobarcoding.rest.files import FilesAPI
 from biobarcoding.tasks.definitions import change_status
 # req = {
 #   "resource_id": "8fac3ce8-8796-445f-ac27-4baedadeff3b",
