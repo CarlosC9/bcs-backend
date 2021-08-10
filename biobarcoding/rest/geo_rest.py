@@ -21,7 +21,6 @@ from ..db_models.geographics import GeographicRegion, Regions, GeographicLayer
 from ..geo import workspace_names, postgis_store_name
 from ..geo.biota import read_biota_file, generate_pda_species_file_from_layer, import_pda_result
 from . import bcs_api_base, ResponseObject, Issue, IType, register_api, bcs_proxy_base, filter_parse
-from .files import FilesAPI
 from ..services.files import get_file_contents
 
 """
@@ -450,12 +449,17 @@ class LayersAPI(MethodView):
         export API_BASE_URL=http://localhost:5000/api
         curl --cookie-jar bcs-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user"
         curl --cookie bcs-cookies.txt -F "layer_file=@/home/rnebot/GoogleDrive/AA_NEXTGENDEM/plantae_canarias/Plantas.zip;type=application/zip" -F "metadata={\"name\": \"capa_1\", \"wks\": \"ngd\", \"attributes\": {\"tags\": [\"tag1\", \"tag2\"]}};type=application/json" "$API_BASE_URL/geo/layers/"
+
+        POST from FilesAPI:
+        First, upload a file to FilesAPI:
+        curl --cookie bcs-cookies.txt -H "Content-Type: application/zip" -XPUT --data-binary @/home/rnebot/GoogleDrive/AA_NEXTGENDEM/plantae_canarias/Plantas.zip "$API_BASE_URL/files/f1/f2/f3/plantas.zip.content"
+        Then, do the POST, like
+        curl --cookie bcs-cookies.txt -XPOST "$API_BASE_URL/geo/layers/?filesAPI=%2Ff1%2Ff2%2Ff3%2Fplantas.zip&job_id=6"
         """
         db = g.n_session.db_session
         self.issues = []
+        self.kwargs = self._build_args_from_request_data()
         system_layer = True  # or user layer
-        self.kwargs = dict(name="unnamed")
-        self._update_kwargs_from_request_data()
         self.kwargs["wks"] = workspace_names[0] if system_layer else workspace_names[1]
         # Put self.kwargs into a geographic layer
         geographic_layer_schema = getattr(GeographicLayer, "Schema")()
@@ -478,8 +482,8 @@ class LayersAPI(MethodView):
             lower_case_attributes = True
             layer_name = f"layer_{geographic_layer.id}"  # (internal) Geoserver layer name
             status, gdf = self._post_in_postgis(layer_name, lower_case_attributes)
-            # TODO Delete temporary file
-
+            # Delete temporary file
+            os.remove(self.kwargs["path"])
             # Publish layer in Geoserver
             if status == 200:
                 geographic_layer.in_postgis = True
@@ -531,11 +535,10 @@ class LayersAPI(MethodView):
         """
         db = g.n_session.db_session
         self.issues = []
+        self.kwargs = self._build_args_from_request_data()
         system_layer = True
-        self.kwargs = dict(name="unnamed")
-        self._update_kwargs_from_request_data()
         self.kwargs["wks"] = workspace_names[0] if system_layer else workspace_names[1]
-        geographic_layer_schema = getattr(GeographicRegion, "Schema")()
+        geographic_layer_schema = getattr(GeographicLayer, "Schema")()
         geographic_layer_data = get_json_from_schema(GeographicLayer, self.kwargs)
         # Remove unmodifiable keys
         for k in ["geoserver_name", "id", "identity_id", "in_postgis", "is_deleted", "layer_type", "published", "uuid",
@@ -777,24 +780,43 @@ class LayersAPI(MethodView):
             _, self.status = self.issues.append(Issue(IType.INFO, f"no tmpview available")), 400
             return None
 
-    def _update_kwargs_from_request_data(self):
+    @staticmethod
+    def _build_args_from_request_data():
+        args = {}
         if request.json:
-            self.kwargs.update(request.json)
+            args.update(request.json)
         elif request.form:
             if request.form.get("metadata"):
-                self.kwargs.update(json.loads(request.form["metadata"]))
+                args.update(json.loads(request.form["metadata"]))
         elif request.values:
             t = request.values.to_dict()
             for key, item in t.items():
                 if isinstance(item, str):
                     try:
                         item = json.loads(item)
-                        self.kwargs.update(item)
+                        args.update(item)
                     except json.decoder.JSONDecodeError:
-                        self.kwargs.update(t)
+                        args.update(t)
+                        break
+        if "attributes" not in args:
+            # Define default attributes
+            args["attributes"] = dict(tags=[])
+        else:
+            if "tags" not in args["attributes"]:
+                args["attributes"]["tags"] = []
+        if "filesAPI" in args:
+            args["attributes"]["job_file"] = args["filesAPI"]
+        if "job_id" in args:
+            args["attributes"]["job_id"] = args["job_id"]
+            del args["job_id"]
+        if "name" not in args:
+            # Define default name
+            if "job_id" in args["attributes"]:
+                args["name"] = f'Capa salida del job {args["attributes"]["job_id"]}'
+        return args
 
     def _file_posted(self):
-        return len(request.files) > 0
+        return len(request.files) > 0 or "filesAPI" in self.kwargs
 
     def _receive_and_prepare_file(self):
         import os
@@ -804,12 +826,14 @@ class LayersAPI(MethodView):
         from werkzeug.utils import secure_filename
 
         # Download to a local file if self.kwargs.data contains a FilesAPI path
-        if self.kwargs.get("data"):  # TODO Incomplete (it could be used to import the output of a Geoprocess)
-            ctype, contents = get_file_contents(g.n_session, self.kwargs.get("data"))
-            file = f"submitted_file.zip"  # TODO Extension may be different (change depending on content-type)
-            file_path = os.path.join(folder, secure_filename(file))
+        if "filesAPI" in self.kwargs:
+            c_type, contents = get_file_contents(g.n_session.db_session, self.kwargs["filesAPI"])
+            from mimetypes import guess_extension
+            temp_name = tempfile.NamedTemporaryFile(dir=folder, delete=False)
+            file_path = os.path.join(folder, f"{temp_name.name}{guess_extension(c_type)}")
             with open(file_path, "wb") as f:
                 f.write(contents)
+            path = file_path
         elif len(request.files) > 0:
             files = request.files.to_dict(flat=False)
             for _, value in files.items():  # TODO It will consider just the last file
