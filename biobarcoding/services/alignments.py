@@ -85,7 +85,7 @@ def __seq_cvterm(name):
 
 
 def __bind2src(feature, srcname):
-    from biobarcoding.services.sequences import __get_query as get_sequences
+    from biobarcoding.services.sequences import get_seqs_query as get_sequences
     src = get_sequences(uniquename=srcname).first()
     if src:
         from biobarcoding.db_models.chado import Featureloc
@@ -149,7 +149,7 @@ def export(id, format='fasta', value={}, **kwargs):
     content = None
     try:
         if format in ('fasta', 'nexus'):
-            from biobarcoding.services.sequences import __get_query as get_seqs
+            from biobarcoding.services.sequences import get_seqs_query as get_seqs
             seqs = get_seqs(filter={'analysis_id': {'op': 'eq', 'unary': id}})
             from biobarcoding.services.sequences import __seqs2file as export_sequences
             content = export_sequences(seqs.all(), format=format, header_format=value.get('header'))
