@@ -32,7 +32,7 @@ from . import logger, log_level, load_configuration_file, construct_session_pers
 from .auth import bp_auth
 from .bos import bp_bos
 from .browser_filters import bp_bfilters
-from .file_manager import bp_files
+from .files import bp_files
 from .geo_rest import bp_geo
 from .gui_static import bp_gui
 from .identities_and_company import bp_identities, bp_sys_functions, bp_roles, bp_identities_roles, \
