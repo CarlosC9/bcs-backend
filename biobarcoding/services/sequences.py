@@ -23,10 +23,12 @@ def __check_seq_values(**values):
         from biobarcoding.db_models.chado import Organism
         org = values.get('organism')
         if org:
+            genus = org.split()[0]
+            species = org[len(genus):].strip()
             # TODO: check canónical name (getting genus and species?)
-            values['organism_id'] = get_or_create(chado_session, Organism, genus=org.split(' ')[-2], species=org.split(' ')[-1]).organism_id
+            values['organism_id'] = get_or_create(chado_session, Organism, genus=genus, species=species).organism_id
         if not values.get('organism_id'):
-            values['organism_id'] = get_or_create(chado_session, Organism, genus='organism', species='undefined').organism_id
+            values['organism_id'] = get_or_create(chado_session, Organism, genus='Organism', species='Unclassified').organism_id
 
     if not values.get('type_id'):
         from biobarcoding.db_models.chado import Cvterm, Cv
@@ -53,6 +55,7 @@ def __check_seq_values(**values):
 
 
 def create(**kwargs):
+    # TODO: chado:Stock and bcs ?
     content = None
     try:
         values = __check_seq_values(**kwargs)
@@ -88,17 +91,24 @@ def read(id=None, **kwargs):
 ##
 
 def update(id, **kwargs):
-    issues = [Issue(IType.WARNING, 'UPDATE sequences: dummy completed')]
-    return issues, None, 200
+    content = None
+    try:
+        seq = get_seqs_query(id)[0].one()
+        seq.update(__check_seq_values(**kwargs))
+        issues, status = [Issue(IType.INFO, f'UPDATE sequences: The sequence "{seq.uniquename}" was updated successfully.')], 201
+    except Exception as e:
+        log_exception(e)
+        issues, status = [Issue(IType.ERROR, f'UPDATE sequences: The sequence "{seq.uniquename}" could not be updated.')], 409
+    return issues, content, status
 
 
 ##
 # DELETE
 ##
 
-def __delete_from_bcs(feature_id):
+def __delete_from_bcs(*ids):
     from biobarcoding.db_models.bioinformatics import Sequence
-    db_session.query(Sequence).filter(Sequence.chado_id == feature_id) \
+    db_session.query(Sequence).filter(Sequence.chado_id.in_(ids)) \
         .delete(synchronize_session='fetch')
 
 
@@ -106,8 +116,7 @@ def delete(id=None, **kwargs):
     content = None
     try:
         query, count = get_seqs_query(id, **kwargs)
-        for seq in query.all():
-            __delete_from_bcs(seq.feature_id)
+        __delete_from_bcs(*[ seq.feature_id for seq in query.all() ])
         resp = query.delete(synchronize_session='fetch')
         issues, status = [Issue(IType.INFO, f'DELETE sequences: {resp} sequences were successfully removed.')], 200
     except Exception as e:

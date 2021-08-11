@@ -6,9 +6,9 @@ from ..rest import Issue, IType, filter_parse, paginator
 def create(**kwargs):
     content = None
     if not kwargs.get('genus'):
-        kwargs['genus']='organism'
+        kwargs['genus']='Organism'
     if not kwargs.get('species'):
-        kwargs['species']='undefined'
+        kwargs['species']='Unclassified'
     try:
         from biobarcoding.services import get_or_create
         content = get_or_create(chado_session, Organism, **kwargs)
