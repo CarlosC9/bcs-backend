@@ -331,7 +331,12 @@ class LayersAPI(MethodView):
 
         curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/1"
 
+        Specially, a Biota layer can be exported as one of 3 supported formats. The first two are for PDA, the third
+        just enumerates available species:
+
         curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/1.pda_simple"
+        curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/1.nexus"
+        curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/1.pda_species"
 
         @param _id: ID of a layer; empty for ALL layers (if no query params specified)
         @param _format: export format

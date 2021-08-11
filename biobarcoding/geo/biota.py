@@ -28,7 +28,7 @@ def generate_pda_species_file_from_layer(db_sess, layer_id: int, layer_name: str
         postgis_engine = create_pg_database_engine(db_connection_string, "ngd_geoserver", recreate_db=False)
     line_blocks = []
     if format_ == "nexus":
-        line_blocks.append("#nexus\n\nbegin sets")
+        line_blocks.append("#nexus\n\nbegin sets;")
 
     try:
         gdf = gpd.read_postgis(f"SELECT * FROM {layer_name} ORDER BY IDCELDA", postgis_engine, geom_col="geometry")
@@ -57,7 +57,7 @@ def generate_pda_species_file_from_layer(db_sess, layer_id: int, layer_name: str
                 else:
                     id_celda = int(cell[cols['idcelda']].values[0])
                     _ = ' '.join(f"'{sp}'" for sp in _)
-                    line_blocks.append(f"    taxset L{layer_id}_C{id_celda} = {_}")
+                    line_blocks.append(f"    taxset L{layer_id}_C{id_celda} = {_};")
             elif format_ == "pda_species":
                 species.update([bytes(taxon.encode("iso-8859-1")).decode("utf8")
                                 for taxon in filter(None, cell[cols["denomtax"]].values)

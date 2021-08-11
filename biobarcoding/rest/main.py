@@ -112,6 +112,17 @@ def create_app(debug, cfg_dict=None):
     finally:
         lock.release()
 
+    # Following code was used (modify layer ID) to research ISSUE of extra slow export in some cases
+    # The reason was a version of PyProj (3.1.0 slow, 2.6.1 normal -fast-)
+    #
+    # from .geo_rest import LayersAPI, get_content
+    # from biobarcoding.db_models import DBSession
+    # from biobarcoding.db_models.geographics import GeographicLayer
+    # issues = []
+    # issues, layer, count, status = get_content(DBSession(), GeographicLayer, issues, "14")
+    # content = LayersAPI()._export(DBSession(), layer, _format="nexus")
+    # sys.exit(1)
+
     print("Initializing Geoserver")
     initialize_geoserver(app)
     print("Initializing Geoserver - DONE")

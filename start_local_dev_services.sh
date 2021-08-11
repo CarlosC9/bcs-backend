@@ -1,6 +1,9 @@
 #!/bin/bash
 
+# NOTE 1
+# In case of needing connection to Balder, be sure to be at ITC or connected to ITC's VPN
 #
+# NOTE 2
 # If Docker containers do not respond after a laptop suspend (workaround):
 # sudo systemctl restart NetworkManager docker.service
 #
