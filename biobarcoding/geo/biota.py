@@ -78,10 +78,10 @@ def generate_pda_species_file_from_layer(db_sess, layer_id: int, layer_name: str
         if format_ == "species":
             line_blocks.extend(species)
         else:
-            line_blocks.extend(get_canonical_species_names(db_sess, species))
+            line_blocks.extend(filter(None, get_canonical_species_names(db_sess, species)))
         line_blocks = sorted(line_blocks)
 
-    return '\n'.join(line_blocks)
+    return '\n'.join(line_blocks) + "\n"
 
 
 # with open("/home/rnebot/Downloads/borrame.txt", "w") as f:

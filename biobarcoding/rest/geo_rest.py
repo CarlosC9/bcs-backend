@@ -337,7 +337,8 @@ class LayersAPI(MethodView):
 
         curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/1.pda_simple"
         curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/1.nexus"
-        curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/1.pda_species"
+        curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/1.species"
+        curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/1.species_canon"
 
         @param _id: ID of a layer; empty for ALL layers (if no query params specified)
         @param _format: export format
