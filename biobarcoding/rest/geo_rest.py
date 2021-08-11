@@ -290,10 +290,11 @@ class LayersAPI(MethodView):
     status = int()
 
     def _export(self, sess, lay: GeographicLayer, _format):
-        if _format not in ["nexus", "pda_simple", "pda_species"]:
+        if _format not in ["nexus", "pda_simple", "species", "species_canon"]:
             self.issues.append(
                 Issue(IType.ERROR, f'Could not export Biota layer {lay.name} (internal name "{lay.geoserver_name}") '
-                                   f'to format "{_format}". Supported "pda_simple" and "nexus"', f"Export {lay.name}"))
+                                   f'to format "{_format}". Supported "pda_simple", "nexus", "species", "species_canon"',
+                      f"Export {lay.name}"))
             return None
         # TODO Check "tags" attribute, the layer should have a "Biota" tag
         _ = generate_pda_species_file_from_layer(sess, lay.id, lay.geoserver_name, _format)

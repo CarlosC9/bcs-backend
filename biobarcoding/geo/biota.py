@@ -35,7 +35,7 @@ def generate_pda_species_file_from_layer(db_sess, layer_id: int, layer_name: str
     except:
         return None
 
-    if format_ == "pda_species":
+    if format_ == "species" or format_ == "species_canon":
         species = set()
 
     # Map lower case column names to actual column names
@@ -58,7 +58,7 @@ def generate_pda_species_file_from_layer(db_sess, layer_id: int, layer_name: str
                     id_celda = int(cell[cols['idcelda']].values[0])
                     _ = ' '.join(f"'{sp}'" for sp in _)
                     line_blocks.append(f"    taxset L{layer_id}_C{id_celda} = {_};")
-            elif format_ == "pda_species":
+            elif format_ == "species" or format_ == "species_canon":
                 species.update([bytes(taxon.encode("iso-8859-1")).decode("utf8")
                                 for taxon in filter(None, cell[cols["denomtax"]].values)
                                 ])
@@ -74,8 +74,11 @@ def generate_pda_species_file_from_layer(db_sess, layer_id: int, layer_name: str
 
     if format_ == "nexus":
         line_blocks.append("end; [sets]")
-    elif format_ == "pda_species":
-        line_blocks.extend(species)
+    elif format_ == "species" or format_ == "species_canon":
+        if format_ == "species":
+            line_blocks.extend(species)
+        else:
+            line_blocks.extend(get_canonical_species_names(db_sess, species))
         line_blocks = sorted(line_blocks)
 
     return '\n'.join(line_blocks)
