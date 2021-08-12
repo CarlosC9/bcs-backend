@@ -411,8 +411,8 @@ class LayersAPI(MethodView):
                 c = c.lower()
             tmp = gdf[c].values
             try:
-                min_v = min(tmp)
-                max_v = max(tmp)
+                min_v = float(min(tmp))
+                max_v = float(max(tmp))
                 p_type = "numeric"
                 style_name = f"{layer_name}_{c}"
             except:

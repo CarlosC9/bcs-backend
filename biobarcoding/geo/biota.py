@@ -144,7 +144,7 @@ def import_pda_result(file_name: str, layer_id: str = None, session=None):
             layer_name = layer.geoserver_name
             # Read reference Biota layer, to merge geometry
             try:
-                gdf = gpd.read_postgis(f"SELECT idcelda, geometry FROM {layer_name} ORDER BY IDCELDA",
+                gdf = gpd.read_postgis(f"SELECT DISTINCT(idcelda), geometry FROM {layer_name} ORDER BY IDCELDA",
                                        postgis_engine, geom_col="geometry")
                 gdf["idcelda"] = gdf["idcelda"].astype(np.int64)
             except:
