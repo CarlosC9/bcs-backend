@@ -20,7 +20,7 @@ from ..authentication import n_session
 from ..db_models.geographics import GeographicRegion, Regions, GeographicLayer
 from ..geo import workspace_names, postgis_store_name
 from ..geo.biota import read_biota_file, generate_pda_species_file_from_layer, import_pda_result
-from . import bcs_api_base, ResponseObject, Issue, IType, register_api, bcs_proxy_base, filter_parse
+from . import app_api_base, ResponseObject, Issue, IType, register_api, app_proxy_base, filter_parse
 from ..services.files import get_file_contents
 
 """
@@ -482,7 +482,7 @@ class LayersAPI(MethodView):
             # Set URL
             tmp = urlparse(request.base_url)
             base_url = f"{tmp.scheme}://{tmp.netloc}"
-            geographic_layer.wms_url = f"{base_url}{bcs_proxy_base}/geoserver/wms"
+            geographic_layer.wms_url = f"{base_url}{app_proxy_base}/geoserver/wms"
             # Store file locally
             self._receive_and_prepare_file()
             # Store file in PostGIS
@@ -916,8 +916,8 @@ class LayersAPI(MethodView):
         return r, layer_type
 
 
-_ = register_api(bp_geo, LayersAPI, "geo/layers", f"{bcs_api_base}/geo/layers/", pk="_id")
-bp_geo.add_url_rule(bcs_api_base + '/geo/layers/<_id>.<string:_format>', view_func=_, methods=['GET'])
+_ = register_api(bp_geo, LayersAPI, "geo/layers", f"{app_api_base}/geo/layers/", pk="_id")
+bp_geo.add_url_rule(app_api_base + '/geo/layers/<_id>.<string:_format>', view_func=_, methods=['GET'])
 
 
 # view_func = LayerAPI.as_view("geo/layers")
@@ -1012,7 +1012,7 @@ class RegionsAPI(MethodView):
         return ResponseObject(issues=issues, status=status, count=count).get_response()
 
 
-register_api(bp_geo, RegionsAPI, "geo/regions", f"{bcs_api_base}/geo/regions/", pk="region_id")
+register_api(bp_geo, RegionsAPI, "geo/regions", f"{app_api_base}/geo/regions/", pk="region_id")
 
 
 class StylesAPI(MethodView):

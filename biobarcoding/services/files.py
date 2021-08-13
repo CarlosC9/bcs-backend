@@ -2,8 +2,8 @@ import binascii
 import io
 import urllib
 
-from biobarcoding.common.helpers import download_file, is_integer
-from biobarcoding.db_models.files import File, FileSystemObject, Folder
+from ..common.helpers import download_file, is_integer
+from ..db_models.files import File, FileSystemObject, Folder
 
 
 def process_folder(session, parts):

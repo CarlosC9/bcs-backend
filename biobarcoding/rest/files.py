@@ -5,7 +5,7 @@ from flask.views import MethodView
 
 from ..authentication import n_session
 from ..db_models.files import Folder, File, BioinformaticObjectInFile
-from . import register_api, bcs_api_base, ResponseObject, Issue, IType
+from . import register_api, app_api_base, ResponseObject, Issue, IType
 from ..services.files import receive_file_submission, clean_path, prepare_path, process_folder, get_or_create_file, \
     get_file_system_object
 
@@ -199,4 +199,4 @@ curl --cookie bcs-cookies.txt "$API_BASE_URL/files/f1/f2/file.fasta.bos"
         return r.get_response()
 
 
-register_api(bp_files, FilesAPI, "files", f"{bcs_api_base}/files/", "fso_path", "path")
+register_api(bp_files, FilesAPI, "files", f"{app_api_base}/files/", "fso_path", "path")

@@ -73,7 +73,7 @@ bp_sys_functions, SystemFunctionsAPI = make_simple_rest_crud(SystemFunction, "sy
 from flask import Blueprint, request
 from flask.views import MethodView
 from biobarcoding.authentication import n_session
-from biobarcoding.rest import bcs_api_base, ResponseObject
+from biobarcoding.rest import app_api_base, ResponseObject
 from biobarcoding.services.acls import *
 
 bp_acl = Blueprint('bp_acl', __name__)
@@ -115,22 +115,22 @@ class ACLAPI(MethodView):
 
 acl_view = ACLAPI.as_view('api_acl')
 bp_acl.add_url_rule(
-    bcs_api_base + '/acls',
+    app_api_base + '/acls',
     view_func=acl_view,
     methods=['GET', 'POST', 'DELETE']
 )
 bp_acl.add_url_rule(
-    bcs_api_base + '/acls/',
+    app_api_base + '/acls/',
     view_func=acl_view,
     methods=['GET', 'POST', 'DELETE']
 )
 bp_acl.add_url_rule(
-    bcs_api_base + '/acls/<int:id>',
+    app_api_base + '/acls/<int:id>',
     view_func=acl_view,
     methods=['GET', 'PUT', 'DELETE']
 )
 bp_acl.add_url_rule(
-    bcs_api_base + '/acls/<string:uuid>',
+    app_api_base + '/acls/<string:uuid>',
     view_func=acl_view,
     methods=['GET', 'PUT', 'DELETE']
 )
@@ -151,22 +151,22 @@ class ObjectTypeAPI(MethodView):
 
 obj_type_view = ObjectTypeAPI.as_view('api_obj_type')
 bp_acl.add_url_rule(
-    bcs_api_base + '/object_types',
+    app_api_base + '/object_types',
     view_func=obj_type_view,
     methods=['GET']
 )
 bp_acl.add_url_rule(
-    bcs_api_base + '/object_types/',
+    app_api_base + '/object_types/',
     view_func=obj_type_view,
     methods=['GET']
 )
 bp_acl.add_url_rule(
-    bcs_api_base + '/object_types/<int:id>',
+    app_api_base + '/object_types/<int:id>',
     view_func=obj_type_view,
     methods=['GET']
 )
 bp_acl.add_url_rule(
-    bcs_api_base + '/object_types/<string:uuid>',
+    app_api_base + '/object_types/<string:uuid>',
     view_func=obj_type_view,
     methods=['GET']
 )

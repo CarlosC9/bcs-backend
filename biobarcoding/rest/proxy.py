@@ -5,7 +5,7 @@ from flask import Blueprint, request, abort, url_for, Response
 from werkzeug.datastructures import Headers
 
 from ..authentication import n_session
-from . import bcs_proxy_base, Issue, IType
+from . import app_proxy_base, Issue, IType
 
 bp_proxy = Blueprint('bp_proxy', __name__)
 
@@ -123,8 +123,8 @@ GeoServe Proxy
 """
 
 
-@bp_proxy.route(bcs_proxy_base + '/geoserver', methods=["GET"])
-@bp_proxy.route(bcs_proxy_base + '/geoserver/<path:path>', methods=["GET"])
+@bp_proxy.route(app_proxy_base + '/geoserver', methods=["GET"])
+@bp_proxy.route(app_proxy_base + '/geoserver/<path:path>', methods=["GET"])
 @n_session(read_only=True)
 def geoserver_gate(path=None):
     print(f'<PROXY> GET {request.path}\nGetting {path}')

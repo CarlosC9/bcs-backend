@@ -1,7 +1,7 @@
 from flask import Blueprint, request
 
 from ..authentication import n_session
-from . import bcs_api_base, ResponseObject, check_request_params
+from . import app_api_base, ResponseObject, check_request_params
 from .bos import BioObjAPI
 
 bp_metadata = Blueprint('bp_metadata', __name__)
@@ -41,22 +41,22 @@ metadata_view = MetadataAPI.as_view('api_metadata')
 
 for meta in metadata:
     bp_metadata.add_url_rule(
-        bcs_api_base + f'/{meta}/',
+        app_api_base + f'/{meta}/',
         view_func=metadata_view,
         methods=['GET', 'POST', 'DELETE']
     )
     bp_metadata.add_url_rule(
-        bcs_api_base + f'/{meta}/<string:id>',
+        app_api_base + f'/{meta}/<string:id>',
         view_func=metadata_view,
         methods=['GET', 'PUT', 'DELETE']
     )
     bp_metadata.add_url_rule(
-        bcs_api_base + f'/{meta}.<string:format>',
+        app_api_base + f'/{meta}.<string:format>',
         view_func=metadata_view,
         methods=['GET', 'POST']
     )
     bp_metadata.add_url_rule(
-        bcs_api_base + f'/{meta}/<string:id>.<string:format>',
+        app_api_base + f'/{meta}/<string:id>.<string:format>',
         view_func=metadata_view,
         methods=['GET', 'PUT', 'DELETE']
     )
@@ -78,22 +78,22 @@ class CvtermsAPI(BioObjAPI):
 
 cvterms_view = CvtermsAPI.as_view('api_cvterms')
 bp_metadata.add_url_rule(
-    bcs_api_base + '/ontologies/terms/',
+    app_api_base + '/ontologies/terms/',
     view_func=cvterms_view,
     methods=['GET']
 )
 bp_metadata.add_url_rule(
-    bcs_api_base + '/ontologies/<int:cv_id>/terms/',
+    app_api_base + '/ontologies/<int:cv_id>/terms/',
     view_func=cvterms_view,
     methods=['GET']
 )
 bp_metadata.add_url_rule(
-    bcs_api_base + '/ontologies/terms/<int:cvterm_id>',
+    app_api_base + '/ontologies/terms/<int:cvterm_id>',
     view_func=cvterms_view,
     methods=['GET']
 )
 bp_metadata.add_url_rule(
-    bcs_api_base + '/ontologies/<int:cv_id>/terms/<int:cvterm_id>',
+    app_api_base + '/ontologies/<int:cv_id>/terms/<int:cvterm_id>',
     view_func=cvterms_view,
     methods=['GET']
 )

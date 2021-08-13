@@ -29,10 +29,10 @@ from ..db_models.metadata import *
 from ..db_models.sysadmin import *
 from ..rest.socket_service import SocketService
 
-bcs_api_base = "/api"  # Base for all RESTful calls
-bcs_gui_base = "/gui"  # Base for the Angular2 GUI
-bcs_external_gui_base = "/gui_external"  # Base for the Angular2 GUI when loaded from URL
-bcs_proxy_base = "/pxy"  # Base for the BCS Proxy
+app_api_base = "/api"  # Base for all RESTful calls
+app_gui_base = "/gui"  # Base for the Angular2 GUI
+app_external_gui_base = "/gui_external"  # Base for the Angular2 GUI when loaded from URL
+app_proxy_base = "/pxy"  # Base for the BCS Proxy
 
 logger = get_module_logger(__name__)
 log_level = logging.DEBUG
@@ -905,10 +905,10 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
         return r.get_response()
 
     bp_entity = Blueprint(f'bp_{entity_name}', __name__)
-    register_api(bp_entity, CrudAPI, entity_name, f"{bcs_api_base}/{entity_name}/", "_id")
-    bp_entity.add_url_rule(f"{bcs_api_base}/{entity_name}.schema.json", view_func=get_entities_json_schema,
+    register_api(bp_entity, CrudAPI, entity_name, f"{app_api_base}/{entity_name}/", "_id")
+    bp_entity.add_url_rule(f"{app_api_base}/{entity_name}.schema.json", view_func=get_entities_json_schema,
                            methods=['GET'])
-    bp_entity.add_url_rule(f"{bcs_api_base}/{entity_name}/<int:_id>.schema.json", view_func=get_entity_json_schema,
+    bp_entity.add_url_rule(f"{app_api_base}/{entity_name}/<int:_id>.schema.json", view_func=get_entity_json_schema,
                            methods=['GET'])
 
     return bp_entity, CrudAPI

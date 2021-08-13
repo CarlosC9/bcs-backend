@@ -5,7 +5,7 @@ from flask import Blueprint, request, send_file
 from flask.views import MethodView
 
 from ..authentication import n_session
-from . import bcs_api_base, ResponseObject, Issue, IType, check_request_params
+from . import app_api_base, ResponseObject, Issue, IType, check_request_params
 
 bp_bos = Blueprint('bp_bos', __name__)
 
@@ -118,32 +118,32 @@ class BioObjAPI(MethodView):
 
 bos_view = BioObjAPI.as_view('api_bos')
 bp_bos.add_url_rule(
-    bcs_api_base + '/bos/<string:bos>',
+    app_api_base + '/bos/<string:bos>',
     view_func=bos_view,
     methods=['GET', 'POST', 'DELETE']
 )
 bp_bos.add_url_rule(
-    bcs_api_base + '/bos/<string:bos>/',
+    app_api_base + '/bos/<string:bos>/',
     view_func=bos_view,
     methods=['GET', 'POST', 'DELETE']
 )
 bp_bos.add_url_rule(
-    bcs_api_base + '/bos/<string:bos>/<string:id>',
+    app_api_base + '/bos/<string:bos>/<string:id>',
     view_func=bos_view,
     methods=['GET', 'PUT', 'DELETE']
 )
 bp_bos.add_url_rule(
-    bcs_api_base + '/bos/<string:bos>.<string:format>',
+    app_api_base + '/bos/<string:bos>.<string:format>',
     view_func=bos_view,
     methods=['GET', 'POST']
 )
 bp_bos.add_url_rule(
-    bcs_api_base + '/bos/<string:bos>/.<string:format>',
+    app_api_base + '/bos/<string:bos>/.<string:format>',
     view_func=bos_view,
     methods=['GET', 'POST']
 )
 bp_bos.add_url_rule(
-    bcs_api_base + '/bos/<string:bos>/<string:id>.<string:format>',
+    app_api_base + '/bos/<string:bos>/<string:id>.<string:format>',
     view_func=bos_view,
     methods=['GET', 'PUT', 'DELETE']
 )

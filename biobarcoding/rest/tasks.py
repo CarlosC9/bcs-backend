@@ -6,7 +6,7 @@ from flask import Blueprint
 from flask import request, make_response, jsonify
 from flask.views import MethodView
 
-from . import bcs_api_base
+from . import app_api_base
 
 bp_tasks = Blueprint('tasks', __name__)
 
@@ -58,12 +58,12 @@ class TaskAPI(MethodView):
 
 task = TaskAPI.as_view('task_api')
 bp_tasks.add_url_rule(
-    bcs_api_base + '/task/run/<task_type>',
+    app_api_base + '/task/run/<task_type>',
     view_func=task,
     methods=['POST']
 )
 bp_tasks.add_url_rule(
-    bcs_api_base + '/task/run/<int:task_id>',
+    app_api_base + '/task/run/<int:task_id>',
     view_func=task,
     methods=['PUT', 'DELETE']
 )
@@ -116,17 +116,17 @@ class TaskQueueAPI(MethodView):
 
 task_queue = TaskQueueAPI.as_view('task_queue_api')
 bp_tasks.add_url_rule(
-    bcs_api_base + '/task/queue/<int:task_type>/<int:task_id>',
+    app_api_base + '/task/queue/<int:task_type>/<int:task_id>',
     view_func=task_queue,
     methods=['GET', 'PUT', 'DELETE']
 )
 bp_tasks.add_url_rule(
-    bcs_api_base + '/task/queue/<int:task_type>',
+    app_api_base + '/task/queue/<int:task_type>',
     view_func=task_queue,
     methods=['GET']
 )
 bp_tasks.add_url_rule(
-    bcs_api_base + '/task/queue/',
+    app_api_base + '/task/queue/',
     view_func=task_queue,
     methods=['GET']
 )

@@ -27,7 +27,7 @@ import biobarcoding
 from ..authentication import initialize_firebase
 from ..geo import initialize_geoserver
 from . import logger, log_level, load_configuration_file, construct_session_persistence_backend, \
-    initialize_database, initialize_database_chado, bcs_gui_base, ResponseObject, initialize_chado_edam, \
+    initialize_database, initialize_database_chado, app_gui_base, ResponseObject, initialize_chado_edam, \
     init_socket, initialize_postgis, initialize_ssh, initialize_galaxy
 from .auth import bp_auth
 from .bos import bp_bos
@@ -169,7 +169,7 @@ biobarcoding.flask_app = create_app(True)
 
 @biobarcoding.flask_app.route("/")
 def index():
-    return redirect(bcs_gui_base)
+    return redirect(app_gui_base)
 
 
 @biobarcoding.flask_app.route("/test")

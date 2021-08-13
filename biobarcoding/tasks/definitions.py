@@ -5,7 +5,7 @@ import subprocess
 from json import JSONDecodeError
 
 from biobarcoding import get_global_configuration_variable
-from biobarcoding.rest import bcs_api_base
+from biobarcoding.rest import app_api_base
 from biobarcoding.tasks import celery_app
 from biobarcoding.common.decorators import celery_wf
 from biobarcoding.jobs import JobExecutorAtResourceFactory
@@ -27,7 +27,7 @@ def change_status(tmp, status: str):
     endpoint = get_global_configuration_variable("ENDPOINT_URL")
     cookies_file_path = get_global_configuration_variable("COOKIES_FILE_PATH")
     job_id = tmp["job_id"]
-    url = f"{endpoint}{bcs_api_base}/jobs/{job_id}"
+    url = f"{endpoint}{app_api_base}/jobs/{job_id}"
     if tmp["status"] != status:
         api_login()
         status_request = json.dumps(dict(status=status))
@@ -48,7 +48,7 @@ def write_to_file(filename, s):
 def api_login():
     endpoint = get_global_configuration_variable("ENDPOINT_URL")
     cookies_file_path = get_global_configuration_variable("COOKIES_FILE_PATH")
-    url = f"{endpoint}{bcs_api_base}/authn?user=test_user"
+    url = f"{endpoint}{app_api_base}/authn?user=test_user"
     cmd = ["curl", "--cookie-jar", cookies_file_path, "-X", "PUT", url]
     subprocess.run(cmd)
 
@@ -58,7 +58,7 @@ def check_file_is_stored_in_backend(filename, job_id):
     cookies_file_path = get_global_configuration_variable("COOKIES_FILE_PATH")
     api_login()
     cmd = ["curl", "--cookie-jar", cookies_file_path, "--cookie",
-           cookies_file_path, f"{endpoint}{bcs_api_base}/files/jobs/{job_id}/{filename}"]
+           cookies_file_path, f"{endpoint}{app_api_base}/files/jobs/{job_id}/{filename}"]
     proc = subprocess.run(cmd, capture_output=True, text=True)
     try:
         process_return_dict = json.loads(proc.stdout)
@@ -126,10 +126,10 @@ def generate_export_cmd(file_dict: dict, tmp_path: str, job_executor):
     api_login()
     url = ""
     if "bos" in object_type.keys():
-        url = f"{endpoint}{bcs_api_base}/bos/{object_type['bos']}.{extension}"
+        url = f"{endpoint}{app_api_base}/bos/{object_type['bos']}.{extension}"
     if "geo" in object_type.keys():
         if object_type['geo'] == "layers":
-            url = f"{endpoint}{bcs_api_base}/geo/{object_type['geo']}/{selection}.{extension}"
+            url = f"{endpoint}{app_api_base}/geo/{object_type['geo']}/{selection}.{extension}"
 
     if with_filter:
         curl = (f"curl --cookie-jar {cookies_file_path} --cookie {cookies_file_path} -X GET -d \'{selection_json}\' " +
@@ -785,7 +785,7 @@ def wf1_store_result_in_backend(job_context: str):
         api_login()
         curl_cmd = (f"curl -s --cookie-jar {cookies_file_path} --cookie {cookies_file_path} " +
                     f"-H \"Content-Type: {file_dict['content_type']}\" -XPUT --data-binary @\"{local_path}\" " +
-                    f"\"{endpoint}{bcs_api_base}/files/jobs/{str(tmp['job_id'])}/{file_dict['file']}.content\"")
+                    f"\"{endpoint}{app_api_base}/files/jobs/{str(tmp['job_id'])}/{file_dict['file']}.content\"")
         cmd = (f"(nohup bash -c \'{curl_cmd} \' >>{job_executor.log_filenames_dict['store_stdout']} " +
                f"</dev/null 2>>{job_executor.log_filenames_dict['store_stderr']} & echo $!; wait $!; " +
                f"echo $? >> {job_executor.local_workspace}/$!.exit_status)")

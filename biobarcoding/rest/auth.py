@@ -3,7 +3,7 @@ from flask import Blueprint, abort, request, make_response, jsonify, session as 
 from flask.views import MethodView
 
 from ..authentication import serialize_session, BCSSession, deserialize_session, obtain_idauth_from_request
-from . import bcs_api_base
+from . import app_api_base
 
 bp_auth = Blueprint('bp_auth', __name__)
 
@@ -111,4 +111,4 @@ class AuthnAPI(MethodView):
 # Special behavior: "authn" is a singleton, which can be None or defined with a login
 # POST not implemented
 view_func = AuthnAPI.as_view("authn")
-bp_auth.add_url_rule(f"{bcs_api_base}/authn", view_func=view_func, methods=['GET', 'PUT', 'DELETE'])
+bp_auth.add_url_rule(f"{app_api_base}/authn", view_func=view_func, methods=['GET', 'PUT', 'DELETE'])

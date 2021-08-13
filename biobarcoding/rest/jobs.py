@@ -15,7 +15,7 @@ from ..db_models import DBSession
 from ..db_models.jobs import ProcessInComputeResource
 from ..jobs import JobManagementAPI
 from ..jobs.process_adaptor import ProcessAdaptorFactory
-from . import bcs_api_base, register_api, Job, ComputeResource, Process, ResponseObject, \
+from . import app_api_base, register_api, Job, ComputeResource, Process, ResponseObject, \
     get_decoded_params, SocketService
 
 bp_jobs = Blueprint('jobs', __name__)
@@ -202,4 +202,4 @@ class JobAPI(MethodView):
         self.page_size = int(data.get(self.page_size, 1000000))
 
 
-register_api(bp_jobs, JobAPI, "jobs", f"{bcs_api_base}/jobs/", pk="job_id")
+register_api(bp_jobs, JobAPI, "jobs", f"{app_api_base}/jobs/", pk="job_id")

@@ -2,7 +2,7 @@ from flask import Blueprint, request
 from flask.views import MethodView
 
 from ..authentication import n_session
-from . import bcs_api_base, ResponseObject, check_request_params
+from . import app_api_base, ResponseObject, check_request_params
 from ..services import browser_filters
 
 bp_bfilters = Blueprint('bp_bfilters', __name__)
@@ -45,12 +45,12 @@ class BrowserFilterAPI(MethodView):
 
 bfilter_view = BrowserFilterAPI.as_view('api_bfilter')
 bp_bfilters.add_url_rule(
-    bcs_api_base + '/browser/<string:datatype>/filters/',
+    app_api_base + '/browser/<string:datatype>/filters/',
     view_func=bfilter_view,
     methods=['GET', 'POST', 'DELETE']
 )
 bp_bfilters.add_url_rule(
-    bcs_api_base + '/browser/<string:datatype>/filters/<string:id>',
+    app_api_base + '/browser/<string:datatype>/filters/<string:id>',
     view_func=bfilter_view,
     methods=['GET', 'PUT', 'DELETE']
 )
@@ -69,7 +69,7 @@ class BrowserFilterFormAPI(MethodView):
 
 bfilter_forms_view = BrowserFilterFormAPI.as_view('api_bfilter_forms')
 bp_bfilters.add_url_rule(
-    bcs_api_base + '/browser/<string:datatype>/filters/schema',
+    app_api_base + '/browser/<string:datatype>/filters/schema',
     view_func=bfilter_forms_view,
     methods=['GET']
 )

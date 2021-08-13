@@ -2,7 +2,7 @@ from flask import Blueprint, request
 from flask.views import MethodView
 
 from ..authentication import n_session
-from . import bcs_api_base, ResponseObject
+from . import app_api_base, ResponseObject
 from ..services.views import *
 
 bp_views = Blueprint('bp_views', __name__)
@@ -27,12 +27,12 @@ class ViewAPI(MethodView):
 
 views_view = ViewAPI.as_view('api_views')
 bp_views.add_url_rule(
-    bcs_api_base + '/views',
+    app_api_base + '/views',
     view_func=views_view,
     methods=['GET']
 )
 bp_views.add_url_rule(
-    bcs_api_base + '/views/<string:view>',
+    app_api_base + '/views/<string:view>',
     view_func=views_view,
     methods=['GET']
 )
