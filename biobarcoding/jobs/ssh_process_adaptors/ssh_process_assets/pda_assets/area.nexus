@@ -1,7 +1,0 @@
-#nexus
-begin sets;
-    taxset a2 = fjHelianthemumbystropogophyllum fkHelianthemuminaguae faGlobulariaascanii;
-    taxset a3 = kwLimoniumsventenii faGlobulariaascanii;
-    taxset a4 = KP2307361Anagyrisfoetida G2605Telinestenopetalamicrophylla faGlobulariaascanii jiSideritisdasygnaphala;
-    taxset a5 = fcGlobulariasarcophylla lbPericallishadrosoma jiSideritisdasygnaphala G2605Telinestenopetalamicrophylla;
-end; [sets]

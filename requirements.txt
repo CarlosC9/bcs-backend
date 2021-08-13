@@ -76,6 +76,7 @@ gevent-websocket== 0.10.1
 biopython==1.78
 bioconvert==0.4.3
 chado==2.3.4
+pyproj==2.6.1
 chardet>=3.0.0,<4.0.0
 
 

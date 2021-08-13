@@ -12,7 +12,7 @@ check_error()
 
 if [[ $# -eq 2 ]]
 then
-  pda -root -ts area.nexus $1 $2 consensus.newick output.pda
+  pda -root -ts area.txt $1 $2 consensus.newick output.pda
   check_error $?
 else
   echo "Something went wrong with the arguments." >&2

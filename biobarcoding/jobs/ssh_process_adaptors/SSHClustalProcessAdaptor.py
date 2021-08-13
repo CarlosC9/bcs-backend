@@ -4,7 +4,7 @@ from ..ssh_process_adaptors import SSHProcessAdaptor
 
 
 class SSHClustalProcessAdaptor(SSHProcessAdaptor):
-    INPUT_FILENAME = "input_dataset"
+    INPUT_FILENAME = "input_dataset.fasta"
 
     def get_script_filenames(self):
         return [{

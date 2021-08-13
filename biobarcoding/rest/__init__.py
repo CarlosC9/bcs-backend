@@ -458,15 +458,6 @@ tm_job_mgmt_types = {
 }
 
 tm_processes = {  # Preloaded processes
-    "02f44e54-f139-4ea0-a1bf-fe27054c0d6c": "klustal-1",
-    "903a73a9-5a4e-4cec-b8fa-4fc9bd5ffab5": "blast",
-    "5c4ba6db-e7f2-4d5c-a89a-76059ac116b1": "mrbayes",
-    "ea647c4e-2063-4246-bd9a-42f6a57fb9ea": "pd-1.0",
-    "985c01ca-d9d2-4df5-a8b9-8a6da251d7d4": "migrate-3.7.2",
-    "f167eac0-2a23-4e74-bb1c-abdfb5f74a92": "import-sequences",
-    "4cfcd389-ed9e-4174-aa99-150f176e8eec": "import-msa",
-    "caaca280-2290-4625-b5c0-76bcfb06e9ac": "import-phylotree",
-    "15aa399f-dd58-433f-8e94-5b2222cd06c9": "Clustal Omega",
     "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": "MSA ClustalW",
     "ec40143f-ae32-4dac-9cfb-caa047e1adb1": "ClustalW-PhyMl",
     "c87f58b6-cb06-4d39-a0b3-72c2705c5ae1": "PAUP Parsimony",
@@ -500,7 +491,15 @@ tm_browser_filter_forms = [
     (bio_object_type_id["phylogenetic-tree"], "8b62f4aa-d32a-4841-89f5-9ed50da44121"),
 ]
 
-
+# 02f44e54-f139-4ea0-a1bf-fe27054c0d6c
+# 903a73a9-5a4e-4cec-b8fa-4fc9bd5ffab5
+# 5c4ba6db-e7f2-4d5c-a89a-76059ac116b1
+# ea647c4e-2063-4246-bd9a-42f6a57fb9ea
+# 985c01ca-d9d2-4df5-a8b9-8a6da251d7d4
+# f167eac0-2a23-4e74-bb1c-abdfb5f74a92
+# 4cfcd389-ed9e-4174-aa99-150f176e8eec
+# caaca280-2290-4625-b5c0-76bcfb06e9ac
+# 15aa399f-dd58-433f-8e94-5b2222cd06c9
 # f4ab2464-0e36-4d11-8189-a017cab360bc
 # 8713fd84-d162-49d3-8549-de0393771836
 # 4f7d285a-2d41-4115-8fe9-351c3c703910

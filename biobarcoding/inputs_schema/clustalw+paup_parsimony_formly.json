@@ -155,7 +155,7 @@
       "key": "taxset",
       "type": "taxset-field",
       "templateOptions": {
-          "taxons": ["fjHelianthemumbystropogophyllum","fkHelianthemuminaguae","kwLimoniumsventenii","KP2307361Anagyrisfoetida","G2605Telinestenopetalamicrophylla","faGlobulariaascanii","fcGlobulariasarcophylla","lbPericallishadrosoma","jiSideritisdasygnaphala"]
+          "taxons": ["Cyperus_laevigatus_laevigatus","Phoenix_canariensis","Consolida_regalis_regalis","Aaronsohnia_pubescens_maroccana"]
         }
       },
       {
