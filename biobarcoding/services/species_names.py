@@ -1,3 +1,4 @@
+import re
 import urllib.parse
 from typing import List
 
@@ -8,11 +9,13 @@ from ..db_models.metadata import SpeciesNameToCanonical
 species_names_map = {}
 
 
-def get_canonical_species_names(sess, in_: List[str]) -> List[str]:
+def get_canonical_species_names(sess, in_: List[str], underscores=False) -> List[str]:
     """
     Canonicalize species names
 
+    :param sess: Database session to access the cache table
     :param in_: List of species names to canonicalize
+    :param underscores: if True, replace whitespace and "-" by "_"
     :return: List of canonicalized species names. None if it was not possible to do
     """
     from biobarcoding import engine
@@ -66,6 +69,8 @@ def get_canonical_species_names(sess, in_: List[str]) -> List[str]:
             found = True
         if found:
             v = species_names_map[sn.lower()]
+            if underscores:
+                v = re.sub(", -", "_", v)
         else:
             v = None
         _.append(v)
