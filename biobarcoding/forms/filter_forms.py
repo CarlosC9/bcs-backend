@@ -1,5 +1,5 @@
 from ..db_models import DBSessionChado as chado_session
-
+from ..services.ontologies import get_cvterm_query as read_cvterms
 
 def __getTypes(type):
     if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
@@ -13,8 +13,7 @@ def __getTypes(type):
     else:
         return None
     ids = chado_session.query(ORM.type_id).distinct(ORM.type_id).all()
-    from biobarcoding.services.ontologies import __get_cvterm as read_cvterms
-    ids = read_cvterms(filter=[{'cvterm_id': {'op': 'in', 'unary': ids}}]).all()
+    ids = read_cvterms(filter=[{'cvterm_id': {'op': 'in', 'unary': ids}}])[0].all()
     return ids
 
 
@@ -28,8 +27,7 @@ def __getCvterms(type):
     else:
         return None
     ids = chado_session.query(ORM.cvterm_id).distinct(ORM.cvterm_id).all()
-    from biobarcoding.services.ontologies import __get_cvterm as read_cvterms
-    ids = read_cvterms(filter=[{'cvterm_id': {'op': 'in', 'unary': ids}}]).all()
+    ids = read_cvterms(filter=[{'cvterm_id': {'op': 'in', 'unary': ids}}])[0].all()
     return ids
 
 
@@ -47,8 +45,7 @@ def __getProps(type):
     else:
         return None
     ids = chado_session.query(ORM.type_id).distinct(ORM.type_id).all()
-    from biobarcoding.services.ontologies import __get_cvterm as read_cvterms
-    ids = read_cvterms(filter=[{'cvterm_id': {'op': 'in', 'unary': ids}}]).all()
+    ids = read_cvterms(filter=[{'cvterm_id': {'op': 'in', 'unary': ids}}])[0].all()
     return ids
 
 

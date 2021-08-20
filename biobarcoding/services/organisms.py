@@ -12,7 +12,6 @@ def create(**kwargs):
     try:
         from biobarcoding.services import get_or_create
         content = get_or_create(chado_session, Organism, **kwargs)
-        chado_session.merge(content)
         issues, status = [Issue(IType.INFO, f'CREATE organisms: The organism "{kwargs.get("genus")} {kwargs.get("species")}" was  successfully created.')], 201
     except Exception as e:
         print(e)

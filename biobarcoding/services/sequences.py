@@ -95,7 +95,7 @@ def update(id, **kwargs):
     try:
         seq = get_seqs_query(id)[0].one()
         seq.update(__check_seq_values(**kwargs))
-        issues, status = [Issue(IType.INFO, f'UPDATE sequences: The sequence "{seq.uniquename}" was updated successfully.')], 201
+        issues, status = [Issue(IType.INFO, f'UPDATE sequences: The sequence "{seq.uniquename}" was successfully updated.')], 200
     except Exception as e:
         log_exception(e)
         issues, status = [Issue(IType.ERROR, f'UPDATE sequences: The sequence "{seq.uniquename}" could not be updated.')], 409

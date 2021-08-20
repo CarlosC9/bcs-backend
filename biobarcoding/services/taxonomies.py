@@ -48,9 +48,7 @@ def import_file(input_file, format='obo', **kwargs):
     try:
         from flask import current_app
         cfg = current_app.config
-        named = ''
-        if kwargs.get("name"):
-            named = f' -n {kwargs.get("name")} '
+        named = f' -n {kwargs.get("name")} ' if kwargs.get("name") else ''
         import os
         dir_path = os.path.dirname(os.path.realpath(__file__))
         from biobarcoding.services import exec_cmds
