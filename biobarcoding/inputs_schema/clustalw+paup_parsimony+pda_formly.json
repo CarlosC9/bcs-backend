@@ -46,7 +46,7 @@
             }
           ]
         },
-        "defaultValue": "fa"
+        "defaultValue": "fasta"
       },
       {
         "key": "out_seqnos",

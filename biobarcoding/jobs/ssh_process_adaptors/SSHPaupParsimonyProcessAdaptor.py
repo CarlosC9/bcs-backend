@@ -37,8 +37,12 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
 
     def get_script_params_string(self, process_parameters):
         parameters = process_parameters["PAUP Parsimony"]
-        sets = parameters.get('charset').sets + parameters.get('taxset').sets
-        assumptions = parameters.get('charset').assumptions
+        if 'charset' in parameters.keys():
+            sets = parameters.get('charset').sets + parameters.get('taxset').sets
+            assumptions = parameters.get('charset').assumptions
+        else:
+            sets = parameters.get('taxset').sets
+            assumptions = "none"
         taxset_paup = parameters.get('taxset').paup
         params_str = f"{parameters.get('outRoot')} {parameters.get('gapMode')} " + \
                      f"{parameters.get('addseq')} {parameters.get('swap')} " + \

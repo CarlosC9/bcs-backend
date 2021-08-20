@@ -46,7 +46,7 @@
             }
           ]
         },
-        "defaultValue": "fa"
+        "defaultValue": "fasta"
       },
       {
         "key": "out_seqnos",
@@ -155,7 +155,7 @@
       "key": "taxset",
       "type": "taxset-field",
       "templateOptions": {
-          "taxons": ["Cyperus_laevigatus_laevigatus","Phoenix_canariensis","Consolida_regalis_regalis","Aaronsohnia_pubescens_maroccana"]
+          "taxons": ["fkHelianthemuminaguae", "Cyperus_laevigatus_laevigatus","Phoenix_canariensis","Consolida_regalis_regalis","Aaronsohnia_pubescens_maroccana"]
         }
       },
       {
