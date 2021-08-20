@@ -24,6 +24,8 @@ class SSHClustalProcessAdaptor(SSHProcessAdaptor):
                      f"{clustalw_parameters['outform']}"
         if clustalw_parameters["mode"] == "part":
             params_str += f" {clustalw_parameters['seq_range_start']} {clustalw_parameters['seq_range_end']}"
+        else:
+            params_str += " none none"
 
         return params_str
 
@@ -39,10 +41,10 @@ class SSHClustalProcessAdaptor(SSHProcessAdaptor):
                 "type": "fasta"
             },
             {
-                "remote_name": f"{self.INPUT_FILENAME}.dnd",
+                "remote_name": f"input_dataset.dnd",
                 "file": "intermidiate_tree.nhx",
                 "subprocess": "MSA ClustalW",
-                "object_type": {"bos": "tree"},
+                "object_type": {"bos": "phylotree"},
                 "content_type": "text/x-nhx",
                 "type": "newick"
             }

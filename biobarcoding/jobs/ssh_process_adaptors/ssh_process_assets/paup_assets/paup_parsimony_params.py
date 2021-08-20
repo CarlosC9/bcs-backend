@@ -29,9 +29,10 @@ def create_sets_file(sets: str, assumptions: str):
         f.write('begin sets' + ';\n')
         f.write(sets.replace("\\\\", "\\"))
         f.write('end;\n\n')
-        f.write('begin assumptions' + ';\n')
-        f.write(assumptions.replace("\\\\", "\\"))
-        f.write('end;')
+        if assumptions != "none":
+            f.write('begin assumptions' + ';\n')
+            f.write(assumptions.replace("\\\\", "\\"))
+            f.write('end;')
 
 
 def delete_templates_comments(file_content: str):

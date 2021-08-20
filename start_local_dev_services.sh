@@ -32,12 +32,6 @@ function init_chado {
 if [ "$(whoami)" == "rnebot" ] && [ "$#" -gt 0 ] ; then
   export ENDPOINT_URL="http://localhost:5000"
   export COOKIES_FILE_PATH="/home/rnebot/Downloads/borrame/bcs-cookies.txt"
-elif [ "$(whoami)" == "acurbelo" ] ; then
-  echo "TODO: INICIALIZAR VARIABLE DE ENTORNO BCS_CONFIG_FILE!"
-elif [ "$(whoami)" == "paula" ] ; then
-  echo "TODO: INICIALIZAR VARIABLE DE ENTORNO BCS_CONFIG_FILE!"
-elif [ "$(whoami)" == "daniel" ] ; then
-  echo "TODO: INICIALIZAR VARIABLE DE ENTORNO BCS_CONFIG_FILE!"
 fi
 
 

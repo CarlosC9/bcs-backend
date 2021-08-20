@@ -19,13 +19,7 @@ class SSHPdaProcessAdaptor(SSHProcessAdaptor):
                 "file": os.path.join(self.ASSETS_FOLDER, "pda_assets", "heuristic_phylogeny.newick"),
                 "subprocess": "Phylogenetic Diversity Analyzer",
                 "type": "newick"
-            },
-            {
-                "remote_name": "area.txt",
-                "file": os.path.join(self.ASSETS_FOLDER, "pda_assets", "area.txt"),
-                "subprocess": "Phylogenetic Diversity Analyzer",
-                "type": "nexus"
-            },
+            }
         ]
 
     def get_script_params_string(self, process_parameters):

@@ -10,13 +10,15 @@ check_error()
   fi
 }
 
-if [[ $# -eq 5 ]]
+
+if [[ $# -eq 7 ]]
 then
-  #./clustalw.sh "matK_25taxones_Netgendem_SINalinear.fasta" "clustalw.aln" ALIGNED DNA
-  clustalw -INFILE="$1" -OUTFILE="$2" -OUTORDER=$3 -TYPE=$4 -OUTPUT=$5
-elif [[ $# -eq 7 ]]
-then
-  clustalw -INFILE="$1" -OUTFILE="$2" -OUTORDER=$3 -TYPE=$4 -OUTPUT=$5 -RANGE=$6,$7
+  if [[ $6 -eq 'none' ]]
+  then
+    clustalw -INFILE="$1" -OUTFILE="$2" -OUTORDER=$3 -TYPE=$4 -OUTPUT=$5
+  else
+    clustalw -INFILE="$1" -OUTFILE="$2" -OUTORDER=$3 -TYPE=$4 -OUTPUT=$5 -RANGE=$6,$7
+  fi
 else
   echo "Something went wrong with the arguments." >&2
   exit 1

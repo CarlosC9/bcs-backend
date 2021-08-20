@@ -21,6 +21,7 @@
       {
         "key": "endem",
         "type": "checkbox",
+        "defaultValue": false,
         "templateOptions": {
           "label": "Compute endemic PD/SD"
         }
@@ -28,6 +29,7 @@
       {
         "key": "excl",
         "type": "checkbox",
+        "defaultValue": false,
         "templateOptions": {
           "label": "Compute exclusive PD/SD"
         }
