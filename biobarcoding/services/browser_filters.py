@@ -40,7 +40,7 @@ def read(datatype, id=None, **kwargs):
 def update(datatype, id, **kwargs):
     try:
         __get_query(datatype, id).update(kwargs)
-        issues, status = [Issue(IType.INFO, f'UPDATE browser_filters: It was updated successfully.')], 201
+        issues, status = [Issue(IType.INFO, f'UPDATE browser_filters: It was successfully updated.')], 200
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, f'UPDATE browser_filters: It could not be updated.')], 409

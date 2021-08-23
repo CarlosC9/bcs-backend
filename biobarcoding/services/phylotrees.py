@@ -6,13 +6,18 @@ from ..db_models.chado import Phylotree, Phylonode
 from ..rest import Issue, IType, filter_parse, paginator
 
 
+##
+# CREATE
+##
+
 def create(**kwargs):
     issues = [Issue(IType.WARNING, 'CREATE phylotrees: dummy completed')]
     return issues, None, 200
 
 
-count = 0
-
+##
+# READ
+##
 
 def read(id=None, **kwargs):
     content = None
@@ -26,13 +31,21 @@ def read(id=None, **kwargs):
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, 'READ phylotrees: The phylotrees could not be read.')], 400
-    return issues, content, count, status
+    return issues, content, 0, status
 
+
+##
+# UPDATE
+##
 
 def update(phylotree_id, **kwargs):
     issues = [Issue(IType.WARNING, 'UPDATE phylotrees: dummy completed')]
     return issues, None, 200
 
+
+##
+# DELETE
+##
 
 def __delete_from_bcs(*args):
     from biobarcoding.db_models.bioinformatics import PhylogeneticTree
@@ -55,8 +68,11 @@ def delete(id=None, **kwargs):
     return issues, content, status
 
 
-# NGD newick phylotree import
-# TODO:
+##
+# IMPORT
+##
+
+# TODO: NGD newick phylotree import
 """
 phylotree:
  - type_id ? cvterm['phylogeny'].cvterms_id
@@ -65,8 +81,6 @@ phylotree:
 phylonode:
  - type_id ? (root,leaf,internal)
 """
-
-
 def import_file(input_file, format='newick', **kwargs):
     content = None
     format = format or 'newick'
@@ -132,7 +146,6 @@ def __phylotree2bcs(phylotree):
                                   chado_id=phylotree.phylotree_id,
                                   chado_table='phylotree',
                                   name=phylotree.name)
-    db_session.merge(bcs_phylotree)
     return bcs_phylotree
 
 
@@ -161,8 +174,12 @@ def __tree2phylonodes(phylotree_id, node, parent_id=None, index=[0]):
     return phylonodes + [phylonode]
 
 
-# NGD newick phylotree export
+##
+# EXPORT
+##
+
 def export(id=None, format='newick', **kwargs):
+    # NGD newick phylotree export
     try:
         if __get_query(id).first():
             __tree2file(id, format, f'/tmp/output_ngd.{format}')
@@ -201,6 +218,10 @@ def __tree2newick(node, is_root=True):
     result += ';' if is_root else ''
     return result
 
+
+##
+# GETTER AND OTHERS
+##
 
 def __get_query(id=None, **kwargs):
     from biobarcoding.db_models.chado import Dbxref

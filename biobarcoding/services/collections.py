@@ -43,7 +43,7 @@ def update(id, **kwargs):
     content = None
     try:
         content = __get_query(id).update(kwargs)
-        issues, status = [Issue(IType.INFO, f'UPDATE collections: The collection "{id}" updated successfully.')], 201
+        issues, status = [Issue(IType.INFO, f'UPDATE collections: The collection "{id}" was successfully updated.')], 200
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, f'UPDATE collections: The collection "{id}" could not be updated.')], 409

@@ -45,7 +45,7 @@ def update(id, **kwargs):
     try:
         content = __get_query(id).first()
         content.update(kwargs)
-        issues, status = [Issue(IType.INFO, f'UPDATE individuals: The individual "{id}" updated successfully.')], 201
+        issues, status = [Issue(IType.INFO, f'UPDATE individuals: The individual "{id}" was successfully updated.')], 200
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, f'UPDATE individuals: The individual "{id}" could not be updated.')], 409

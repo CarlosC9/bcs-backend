@@ -1081,8 +1081,16 @@ def paginator(query, pagination):
     return query
 
 
-# reserved keywords: ['value', 'filter', 'order', 'pagination', 'searchValue']
 def get_query(session, orm, id=None, aux_filter=None, aux_order=None, **kwargs):
+    """
+     reserved keywords in kwargs:
+       'value': specific values of orm fields to filter
+       'filter': advanced filtering clauses (see also filter_parse)
+       'order': advanced ordering clauses (see also order_parse)
+       'pagination': pageIndex and pageSize to paginate
+       'searchValue': full-text search value (hopefully)
+     otherwise it will be treated as 'value'
+    """
     query = session.query(orm)
     count = 0
     if id:
