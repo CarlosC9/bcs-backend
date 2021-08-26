@@ -5,7 +5,7 @@ from flask import Blueprint, request, send_file
 from flask.views import MethodView
 
 from ..authentication import n_session
-from . import app_api_base, ResponseObject, Issue, IType, check_request_params
+from . import app_api_base, ResponseObject, Issue, IType, parse_request_params
 
 bp_bos = Blueprint('bp_bos', __name__)
 
@@ -113,7 +113,7 @@ class BioObjAPI(MethodView):
 
     def _prepare(self, bos):
         self.service = importlib.import_module(f'biobarcoding.services.{bos}')
-        return check_request_params()
+        return parse_request_params()
 
 
 bos_view = BioObjAPI.as_view('api_bos')

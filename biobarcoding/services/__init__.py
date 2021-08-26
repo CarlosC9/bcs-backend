@@ -4,6 +4,8 @@ import os
 ##
 # CONNECTIONS
 ##
+from biobarcoding.rest import filter_parse, order_parse
+
 
 def conn_chado():
     from flask import current_app
@@ -62,7 +64,7 @@ def unfolded_print(obj, level=2):
 
 
 ##
-# CONVERTERS
+# CONVERTIONS
 ##
 
 def orm2json(row):
@@ -74,25 +76,6 @@ def orm2json(row):
     except:
         pass
     return d
-
-
-##
-# SQLALCHEMY OPS
-##
-
-def get_or_create(session, model, **kwargs):
-    instance = session.query(model).filter_by(**kwargs).first()
-    if not instance:
-        params = dict((k, v) for k, v in kwargs.items())
-        instance = model(**params)
-        session.add(instance)
-        session.flush()
-    return instance
-
-
-def get_simple_query(session, model, **kwargs):
-    kwargs = {k: v for k, v in kwargs.items() if v is not None}
-    return session.query(model).filter_by(**kwargs)
 
 
 ##
@@ -162,3 +145,69 @@ def seqs_parser(file, format='fasta'):
     with open(file, encoding=get_encoding(file)) as fo:
         for rec in SeqIO.parse(fo, format):
             yield rec
+
+
+##
+# SQLALCHEMY OPS
+##
+
+def get_orm_params(orm, **params):
+    return dict([(k, v) for k, v in params.items() if k in orm.__table__.columns])
+
+
+def get_or_create(session, model, **kwargs):
+    params = get_orm_params(model, **kwargs)
+    instance = session.query(model).filter_by(**params).first()
+    if not instance:
+        instance = model(**params)
+        session.add(instance)
+        session.flush()
+    return instance
+
+
+def get_simple_query(session, model, **kwargs):
+    # kwargs = {k: v for k, v in kwargs.items() if v is not None}
+    params = get_orm_params(model, **kwargs)
+    return session.query(model).filter_by(**params)
+
+
+def paginator(query, pagination):
+    if 'pageIndex' in pagination and 'pageSize' in pagination:
+        page = pagination.get('pageIndex')
+        page_size = pagination.get('pageSize')
+        return query \
+            .offset((page - 1) * page_size) \
+            .limit(page_size)
+    return query
+
+
+def get_query(session, orm, id=None, aux_filter=None, aux_order=None, **kwargs):
+    """
+     reserved keywords in kwargs:
+       'value': specific values of orm fields to filter
+       'filter': advanced filtering clauses (see also filter_parse)
+       'order': advanced ordering clauses (see also order_parse)
+       'pagination': pageIndex and pageSize to paginate
+       'searchValue': full-text search value (hopefully)
+     otherwise it will be treated as 'value'
+    """
+    query = session.query(orm)
+    count = 0
+    if id:
+        query = query.filter(orm.id == id)
+    else:
+        if not kwargs.get('value'):
+            kwargs['value'] = {}
+        for k, v in kwargs.items():
+            if not k in ['value', 'filter', 'order', 'pagination', 'searchValue'] and v:
+                kwargs['value'][k] = v
+        if kwargs.get('value'):
+            query = query.filter_by(**get_orm_params(orm, **kwargs.get('value')))
+        if kwargs.get('filter'):
+            query = query.filter(filter_parse(orm, kwargs.get('filter'), aux_filter))
+        if kwargs.get('order'):
+            query = query.order_by(order_parse(orm, kwargs.get('order'), aux_order))
+        count = query.count()
+        if kwargs.get('pagination'):
+            query = paginator(query, kwargs.get('pagination'))
+    return query, count

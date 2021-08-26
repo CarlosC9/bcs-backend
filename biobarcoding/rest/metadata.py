@@ -1,7 +1,7 @@
 from flask import Blueprint, request
 
 from ..authentication import n_session
-from . import app_api_base, ResponseObject, check_request_params
+from . import app_api_base, ResponseObject, parse_request_params
 from .bos import BioObjAPI
 
 bp_metadata = Blueprint('bp_metadata', __name__)
@@ -70,7 +70,7 @@ class CvtermsAPI(BioObjAPI):
     @n_session(read_only=True)
     def get(self, cv_id=None, cvterm_id=None):
         print(f'GET {request.path}\nGetting ontology terms {id}')
-        kwargs = check_request_params()
+        kwargs = parse_request_params()
         from biobarcoding.services.ontologies import read_cvterms
         issues, content, count, status = read_cvterms(cv_id, cvterm_id, **kwargs)
         return ResponseObject(issues=issues, content=content, count=count, status=status).get_response()

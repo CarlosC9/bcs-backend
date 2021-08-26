@@ -1,5 +1,5 @@
 from ..db_models.sysadmin import Identity, SystemFunction, Group, Role, Organization, RoleIdentity
-from . import make_simple_rest_crud, check_request_params
+from . import make_simple_rest_crud, parse_request_params
 
 # --------------------------------------------------------------------------------------------------------------------
 bp_identities, IdentitiesAPI = make_simple_rest_crud(Identity, "identities")
@@ -87,28 +87,28 @@ class ACLAPI(MethodView):
     @n_session(read_only=True)
     def get(self, id=None, uuid=None):
         print(f'GET {request.path}\nGetting ACL {id}')
-        kwargs = check_request_params()
+        kwargs = parse_request_params()
         issues, content, count, status = read_acls(id=id, uuid=uuid, **kwargs)
         return ResponseObject(content=content, count=count, issues=issues, status=status).get_response()
 
     @n_session()
     def post(self):
         print(f'POST {request.path}\nCreating ACL')
-        kwargs = check_request_params()
+        kwargs = parse_request_params()
         issues, content, status = create_acls(**kwargs.get('value'))
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
     @n_session()
     def put(self, id=None, uuid=None):
         print(f'PUT {request.path}\nCreating ACL {id}')
-        kwargs = check_request_params()
+        kwargs = parse_request_params()
         issues, content, status = update_acls(id=id, uuid=uuid, **kwargs.get('value'))
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
     @n_session()
     def delete(self, id=None, uuid=None):
         print(f'DELETE {request.path}\nDeleting ACL {id}')
-        kwargs = check_request_params()
+        kwargs = parse_request_params()
         issues, content, status = delete_acls(id=id, uuid=uuid, **kwargs)
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
@@ -144,7 +144,7 @@ class ObjectTypeAPI(MethodView):
     @n_session(read_only=True)
     def get(self, id=None, uuid=None):
         print(f'GET {request.path}\nGetting ACL {id}')
-        kwargs = check_request_params()
+        kwargs = parse_request_params()
         issues, content, count, status = read_obj_types(id=id, uuid=uuid, **kwargs)
         return ResponseObject(content=content, count=count, issues=issues, status=status).get_response()
 

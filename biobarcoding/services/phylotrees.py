@@ -3,7 +3,8 @@ import time
 
 from ..db_models import DBSession as db_session, DBSessionChado as chado_session
 from ..db_models.chado import Phylotree, Phylonode
-from ..rest import Issue, IType, filter_parse, paginator
+from ..rest import Issue, IType, filter_parse
+from . import get_query
 
 
 ##
@@ -20,9 +21,9 @@ def create(**kwargs):
 ##
 
 def read(id=None, **kwargs):
-    content = None
+    content, count = None, 0
     try:
-        content = __get_query(id, **kwargs)
+        content, count = __get_query(id, **kwargs)
         if id:
             content = content.first()
         else:
@@ -31,7 +32,7 @@ def read(id=None, **kwargs):
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, 'READ phylotrees: The phylotrees could not be read.')], 400
-    return issues, content, 0, status
+    return issues, content, count, status
 
 
 ##
@@ -56,12 +57,12 @@ def __delete_from_bcs(*args):
 def delete(id=None, **kwargs):
     content = None
     try:
-        query = __get_query(phylotree_id=id, **kwargs)
-        for phylo in query.all():
+        content, count = __get_query(id, **kwargs)
+        for phylo in content.all():
             __delete_from_bcs(phylo.phylotree_id)
-        resp = query.delete(synchronize_session='fetch')
+        content = content.delete(synchronize_session='fetch')
         issues, status = [Issue(IType.INFO,
-                                f'DELETE phylotrees: The {resp} phylotrees were successfully removed.')], 200
+                                f'DELETE phylotrees: The {content} phylotrees were successfully removed.')], 200
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, 'DELETE phylotrees: The phylotrees could not be removed.')], 404
@@ -181,7 +182,7 @@ def __tree2phylonodes(phylotree_id, node, parent_id=None, index=[0]):
 def export(id=None, format='newick', **kwargs):
     # NGD newick phylotree export
     try:
-        if __get_query(id).first():
+        if __get_query(id)[0].first():
             __tree2file(id, format, f'/tmp/output_ngd.{format}')
         issues, status = [Issue(IType.INFO, 'EXPORT phylotrees: The phylotree were successfully exported.')], 200
     except Exception as e:
@@ -223,23 +224,15 @@ def __tree2newick(node, is_root=True):
 # GETTER AND OTHERS
 ##
 
-def __get_query(id=None, **kwargs):
+def __get_query(phylotree_id=None, **kwargs):
+    if phylotree_id:
+        query = chado_session.query(Phylotree).filter(Phylotree.phylotree_id == phylotree_id)
+        return query, query.count()
+    query, count = get_query(chado_session, Phylotree, aux_filter=__aux_own_filter, aux_order=__aux_own_order, **kwargs)
     from biobarcoding.db_models.chado import Dbxref
     dbxref_id = chado_session.query(Dbxref.dbxref_id).filter(Dbxref.accession == 'taxonomy').first()
-    query = chado_session.query(Phylotree).filter(Phylotree.dbxref_id != dbxref_id)
-    global count
-    count = 0
-    if id:
-        query = query.filter(Phylotree.phylotree_id == id)
-    else:
-        if 'filter' in kwargs:
-            query = query.filter(filter_parse(Phylotree, kwargs.get('filter'), __aux_own_filter))
-        if 'order' in kwargs:
-            query = __get_query_ordered(query, kwargs.get('order'))
-        if 'pagination' in kwargs:
-            count = query.count()
-            query = paginator(query, kwargs.get('pagination'))
-    return query
+    query = query.filter(Phylotree.dbxref_id != dbxref_id)
+    return query, query.count()
 
 
 def __aux_own_filter(filter):
@@ -295,6 +288,6 @@ def __aux_own_filter(filter):
     return clause
 
 
-def __get_query_ordered(query, order):
+def __aux_own_order(order):
     # query = query.order(order_parse(Feature, kwargs.get('order'), __aux_own_order))
-    return query
+    return []

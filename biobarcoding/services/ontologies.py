@@ -1,7 +1,7 @@
-from . import log_exception
+from . import log_exception, get_query
 from ..db_models import DBSessionChado as chado_session
 from ..db_models.chado import Cvterm, Cv
-from ..rest import Issue, IType, get_query
+from ..rest import Issue, IType
 
 
 ##

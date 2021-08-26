@@ -1,8 +1,8 @@
 from ..db_models import DBSession, ObjectType
 from ..db_models.bioinformatics import BioinformaticObject
 from ..db_models.sysadmin import ACL, ACLDetail, PermissionType
-from ..rest import Issue, IType, get_query
-from . import get_simple_query, orm2json
+from ..rest import Issue, IType
+from . import orm2json, get_simple_query, get_query
 
 
 def create_acls(**kwargs):
