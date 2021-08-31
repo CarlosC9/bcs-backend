@@ -96,7 +96,8 @@ def update_acls(id=None, uuid=None, **kwargs):
 def delete_acls(id=None, uuid=None, **kwargs):
     content = 0
     try:
-        content = get_query(DBSession, ACL, id=id, uuid=uuid, **kwargs)[0].delete(synchronize_session='fetch')
+        content, count = get_query(DBSession, ACL, id=id, uuid=uuid, **kwargs)
+        content = content.delete(synchronize_session='fetch')
         issues, status = [Issue(IType.INFO, f'DELETE acls({id}): The acls were successfully deleted.')], 200
     except Exception as e:
         print(e)

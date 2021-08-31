@@ -1,4 +1,4 @@
-from . import log_exception, get_query
+from . import log_exception, get_query, get_orm_params
 from ..db_models import DBSessionChado as chado_session
 from ..db_models.chado import Cvterm, Cv
 from ..rest import Issue, IType
@@ -22,6 +22,23 @@ def get_seq_cvterm(type='sequence'):
         'chloroplast':              {'cv':'sequence', 'name':'chloroplast_DNA'},
         'maturase k (matk) gene':   {'cv':'sequence', 'name':'gene', 'value':'matk'},
         'maturase k (rbcl) gene':   {'cv':'sequence', 'name':'gene', 'value':'rbcl'},
+    }.get(type)
+
+
+def get_stock_cvterm(type='stock'):
+    return {
+        'stock':        {'cv':'sequence', 'name':'wild_type'},
+        'wild':         {'cv':'sequence', 'name':'wild_type'},
+        'collection':   {'cv':'sequence', 'name':'variant_collection'},
+        'genome':       {'cv':'sequence', 'name':'variant_genome'},
+    }.get(type)
+
+
+def get_stockcoll_cvterm(type='stockcoll'):
+    return {
+        'stockcoll':    {'cv':'sequence', 'name':'sequence_collection'},
+        'sequence':     {'cv':'sequence', 'name':'sequence_collection'},
+        'contig':       {'cv':'sequence', 'name':'contig_collection'},
     }.get(type)
 
 
@@ -85,6 +102,8 @@ def get_used_cvterm(type, subtype=None):
     return {
         # 'default':      {'cv':'data', 'name':'Data'},
         'sequence':     get_seq_cvterm(subtype or type),
+        'stock':        get_stock_cvterm(subtype or type),
+        'stockcoll':    get_stockcoll_cvterm(subtype or type),
         # 'analysis':     {'cv':'', 'name':''},,
         'alignment':    get_aln_cvterm(subtype or type),
         'phylotree':    get_phy_cvterm(subtype or type),
@@ -100,7 +119,7 @@ def get_used_cvterm(type, subtype=None):
 ##
 
 def __check_cv_values(**values):
-    return dict([(k, v) for k, v in values.items() if k in Cv.__table__.columns])
+    return get_orm_params(Cv, **values)
 
 
 def create(**kwargs):

@@ -85,11 +85,10 @@ def __get_query(phylotree_id=None, **kwargs):
     if phylotree_id:
         query = chado_session.query(Phylotree).filter(Phylotree.phylotree_id == phylotree_id)
         return query, query.count()
-    query, count = get_query(chado_session, Phylotree, aux_filter=__aux_own_filter, aux_order=__aux_own_order, **kwargs)
     from biobarcoding.db_models.chado import Dbxref
     dbxref_id = chado_session.query(Dbxref.dbxref_id).filter(Dbxref.accession == 'taxonomy').first()
-    query = query.filter(Phylotree.dbxref_id == dbxref_id)
-    return query, query.count()
+    return get_query(chado_session, Phylotree, **kwargs, dbxref_id=dbxref_id,
+                     aux_filter=__aux_own_filter, aux_order=__aux_own_order)
 
 
 def __aux_own_filter(filter):

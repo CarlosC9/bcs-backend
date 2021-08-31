@@ -155,8 +155,8 @@ def get_orm_params(orm, **params):
     return dict([(k, v) for k, v in params.items() if k in orm.__table__.columns])
 
 
-def get_or_create(session, model, **kwargs):
-    params = get_orm_params(model, **kwargs)
+def get_or_create(session, model, **params):
+    # params = get_orm_params(model, **kwargs)
     instance = session.query(model).filter_by(**params).first()
     if not instance:
         instance = model(**params)

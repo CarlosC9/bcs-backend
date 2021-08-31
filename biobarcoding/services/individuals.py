@@ -1,19 +1,34 @@
+from ..db_models import DBSession as db_session
 from ..db_models import DBSessionChado as chado_session
 from ..db_models.chado import Stock
+from ..db_models.bioinformatics import Specimen
 from ..rest import Issue, IType, filter_parse
-from . import get_query
+from . import get_query, get_or_create, get_orm_params
+
+
+def __check_stock_params(**values):
+    if not values.get('uniquename'):
+        raise Exception('Missing the uniquename')
+    if not values.get('type_id'):
+        from .ontologies import get_cvterm_query
+        values['type_id'] = get_cvterm_query(type=values.get('type') or 'stock')[0].one().cvterm_id
+    return get_orm_params(Stock, **values)
+
+
+def __stock2bcs(stock):
+    return get_or_create(db_session, Specimen,
+                         # chado_id=stock.stock_id,
+                         # chado_table='stock',
+                         name=stock.uniquename)
 
 
 def create(**kwargs):
     content = None
     try:
-        if not kwargs.get('uniquename'):
-            raise Exception('Missing the uniquename')
-        if not kwargs.get('type_id'):
-            from biobarcoding.db_models.chado import Cvterm
-            kwargs['type_id'] = chado_session.query(Cvterm.cvterm_id).filter(
-                Cvterm.name == 'plant anatomical entity').one()
-        chado_session.add(Stock(**kwargs))
+        values = __check_stock_params(**kwargs)
+        content = Stock(**values)
+        chado_session.add(content)
+        __stock2bcs(content)
         issues, status = [Issue(IType.INFO,
                                 f'CREATE individuals: The individual "{kwargs.get("uniquename")}" created successfully.')], 201
     except Exception as e:
@@ -50,10 +65,18 @@ def update(id, **kwargs):
     return issues, content, status
 
 
+def __delete_from_bcs(content):
+    names = [i.uniquename for i in content.all()]
+    return db_session.query(Specimen).filter(Specimen.name.in_(names))\
+        .delete(synchronize_session='fetch')
+
+
 def delete(id=None, **kwargs):
     content = None
     try:
         content, count = __get_query(id, **kwargs)
+        __delete_from_bcs(content)
+        # TODO: delete sequences ?
         content = content.delete(synchronize_session='fetch')
         issues, status = [Issue(IType.INFO,
                                 f'DELETE individuals: The {content} individuals were successfully removed.')], 200

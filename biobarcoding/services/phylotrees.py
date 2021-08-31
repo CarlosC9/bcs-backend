@@ -2,6 +2,7 @@ import os.path
 import time
 
 from ..db_models import DBSession as db_session, DBSessionChado as chado_session
+from ..db_models.bioinformatics import PhylogeneticTree
 from ..db_models.chado import Phylotree, Phylonode
 from ..rest import Issue, IType, filter_parse
 from . import get_query
@@ -49,7 +50,6 @@ def update(phylotree_id, **kwargs):
 ##
 
 def __delete_from_bcs(*args):
-    from biobarcoding.db_models.bioinformatics import PhylogeneticTree
     db_session.query(PhylogeneticTree).filter(PhylogeneticTree.chado_id.in_(args)) \
         .delete(synchronize_session='fetch')
 
@@ -142,7 +142,6 @@ def __new_phylotree_dbxref(name):
 
 def __phylotree2bcs(phylotree):
     from biobarcoding.services import get_or_create
-    from biobarcoding.db_models.bioinformatics import PhylogeneticTree
     bcs_phylotree = get_or_create(db_session, PhylogeneticTree,
                                   chado_id=phylotree.phylotree_id,
                                   chado_table='phylotree',
@@ -228,11 +227,15 @@ def __get_query(phylotree_id=None, **kwargs):
     if phylotree_id:
         query = chado_session.query(Phylotree).filter(Phylotree.phylotree_id == phylotree_id)
         return query, query.count()
-    query, count = get_query(chado_session, Phylotree, aux_filter=__aux_own_filter, aux_order=__aux_own_order, **kwargs)
-    from biobarcoding.db_models.chado import Dbxref
-    dbxref_id = chado_session.query(Dbxref.dbxref_id).filter(Dbxref.accession == 'taxonomy').first()
-    query = query.filter(Phylotree.dbxref_id != dbxref_id)
-    return query, query.count()
+    phy_clause = {'phylotree_id': {'op': 'in', 'unary': db_session.query(PhylogeneticTree.chado_id).all()}}
+    if kwargs.get('filter'):
+        try:
+            kwargs['filter'] += [phy_clause]
+        except Exception as e:
+            kwargs['filter'] = [kwargs['filter']] + [phy_clause]
+    else:
+        kwargs['filter'] = [phy_clause]
+    return get_query(chado_session, Phylotree, aux_filter=__aux_own_filter, aux_order=__aux_own_order, **kwargs)
 
 
 def __aux_own_filter(filter):

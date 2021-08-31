@@ -1,14 +1,15 @@
 import os.path
 import re
 
-from Bio import SeqIO
+from .ontologies import get_cvterm_query
+from ..db_models import DBSession as db_session
+from ..db_models import DBSessionChado as chado_session
+from ..db_models.chado import Feature, Organism, StockFeature
+from ..db_models.bioinformatics import Sequence
 
-from biobarcoding.db_models import DBSession as db_session
-from biobarcoding.db_models import DBSessionChado as chado_session
-from biobarcoding.db_models.chado import Feature
-
-from biobarcoding.rest import Issue, IType, filter_parse, get_query
-from biobarcoding.services import get_simple_query, log_exception, get_bioformat, get_or_create
+from ..rest import Issue, IType, filter_parse
+from . import get_orm_params, get_query
+from ..services import log_exception, get_bioformat, get_or_create
 
 
 ##
@@ -16,55 +17,81 @@ from biobarcoding.services import get_simple_query, log_exception, get_bioformat
 ##
 
 def __check_seq_values(**values):
+    """
+    Process the values 'organism', 'stock', and 'type' into valid IDs,
+    and fill in the empty not null fields whenever possible.
+    """
     if not values.get('uniquename'):
         raise Exception('Missing the uniquename (sequences ID)')
 
+    if values.get('residues') and not values.get('seqlen'):
+        values['seqlen'] = len(values.get('residues'))
+
     if not values.get('organism_id'):
-        from biobarcoding.db_models.chado import Organism
-        org = values.get('organism')
+        org = values.get('organism').strip()
         if org:
+            # TODO: check canónical name (getting genus and species?)
             genus = org.split()[0]
             species = org[len(genus):].strip()
-            # TODO: check canónical name (getting genus and species?)
             values['organism_id'] = get_or_create(chado_session, Organism, genus=genus, species=species).organism_id
         if not values.get('organism_id'):
-            values['organism_id'] = get_or_create(chado_session, Organism, genus='Organism', species='Unclassified').organism_id
+            values['organism_id'] = get_or_create(chado_session, Organism, genus='Organism', species='unclassified').organism_id
 
+    if not values.get('type_id') and values.get('type'):
+        try:
+            values['type_id'] = get_cvterm_query(type=values.get('type'), subtype=values.get('subtype'))[0].one().cvterm_id
+        except Exception as e:
+            pass
     if not values.get('type_id'):
-        from biobarcoding.db_models.chado import Cvterm, Cv
-        # TODO: focus on SO ?
-        sont = get_simple_query(chado_session, Cv, name='sequence')
-        # Possible cvterms
-        moltype = values.get('molecule_type')
-        if moltype:
-            try:
-                values['type_id'] = get_simple_query(chado_session, Cvterm, name=moltype,
-                                                     cv_id=sont.one().cv_id).one().cvterm_id
-            except Exception as e:
-                pass
-        # Default 'contig' cvterm for sequences
-        if not values.get('type_id'):
-            try:
-                values['type_id'] = get_simple_query(chado_session, Cvterm, name='contig',
-                                                     cv_id=sont.one().cv_id).one().cvterm_id
-            except Exception as e:
-                pass
-        if not values.get('type_id'):
+        try:
+            values['type_id'] = get_cvterm_query(type='sequence')[0].one().cvterm_id
+        except Exception as e:
             raise Exception(f'Missing the type_id for {values.get("uniquename")}')
-    return dict([(k, v) for k, v in values.items() if k in Feature.__table__.columns])
+
+    return get_orm_params(Feature, **values)
+
+
+def __seq_stock(seq, **values):
+    if not values.get('stock_id') and values.get('stock'):
+        from .individuals import __get_query as read_stock, create as create_stock
+        try:
+            stock = read_stock(values.get('stock_id'), uniquename=values.get('stock'))[0].one()
+        except Exception as e:
+            stock = create_stock(uniquename=values.get('stock'), organism_id=seq.organism_id)[1]
+            chado_session.flush()
+        values['stock_id'] = stock.stock_id
+    elif not values.get('stock_id'):
+        return None
+    stock_bind = get_or_create(chado_session, StockFeature,
+                               stock_id=values.get('stock_id'),
+                               feature_id=seq.feature_id,
+                               type_id=seq.type_id)
+    return stock
 
 
 def create(**kwargs):
-    # TODO: chado:Stock and bcs ?
     content = None
     try:
         values = __check_seq_values(**kwargs)
-        chado_session.add(Feature(**values))
+        content = Feature(**values)
+        chado_session.add(content)
+        stock = __seq_stock(content, **kwargs)
+        __seq2bcs(content)
         issues, status = [Issue(IType.INFO, f'CREATE sequences: The sequence "{kwargs.get("uniquename")}" was created successfully.')], 201
     except Exception as e:
         log_exception(e)
         issues, status = [Issue(IType.ERROR, f'CREATE sequences: The sequence "{kwargs.get("uniquename")}" could not be created.')], 409
     return issues, content, status
+
+
+def __seq2bcs(seq):
+    bcs_sequence = get_or_create(db_session, Sequence,
+                                 chado_id=seq.feature_id,
+                                 chado_table='feature',
+                                 name=seq.uniquename,
+                                 # specimen_id=bcs_specimen.id
+                                 )
+    # db_session.merge(bcs_sequence)
 
 
 ##
@@ -74,7 +101,7 @@ def create(**kwargs):
 def read(id=None, **kwargs):
     content, count = None, 0
     try:
-        content, count = get_seqs_query(id, **kwargs)
+        content, count = __get_query(id, **kwargs)
         if id:
             content = content.first()
         else:
@@ -93,8 +120,8 @@ def read(id=None, **kwargs):
 def update(id, **kwargs):
     content = None
     try:
-        seq = get_seqs_query(id)[0].one()
-        seq.update(__check_seq_values(**kwargs))
+        seq = __get_query(id)[0].one()
+        seq.update(get_orm_params(Feature, **kwargs))
         issues, status = [Issue(IType.INFO, f'UPDATE sequences: The sequence "{seq.uniquename}" was successfully updated.')], 200
     except Exception as e:
         log_exception(e)
@@ -106,8 +133,8 @@ def update(id, **kwargs):
 # DELETE
 ##
 
-def __delete_from_bcs(*ids):
-    from biobarcoding.db_models.bioinformatics import Sequence
+def __delete_from_bcs(query):
+    ids = [seq.feature_id for seq in query.all()]
     db_session.query(Sequence).filter(Sequence.chado_id.in_(ids)) \
         .delete(synchronize_session='fetch')
 
@@ -115,10 +142,11 @@ def __delete_from_bcs(*ids):
 def delete(id=None, **kwargs):
     content = None
     try:
-        query, count = get_seqs_query(id, **kwargs)
-        __delete_from_bcs(*[ seq.feature_id for seq in query.all() ])
-        resp = query.delete(synchronize_session='fetch')
-        issues, status = [Issue(IType.INFO, f'DELETE sequences: {resp} sequences were successfully removed.')], 200
+        content, count = __get_query(id, **kwargs)
+        # TODO: check why is deleting all in bcs with out filter
+        __delete_from_bcs(content)
+        content = content.delete(synchronize_session='fetch')
+        issues, status = [Issue(IType.INFO, f'DELETE sequences: {content} sequences were successfully removed.')], 200
     except Exception as e:
         log_exception(e)
         issues, status = [Issue(IType.ERROR, f'DELETE sequences: The sequences could not be removed.')], 404
@@ -145,7 +173,7 @@ def __fasSeq2chado(seq, **params):
         params['molecule_type'] = features[-1]['type']
     elif origin:
         params['molecule_type'] = params.get('origin')
-    return create(uniquename=seq.id, name=seq.description, residues=str(seq.seq), seqlen=len(seq.seq), **params)[0]
+    return create(uniquename=seq.id, name=seq.description, stock=seq.name, residues=str(seq.seq), seqlen=len(seq.seq), **params)[0]
 
 
 def __gbSeq2chado(seq, **params):
@@ -236,41 +264,19 @@ def __bio2chado(seq, format, **params):
 
 
 def import_file(input_file, format=None, **kwargs):
-    issues, content, status, nseqs = [], None, 200, 0
+    issues, content, count, status = [], None, 0, 200
     format = get_bioformat(input_file, format)
     try:
-        from biobarcoding.services import seqs_parser
+        from ..services import seqs_parser
         for s in seqs_parser(input_file, format):
             iss = __bio2chado(s, format, **kwargs)
             issues += [ Issue(i.itype, i.message, os.path.basename(input_file)) for i in iss ]
-        __seqs2bcs([seq.id for seq in SeqIO.parse(input_file, format)])
     except Exception as e:
         log_exception(e)
         issues, status = [Issue(IType.ERROR,
                                 f'IMPORT sequences: file {input_file} could not be imported.',
                                 os.path.basename(input_file))], 409
     return issues, content, status
-
-
-def __seqs2bcs(names):
-    from biobarcoding.db_models.chado import Feature
-    from biobarcoding.db_models import DBSession as db_session
-    for seq in chado_session.query(Feature).filter(Feature.uniquename.in_(names)).all():
-        db_session.merge(__feature2bcs(seq))
-
-
-def __feature2bcs(seq):
-    from biobarcoding.services import get_or_create
-    from biobarcoding.db_models.bioinformatics import Specimen, Sequence
-    bcs_specimen = get_or_create(db_session, Specimen, name=seq.uniquename)
-    db_session.merge(bcs_specimen)
-    db_session.flush()
-    bcs_sequence = get_or_create(db_session, Sequence,
-                                 chado_id=seq.feature_id,
-                                 chado_table='feature',
-                                 name=seq.uniquename,
-                                 specimen_id=bcs_specimen.id)
-    return bcs_sequence
 
 
 ##
@@ -282,7 +288,6 @@ def __seqs_header_parser(seqs, format):
     # return dict(uniquename, header)
     headers = {}
     if format == 'organism':
-        from biobarcoding.db_models.chado import Organism
         orgs = chado_session.query(Feature.uniquename, Organism.genus, Organism.species) \
             .join(Organism).filter(Feature.uniquename.in_([x.uniquename for x in seqs])).all()
         for i in orgs:
@@ -312,7 +317,7 @@ def __seqs2file(seqs, format='fasta', output_file=f"/tmp/output_ngd", header_for
 def export(id=None, format='fasta', **kwargs):
     content = None
     try:
-        query, count = get_seqs_query(id, **kwargs)
+        query, count = __get_query(id, **kwargs)
         content = __seqs2file(query.all(), format=format, output_file=f'/tmp/output_ngd.{format}')
         issues, status = [Issue(IType.INFO, f'EXPORT sequences: {count} sequences were successfully exported.')], 200
     except Exception as e:
@@ -325,7 +330,7 @@ def export(id=None, format='fasta', **kwargs):
 # GETTER AND OTHERS
 ##
 
-def get_seqs_query(id=None, **kwargs):
+def __get_query(id=None, **kwargs):
     if id:
         query = chado_session.query(Feature).filter(Feature.feature_id == id)
         return query, query.count()
@@ -336,46 +341,46 @@ def __aux_own_filter(filter):
     clause=[]
 
     if 'analysis_id' in filter:
-        from biobarcoding.db_models.chado import AnalysisFeature
+        from ..db_models.chado import AnalysisFeature
         _ids = chado_session.query(AnalysisFeature.feature_id)\
             .filter(filter_parse(AnalysisFeature, [{'analysis_id': filter.get('analysis_id')}]))
         clause.append(Feature.feature_id.in_(_ids))
 
     if 'phylotree_id' in filter:
-        from biobarcoding.db_models.chado import Phylonode
+        from ..db_models.chado import Phylonode
         _ids = chado_session.query(Phylonode.feature_id)\
             .filter(filter_parse(Phylonode, [{'phylotree_id': filter.get('phylotree_id')}]))
         clause.append(Feature.feature_id.in_(_ids))
 
     if "prop_cvterm_id" in filter:
-        from biobarcoding.db_models.chado import Featureprop
+        from ..db_models.chado import Featureprop
         _ids = chado_session.query(Featureprop.feature_id)\
             .filter(filter_parse(Featureprop, [{'type_id': filter.get('prop_cvterm_id')}]))
         clause.append(Feature.feature_id.in_(_ids))
 
     if "program" in filter:
-        from biobarcoding.db_models.chado import Analysis
+        from ..db_models.chado import Analysis
         _ids = chado_session.query(Analysis.analysis_id) \
             .filter(filter_parse(Analysis, [{'program': filter.get('program')}]))
-        from biobarcoding.db_models.chado import AnalysisFeature
+        from ..db_models.chado import AnalysisFeature
         _ids = chado_session.query(AnalysisFeature.feature_id) \
             .filter(AnalysisFeature.analysis_id.in_(_ids))
         clause.append(Feature.feature_id.in_(_ids))
 
     if "programversion" in filter:
-        from biobarcoding.db_models.chado import Analysis
+        from ..db_models.chado import Analysis
         _ids = chado_session.query(Analysis.analysis_id) \
             .filter(filter_parse(Analysis, [{'programversion': filter.get('programversion')}]))
-        from biobarcoding.db_models.chado import AnalysisFeature
+        from ..db_models.chado import AnalysisFeature
         _ids = chado_session.query(AnalysisFeature.feature_id) \
             .filter(AnalysisFeature.analysis_id.in_(_ids))
         clause.append(Feature.feature_id.in_(_ids))
 
     if "algorithm" in filter:
-        from biobarcoding.db_models.chado import Analysis
+        from ..db_models.chado import Analysis
         _ids = chado_session.query(Analysis.analysis_id) \
             .filter(filter_parse(Analysis, [{'algorithm': filter.get('algorithm')}]))
-        from biobarcoding.db_models.chado import AnalysisFeature
+        from ..db_models.chado import AnalysisFeature
         _ids = chado_session.query(AnalysisFeature.feature_id) \
             .filter(AnalysisFeature.analysis_id.in_(_ids))
         clause.append(Feature.feature_id.in_(_ids))
@@ -407,5 +412,4 @@ def __aux_own_filter(filter):
 
 def __aux_own_order(order):
     clause=[]
-    # query = query.order(order_parse(Feature, kwargs.get('order'), __aux_own_order))
     return clause
