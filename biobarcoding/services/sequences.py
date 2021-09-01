@@ -287,11 +287,16 @@ def __seqs_header_parser(seqs, format):
     # TODO: seqs header parser
     # return dict(uniquename, header)
     headers = {}
-    if format == 'organism':
+    if format == 'organism' or format == 'organism_canon':
         orgs = chado_session.query(Feature.uniquename, Organism.genus, Organism.species) \
             .join(Organism).filter(Feature.uniquename.in_([x.uniquename for x in seqs])).all()
-        for i in orgs:
-            headers[i[0]] = i[1] + ' ' + i[2]
+        if format == 'organism':
+            for i in orgs:
+                headers[i[0]] = i[1] + ' ' + i[2]
+        else:
+            from .species_names import get_canonical_species_names
+            for i in orgs:
+                headers[i[0]] = get_canonical_species_names(db_session, [i[1] + ' ' + i[2]], underscores=True)[0]
     return headers
 
 
@@ -318,7 +323,7 @@ def export(id=None, format='fasta', **kwargs):
     content = None
     try:
         query, count = __get_query(id, **kwargs)
-        content = __seqs2file(query.all(), format=format, output_file=f'/tmp/output_ngd.{format}')
+        content = __seqs2file(query.all(), format=format, output_file=f'/tmp/output_ngd.{format}', header_format=kwargs.get('header'))
         issues, status = [Issue(IType.INFO, f'EXPORT sequences: {count} sequences were successfully exported.')], 200
     except Exception as e:
         log_exception(e)

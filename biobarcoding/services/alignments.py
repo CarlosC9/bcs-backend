@@ -26,7 +26,8 @@ def create(**kwargs):
         # default msa values for analysis table
         if not kwargs.get('program'):
             kwargs['program'] = 'multiple sequence alignment'
-        kwargs['type'] = 'alignment'
+        if not (kwargs.get('type_id') or kwargs.get('type_id')):
+            kwargs['type'] = 'alignment'
         # create as analysis
         from .analyses import create as create_ansis
         issues, content, status = create_ansis(**kwargs)
@@ -85,8 +86,8 @@ def update(id, **kwargs):
 # DELETE
 ##
 
-def __delete_from_bcs(*args):
-    db_session.query(MultipleSequenceAlignment).filter(MultipleSequenceAlignment.chado_id.in_(*args)) \
+def __delete_from_bcs(*ids):
+    db_session.query(MultipleSequenceAlignment).filter(MultipleSequenceAlignment.chado_id.in_(ids)) \
         .delete(synchronize_session='fetch')
 
 
@@ -130,11 +131,13 @@ def __bind2src(feature, srcname):
 
 def __msafile2chado(msa, seqs):
     for seq in seqs:
-        issues, feature, status = create_seq(uniquename=f'{seq.id}_msa{msa.analysis_id}',
-                             stock=seq.id,
-                             residues=str(seq.seq),
-                             organism_id=__seq_org_id(seq.id),
-                             type='sequence', subtype='aligned')
+        issues, feature, status = create_seq(
+            uniquename=f'{seq.id}.msa{msa.analysis_id}',
+            name=seq.id,
+            stock=seq.id,
+            residues=str(seq.seq),
+            organism_id=__seq_org_id(seq.id),
+            type='sequence', subtype='aligned')
         __bind2src(feature, seq.id)
         chado_session.add(AnalysisFeature(analysis_id=msa.analysis_id, feature_id=feature.feature_id))
     return msa
@@ -151,7 +154,6 @@ def import_file(input_file, format=None, **kwargs):
         if not kwargs.get('sourcename'):
             kwargs['sourcename'] = os.path.basename(input_file)
         issues, content, status = create(**kwargs)
-        # TODO: import_sequences ?
         __msafile2chado(content, content_file)
         issues, status = [Issue(IType.INFO,
                                 f'IMPORT alignments: The {format} alignment were successfully imported.',

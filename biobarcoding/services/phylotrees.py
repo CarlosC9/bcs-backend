@@ -5,7 +5,7 @@ from ..db_models import DBSession as db_session, DBSessionChado as chado_session
 from ..db_models.bioinformatics import PhylogeneticTree
 from ..db_models.chado import Phylotree, Phylonode
 from ..rest import Issue, IType, filter_parse
-from . import get_query
+from . import get_query, get_bioformat
 
 
 ##
@@ -84,9 +84,9 @@ phylonode:
 """
 def import_file(input_file, format='newick', **kwargs):
     content = None
-    format = format or 'newick'
+    format = get_bioformat(input_file, format or 'newick')
     try:
-        # TODO: Check newick format
+        # Check phylotree file format
         from Bio import Phylo
         tree = Phylo.read(input_file, format)
     except Exception as e:

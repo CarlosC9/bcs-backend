@@ -10,7 +10,7 @@ from ..rest import Issue, IType, filter_parse
 
 def __check_ansis_values(**values):
     if values.get('job_id'):
-        values['sourcename'] = values.get('job_id')
+        values['sourcename'], values['sourceversion'] = 'ngd_job', values.get('job_id')
     if not (values.get('program') or values.get('programversion') or values.get('sourcename')):
         raise Exception('Missing required params ("program", "programversion", "sourcename").')
     if not values.get('program'):
@@ -31,13 +31,9 @@ def create(**kwargs):
         content = Analysis(**values)
         chado_session.add(content)
         if kwargs.get('type'):
-            # TODO: do something
-            pass
+            pass    # TODO: get cvterm_id (type_id ?)
         if kwargs.get('cvterm_ids'):
-            for cvterm in kwargs.get('cvterms'):
-                # TODO: first() might be not the properly way to do this
-                cvterm_id = chado_session.query(Cvterm.cvterm_id) \
-                    .filter(Cvterm.name == cvterm).first()
+            for cvterm_id in kwargs.get('cvterm_ids'):
                 msa_cvterm = get_or_create(chado_session, AnalysisCvterm, cvterm_id=cvterm_id, analysis_id=content.analysis_id)
         issues, status = [Issue(IType.INFO,
                                 f'CREATE analyses: The analysis "{kwargs.get("program")} {kwargs.get("programversion")}" created successfully.')], 201
