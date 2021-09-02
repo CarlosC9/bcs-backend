@@ -283,20 +283,18 @@ def import_file(input_file, format=None, **kwargs):
 # EXPORT
 ##
 
-def __seqs_header_parser(seqs, format):
+def __seqs_header_parser(seqs, format):     # return dict(uniquename, header)
     # TODO: seqs header parser
-    # return dict(uniquename, header)
     headers = {}
     if format == 'organism' or format == 'organism_canon':
         orgs = chado_session.query(Feature.uniquename, Organism.genus, Organism.species) \
             .join(Organism).filter(Feature.uniquename.in_([x.uniquename for x in seqs])).all()
-        if format == 'organism':
-            for i in orgs:
-                headers[i[0]] = i[1] + ' ' + i[2]
-        else:
-            from .species_names import get_canonical_species_names
-            for i in orgs:
-                headers[i[0]] = get_canonical_species_names(db_session, [i[1] + ' ' + i[2]], underscores=True)[0]
+        from .species_names import get_canonical_species_names
+        for i in orgs:
+            headers[i[0]] = i[1] + ' ' + i[2]
+            if format == 'organism_canon':
+                headers[i[0]] = get_canonical_species_names(db_session, [headers[i[0]]], underscores=True)[0] \
+                                or headers[i[0]].replace(' ', '_')
     return headers
 
 
