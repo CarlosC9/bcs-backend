@@ -53,12 +53,12 @@ def __check_seq_values(**values):
 
 def __seq_stock(seq, **values):
     if not values.get('stock_id') and values.get('stock'):
-        from .individuals import __get_query as read_stock, create as create_stock
+        from .individuals import __get_query as get_stock_query, create as create_stock
         try:
-            stock = read_stock(values.get('stock_id'), uniquename=values.get('stock'))[0].one()
+            stock = get_stock_query(values.get('stock_id'), uniquename=values.get('stock'))[0].one()
         except Exception as e:
             stock = create_stock(uniquename=values.get('stock'), organism_id=seq.organism_id)[1]
-            chado_session.flush()
+            chado_session.flush()   # stock_id required
         values['stock_id'] = stock.stock_id
     elif not values.get('stock_id'):
         return None
@@ -76,22 +76,16 @@ def create(**kwargs):
         content = Feature(**values)
         chado_session.add(content)
         stock = __seq_stock(content, **kwargs)
-        __seq2bcs(content)
+        # seq to bcs
+        bcs_seq = get_or_create(db_session, Sequence,   # specimen_id=bcs_specimen.id
+                                chado_id=content.feature_id,
+                                chado_table='feature',
+                                name=content.uniquename)
         issues, status = [Issue(IType.INFO, f'CREATE sequences: The sequence "{kwargs.get("uniquename")}" was created successfully.')], 201
     except Exception as e:
         log_exception(e)
         issues, status = [Issue(IType.ERROR, f'CREATE sequences: The sequence "{kwargs.get("uniquename")}" could not be created.')], 409
     return issues, content, status
-
-
-def __seq2bcs(seq):
-    bcs_sequence = get_or_create(db_session, Sequence,
-                                 chado_id=seq.feature_id,
-                                 chado_table='feature',
-                                 name=seq.uniquename,
-                                 # specimen_id=bcs_specimen.id
-                                 )
-    # db_session.merge(bcs_sequence)
 
 
 ##
@@ -290,11 +284,14 @@ def __seqs_header_parser(seqs, format):     # return dict(uniquename, header)
         orgs = chado_session.query(Feature.uniquename, Organism.genus, Organism.species) \
             .join(Organism).filter(Feature.uniquename.in_([x.uniquename for x in seqs])).all()
         from .species_names import get_canonical_species_names
-        for i in orgs:
-            headers[i[0]] = i[1] + ' ' + i[2]
-            if format == 'organism_canon':
-                headers[i[0]] = get_canonical_species_names(db_session, [headers[i[0]]], underscores=True)[0] \
-                                or headers[i[0]].replace(' ', '_')
+        underscored = True if format == 'organism_canon_underscored' else False
+        for seqID, genus, species in orgs:
+            headers[seqID] = genus + ' ' + species
+            if format in ('organism_canon', 'organism_canon_underscored'):
+                headers[seqID] = get_canonical_species_names(db_session,
+                                                             [headers[seqID]],
+                                                             underscores=underscored)[0] \
+                                or headers[seqID].replace(' ', '_') if underscored else headers[seqID]
     return headers
 
 

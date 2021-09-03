@@ -1,6 +1,6 @@
 from . import get_or_create, get_query, get_orm_params
 from ..db_models import DBSessionChado as chado_session
-from ..db_models.chado import Analysis, Cvterm, AnalysisCvterm
+from ..db_models.chado import Analysis, AnalysisCvterm
 from ..rest import Issue, IType, filter_parse
 
 
@@ -10,7 +10,7 @@ from ..rest import Issue, IType, filter_parse
 
 def __check_ansis_values(**values):
     if values.get('job_id'):
-        values['sourcename'], values['sourceversion'] = 'ngd_job', values.get('job_id')
+        values['sourcename'], values['sourceversion'], values['sourceuri'] = values.get('job_id'), 'job', f'/jobs/{values.get("job_id")}'
     if not (values.get('program') or values.get('programversion') or values.get('sourcename')):
         raise Exception('Missing required params ("program", "programversion", "sourcename").')
     if not values.get('program'):
@@ -30,11 +30,6 @@ def create(**kwargs):
         values = __check_ansis_values(**kwargs)
         content = Analysis(**values)
         chado_session.add(content)
-        if kwargs.get('type'):
-            pass    # TODO: get cvterm_id (type_id ?)
-        if kwargs.get('cvterm_ids'):
-            for cvterm_id in kwargs.get('cvterm_ids'):
-                msa_cvterm = get_or_create(chado_session, AnalysisCvterm, cvterm_id=cvterm_id, analysis_id=content.analysis_id)
         issues, status = [Issue(IType.INFO,
                                 f'CREATE analyses: The analysis "{kwargs.get("program")} {kwargs.get("programversion")}" created successfully.')], 201
     except Exception as e:
@@ -106,11 +101,23 @@ def __get_query(analysis_id=None, **kwargs):
     if analysis_id:
         query = chado_session.query(Analysis).filter(Analysis.analysis_id == analysis_id)
         return query, query.count()
+    if kwargs.get('job_id'):
+        # TODO: will there be multiple analyzes for a single job ?
+        query = chado_session.query(Analysis).filter(Analysis.sourcename == str(kwargs.get('job_id')),
+                                                     Analysis.sourceversion == 'job')
+        return query, query.count()
     return get_query(chado_session, Analysis, aux_filter=__aux_ansis_filter, aux_order=__aux_ansis_order, **kwargs)
 
 
 def __aux_ansis_filter(filter):
     clause = []
+
+    if filter.get('job_id'):
+        from biobarcoding.db_models.chado import Analysis
+        _ids = chado_session.query(Analysis.analysis_id) \
+            .filter(filter_parse(Analysis, {'sourcename': filter.get('job_id'),
+                                            'sourceversion': {'op': 'eq', 'unary': 'job'}}))
+        clause.append(Analysis.analysis_id.in_(_ids))
 
     if filter.get('feature_id'):
         from biobarcoding.db_models.chado import AnalysisFeature

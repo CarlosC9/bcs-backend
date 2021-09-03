@@ -4,7 +4,7 @@ from Bio import AlignIO
 
 from ..db_models import DBSession as db_session
 from ..db_models import DBSessionChado as chado_session
-from ..db_models.chado import Analysis, Organism, Feature, AnalysisFeature
+from ..db_models.chado import Organism, Feature, AnalysisFeature
 from ..db_models.bioinformatics import MultipleSequenceAlignment
 
 from ..rest import IType, Issue
@@ -20,20 +20,23 @@ from ..services.sequences import __get_query as get_seqs_query, \
 # CREATE
 ##
 
+def __msa2bcs(msa):
+    return get_or_create(db_session, MultipleSequenceAlignment,
+                         chado_id=msa.analysis_id,
+                         chado_table='analysis',
+                         name=msa.name)
+
+
 def create(**kwargs):
     content = None
     try:
-        # default msa values for analysis table
         if not kwargs.get('program'):
-            kwargs['program'] = 'multiple sequence alignment'
-        if not (kwargs.get('type_id') or kwargs.get('type_id')):
-            kwargs['type'] = 'alignment'
+            kwargs['program'] = 'Multiple sequence alignment'
         # create as analysis
         from .analyses import create as create_ansis
         issues, content, status = create_ansis(**kwargs)
-        # msa to bcs
-        chado_session.flush()
-        get_or_create(db_session, MultipleSequenceAlignment, chado_id=content.analysis_id)
+        chado_session.flush()   # analysis_id required
+        msa_bcs = __msa2bcs(content)
         if status < 300:
             issues += [Issue(IType.INFO, f'CREATE alignments: The alignment "{kwargs.get("name")}" was created successfully.')]
         else:
@@ -149,11 +152,21 @@ def import_file(input_file, format=None, **kwargs):
     try:
         # check aligned file
         content_file = AlignIO.read(input_file, format or 'fasta')
+        # Set missing default values
         if not kwargs.get('programversion'):
             kwargs['programversion'] = '(Imported file)'
         if not kwargs.get('sourcename'):
             kwargs['sourcename'] = os.path.basename(input_file)
-        issues, content, status = create(**kwargs)
+        # Analysis row could exist for jobs, so get or create
+        try:
+            unique_keys = ['job_id'] if kwargs.get('job_id') else ('program', 'programversion', 'sourcename')
+            content, count = get_ansis_query(**{k:kwargs[k] for k in unique_keys if k in kwargs})
+            content = content.one()
+            # Analysis row could be created by importing the results of other jobs, and without register as msa in bcs
+            msa_bcs = __msa2bcs(content)
+        except Exception as e:
+            issues, content, status = create(**kwargs)
+        # Read and import file content
         __msafile2chado(content, content_file)
         issues, status = [Issue(IType.INFO,
                                 f'IMPORT alignments: The {format} alignment were successfully imported.',

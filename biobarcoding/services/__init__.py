@@ -101,15 +101,15 @@ def get_encoding(file):
     return enc
 
 
-def get_bioformat(input_file, format):
-    ext = format if format else os.path.splitext(input_file)[1][1:]
+def get_bioformat(file, format):
+    ext = format if format else os.path.splitext(file)[1][1:]
     return {'frn': 'fasta', 'fna': 'fasta', 'faa': 'fasta', 'fas': 'fasta', 'fasta': 'fasta',
             'gb': 'genbank', 'gbf': 'genbank', 'gbk': 'genbank', 'genbank': 'genbank',
             'gff': 'gff3', 'gff3': 'gff3',
             'nex': 'nexus', 'nxs': 'nexus', 'nexus': 'nexus',
             'aln': 'clustal', 'clustal': 'clustal',
             'phy': 'phylip', 'phylip': 'phylip',
-            'nwx': 'newick', 'tree': 'newick', 'newick': 'newick'}.get(ext)
+            'nhx': 'newick', 'nwx': 'newick', 'tree': 'newick', 'newick': 'newick'}.get(ext)
 
 
 def tsv_csv_parser(file):   # with csv lib
