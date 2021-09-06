@@ -69,8 +69,8 @@ def get_canonical_species_names(sess, in_: List[str], underscores=False) -> List
             found = True
         if found:
             v = species_names_map[sn.lower()]
-            if underscores:
-                v = re.sub(", -", "_", v)
+            if underscores and v:
+                v = re.sub("[, -]", "_", v)
         else:
             v = None
         _.append(v)

@@ -5,7 +5,7 @@ from flask import Blueprint, request, send_file
 from flask.views import MethodView
 
 from ..authentication import n_session
-from . import app_api_base, ResponseObject, Issue, IType, check_request_params
+from . import app_api_base, ResponseObject, Issue, IType, parse_request_params
 
 bp_bos = Blueprint('bp_bos', __name__)
 
@@ -53,42 +53,34 @@ class BioObjAPI(MethodView):
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
     def _import_files(self, format, value={}):
-        issues, content = [], []
+        # TODO: allow combinations ?
         if 'filesAPI' in value:
-            i, c, s = self._import_filesAPI(format, value)
-            issues += i
-            content += c
+            return self._import_filesAPI(format, value)
         if request.files:
-            i, c, s = self._import_request_files(format, value)
-            issues += i
-            content += c
-        return issues, content, 207
+            return self._import_request_files(format, value)
+        return [], None, 200
 
     def _import_filesAPI(self, format, value={}):
         issues, content = [], []
         if value.get('filesAPI'):
-            # TODO: deal with list of filepaths
-            filesAPI = value.get('filesAPI') \
-                if isinstance(value.get('filesAPI'), (list, tuple)) \
-                else [value.get('filesAPI')]
+            file = value.get('filesAPI')
             from biobarcoding.db_models import DBSession
             from biobarcoding.db_models.files import FileSystemObject
-            for file in filesAPI:
-                try:
-                    if not os.path.isabs(file):
-                        raise Exception('Invalid path')
-                    file = DBSession.query(FileSystemObject) \
-                        .filter(FileSystemObject.full_name == file).first()
-                    from werkzeug.utils import secure_filename
-                    file_cp = '/tmp/' + secure_filename(file.full_name)
-                    with open(file_cp, 'wb') as f:
-                        f.write(file.embedded_content)
-                    i, c, s = self.service.import_file(file_cp, format, **value)
-                except Exception as e:
-                    print(e)
-                    i, c = [Issue(IType.ERROR, f'Could not import the file {file}.', file)], {}
-                issues += i
-                content.append(c)
+            try:
+                if not os.path.isabs(file):
+                    raise Exception('Invalid path')
+                if not value.get('sourceuri'):
+                    value['sourceuri'] = file
+                file = DBSession.query(FileSystemObject) \
+                    .filter(FileSystemObject.full_name == file).first()
+                from werkzeug.utils import secure_filename
+                file_cp = '/tmp/' + secure_filename(file.full_name)
+                with open(file_cp, 'wb') as f:
+                    f.write(file.embedded_content)
+                issues, content, status = self.service.import_file(file_cp, format, **value)
+            except Exception as e:
+                print(e)
+                issues += [Issue(IType.ERROR, f'Could not import the file {file}.', file)]
         return issues, content, 207
 
     def _import_request_files(self, format, value={}):
@@ -112,8 +104,13 @@ class BioObjAPI(MethodView):
         return file_path
 
     def _prepare(self, bos):
-        self.service = importlib.import_module(f'biobarcoding.services.{bos}')
-        return check_request_params()
+        try:
+            self.service = importlib.import_module(f'biobarcoding.services.{bos}')
+        except Exception as e:
+            # TODO: abort properly
+            from flask import abort
+            abort(400, f'Bad request: unknown {bos} bioinformatic object.')
+        return parse_request_params()
 
 
 bos_view = BioObjAPI.as_view('api_bos')

@@ -1,6 +1,7 @@
 from ..db_models import DBSession as db_session
 from ..db_models.sysadmin import BrowserFilter
-from ..rest import Issue, IType, filter_parse, paginator
+from ..rest import Issue, IType
+from . import get_query
 
 
 def create(datatype, **kwargs):
@@ -19,13 +20,10 @@ def create(datatype, **kwargs):
     return issues, None, status
 
 
-count = 0
-
-
 def read(datatype, id=None, **kwargs):
     content = None
     try:
-        content = __get_query(datatype, id, **kwargs)
+        content, count = __get_query(datatype, id, **kwargs)
         if id:
             content = content.first()
         else:
@@ -38,21 +36,24 @@ def read(datatype, id=None, **kwargs):
 
 
 def update(datatype, id, **kwargs):
+    content = None
     try:
-        __get_query(datatype, id).update(kwargs)
+        content, count = __get_query(datatype, id)
+        content = content.update(kwargs)
         issues, status = [Issue(IType.INFO, f'UPDATE browser_filters: It was successfully updated.')], 200
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, f'UPDATE browser_filters: It could not be updated.')], 409
-    return issues, None, status
+    return issues, content, status
 
 
 def delete(datatype, id=None, **kwargs):
     content = None
     try:
-        resp = __get_query(datatype, id, **kwargs).delete(synchronize_session='fetch')
+        content, count = __get_query(datatype, id, **kwargs)
+        content = content.delete(synchronize_session='fetch')
         issues, status = [Issue(IType.INFO,
-                                f'DELETE browser_filters: The {resp} browser_filters were successfully removed.')], 200
+                                f'DELETE browser_filters: The {content} browser_filters were successfully removed.')], 200
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, 'DELETE browser_filters: The browser_filters could not be removed.')], 404
@@ -60,29 +61,16 @@ def delete(datatype, id=None, **kwargs):
 
 
 def __get_query(type=None, id=None, **kwargs):
-    query = db_session.query(BrowserFilter)
-    global count
-    count = 0
-    if id:
-        query = query.filter(BrowserFilter.id == id)
-    else:
-        query = query.filter(BrowserFilter.type == type)
-        if 'filter' in kwargs:
-            query = query.filter(filter_parse(BrowserFilter, kwargs.get('filter'), __aux_own_filter))
-        if 'order' in kwargs:
-            query = __get_query_ordered(query, kwargs.get('order'))
-        if 'pagination' in kwargs:
-            count = query.count()
-            query = paginator(query, kwargs.get('pagination'))
-    return query
+    return get_query(db_session, BrowserFilter, id=id, type=type, **kwargs,
+                     aux_filter=__aux_own_filter, aux_order=__aux_own_order)
 
 
 def __aux_own_filter(filter):
     return []
 
 
-def __get_query_ordered(query, order):
-    return query
+def __aux_own_order(order):
+    return []
 
 
 def read_form(datatype):

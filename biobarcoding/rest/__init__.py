@@ -25,7 +25,6 @@ from ..db_models import DBSession, DBSessionChado, ORMBaseChado, DBSessionGeo
 from ..db_models.bioinformatics import *
 from ..db_models.geographics import *
 from ..db_models.jobs import *
-from ..db_models.metadata import *
 from ..db_models.sysadmin import *
 from ..rest.socket_service import SocketService
 
@@ -831,16 +830,9 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
             r = ResponseObject()
             if _id is None:
                 # List of all
-                query = db.query(entity)
-                # Filter, Order, Pagination
-                kwargs = check_request_params()
-                if 'filter' in kwargs:
-                    query = query.filter(filter_parse(entity, kwargs.get('filter')))
-                if 'order' in kwargs:
-                    query = query.order_by(order_parse(entity, kwargs.get('order')))
-                if 'pagination' in kwargs:
-                    r.count = query.count()
-                    query = paginator(query, kwargs.get('pagination'))
+                kwargs = parse_request_params()
+                from biobarcoding.services import get_query
+                query, count = get_query(db, entity, **kwargs)
                 # TODO Detail of fields
                 r.content = query.all()
             else:
@@ -916,7 +908,7 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
 
 # GENERIC REST FUNCTIONS
 
-def get_decoded_params(data):
+def decode_request_params(data):
     res = {}
     for key in data:
         value = data[key]
@@ -932,16 +924,16 @@ def get_decoded_params(data):
     return res
 
 
-def check_request_params(data=None):
+def parse_request_params(data=None):
     kwargs = {'filter': [], 'order': [], 'pagination': {}, 'value': {}, 'searchValue': ''}
     if not data:
         if request.json:
-            kwargs.update(check_request_params(request.json))
+            kwargs.update(parse_request_params(request.json))
         if request.values:
-            kwargs.update(check_request_params(request.values))
+            kwargs.update(parse_request_params(request.values))
     else:
         print(f'DATA: {data}')
-        input = get_decoded_params(data)
+        input = decode_request_params(data)
         for key in ('filter', 'order', 'pagination', 'value', 'searchValue'):
             try:
                 i = input.pop(key)
@@ -1069,45 +1061,3 @@ def order_parse(orm, sort, aux_order=None):
     except Exception as e:
         print(e)
         return None
-
-
-def paginator(query, pagination):
-    if 'pageIndex' in pagination and 'pageSize' in pagination:
-        page = pagination.get('pageIndex')
-        page_size = pagination.get('pageSize')
-        return query \
-            .offset((page - 1) * page_size) \
-            .limit(page_size)
-    return query
-
-
-def get_query(session, orm, id=None, aux_filter=None, aux_order=None, **kwargs):
-    """
-     reserved keywords in kwargs:
-       'value': specific values of orm fields to filter
-       'filter': advanced filtering clauses (see also filter_parse)
-       'order': advanced ordering clauses (see also order_parse)
-       'pagination': pageIndex and pageSize to paginate
-       'searchValue': full-text search value (hopefully)
-     otherwise it will be treated as 'value'
-    """
-    query = session.query(orm)
-    count = 0
-    if id:
-        query = query.filter(orm.id == id)
-    else:
-        if not kwargs.get('value'):
-            kwargs['value'] = {}
-        for k, v in kwargs.items():
-            if not k in ['value', 'filter', 'order', 'pagination', 'searchValue'] and v:
-                kwargs['value'][k] = v
-        if kwargs.get('value'):
-            query = query.filter_by(**kwargs.get('value'))
-        if kwargs.get('filter'):
-            query = query.filter(filter_parse(orm, kwargs.get('filter'), aux_filter))
-        if kwargs.get('order'):
-            query = query.order_by(order_parse(orm, kwargs.get('order'), aux_order))
-        count = query.count()
-        if kwargs.get('pagination'):
-            query = paginator(query, kwargs.get('pagination'))
-    return query, count

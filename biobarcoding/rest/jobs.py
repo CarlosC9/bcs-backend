@@ -16,7 +16,7 @@ from ..db_models.jobs import ProcessInComputeResource
 from ..jobs import JobManagementAPI
 from ..jobs.process_adaptor import ProcessAdaptorFactory
 from . import app_api_base, register_api, Job, ComputeResource, Process, ResponseObject, \
-    get_decoded_params, SocketService
+    decode_request_params, SocketService
 
 bp_jobs = Blueprint('jobs', __name__)
 
@@ -79,7 +79,7 @@ class JobAPI(MethodView):
         # Start JSON for processing
         d = DottedDict()
         uncoded_req = request.get_json()
-        req = get_decoded_params(uncoded_req.get('params'))
+        req = decode_request_params(uncoded_req.get('params'))
         # Load resource and process
         print(req)
         in_dict = DottedDict(req)

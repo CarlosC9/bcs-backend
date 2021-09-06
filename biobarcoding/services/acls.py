@@ -1,8 +1,8 @@
 from ..db_models import DBSession, ObjectType
 from ..db_models.bioinformatics import BioinformaticObject
 from ..db_models.sysadmin import ACL, ACLDetail, PermissionType
-from ..rest import Issue, IType, get_query
-from . import get_simple_query, orm2json
+from ..rest import Issue, IType
+from . import orm2json, get_simple_query, get_query
 
 
 def create_acls(**kwargs):
@@ -96,7 +96,8 @@ def update_acls(id=None, uuid=None, **kwargs):
 def delete_acls(id=None, uuid=None, **kwargs):
     content = 0
     try:
-        content = get_query(DBSession, ACL, id=id, uuid=uuid, **kwargs)[0].delete(synchronize_session='fetch')
+        content, count = get_query(DBSession, ACL, id=id, uuid=uuid, **kwargs)
+        content = content.delete(synchronize_session='fetch')
         issues, status = [Issue(IType.INFO, f'DELETE acls({id}): The acls were successfully deleted.')], 200
     except Exception as e:
         print(e)

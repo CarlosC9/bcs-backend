@@ -21,8 +21,8 @@ class ViewAPI(MethodView):
         return ResponseObject(content=content, count=count, issues=issues, status=status).get_response()
 
     def _prepare(self, view):
-        from biobarcoding.rest import check_request_params
-        return check_request_params()
+        from biobarcoding.rest import parse_request_params
+        return parse_request_params()
 
 
 views_view = ViewAPI.as_view('api_views')

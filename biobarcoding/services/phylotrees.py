@@ -1,18 +1,74 @@
 import os.path
 import time
 
+from .ontologies import get_cvterm_query
 from ..db_models import DBSession as db_session, DBSessionChado as chado_session
-from ..db_models.chado import Phylotree, Phylonode
-from ..rest import Issue, IType, filter_parse, paginator
+from ..db_models.bioinformatics import PhylogeneticTree
+from ..db_models.chado import Phylotree, Phylonode, Feature
+from ..rest import Issue, IType, filter_parse
+from . import get_query, get_bioformat, get_or_create, get_orm_params
 
 
 ##
 # CREATE
 ##
 
+def __check_phylo_values(**values):
+    if not values.get('dbxref_id'):
+        from biobarcoding.db_models.chado import Db, Dbxref
+        values['dbxref_id'] = get_or_create(chado_session, Dbxref,
+                                            db_id=chado_session.query(Db).filter(Db.name == 'null').one().db_id,
+                                            accession=f'phylotree:{values.get("name")}',
+                                            version=time.strftime("%Y %b %d %H:%M:%S")).dbxref_id
+
+    if not values.get('type_id') and values.get('type'):
+        try:
+            values['type_id'] = get_cvterm_query(type=values.get('type'), subtype=values.get('subtype'))[0].one().cvterm_id
+        except Exception as e:
+            pass
+    if not values.get('type_id'):
+        try:
+            values['type_id'] = get_cvterm_query(type='phylotree')[0].one().cvterm_id
+        except Exception as e:
+            pass
+
+    # Analysis row could exist for jobs, so get or create
+    ansis_trigger = ('job_id', 'program', 'programversion', 'sourcename')
+    if not values.get('analysis_id') and any(key in values.keys() for key in ansis_trigger):
+        from .analyses import __get_query as get_ansis_query, create as create_ansis
+        try:
+            unique_keys = ['job_id'] if values.get('job_id') else ('program', 'programversion', 'sourcename')
+            content, count = get_ansis_query(**{k:values[k] for k in unique_keys if k in values})
+            content = content.one()
+        except Exception as e:
+            treename, values['name'] = values.get('name'), None     # Avoid to spread the treename to analysis
+            issues, content, status = create_ansis(**values)
+            values['name'] = treename
+            chado_session.flush()   # analysis_id required
+        values['analysis_id'] = content.analysis_id
+
+    return get_orm_params(Phylotree, **values)
+
+
 def create(**kwargs):
-    issues = [Issue(IType.WARNING, 'CREATE phylotrees: dummy completed')]
-    return issues, None, 200
+    content = None
+    try:
+        values = __check_phylo_values(**kwargs)
+        content = Phylotree(**values)
+        chado_session.add(content)
+        # tree to bcs
+        chado_session.flush()   # phylotree_id required
+        phylo = get_or_create(db_session, PhylogeneticTree,
+                              chado_id=content.phylotree_id,
+                              chado_table='phylotree',
+                              name=content.name)
+        issues, status = [Issue(IType.INFO,
+                                f'CREATE phylotrees: The phylotree "{kwargs.get("name")}" created successfully.')], 201
+    except Exception as e:
+        print(e)
+        issues, status = [Issue(IType.ERROR,
+                                f'CREATE phylotrees: The phylotree "{kwargs.get("name")}" could not be created.')], 409
+    return issues, content, status
 
 
 ##
@@ -20,9 +76,9 @@ def create(**kwargs):
 ##
 
 def read(id=None, **kwargs):
-    content = None
+    content, count = None, 0
     try:
-        content = __get_query(id, **kwargs)
+        content, count = __get_query(id, **kwargs)
         if id:
             content = content.first()
         else:
@@ -31,7 +87,7 @@ def read(id=None, **kwargs):
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, 'READ phylotrees: The phylotrees could not be read.')], 400
-    return issues, content, 0, status
+    return issues, content, count, status
 
 
 ##
@@ -47,21 +103,22 @@ def update(phylotree_id, **kwargs):
 # DELETE
 ##
 
-def __delete_from_bcs(*args):
-    from biobarcoding.db_models.bioinformatics import PhylogeneticTree
-    db_session.query(PhylogeneticTree).filter(PhylogeneticTree.chado_id.in_(args)) \
-        .delete(synchronize_session='fetch')
+def __delete_from_bcs(*ids):
+    query = db_session.query(PhylogeneticTree).filter(PhylogeneticTree.chado_id.in_(ids))
+    return query.count()
+    # TODO: check why all rows are deleted in bcs without filtering
+    # return query.delete(synchronize_session='fetch')
 
 
 def delete(id=None, **kwargs):
     content = None
     try:
-        query = __get_query(phylotree_id=id, **kwargs)
-        for phylo in query.all():
-            __delete_from_bcs(phylo.phylotree_id)
-        resp = query.delete(synchronize_session='fetch')
+        content, count = __get_query(id, **kwargs)
+        ids = [phylo.phylotree_id for phylo in content.all()]
+        bcs_delete = __delete_from_bcs(*ids)
+        content = content.delete(synchronize_session='fetch')
         issues, status = [Issue(IType.INFO,
-                                f'DELETE phylotrees: The {resp} phylotrees were successfully removed.')], 200
+                                f'DELETE phylotrees: The {content} phylotrees were successfully removed.')], 200
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, 'DELETE phylotrees: The phylotrees could not be removed.')], 404
@@ -72,20 +129,14 @@ def delete(id=None, **kwargs):
 # IMPORT
 ##
 
-# TODO: NGD newick phylotree import
-"""
-phylotree:
- - type_id ? cvterm['phylogeny'].cvterms_id
- - for each selected cvterms: new phylotreeprop
- - store the input_file content into a phylotreeprop EDAM_newick
-phylonode:
- - type_id ? (root,leaf,internal)
-"""
-def import_file(input_file, format='newick', **kwargs):
+def import_file(input_file, format=None, **kwargs):
+    ## TODO: NGD newick phylotree import
+    # phylotree: store the input_file content into a phylotreeprop EDAM_newick ?
+    # phylonode: type_id ? (root,leaf,internal)
     content = None
-    format = format or 'newick'
+    format = get_bioformat(input_file, format)
     try:
-        # TODO: Check newick format
+        # Check phylotree file format
         from Bio import Phylo
         tree = Phylo.read(input_file, format)
     except Exception as e:
@@ -95,9 +146,9 @@ def import_file(input_file, format='newick', **kwargs):
         if not kwargs.get('name'):
             kwargs['name'] = os.path.basename(input_file)
         # Create the new phylotree
-        phylotree = __new_phylotree(kwargs.get('name'), kwargs.get('comment'), kwargs.get('analysis_id'))
+        issues, content, status = create(**kwargs)
         # Get phylonodes insertion
-        phylonodes = __tree2phylonodes(phylotree.phylotree_id, tree.root, None, [0])
+        phylonodes = __tree2phylonodes(content.phylotree_id, tree.root, None, [0])
         issues, status = [Issue(IType.INFO,
                                 'IMPORT phylotrees: The phylotree was successfully imported.',
                                 os.path.basename(input_file))], 200
@@ -108,70 +159,26 @@ def import_file(input_file, format='newick', **kwargs):
     return issues, content, status
 
 
-def __new_phylotree(name, comment=None, analysis_id=None):
-    chadotree = __phylotree2chado(name, comment, analysis_id)
-    __phylotree2bcs(chadotree)
-    return chadotree
-
-
-def __phylotree2chado(name, comment=None, analysis_id=None):
-    dbxref = __new_phylotree_dbxref(name)
-    from biobarcoding.db_models.chado import Analysis
-    phylotree = Phylotree(dbxref_id=dbxref.dbxref_id, name=name)
-    if comment:
-        phylotree.comment = comment
-    if analysis_id:
-        phylotree.analysis_id = chado_session.query(Analysis).filter(
-            Analysis.analysis_id == analysis_id).first().analysis_id
-    chado_session.add(phylotree)
-    chado_session.flush()
-    return phylotree
-
-
-def __new_phylotree_dbxref(name):
-    from biobarcoding.db_models.chado import Db, Dbxref
-    dbxref = Dbxref(
-        db_id=chado_session.query(Db).filter(Db.name == 'null').first().db_id,
-        accession=f'phylotree:{name}',
-        version=time.strftime("%Y %b %d %H:%M:%S"))
-    chado_session.add(dbxref)
-    chado_session.flush()
-    return dbxref
-
-
-def __phylotree2bcs(phylotree):
-    from biobarcoding.services import get_or_create
-    from biobarcoding.db_models.bioinformatics import PhylogeneticTree
-    bcs_phylotree = get_or_create(db_session, PhylogeneticTree,
-                                  chado_id=phylotree.phylotree_id,
-                                  chado_table='phylotree',
-                                  name=phylotree.name)
-    return bcs_phylotree
-
-
 def __tree2phylonodes(phylotree_id, node, parent_id=None, index=[0]):
-    from biobarcoding.db_models.chado import Phylonode, Feature
     phylonodes = []
     feature_id = chado_session.query(Feature.feature_id).filter(Feature.uniquename == node.name).first()
-    phylonode = Phylonode(
-        phylotree_id=phylotree_id,
-        parent_phylonode_id=parent_id,
-        feature_id=feature_id,
-        label=node.name,
-        distance=node.branch_length,
-        left_idx=index[0],
-        right_idx=index[0] + 1)
+    phylonode = get_or_create(chado_session, Phylonode,
+                              phylotree_id=phylotree_id,
+                              parent_phylonode_id=parent_id,
+                              feature_id=feature_id,
+                              label=node.name,
+                              distance=node.branch_length,
+                              left_idx=index[0],
+                              right_idx=index[0] + 1)
+    # Check for children
     index[0] += 1
-    chado_session.add(phylonode)
-    chado_session.flush()
     if len(node.clades) > 0:
         for clade in node.clades:
             phylonodes += __tree2phylonodes(phylotree_id, clade, phylonode.phylonode_id, index)
         phylonode.right_idx = index[0]
-        chado_session.add(phylonode)
-        chado_session.flush()
+        chado_session.merge(phylonode)
     index[0] += 1
-    return phylonodes + [phylonode]
+    return [phylonode] + phylonodes
 
 
 ##
@@ -181,8 +188,11 @@ def __tree2phylonodes(phylotree_id, node, parent_id=None, index=[0]):
 def export(id=None, format='newick', **kwargs):
     # NGD newick phylotree export
     try:
-        if __get_query(id).first():
+        if id and __get_query(id)[0].one():
             __tree2file(id, format, f'/tmp/output_ngd.{format}')
+        else:
+            # TODO: allow export by filter ?
+            raise Exception('EXPORT phylotrees: The phylotree is missing to export.')
         issues, status = [Issue(IType.INFO, 'EXPORT phylotrees: The phylotree were successfully exported.')], 200
     except Exception as e:
         print(e)
@@ -192,9 +202,11 @@ def export(id=None, format='newick', **kwargs):
 
 def __tree2file(phylotree_id, format, output_file):
     result = ''
+    format = get_bioformat(output_file, format)
+    # TODO: build Bio.Phylo.BaseTree from chado, and Phylo.write(tree, output_file, format)
     if format == 'newick':
         root = chado_session.query(Phylonode).filter(Phylonode.phylotree_id == phylotree_id,
-                                                     Phylonode.parent_phylonode_id == None).first()
+                                                     Phylonode.parent_phylonode_id == None).one()
         result = __tree2newick(root)
     with open(output_file, "w") as file:
         file.write(result)
@@ -223,23 +235,19 @@ def __tree2newick(node, is_root=True):
 # GETTER AND OTHERS
 ##
 
-def __get_query(id=None, **kwargs):
-    from biobarcoding.db_models.chado import Dbxref
-    dbxref_id = chado_session.query(Dbxref.dbxref_id).filter(Dbxref.accession == 'taxonomy').first()
-    query = chado_session.query(Phylotree).filter(Phylotree.dbxref_id != dbxref_id)
-    global count
-    count = 0
-    if id:
-        query = query.filter(Phylotree.phylotree_id == id)
+def __get_query(phylotree_id=None, **kwargs):
+    if phylotree_id:
+        query = chado_session.query(Phylotree).filter(Phylotree.phylotree_id == phylotree_id)
+        return query, query.count()
+    phy_clause = {'phylotree_id': {'op': 'in', 'unary': db_session.query(PhylogeneticTree.chado_id).all()}}
+    if kwargs.get('filter'):
+        try:
+            kwargs['filter'] += [phy_clause]
+        except Exception as e:
+            kwargs['filter'] = [kwargs['filter']] + [phy_clause]
     else:
-        if 'filter' in kwargs:
-            query = query.filter(filter_parse(Phylotree, kwargs.get('filter'), __aux_own_filter))
-        if 'order' in kwargs:
-            query = __get_query_ordered(query, kwargs.get('order'))
-        if 'pagination' in kwargs:
-            count = query.count()
-            query = paginator(query, kwargs.get('pagination'))
-    return query
+        kwargs['filter'] = [phy_clause]
+    return get_query(chado_session, Phylotree, aux_filter=__aux_own_filter, aux_order=__aux_own_order, **kwargs)
 
 
 def __aux_own_filter(filter):
@@ -295,6 +303,6 @@ def __aux_own_filter(filter):
     return clause
 
 
-def __get_query_ordered(query, order):
+def __aux_own_order(order):
     # query = query.order(order_parse(Feature, kwargs.get('order'), __aux_own_order))
-    return query
+    return []
