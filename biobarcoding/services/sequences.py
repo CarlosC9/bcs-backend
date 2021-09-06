@@ -127,18 +127,19 @@ def update(id, **kwargs):
 # DELETE
 ##
 
-def __delete_from_bcs(query):
-    ids = [seq.feature_id for seq in query.all()]
-    db_session.query(Sequence).filter(Sequence.chado_id.in_(ids)) \
-        .delete(synchronize_session='fetch')
+def __delete_from_bcs(*ids):
+    query = db_session.query(Sequence).filter(Sequence.chado_id.in_(ids))
+    return query.count()
+    # TODO: check why all rows are deleted in bcs without filtering
+    # return query.delete(synchronize_session='fetch')
 
 
 def delete(id=None, **kwargs):
     content = None
     try:
         content, count = __get_query(id, **kwargs)
-        # TODO: check why is deleting all in bcs with out filter
-        __delete_from_bcs(content)
+        ids = [seq.feature_id for seq in content.all()]
+        bcs_delete = __delete_from_bcs(*ids)
         content = content.delete(synchronize_session='fetch')
         issues, status = [Issue(IType.INFO, f'DELETE sequences: {content} sequences were successfully removed.')], 200
     except Exception as e:
@@ -334,6 +335,14 @@ def __get_query(id=None, **kwargs):
     if id:
         query = chado_session.query(Feature).filter(Feature.feature_id == id)
         return query, query.count()
+    seq_clause = {'feature_id': {'op': 'in', 'unary': db_session.query(Sequence.chado_id).all()}}
+    if kwargs.get('filter'):
+        try:
+            kwargs['filter'] += [seq_clause]
+        except Exception as e:
+            kwargs['filter'] = [kwargs['filter']] + [seq_clause]
+    else:
+        kwargs['filter'] = [seq_clause]
     return get_query(chado_session, Feature, aux_filter=__aux_own_filter, aux_order=__aux_own_order, **kwargs)
 
 

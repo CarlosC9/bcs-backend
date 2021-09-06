@@ -104,15 +104,18 @@ def update(phylotree_id, **kwargs):
 ##
 
 def __delete_from_bcs(*ids):
-    db_session.query(PhylogeneticTree).filter(PhylogeneticTree.chado_id.in_(ids)) \
-        .delete(synchronize_session='fetch')
+    query = db_session.query(PhylogeneticTree).filter(PhylogeneticTree.chado_id.in_(ids))
+    return query.count()
+    # TODO: check why all rows are deleted in bcs without filtering
+    # return query.delete(synchronize_session='fetch')
 
 
 def delete(id=None, **kwargs):
     content = None
     try:
         content, count = __get_query(id, **kwargs)
-        __delete_from_bcs([phylo.phylotree_id for phylo in content.all()])
+        ids = [phylo.phylotree_id for phylo in content.all()]
+        bcs_delete = __delete_from_bcs(*ids)
         content = content.delete(synchronize_session='fetch')
         issues, status = [Issue(IType.INFO,
                                 f'DELETE phylotrees: The {content} phylotrees were successfully removed.')], 200

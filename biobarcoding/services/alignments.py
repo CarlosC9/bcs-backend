@@ -90,19 +90,21 @@ def update(id, **kwargs):
 ##
 
 def __delete_from_bcs(*ids):
-    db_session.query(MultipleSequenceAlignment).filter(MultipleSequenceAlignment.chado_id.in_(ids)) \
-        .delete(synchronize_session='fetch')
+    query = db_session.query(MultipleSequenceAlignment).filter(MultipleSequenceAlignment.chado_id.in_(ids))
+    return query.count()
+    # TODO: check why all rows are deleted in bcs without filtering
+    # return query.delete(synchronize_session='fetch')
 
 
 def delete(id=None, **kwargs):
     content = None
     try:
         # TODO: The BCS data are not being deleted yet.
-        query, count = __get_query(id, **kwargs)
-        _ids = [msa.analysis_id for msa in query.all()]
-        delete_sequences(filter=[{'analysis_id':{'op':'in','unary':_ids}}])
-        __delete_from_bcs(*_ids)
-        content = query.delete(synchronize_session='fetch')
+        content, count = __get_query(id, **kwargs)
+        ids = [msa.analysis_id for msa in content.all()]
+        delete_sequences(filter=[{'analysis_id':{'op':'in','unary':ids}}])
+        bcs_delete = __delete_from_bcs(*ids)
+        content = content.delete(synchronize_session='fetch')
         issues, status = [Issue(IType.INFO, f'DELETE alignments: The {content} alignments were successfully removed.')], 200
     except Exception as e:
         log_exception(e)
