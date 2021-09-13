@@ -9,7 +9,7 @@ from flask_socketio import SocketIO
 
 # Workaround for relative imports in a "__main__"
 # From: https://stackoverflow.com/a/28154841
-if __name__ == '__main__' and __package__ is None:
+if __name__ == '__main__' and (__package__ is None or __package__ == ""):
     file = Path(__file__).resolve()
     parent, top = file.parent, file.parents[3]
 
@@ -164,8 +164,13 @@ def create_app(debug, cfg_dict=None):
     return app
 
 
-biobarcoding.flask_app = create_app(True)
-
+# FLASK_ENV=development FLASK_APP=biobarcoding.rest.main flask run
+if __name__ == "__main__":
+    biobarcoding.flask_app = create_app(True)
+    biobarcoding.flask_app.run(host='0.0.0.0',
+                               use_reloader=False,  # Avoid loading twice the application
+                               )
+    socket_service_socketio.run(biobarcoding.flask_app, host='0.0.0.0')
 
 @biobarcoding.flask_app.route("/")
 def index():
@@ -196,11 +201,3 @@ def after_a_request(response):
                     response.headers[i] = (h[0], f"{h[1]}; SameSite=None")
 
     return response
-
-
-# FLASK_ENV=development FLASK_APP=biobarcoding.rest.main flask run
-if __name__ == "__main__":
-    biobarcoding.flask_app.run(host='0.0.0.0',
-                               use_reloader=False,  # Avoid loading twice the application
-                               )
-    socket_service_socketio.run(biobarcoding.flask_app, host='0.0.0.0')
