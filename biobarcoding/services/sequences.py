@@ -73,8 +73,7 @@ def create(**kwargs):
     content = None
     try:
         values = __check_seq_values(**kwargs)
-        content = Feature(**values)
-        chado_session.add(content)
+        content = get_or_create(chado_session, Feature, **values)
         stock = __seq_stock(content, **kwargs)
         # seq to bcs
         bcs_seq = get_or_create(db_session, Sequence,   # specimen_id=bcs_specimen.id
