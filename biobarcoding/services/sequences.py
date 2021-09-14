@@ -295,22 +295,28 @@ def __seqs_header_parser(seqs, format):     # return dict(uniquename, header)
     return headers
 
 
-def __seqs2file(seqs, format='fasta', output_file=f"/tmp/output_ngd", header_format=None):
+def __seqs2file(seqs, format='fasta', output_file=f"/tmp/output_ngd", header_format=None, only_headers='False'):
     headers = __seqs_header_parser(seqs, header_format) if header_format else {}
-    with open(output_file, "w") as file:
-        for seq in seqs:
-            if format=='fasta':
-                file.write(f'>{headers[seq.uniquename] if headers else seq.uniquename}\n{seq.residues}\n')
-            else:
-                file.write(f'>{headers[seq.uniquename] if headers else seq.uniquename}\n{seq.residues}\n')
-    if format in ('nexus'):
-        from Bio import SeqIO
-        res=[]
-        for s in SeqIO.parse(output_file, 'fasta'):
-            s.id = s.description
-            s.annotations['molecule_type'] = 'DNA'
-            res.append(s)
-        SeqIO.write(res, output_file, format=format)
+    if eval(str(only_headers)):
+        headers = set(headers.values())
+        with open(output_file, "w") as file:
+            for h in headers:
+                file.write("%s\n" % h)
+    else:
+        with open(output_file, "w") as file:
+            for seq in seqs:
+                if format=='fasta':
+                    file.write(f'>{headers[seq.uniquename] if headers else seq.uniquename}\n{seq.residues}\n')
+                else:
+                    file.write(f'>{headers[seq.uniquename] if headers else seq.uniquename}\n{seq.residues}\n')
+        if format in ('nexus'):
+            from Bio import SeqIO
+            res=[]
+            for s in SeqIO.parse(output_file, 'fasta'):
+                s.id = s.description
+                s.annotations['molecule_type'] = 'DNA'
+                res.append(s)
+            SeqIO.write(res, output_file, format=format)
     return output_file
 
 
@@ -318,7 +324,11 @@ def export(id=None, format='fasta', **kwargs):
     content = None
     try:
         query, count = __get_query(id, **kwargs)
-        content = __seqs2file(query.all(), format=format, output_file=f'/tmp/output_ngd.{format}', header_format=kwargs.get('header'))
+        content = __seqs2file(query.all(),
+                              format=format,
+                              output_file=f'/tmp/output_ngd.{format}',
+                              header_format=kwargs.get('value').get('header'),
+                              only_headers=kwargs.get('value').get('only_headers'))
         issues, status = [Issue(IType.INFO, f'EXPORT sequences: {count} sequences were successfully exported.')], 200
     except Exception as e:
         log_exception(e)
