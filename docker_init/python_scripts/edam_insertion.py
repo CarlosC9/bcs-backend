@@ -39,14 +39,6 @@ def main(host):
                                     comment=DB_RELATIONSHIP_COMMENT
                                   )
             db_relationship.create(bind=conn)
-
-            #DELETE CVTERMS THAT ARE IN THE CHADO XML AND ALSO IN THE DATABASE
-            conn.execute(text("delete from cvterm where name = 'comment'and cv_id = 6 and is_obsolete = 0"))
-            conn.execute(text("delete from cvterm where name = 'has_function'and cv_id = 4 and is_obsolete = 0"))
-            conn.execute(text("delete from cvterm where name = 'has_input'and cv_id = 4 and is_obsolete = 0"))
-            conn.execute(text("delete from cvterm where name = 'has_output'and cv_id = 4 and is_obsolete = 0"))
-            conn.execute(text("delete from cvterm where name = 'is_a'and cv_id = 4 and is_obsolete = 0"))
-            conn.execute(text("delete from cvterm where name = 'is_anonymous'and cv_id = 6 and is_obsolete = 0"))
             
             #INSERT THE CHADO XML (EDAM) IN THE DATABASE
             command = ["stag-storenode.pl", "-d", "dbi:Pg:dbname=postgres;host=" + host + ";port=5432",
