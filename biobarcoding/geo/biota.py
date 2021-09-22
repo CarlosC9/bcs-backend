@@ -18,12 +18,12 @@ curl "https://api.gbif.org/v1/parser/name?name=Euphorbia%20balsamifera%20Aiton%2
 
 
 def generate_pda_species_file_from_layer(db_sess, layer_id: int, layer_name: str, format_: str) -> str:
-    from biobarcoding import postgis_engine, get_global_configuration_variable
+    from .. import postgis_engine, get_global_configuration_variable
     if not layer_name:
         return None
 
     if postgis_engine is None:
-        from biobarcoding.common.pg_helpers import create_pg_database_engine
+        from ..common.pg_helpers import create_pg_database_engine
         db_connection_string = get_global_configuration_variable('POSTGIS_CONNECTION_STRING')
         postgis_engine = create_pg_database_engine(db_connection_string, "ngd_geoserver", recreate_db=False)
     line_blocks = []
@@ -90,10 +90,10 @@ def generate_pda_species_file_from_layer(db_sess, layer_id: int, layer_name: str
 
 def import_pda_result(file_name: str, layer_id: str = None, session=None):
     # NOTE: this initial section is only for testing purposes
-    from biobarcoding import engine, postgis_engine, get_global_configuration_variable
-    from biobarcoding.common.pg_helpers import create_pg_database_engine
+    from .. import engine, postgis_engine, get_global_configuration_variable
+    from ..common.pg_helpers import create_pg_database_engine
     if engine is None:
-        from biobarcoding.db_models import DBSession
+        from ..db_models import DBSession
         db_connection_string = get_global_configuration_variable('DB_CONNECTION_STRING')
         engine = create_pg_database_engine(db_connection_string, "bcs", recreate_db=False)
         DBSession.configure(bind=engine)  # reconfigure the sessionmaker used by this scoped_session
@@ -139,7 +139,7 @@ def import_pda_result(file_name: str, layer_id: str = None, session=None):
             return None  # Layer ID not present as parameter or in the input file
         else:
             # Find layer_name
-            from biobarcoding.db_models.geographics import GeographicLayer
+            from ..db_models.geographics import GeographicLayer
             layer = session.query(GeographicLayer).filter(GeographicLayer.id == layer_id).first()
             layer_name = layer.geoserver_name
             # Read reference Biota layer, to merge geometry
