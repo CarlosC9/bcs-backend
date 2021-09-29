@@ -22,26 +22,26 @@ export TEST_FILES_PATH=/home/rnebot/GoogleDrive/AA_NEXTGENDEM/bcs-backend/tests/
 export API_BASE_URL=http://localhost:5000/api
 
 ##### Login
-curl --cookie-jar bcs-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user"
+curl --cookie-jar app-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user"
 
 ##### PUT Folder (Create folder "/f1/f2/")
-curl --cookie bcs-cookies.txt -H "Content-Type: application/json" -XPUT -d '{}' "$API_BASE_URL/files/f1/f2/"
+curl --cookie app-cookies.txt -H "Content-Type: application/json" -XPUT -d '{}' "$API_BASE_URL/files/f1/f2/"
 
 ##### PUT File (Create or Overwrite file CONTENTS of "/f1/f2/file.fasta")
-curl --cookie bcs-cookies.txt -H "Content-Type: application/x-fasta" -XPUT --data-binary @"$TEST_FILES_PATH/ls_orchid.fasta" "$API_BASE_URL/files/f1/f2/file.fasta.content"
+curl --cookie app-cookies.txt -H "Content-Type: application/x-fasta" -XPUT --data-binary @"$TEST_FILES_PATH/ls_orchid.fasta" "$API_BASE_URL/files/f1/f2/file.fasta.content"
 
 ##### PUT File (Create or Overwrite file "List of Bioinformatic Objects" of "/f1/f2/file.fasta")
 ##### NOTE: Update the JSON file to a list of "id" (not UUID) of existing BOS objects
-curl --cookie bcs-cookies.txt -H "Content-Type: application/json" -XPUT --data-binary @"$TEST_FILES_PATH/ls_orchid_bos.json" "$API_BASE_URL/files/f1/f2/file.fasta.bos"
+curl --cookie app-cookies.txt -H "Content-Type: application/json" -XPUT --data-binary @"$TEST_FILES_PATH/ls_orchid_bos.json" "$API_BASE_URL/files/f1/f2/file.fasta.bos"
 
 ##### GET Folder (List folder contents)
-curl --cookie bcs-cookies.txt "$API_BASE_URL/files/f1/"
+curl --cookie app-cookies.txt "$API_BASE_URL/files/f1/"
 
 ##### GET File (Get file contents)
-curl --cookie bcs-cookies.txt "$API_BASE_URL/files/f1/f2/file.fasta.content"
+curl --cookie app-cookies.txt "$API_BASE_URL/files/f1/f2/file.fasta.content"
 
 ##### GET File (Get related BOS objects)
-curl --cookie bcs-cookies.txt "$API_BASE_URL/files/f1/f2/file.fasta.bos"
+curl --cookie app-cookies.txt "$API_BASE_URL/files/f1/f2/file.fasta.bos"
 
     """
 

@@ -290,18 +290,22 @@ class LayersAPI(MethodView):
     status = int()
 
     def _export(self, sess, lay: GeographicLayer, _format):
-        if _format not in ["nexus", "pda_simple", "species", "species_canon"]:
+        supported_formats = {"nexus": ("Nexus for PDA", generate_pda_species_file_from_layer),
+                             "pda_simple": ("PDA simple", generate_pda_species_file_from_layer),
+                             "species": ("List of species", generate_pda_species_file_from_layer),
+                             "species_canon": ("List of normalized species", generate_pda_species_file_from_layer),
+                             "pda_species": ("List of normalized and cleaned species names", generate_pda_species_file_from_layer)}
+        if _format not in supported_formats.keys():
             self.issues.append(
-                Issue(IType.ERROR, f'Could not export Biota layer {lay.name} (internal name "{lay.geoserver_name}") '
-                                   f'to format "{_format}". Supported "pda_simple", "nexus", "species", "species_canon"',
+                Issue(IType.ERROR, f'Could not export layer {lay.name} (internal name "{lay.geoserver_name}") '
+                                   f'to format "{_format}". Supported: {", ".join(supported_formats.keys())}',
                       f"Export {lay.name}"))
             return None
-        # TODO Check "tags" attribute, the layer should have a "Biota" tag
-        _ = generate_pda_species_file_from_layer(sess, lay.id, lay.geoserver_name, _format)
+        _ = supported_formats[_format][1](sess, lay.id, lay.geoserver_name, _format)
         if _ is None:
             self.issues.append(
-                Issue(IType.ERROR, f'Could not export Biota layer {lay.name} (internal name "{lay.geoserver_name}").',
-                      f"Export {lay.name} as Simple PDA text file"))
+                Issue(IType.ERROR, f'Could not export layer {lay.name} (internal name "{lay.geoserver_name}").',
+                      f"Export {lay.name} as {supported_formats[_format][0]}"))
             return None
         elif _ == "":
             self.issues.append(Issue(IType.ERROR,
@@ -326,25 +330,25 @@ class LayersAPI(MethodView):
 
         USAGE (CURL EXAMPLE):
         export API_BASE_URL=http://localhost:5000/api
-        curl --cookie-jar bcs-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user"
-        curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/"
-        curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/?filter=%7B%22tags%22%3A%20%22biota%22%7D"
+        curl --cookie-jar app-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user"
+        curl --cookie app-cookies.txt "$API_BASE_URL/geo/layers/"
+        curl --cookie app-cookies.txt "$API_BASE_URL/geo/layers/?filter=%7B%22tags%22%3A%20%22biota%22%7D"
 
-        curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/1"
+        curl --cookie app-cookies.txt "$API_BASE_URL/geo/layers/1"
 
         Specially, a Biota layer can be exported as one of 3 supported formats. The first two are for PDA, the third
         just enumerates available species:
 
-        curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/1.pda_simple"
-        curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/1.nexus"
-        curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/1.species"
-        curl --cookie bcs-cookies.txt "$API_BASE_URL/geo/layers/1.species_canon"
+        curl --cookie app-cookies.txt "$API_BASE_URL/geo/layers/1.pda_simple"
+        curl --cookie app-cookies.txt "$API_BASE_URL/geo/layers/1.nexus"
+        curl --cookie app-cookies.txt "$API_BASE_URL/geo/layers/1.species"
+        curl --cookie app-cookies.txt "$API_BASE_URL/geo/layers/1.species_canon"
 
         @param _id: ID of a layer; empty for ALL layers (if no query params specified)
         @param _format: export format
         @return:
         """
-        from biobarcoding.geo import geoserver_session
+        from ..geo import geoserver_session
         self.issues = []
         layer = None
         _filter = request.args.get("filter")
@@ -402,7 +406,7 @@ class LayersAPI(MethodView):
         return s.startswith("id") or s.endswith("id") or "codigo" in s or s in ["coordx", "coordy", "geom", "geometry"]
 
     def _create_properties_and_geoserver_styles(self, gdf, wks, layer_name, lc_attributes):
-        from biobarcoding.geo import geoserver_session
+        from ..geo import geoserver_session
         _ = []
         for c in gdf.columns:
             if self._exclude(c):
@@ -454,14 +458,14 @@ class LayersAPI(MethodView):
           1) Define base URL, 2) Login, 3) Post multipart-form with a file and a JSON to "/api/geo/layers"
 
         export API_BASE_URL=http://localhost:5000/api
-        curl --cookie-jar bcs-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user"
-        curl --cookie bcs-cookies.txt -F "layer_file=@/home/rnebot/GoogleDrive/AA_NEXTGENDEM/plantae_canarias/Plantas.zip;type=application/zip" -F "metadata={\"name\": \"capa_1\", \"wks\": \"ngd\", \"attributes\": {\"tags\": [\"tag1\", \"tag2\"]}};type=application/json" "$API_BASE_URL/geo/layers/"
+        curl --cookie-jar app-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user"
+        curl --cookie app-cookies.txt -F "layer_file=@/home/rnebot/GoogleDrive/AA_NEXTGENDEM/plantae_canarias/Plantas.zip;type=application/zip" -F "metadata={\"name\": \"capa_1\", \"wks\": \"ngd\", \"attributes\": {\"tags\": [\"tag1\", \"tag2\"]}};type=application/json" "$API_BASE_URL/geo/layers/"
 
         POST from FilesAPI:
         First, upload a file to FilesAPI:
-        curl --cookie bcs-cookies.txt -H "Content-Type: application/zip" -XPUT --data-binary @/home/rnebot/GoogleDrive/AA_NEXTGENDEM/plantae_canarias/Plantas.zip "$API_BASE_URL/files/f1/f2/f3/plantas.zip.content"
+        curl --cookie app-cookies.txt -H "Content-Type: application/zip" -XPUT --data-binary @/home/rnebot/GoogleDrive/AA_NEXTGENDEM/plantae_canarias/Plantas.zip "$API_BASE_URL/files/f1/f2/f3/plantas.zip.content"
         Then, do the POST, like
-        curl --cookie bcs-cookies.txt -XPOST "$API_BASE_URL/geo/layers/?filesAPI=%2Ff1%2Ff2%2Ff3%2Fplantas.zip&job_id=6"
+        curl --cookie app-cookies.txt -XPOST "$API_BASE_URL/geo/layers/?filesAPI=%2Ff1%2Ff2%2Ff3%2Fplantas.zip&job_id=6"
         """
         db = g.n_session.db_session
         self.issues = []
@@ -534,8 +538,8 @@ class LayersAPI(MethodView):
           1) Define base URL, 2) Login, 3) Post multipart-form with a file and a JSON to "/api/geo/layers"
 
         export API_BASE_URL=http://localhost:5000/api
-        curl --cookie-jar bcs-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user"
-        curl --cookie bcs-cookies.txt -X PUT -F "metadata={\"name\": \"capa_12\", \"wks\": \"ngd\", \"attributes\": {\"tags\": [\"tag1\", \"tag2\", \"tag3\"]}};type=application/json" "$API_BASE_URL/geo/layers/"
+        curl --cookie-jar app-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user"
+        curl --cookie app-cookies.txt -X PUT -F "metadata={\"name\": \"capa_12\", \"wks\": \"ngd\", \"attributes\": {\"tags\": [\"tag1\", \"tag2\", \"tag3\"]}};type=application/json" "$API_BASE_URL/geo/layers/"
 
         :param _id:
         :return:
@@ -600,8 +604,8 @@ class LayersAPI(MethodView):
         @param _id:
         @return:
         """
-        from biobarcoding import postgis_engine
-        from biobarcoding.geo import geoserver_session
+        from .. import postgis_engine
+        from ..geo import geoserver_session
         self.issues = []
         db = g.n_session.db_session
         self.issues, geographic_layer, count, self.status = get_content(db, GeographicLayer, self.issues, _id)
@@ -652,8 +656,8 @@ class LayersAPI(MethodView):
         :param lower_columns: rename all columns to lower case
         :return: None if error, status if success
         """
-        from biobarcoding import postgis_engine
-        from biobarcoding.geo import geoserver_session
+        from .. import postgis_engine
+        from ..geo import geoserver_session
 
         if self.kwargs["path"] != "":
             df = self._read_vector_file()
@@ -710,7 +714,7 @@ class LayersAPI(MethodView):
         :param max_value: maximum for default style
         :return:
         """
-        from biobarcoding.geo import geoserver_session
+        from ..geo import geoserver_session
         layer_type = "vector"
         if "data" in self.kwargs.keys():
             r = geoserver_session.delete_layer(layer_name=layer_name, workspace=self.kwargs['wks'])
@@ -755,7 +759,7 @@ class LayersAPI(MethodView):
         return self.status, layer_type
 
     def _tmpview_sql(self, layer_name):
-        from biobarcoding.geo import geoserver_session
+        from ..geo import geoserver_session
         layer = geoserver_session.get_layer(layer_name=layer_name)
         if not isinstance(layer, dict):
             return None, None
@@ -780,7 +784,7 @@ class LayersAPI(MethodView):
     def _get_df_from_view(self):
         sql, key_col = self._tmpview_sql(self.kwargs["layer_name"])
         if sql:
-            from biobarcoding import postgis_engine
+            from .. import postgis_engine
             df = gpd.GeoDataFrame.from_postgis(sql, postgis_engine)
             return df
         else:
@@ -867,27 +871,18 @@ class LayersAPI(MethodView):
 
     def _read_vector_file(self):
         path = self.kwargs["path"]
-        if self.kwargs.get("convert_to"):  # TODO RNEBOT: remove, too specific. Instead, process layer BEFORE submission
-            if self.kwargs["convert_to"] == "geojson":
-                gdf = read_biota_file(path)
-                return gdf
-            else:
-                self.issues.append(Issue(IType.ERROR, "No valid data to convert"))
-                self.status = 400
-                return None
-        else:  # Main
+        try:
+            gdf = gpd.read_file(path)
+            return gdf
+        except:
             try:
-                gdf = gpd.read_file(path)
+                gdf = import_pda_result(path, session=g.n_session.db_session)
                 return gdf
             except:
-                try:
-                    gdf = import_pda_result(path, session=g.n_session.db_session)
-                    return gdf
-                except:
-                    return None
+                return None
 
     def _read_raster_file(self, layer_name):
-        from biobarcoding.geo import geoserver_session
+        from ..geo import geoserver_session
         path = self.kwargs["path"]
         file_extension = pathlib.Path(path).suffix
         if file_extension in (".tif"):
@@ -1057,7 +1052,7 @@ class StylesAPI(MethodView):
         """
         # geo.publish_style(layer_name=layer, style_name='sld_file_name', workspace=style_name,
         #                 sld_version='1.0.0')# version?
-        from biobarcoding.geo import geoserver_session
+        from ..geo import geoserver_session
         styles = geoserver_session.get_styles()
 
     @n_session()
@@ -1076,7 +1071,7 @@ class StylesAPI(MethodView):
         pass
 
     def post_style_from_raster_file(self):
-        from biobarcoding.geo import geoserver_session
+        from ..geo import geoserver_session
         c_ramp = {
             'label 1 value': '#ffff55',
             'label 2 value': '#505050',
@@ -1093,7 +1088,7 @@ class StylesAPI(MethodView):
         pass
 
     def post_vector_style(self):
-        from biobarcoding.geo import geoserver_session
+        from ..geo import geoserver_session
         # - Outline featurestyle: change boundary
         geoserver_session.create_outline_featurestyle(style_name='new_style', color="#3579b1", geom_type='multipolygon',
                                                       workspace='ngd')
