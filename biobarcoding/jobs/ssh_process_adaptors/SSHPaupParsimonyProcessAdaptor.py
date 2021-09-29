@@ -65,7 +65,7 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
                     "remote_name": f"bootstrap_replicas.tre",
                     "file": f"bootstrap_replicas.tre",
                     "subprocess": "PAUP Parsimony",
-                    "object_type": {"bos": "phylotree"},
+                    "object_type": {"bos": "phylotrees"},
                     "content_type": "text/x-nexus",
                     "type": "nexus"
                 },
@@ -77,7 +77,7 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
                     "remote_name": f"jackknife_replicas.tre",
                     "file": f"jackknife_replicas.tre",
                     "subprocess": "PAUP Parsimony",
-                    "object_type": {"bos": "phylotree"},
+                    "object_type": {"bos": "phylotrees"},
                     "content_type": "text/x-nexus",
                     "type": "nexus"
                 },
@@ -89,7 +89,7 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
                 "remote_name": consensus_tree_filename,
                 "file": consensus_tree_filename,
                 "subprocess": "PAUP Parsimony",
-                "object_type": {"bos": "phylotree"},
+                "object_type": {"bos": "phylotrees"},
                 "content_type": "text/x-nexus",
                 "type": "nexus"
             },
@@ -113,7 +113,7 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
                 "remote_name": f"ngd_paup_parsimony.txt",
                 "file": "ngd_paup_parsimony.txt",
                 "subprocess": "PAUP Parsimony",
-                "object_type": {"bos": "phylotree"},
+                "object_type": {"bos": "phylotrees"},
                 "content_type": "text/x-nhx",
                 "type": "txt"
             },
@@ -121,7 +121,7 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
                 "remote_name": f"sets_and_assumptions.txt",
                 "file": "sets_and_assumptions.txt",
                 "subprocess": "PAUP Parsimony",
-                "object_type": {"bos": "phylotree"},
+                "object_type": {"bos": "phylotrees"},
                 "content_type": "text/x-nhx",
                 "type": "txt"
             },

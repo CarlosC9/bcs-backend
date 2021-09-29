@@ -36,7 +36,7 @@ class SSHClustalProcessAdaptor(SSHProcessAdaptor):
                 "remote_name": f"clustal.{clustalw_parameters['outform'].lower()}",
                 "file": f"clustal.{clustalw_parameters['outform'].lower()}",
                 "subprocess": "MSA ClustalW",
-                "object_type": {"bos": "alignment"},
+                "object_type": {"bos": "alignments"},
                 "content_type": "text/x-fasta",
                 "type": "fasta"
             },
@@ -44,7 +44,7 @@ class SSHClustalProcessAdaptor(SSHProcessAdaptor):
                 "remote_name": f"input_dataset.dnd",
                 "file": "intermidiate_tree.nhx",
                 "subprocess": "MSA ClustalW",
-                "object_type": {"bos": "phylotree"},
+                "object_type": {"bos": "phylotrees"},
                 "content_type": "text/x-nhx",
                 "type": "newick"
             }
