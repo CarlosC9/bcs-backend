@@ -57,8 +57,8 @@ class RemoteSlurmClient(RemoteSSHClient):
         cmd = (
                 f"ssh {self.SSH_OPTIONS} {self.username}@{self.host} 'cd {self.remote_workspace} " +
                 f"&& sbatch {cpus_per_task} {cpus_per_gpu} {gpus} {mem_per_gpu} {mem_per_cpu} {priority} " +
-                f"{threads_per_core} {time} {time_min} {tmp} --export=EDITOR,{process_params} --open-mode=append " +
-                f"--error={self.remote_workspace}/{os.path.basename(self.logs_dict['submit_stderr'])} " +
+                f"{threads_per_core} {time} {time_min} {tmp} --export=ALL,{process_params} --chdir={self.remote_workspace} " +
+                f"--open-mode=append --error={self.remote_workspace}/{os.path.basename(self.logs_dict['submit_stderr'])} " +
                 f"--output={self.remote_workspace}/{os.path.basename(self.logs_dict['submit_stdout'])} " +
                 f"{script_file}" + " | awk 'NF{print $NF; exit}'")
 
