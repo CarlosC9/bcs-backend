@@ -40,6 +40,9 @@ RESOURCE_PROCESSES_DICT = {
         "PAUP Parsimony + Phylogenetic Diversity Analyzer",
         "MSA ClustalW + PAUP Parsimony + Phylogenetic Diversity Analyzer"
     ],
+    "balder - slurm": [
+        "MAFFT",
+    ],
 }
 
 PROCESSES_INPUTS = {
