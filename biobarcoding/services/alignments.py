@@ -4,7 +4,7 @@ from Bio import AlignIO
 
 from ..db_models import DBSession as db_session
 from ..db_models import DBSessionChado as chado_session
-from ..db_models.chado import Organism, Feature, AnalysisFeature
+from ..db_models.chado import Organism, Feature, AnalysisFeature, Analysis
 from ..db_models.bioinformatics import MultipleSequenceAlignment
 
 from ..rest import IType, Issue
@@ -205,15 +205,11 @@ def export(id, format='fasta', value={}, **kwargs):
 ##
 
 def __get_query(id=None, **kwargs):
-    aln_clause = {'analysis_id': {'op': 'in', 'unary': db_session.query(MultipleSequenceAlignment.chado_id).all()}}
-    if kwargs.get('filter'):
-        try:
-            kwargs['filter'] += [aln_clause]
-        except Exception as e:
-            kwargs['filter'] = [kwargs['filter']] + [aln_clause]
-    else:
-        kwargs['filter'] = [aln_clause]
-    return get_ansis_query(id, **kwargs)
+    aln_clause = db_session.query(MultipleSequenceAlignment.chado_id).all()
+    aln_clause = [i for i, in aln_clause]
+    aln_clause = Analysis.analysis_id.in_(aln_clause)
+    query = chado_session.query(Analysis).filter(aln_clause)
+    return get_ansis_query(id, **kwargs, query=query)
 
 
 ##

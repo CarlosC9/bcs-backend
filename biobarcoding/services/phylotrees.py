@@ -239,15 +239,11 @@ def __get_query(phylotree_id=None, **kwargs):
     if phylotree_id:
         query = chado_session.query(Phylotree).filter(Phylotree.phylotree_id == phylotree_id)
         return query, query.count()
-    phy_clause = {'phylotree_id': {'op': 'in', 'unary': db_session.query(PhylogeneticTree.chado_id).all()}}
-    if kwargs.get('filter'):
-        try:
-            kwargs['filter'] += [phy_clause]
-        except Exception as e:
-            kwargs['filter'] = [kwargs['filter']] + [phy_clause]
-    else:
-        kwargs['filter'] = [phy_clause]
-    return get_query(chado_session, Phylotree, aux_filter=__aux_own_filter, aux_order=__aux_own_order, **kwargs)
+    phy_clause = db_session.query(PhylogeneticTree.chado_id).all()
+    phy_clause = [i for i, in phy_clause]
+    phy_clause = Phylotree.phylotree_id.in_(phy_clause)
+    query = chado_session.query(Phylotree).filter(phy_clause)
+    return get_query(chado_session, Phylotree, query=query, aux_filter=__aux_own_filter, aux_order=__aux_own_order, **kwargs)
 
 
 def __aux_own_filter(filter):

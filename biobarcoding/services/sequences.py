@@ -344,15 +344,11 @@ def __get_query(id=None, **kwargs):
     if id:
         query = chado_session.query(Feature).filter(Feature.feature_id == id)
         return query, query.count()
-    seq_clause = {'feature_id': {'op': 'in', 'unary': db_session.query(Sequence.chado_id).all()}}
-    if kwargs.get('filter'):
-        try:
-            kwargs['filter'] += [seq_clause]
-        except Exception as e:
-            kwargs['filter'] = [kwargs['filter']] + [seq_clause]
-    else:
-        kwargs['filter'] = [seq_clause]
-    return get_query(chado_session, Feature, aux_filter=__aux_own_filter, aux_order=__aux_own_order, **kwargs)
+    seq_clause = db_session.query(Sequence.chado_id).all()
+    seq_clause = [i for i, in seq_clause]
+    seq_clause = Feature.feature_id.in_(seq_clause)
+    query = chado_session.query(Feature).filter(seq_clause)
+    return get_query(chado_session, Feature, query=query, aux_filter=__aux_own_filter, aux_order=__aux_own_order, **kwargs)
 
 
 def __aux_own_filter(filter):
