@@ -1,18 +1,13 @@
+import json
+import os
 import time
 from urllib.parse import urljoin
 
-import requests
 from bioblend import galaxy
-import json
-from biobarcoding.common import ROOT
-from biobarcoding.db_models import DBSession
-from biobarcoding.db_models.jobs import ComputeResource
-from biobarcoding.jobs import JobExecutorAtResource
 
-import os
-
+from ..jobs import JobExecutorAtResource
 # GALAXY HELPERS
-from biobarcoding.tasks.definitions import write_to_file
+from ..tasks.definitions import write_to_file
 
 
 def login(api_key: 'str', url: 'str') -> object:
@@ -129,7 +124,8 @@ def get_datamap(gi, inputs, workflow, history):
     for step, step_data in workflow['inputs'].items():
         for input in inputs:
             if step_data['label'] in input.values() and 'remote_name' in input.keys():
-                d_id = gi.histories.show_matching_datasets(history_id=history['id'],name_filter=step_data['label'])[0].get('id')
+                d_id = gi.histories.show_matching_datasets(history_id=history['id'], name_filter=step_data['label'])[
+                    0].get('id')
                 inputs_for_invoke[step] = {
                     'id': d_id,
                     'src': 'hda'
@@ -164,6 +160,7 @@ def params_input_creation(gi, workflow_name, inputs_data, param_data, history_id
     params = set_params(wf_dict, param_data)
     return datamap, params
 
+
 def get_history_id_by_invocation(gi, h_id):
     invocations = gi.invocations.get_invocations()
     try:
@@ -194,7 +191,7 @@ def get_job_from_invocation(gi, invocation, step):
     :return: A job dictionary
     '''
     step = gi.invocations.show_invocation(invocation['id'])['steps'][int(step)]
-    #TODO repasar este metodo
+    # TODO repasar este metodo
     job_id = step['job_id']
     job = gi.jobs.show_job(job_id)
     return job
@@ -230,47 +227,28 @@ def import_workflow(instance, wf_Id):
     return wf
 
 
-def check_tools(wf1_dic, wf2_dic):
-    steps1 = wf1_dic['steps']
-    steps2 = wf2_dic['steps']
-    tool_list = list()
-    for step, content in steps1.items():
-        if 'errors' in content:
-            if content['errors'] == "Tool is not installed":
-                # TODO depende de la versión de galaxi esto lleva un punto al final o no xq lo que hay que buscar
-                #  otra cosa
-                tool_list.append(steps2[step]['tool_shed_repository'])
-    if len(tool_list) == 0:
-        return 'all tools are installed'
-    else:
-        return tool_list
-
-
-
-def get_stdout_stderr(gi,result,history_name):
+def get_stdout_stderr(gi, result, history_name):
     remote_name = result['remote_name']
     dataset_id = \
-    gi.histories.show_matching_datasets(history_id=get_history_id(gi, history_name), name_filter=remote_name)[
-        0]['id']
+        gi.histories.show_matching_datasets(history_id=get_history_id(gi, history_name), name_filter=remote_name)[
+            0]['id']
     provenance = gi.histories.show_dataset_provenance(history_id=get_history_id(gi, history_name),
                                                       dataset_id=dataset_id)
-    std = dict(stderr = provenance['stderr'],stdout = provenance['stdout'])
+    std = dict(stderr=provenance['stderr'], stdout=provenance['stdout'])
     return std
 
 
-
 class JobExecutorAtGalaxy(JobExecutorAtResource):
-    def __init__(self, job_id):
-        super().__init__(job_id)
+    def __init__(self, identity_job_id):
+        super().__init__(identity_job_id)
         self.api_key = None
         self.url = None
         self.galaxy_instance = None
-        self.workspace = job_id
+        self.workspace = identity_job_id
 
     def set_resource(self, params):
         self.api_key = params['jm_credentials']['api_key']
         self.url = params['jm_location']['url']
-
 
     def connect(self):
         self.galaxy_instance = login(self.api_key, self.url)
@@ -280,7 +258,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         gi = self.galaxy_instance
         try:
             gi.config.get_config()
-        except: # ConnectionError dosnt work
+        except:  # ConnectionError dosnt work
             return False
         return True
 
@@ -294,30 +272,30 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
     def get_download_files_list(self, job_context):
         return job_context["results"]
 
-    def create_job_workspace(self, name):
+    def create_job_workspace(self):
         self.connect()
         gi = self.galaxy_instance
-        history = gi.histories.create_history(name=str(name))
+        history = gi.histories.create_history(name=self.workspace)
         # tengo que retornar algo diferente si no se puede conectar a galaxy
         self.disconnect()
         return history['id']
 
-    def job_workspace_exists(self, job_id):
+    def job_workspace_exists(self):
         self.connect()
         gi = self.galaxy_instance
-        history_id = get_history_id(gi,str(job_id))
+        history_id = get_history_id(gi, self.workspace)
         if history_id:
             return True
         else:
             return False
 
-    def remove_job_workspace(self, job_context):
+    def remove_job_workspace(self):
         self.connect()
         gi = self.galaxy_instance
         history_name = self.workspace
-        gi.histories.delete_history(get_history_id(gi, history_name),purge = True)
+        gi.histories.delete_history(get_history_id(gi, history_name), purge=True)
 
-    def upload_file(self,job_context):
+    def upload_file(self, job_context):
         self.connect()
         gi = self.galaxy_instance
         i = job_context["state_dict"]["idx"]
@@ -325,12 +303,12 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         local_path = job_context["process"]["inputs"]["data"][i]["file"]
         history = self.workspace
         upload_info = gi.tools.upload_file(path=local_path,
-                                           history_id=get_history_id(gi,history),
+                                           history_id=get_history_id(gi, history),
                                            file_name=label)
         pid = upload_info['jobs'][0]['id']
         return pid
 
-    def exists(self,job_context):
+    def exists(self, job_context):
         self.connect()
         gi = self.galaxy_instance
         if not job_context.get('state_dict'):
@@ -338,7 +316,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         i = job_context["state_dict"]["idx"]
         if job_context["state_dict"]["state"] == "upload":
             # check if exists locally
-            file_local_path = os.path.join(self.LOCAL_WORKSPACE, self.workspace,
+            file_local_path = os.path.join(self.local_workspace,
                                            self.get_upload_files_list(job_context)[i]["file"])
             try:
                 local_size = os.path.getsize(file_local_path)
@@ -347,8 +325,8 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
                 return None
             # check if exists remotely
             label = self.get_upload_files_list(job_context)[i]["remote_name"]
-            h_id = get_history_id(gi,history_name= self.workspace)
-            dataset_info = gi.histories.show_matching_datasets(history_id = h_id , name_filter = label )
+            h_id = get_history_id(gi, history_name=self.workspace)
+            dataset_info = gi.histories.show_matching_datasets(history_id=h_id, name_filter=label)
             # check that are the same
             if len(dataset_info) > 0:
                 self.__write_logs(job_context)
@@ -357,14 +335,12 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
                 # if local_size == remote_size:
                 return True
         if job_context["state_dict"]["state"] == "download":
-            file_local_path = os.path.join(self.LOCAL_WORKSPACE,self.workspace,self.get_download_files_list(job_context)[i]["file"])
+            file_local_path = os.path.join(self.local_workspace, self.get_download_files_list(job_context)[i]["file"])
             if os.path.exists(os.path.join(file_local_path)):
                 return True
             else:
                 print(f"File {file_local_path} not found in your local system")
                 return None
-
-
 
     def submit(self, job_context):
         self.connect()
@@ -398,9 +374,10 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
             'percent_complete' = The overall number of datasets processed to completion.
         """
         gi = self.galaxy_instance
-        status = gi.histories.get_status(get_history_id(gi,str(self.workspace)))
-        write_to_file(self.log_filenames_dict['submit_stdout'],json.dumps(status['state_details']))
-        write_to_file(self.log_filenames_dict['submit_stdout'], 'percent complete: ' + json.dumps(status['percent_complete']))
+        status = gi.histories.get_status(get_history_id(gi, str(self.workspace)))
+        write_to_file(self.log_filenames_dict['submit_stdout'], json.dumps(status['state_details']))
+        write_to_file(self.log_filenames_dict['submit_stdout'],
+                      'percent complete: ' + json.dumps(status['percent_complete']))
         "the first call to state cab be ok just because is the state of previous job. "
         print(f"{status} job in job_status function")
         files_list = job_context['process']['inputs']['data']
@@ -423,7 +400,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
                     self.__write_logs(job_context)
         return status['state']
 
-    def __upload_status(self,job_context):
+    def __upload_status(self, job_context):
         gi = self.galaxy_instance
         i = job_context["state_dict"]["idx"]
         if i == 0:
@@ -444,7 +421,6 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
             self.__write_logs(job_context)
             return status['state']
 
-
     def step_status(self, job_context):
         """
            :return: state of the given job among the following values: `new`,
@@ -454,17 +430,16 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         self.connect()
         if job_context.get("state_dict"):
             if job_context["state_dict"].get("state") == "upload":
-                status = self.__upload_status(job_context) # i need
-                return status # if error return dict
-            if job_context["state_dict"].get("state") =="download":
+                status = self.__upload_status(job_context)  # i need
+                return status  # if error return dict
+            if job_context["state_dict"].get("state") == "download":
                 pid = job_context["pid"]
-                return self.local_job_status(self.workspace,pid)
+                return self.local_job_status(pid)
             if job_context["state_dict"].get("state") == "submit":
                 status = self.__invocation_status(job_context)
                 return status
         else:
             return None
-
 
     def cancel_job(self, native_id):
         self.connect()
@@ -472,8 +447,7 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         gi.invocations.cancel_invocation(native_id)
         # job here refers to invocation
 
-
-    def __write_logs(self,job_context):
+    def __write_logs(self, job_context):
         '''
         write stdout and stderr  in <state>_staout and stderr files:
         when state = upload stdout will be always empty
@@ -501,16 +475,17 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         galaxy_pid = job_context['pid']
         state = job_context['state_dict']['state']
         # check that stdout is not empty
-        n=0
+        n = 0
         while n < 5:
             job = gi.jobs.show_job(galaxy_pid, full_details=True)
             print(f"Job: {job}")
             outputs = job['outputs']
             print(outputs)
-            for _,dataset in outputs.items():
+            for _, dataset in outputs.items():
                 dataset_info = gi.datasets.show_dataset(dataset['id'])
                 print(f"Dataset info: {dataset_info}")
-                provenance = gi.histories.show_dataset_provenance(history_id=get_history_id(gi,str(self.workspace)), dataset_id= dataset['id'])
+                provenance = gi.histories.show_dataset_provenance(history_id=get_history_id(gi, str(self.workspace)),
+                                                                  dataset_id=dataset['id'])
                 print(f"Provenance: {provenance}")
                 if len(provenance['stdout']) != 0 or state == 'upload':
                     for std, file in dict(stderr=state + '_stderr', stdout=state + '_stdout').items():
@@ -523,18 +498,18 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
                     print("waiting....")
                     time.sleep(1)
 
-
-    def download_file(self,job_context):
+    def download_file(self, job_context):
         i = job_context['state_dict'].get('idx')
-        result =  job_context['results'][i]
+        result = job_context['results'][i]
         remote_name = result.get('remote_name')
-        download_path = os.path.join(self.LOCAL_WORKSPACE,self.workspace,result.get('file'))
-        job_dir = os.path.join(self.LOCAL_WORKSPACE,self.workspace)
+        download_path = os.path.join(self.local_workspace, result.get('file'))
+        job_dir = os.path.join(self.local_workspace)
         file_ext = result.get('type')
         history_name = self.workspace
         self.connect()
         gi = self.galaxy_instance
-        dataset = gi.histories.show_matching_datasets(history_id=get_history_id(gi,history_name), name_filter= remote_name)[0]
+        dataset = \
+        gi.histories.show_matching_datasets(history_id=get_history_id(gi, history_name), name_filter=remote_name)[0]
         download_url = dataset['download_url'] + '?to_ext=' + file_ext
         url = urljoin(gi.base_url, download_url)
         cmd = f"(nohup bash -c \"curl -o {download_path} {url} \" >/tmp/mtest </dev/null 2>/tmp/mtest.err & echo $!; wait $!; echo $? >> {job_dir}/$!.exit_status)"
@@ -543,393 +518,3 @@ class JobExecutorAtGalaxy(JobExecutorAtResource):
         pid = popen_pipe.readline().rstrip()
         print(f"PID: {pid}")
         return pid
-
-# GALAXY INIZIALIZATION
-
-def install_tools(gi, tools):
-    '''
-    tool_shed_url, name, owner,
-    changeset_revision,
-    install_tool_dependencies = False,
-    install_repository_dependencies = False,
-    install_resolver_dependencies = False,
-    tool_panel_section_id = None,
-    new_tool_panel_section_label = Non
-    '''
-    if isinstance(tools, list):
-        for tool in tools:
-            tool_shed_url = 'https://' + tool['tool_shed']
-            gi.toolshed.install_repository_revision(tool_shed_url=tool_shed_url,
-                                                    name=tool['name'],
-                                                    owner=tool['owner'],
-                                                    changeset_revision=tool['changeset_revision'],
-                                                    install_tool_dependencies=True,
-                                                    install_repository_dependencies=True,
-                                                    install_resolver_dependencies=True,
-                                                    new_tool_panel_section_label='New'
-                                                    )
-
-
-def convert_workflows_to_formly():
-    # workflow_files_list = os.listdir(os.path.join(ROOT,'biobarcoding/workflows'))
-
-    wfdict1 = {'steps': {'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json',
-                         'phyml': ROOT + '/biobarcoding/inputs_schema/phyml_galaxy.json'}
-               ,
-               'fname' : 'clustalw_phyml_formly.json',
-               'workflow_path': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/workflows/Galaxy-Workflow-ClustalW-PhyMl.ga'
-               }
-    wfdict2 = {'steps':
-                   [{'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json'}
-                    ],
-               'fname' : 'clustalw_formly.json',
-               'workflow_path': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/workflows/Galaxy-Workflow-MSA_ClustalW.ga'
-               }
-
-    path = ROOT + '/biobarcoding/inputs_schema/'
-    path = ROOT + 'tests/data_test'
-    lwdict = [wfdict1, wfdict2]
-    for wfdict in lwdict:
-        if wfdict['fname'] not in os.listdir(path):
-            wfdict['fname'] = path + wfdict['fname']
-            formyConverter = convertToFormly(wfdict['workflow_path'],path,'http://localhost:8080/')
-            formyConverter.full_converter()
-
-def initialize_galaxy(flask_app):
-    if {'GALAXY_API_KEY', 'GALAXY_LOCATION'} <= flask_app.config.keys():
-        api_key = flask_app.config['GALAXY_API_KEY']
-        url = flask_app.config['GALAXY_LOCATION']
-
-        # Update resource location
-        session = DBSession()
-        local_uuid = "8fac3ce8-8796-445f-ac27-4baedadeff3b"
-        r = session.query(ComputeResource).filter(ComputeResource.uuid == local_uuid).first()
-        if r:
-            r.jm_location = {"url": url}
-            r.jm_credentials = {"api_key": api_key}
-            session.commit()
-        DBSession.remove()
-
-        # Install basic workflow if it is not installed
-        gi = login(api_key, url)
-        path = ROOT + '/biobarcoding/workflows/'
-        for workflow in os.listdir(path):
-            workflow_path = path + workflow
-            with open(workflow_path, 'r') as f:
-                wf_dict_in = json.load(f)
-            name = wf_dict_in['name']
-            w_id = workflow_id(gi, name)
-            if w_id != 'there is no workflow named{}'.format(name) and w_id:
-                gi.workflows.delete_workflow(w_id)
-            wf = gi.workflows.import_workflow_from_local_path(workflow_path)
-            wf_dict_out = gi.workflows.export_workflow_dict(wf['id'])
-            list_of_tools = check_tools(wf_dict_out, wf_dict_in)
-            install_tools(gi, list_of_tools)
-        # conversion of workflows galaxy into workflows formly
-        convert_workflows_to_formly()
-    else:
-        return 'No Galaxy test credentials in config file'
-
-
-class convertToFormly:
-
-    '''
-    wfdict1 = {'steps': {'clustalw': ROOT + '/biobarcoding/inputs_schema/clustalw_galaxy.json',
-                         'phyml': ROOT + '/biobarcoding/inputs_schema/phyml_galaxy.json'}
-               ,
-               'fname' : 'clustalw_phyml_formly.json',
-               'workflow_path': '/home/paula/Documentos/NEXTGENDEM/bcs/bcs-backend/biobarcoding/workflows/Galaxy-Workflow-ClustalW-PhyMl.ga'
-               }
-    '''
-    def __init__(self,workflow_path,fname,galaxy_form_path = None,galaxy_url = None):
-        self.new_path = fname
-        self.__workflow_path =  workflow_path
-        self.workflow = workflow_path #TODO  CAMBIAR ESO POR
-        self.galaxy_url = galaxy_url
-        self.galaxy_form = galaxy_form_path
-
-
-    @property
-    def workflow(self):
-        return self.__workflow
-
-    @workflow.setter
-    def workflow(self, workflow_path):
-        with open(workflow_path) as jsonfile:
-            self.__workflow = json.load(jsonfile)
-
-    def __get_galaxy_forms(self):
-        steps = self.__workflow["steps"]
-        step_dict = dict()
-        for _,step in steps.items():
-            if isinstance(step['content_id'],str):
-                version = step["tool_version"]
-                url = urljoin(self.galaxy_url, f"api/toools/{step['content_id']}/build?version={version}")
-                '''
-                http://localhost:8080/api/tools/toolshed.g2.bx.psu.edu/repos/vlefort/phyml/phyml/3.1/build?version=3.1
-                '''
-                # TODO request also works adding
-                # url + &__identifer=4pj9zq6s0oe&tool_version=3.1
-                # being identifer some identifer
-                # TODO whats the identifer? makes any difference?
-                r = requests.get(url)
-                # TODO aunqthentication
-                form = r.json()
-                step_dict[step["label"]] = json.load(form)
-        return step_dict
-
-
-
-    def full_converter(self):
-        '''
-        dictionary step_label: form_path
-        '''
-        conversor = inputCreation()
-        fieldGroup = conversor.convert()
-        formly = dict()
-        formly['type'] = 'stepper'
-        if not self.galaxy_form:
-            wf_steps = self.__get_galaxy_forms()
-        else:
-            wf_steps = self.galaxy_form
-        for k, v in wf_steps.items():
-            if isinstance(v,dict):
-                galaxy_workflow = v
-            else:
-                input_path = v
-                with open(input_path, 'r') as f:
-                    galaxy_workflow = json.load(f)
-            inputs = galaxy_workflow['inputs']
-            conversor = ToFormlyStepConverter(k)
-            form = dict()
-            form['templateOptions'] = {'label': k}
-            form['fieldGroup'] = conversor.get_formly_dict(inputs)
-            fieldGroup.append(form)
-        formly['fieldGroup'] = fieldGroup
-        formly_json = json.dumps([formly], indent=3)
-        file = open(self.newpath, 'w')
-        file.write(formly_json)
-        file.close()
-
-class ToFormlyStepConverter(convertToFormly):
-    field = {
-        # 'original' : 'formly'
-        'name': 'key',
-        'type': 'type'
-    }
-    templateoptionsfields = {
-        # 'original' : 'formly'
-        'label': 'label',
-        'optional': 'required'
-    }
-
-    def __init__(self, step_label, workflow_path, fname):
-        super().__init__(workflow_path, fname)
-        self.step_label = step_label
-
-    @staticmethod
-    def rename_keys(d, keys):
-        return dict([(keys.get(k), v) for k, v in d.items() if k in keys.keys()])
-
-    @staticmethod
-    def options(g_input):
-        return [{'value': o[1], 'label': o[0]} for o in g_input['options']]
-
-    def choose_converter(self, g_input):
-        input_type = g_input['model_class']
-        if input_type == 'SelectToolParameter':
-            converter = convertSelectToolParameter(self.step_label)
-        elif input_type == 'BooleanToolParameter':
-            converter = convertBooleanToolParameter(self.step_label)
-        elif input_type == 'Conditional':
-            converter = converterConditional(self.step_label)
-        elif input_type == 'IntegerToolParameter':
-            converter = converterIntegerToolParameter(self.step_label)
-        elif input_type == 'FloatToolParameter':
-            converter = converterIntegerToolParameter(self.step_label)
-        elif input_type == 'TextToolParameter':
-            converter = converterTextToolParameter(self.step_label)
-        else:
-            return 'no converter for model class {}'.format(g_input['model_class'])
-        return converter.convert(g_input)
-
-    def conversion(self, g_input):
-        form = self.rename_keys(g_input, self.field)
-        form['key'] = '.'.join([self.step_label, form['key']])
-        form['templateOptions'] = self.rename_keys(g_input, self.templateoptionsfields)
-        if 'value' in g_input:
-            form['defaultValue'] = g_input['value']
-        form['templateOptions']['required'] = not form['templateOptions']['required']
-        form['templateOptions']['description'] = g_input['help']
-        return form
-
-    def get_formly_dict(self, g_input):
-        l = []
-        for i in g_input:
-            forms = self.choose_converter(i)
-            if isinstance(forms, list) and len(forms) > 1:
-                for f in forms:
-                    if isinstance(f, dict):
-                        l.append(f)
-            else:
-                if isinstance(forms, dict):
-                    l.append(forms)
-        return l
-
-class convertBooleanToolParameter(ToFormlyStepConverter):
-    def __init__(self,step_label):
-        super(convertBooleanToolParameter, self).__init__(step_label)
-
-    def convert(self, g_input):
-        form = self.conversion(g_input)
-        form['type'] = 'radio'
-        form['templateOptions']['options'] = [
-            {'value': g_input['truevalue'], 'label': 'Yes'},
-            {'value': g_input['falsevalue'], 'label': 'No'}  # check is needed
-        ]
-        if form['defaultValue']:
-            if form['defaultValue'] == 'false':
-                form['defaultValue'] = 'OFF'
-            elif form['defaultValue'] == 'true':
-                form['defaultValue'] = 'YES'
-            else:
-                form['defaultValue'] = form['defaultValue']
-
-        return form
-
-
-class convertSelectToolParameter(ToFormlyStepConverter):
-    def __init__(self, step_label):
-        super(convertSelectToolParameter, self).__init__(step_label)
-
-    def convert(self, g_input):
-        form = self.conversion(g_input)
-        form['templateOptions']['options'] = self.options(g_input)
-        return form
-
-class converterIntegerToolParameter(ToFormlyStepConverter):
-    def __init__(self,step_label):
-        super(converterIntegerToolParameter, self).__init__(step_label)
-
-    def convert(self, g_input):
-        form = self.conversion(g_input)
-        form['type'] = 'input'
-        form['templateOptions']['type'] = 'number'
-        if g_input['min'] != None:
-            form['templateOptions']['min'] = int(g_input['min'])
-        if g_input['max'] != None:
-            form['templateOptions']['max'] = int(g_input['max'])
-        return form
-
-
-class converterTextToolParameter(ToFormlyStepConverter):
-    def __init__(self,step_label):
-        super(converterTextToolParameter, self).__init__(step_label)
-    def convert(self, input):
-        form = self.conversion(input)
-        form['type'] = 'textarea'
-        return form
-
-
-class converterConditional(ToFormlyStepConverter):
-    def __init__(self,step_label):
-        super(converterConditional, self).__init__(step_label)
-        self.selector = None
-        self.cases = None
-
-    def convert(self, g_inputs):
-        self.selector = g_inputs['test_param']
-        self.cases = g_inputs['cases']
-        form = list()
-        selector_form = self.choose_converter(self.selector)
-        form.append(selector_form)
-        for i in self.cases:
-            if len(i['inputs']) > 0:
-                for j in i['inputs']:
-                    case_form = self.choose_converter(j)
-                    if isinstance(case_form, dict):
-                        case_form['hideExpression'] = 'model.' + selector_form['key'] + '!=\'' + i['value'] + '\''
-                    else:
-                        print('no converter for ', j['model_class'])
-                    form.append(case_form)
-        return form
-
-class inputCreation(convertToFormly):
-    def __init__(self, workflow_path, fname):
-        super().__init__(workflow_path, fname)
-
-    def __get_inputs(self):
-        input = []
-        workflow = self.workflow
-        steps = workflow.get("steps")
-        for _,step in steps.items():
-            if len(step.get("input_connections")) == 0:
-                for step_input in step["inputs"]:
-                    input.append({"name": step_input.get("name"),
-                                  "bo_type": step_input.get("bo_type","no specified"), # TODO DONDE ESTA ESTA INFORMACIÓN
-                                  "bo_format": step_input.get("bo_format","no specified")
-                                  }
-                                 )
-
-        return input
-
-    def convert(self):
-        inputs = self.__get_inputs()
-        inputs_fieldGroups = list()
-        for input in inputs:
-            form = dict()
-            form["key"] = "input"
-            form["templateOptions"] = {"label": "input"}
-            form['fieldGroup'] = [{
-                "key": "remote_name",
-                "type": "input",
-                "templateOptions": {
-                    "label": "input name"
-                },
-                "defaultValue": input["name"]
-            },
-            {
-                "key": "type",
-                "type": "input",
-                "templateOptions": {
-                    "label": "type"
-                },
-                "defaultValue": input["bo_format"]
-            },
-        {
-            "key": "bo_type",
-            "type": "input",
-            "templateOptions": {
-                "label": "bo type"
-            },
-            "defaultValue": input["bo_type"]
-        }]
-            inputs_fieldGroups.append(form)
-        # a esto le tengo que hacer el append de los parámetros de los algoritmos
-        return inputs_fieldGroups
-
-
-# def convertToFormly(wf_steps, path_to_workflow, newpath):
-#     '''
-#     dictionary step_label: form_path
-#     '''
-#     creator = inputCreation(path_to_workflow)
-#     fieldGroup = creator.convert()
-#     formly = dict()
-#     formly['type'] = 'stepper'
-#     for k, v in wf_steps.items():
-#         input_path = v
-#         with open(input_path, 'r') as f:
-#             galaxy_dict_in = json.load(f)
-#         inputs = galaxy_dict_in['inputs']
-#         convert = ToFormlyStepConverter(k)
-#         form = dict()
-#         form['templateOptions'] = {'label': k}
-#         form['fieldGroup'] = convert.get_formly_dict(inputs)
-#         fieldGroup.append(form)
-#     formly['fieldGroup'] = fieldGroup
-#     formly_json = json.dumps([formly], indent=3)
-#     file =  open(newpath, 'w')
-#     file.write(formly_json)
-#     file.close()
-

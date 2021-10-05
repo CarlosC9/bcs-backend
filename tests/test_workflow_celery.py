@@ -4,12 +4,12 @@ from time import sleep
 from biobarcoding.jobs import JobExecutorAtResourceFactory
 import json
 import requests
-from biobarcoding.rest import bcs_api_base
+from biobarcoding.rest import app_api_base
 import requests
 import os
 import subprocess
 
-from biobarcoding.rest.file_manager import FilesAPI
+from biobarcoding.rest.files import FilesAPI
 from biobarcoding.tasks.definitions import change_status
 # req = {
 #   "resource_id": "8fac3ce8-8796-445f-ac27-4baedadeff3b",
@@ -60,7 +60,7 @@ def export(data,file) -> object:
     selection_dict = {"filter": [{"feature_id": {"op": "in", "unary": data['selection']}}]}
     selection_json = json.dumps(selection_dict)
     endpoint = "http://localhost:5000"
-    url = f"{endpoint}{bcs_api_base}/bos/{bos_type}.{extension}"
+    url = f"{endpoint}{app_api_base}/bos/{bos_type}.{extension}"
     curl = f"curl --cookie-jar bcs-cookies.txt --cookie bcs-cookies.txt -X GET -d \'{selection_json}\' -H \'Content-Type:application/json\' {url} -o {tmp_path}"
     cmd = f"(nohup bash -c &quot;{curl}&quot; >/tmp/mtest </dev/null 2>/tmp/mtest.err & echo $!; wait $!; echo $?  >> {TEST_JOB_STATUS_DIR}/$!.exit_status)"
     print(cmd)

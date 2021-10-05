@@ -1,11 +1,11 @@
-from flask import (Blueprint, Response, request, session as flask_session, send_from_directory)
-from pathlib import Path
-from flask.helpers import get_root_path
 import os
+from pathlib import Path
 
+from flask import (Blueprint, request, send_from_directory)
+from flask.helpers import get_root_path
 from werkzeug.exceptions import NotFound
 
-from biobarcoding.rest import bcs_api_base, bcs_gui_base, bcs_external_gui_base, logger, build_json_response
+from . import app_api_base, app_gui_base, app_external_gui_base, logger, build_json_response
 
 bp_gui = Blueprint('static_gui', __name__)
 
@@ -17,9 +17,9 @@ reference_package_name = "biobarcoding.rest"
 # #####################################################################################################################
 
 
-@bp_gui.route(bcs_gui_base + "/", methods=["GET"])
-@bp_gui.route(bcs_gui_base + "/<path:path>", methods=["GET"])
-@bp_gui.route(bcs_external_gui_base + "/<path:path>", methods=["GET"])
+@bp_gui.route(app_gui_base + "/", methods=["GET"])
+@bp_gui.route(app_gui_base + "/<path:path>", methods=["GET"])
+@bp_gui.route(app_external_gui_base + "/<path:path>", methods=["GET"])
 def send_web_client_file(path=None):
     """
     Serve files from the Angular2 client
@@ -33,6 +33,7 @@ def send_web_client_file(path=None):
     :return:
 
     """
+
     def detect_mimetype(fn):
         if fn.lower().startswith("main.") and fn.lower().endswith(".js"):
             return "text/html"
@@ -64,8 +65,8 @@ def send_web_client_file(path=None):
             return None
 
     base = Path(get_root_path(reference_package_name))
-    base = str(base.parent)+os.sep+"static_gui"
-    logger.debug("BASE DIRECTORY: "+base)
+    base = str(base.parent) + os.sep + "static_gui"
+    logger.debug("BASE DIRECTORY: " + base)
     incoming_url = request.url_rule.rule
 
     if not path or path == "":
@@ -76,7 +77,7 @@ def send_web_client_file(path=None):
     if "config.json" in path:
         return build_json_response(dict(url=f"{request.host_url[:-1]}"), 200)
 
-    if bcs_external_gui_base in incoming_url:
+    if app_external_gui_base in incoming_url:
         # From outside
         if path == "index.html":
             # TODO Possibility of changing both the base and the file name
@@ -105,7 +106,7 @@ def send_web_client_file(path=None):
 # #####################################################################################################################
 
 
-@bp_gui.route(bcs_api_base + "/static/<path:path>", methods=["GET"])
+@bp_gui.route(app_api_base + "/static/<path:path>", methods=["GET"])
 def send_static_file(path):
     """
     Serve files from the Angular2 client
@@ -118,7 +119,7 @@ def send_static_file(path):
     :return:
     """
     base = Path(get_root_path(reference_package_name))
-    base = str(base)+"/static"
+    base = str(base) + "/static"
     # logger.debug("BASE DIRECTORY: "+base)
 
     return send_from_directory(base, path)

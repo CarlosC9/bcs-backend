@@ -1,6 +1,7 @@
-from biobarcoding.db_models import DBSessionChado as chado_session
-from biobarcoding.db_models.chado import Stockcollection
-from biobarcoding.rest import Issue, IType, filter_parse, paginator
+from ..db_models import DBSessionChado as chado_session
+from ..db_models.chado import Stockcollection
+from ..rest import Issue, IType, filter_parse
+from . import get_query
 
 
 def create(**kwargs):
@@ -10,20 +11,21 @@ def create(**kwargs):
             raise Exception('Missing the uniquename')
         if not kwargs.get('type_id'):
             from biobarcoding.db_models.chado import Cvterm
-            kwargs['type_id'] = chado_session.query(Cvterm.cvterm_id).filter(Cvterm.name=='sequence_collection').one()
+            kwargs['type_id'] = chado_session.query(Cvterm.cvterm_id).filter(Cvterm.name == 'sequence_collection').one()
         chado_session.add(Stockcollection(**kwargs))
-        issues, status = [Issue(IType.INFO, f'CREATE collections: The collection "{kwargs.get("uniquename")}" created successfully.')], 201
+        issues, status = [Issue(IType.INFO,
+                                f'CREATE collections: The collection "{kwargs.get("uniquename")}" created successfully.')], 201
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'CREATE collections: The collection "{kwargs.get("uniquename")}" could not be created.')], 409
+        issues, status = [Issue(IType.ERROR,
+                                f'CREATE collections: The collection "{kwargs.get("uniquename")}" could not be created.')], 409
     return issues, content, status
 
 
-count = 0
 def read(id=None, **kwargs):
-    content = None
+    content, count = None, 0
     try:
-        content = __get_query(id, **kwargs)
+        content, count = __get_query(id, **kwargs)
         if id:
             content = content.first()
         else:
@@ -38,8 +40,9 @@ def read(id=None, **kwargs):
 def update(id, **kwargs):
     content = None
     try:
-        content = __get_query(id).update(kwargs)
-        issues, status = [Issue(IType.INFO, f'UPDATE collections: The collection "{id}" updated successfully.')], 201
+        content, count = __get_query(id)
+        content = content.update(kwargs)
+        issues, status = [Issue(IType.INFO, f'UPDATE collections: The collection "{id}" was successfully updated.')], 200
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, f'UPDATE collections: The collection "{id}" could not be updated.')], 409
@@ -49,30 +52,22 @@ def update(id, **kwargs):
 def delete(id=None, **kwargs):
     content = None
     try:
-        query = __get_query(id, **kwargs)
-        resp = query.delete(synchronize_session='fetch')
-        issues, status = [Issue(IType.INFO, f'DELETE collections: The {resp} collections were successfully removed.')], 200
+        content, count = __get_query(id, **kwargs)
+        content = content.delete(synchronize_session='fetch')
+        issues, status = [Issue(IType.INFO,
+                                f'DELETE collections: The {content} collections were successfully removed.')], 200
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, 'DELETE collections: The collections could not be removed.')], 404
     return issues, content, status
 
 
-def __get_query(id=None, **kwargs):
-    query = chado_session.query(Stockcollection)
-    global count
-    count = 0
-    if id:
-        query = query.filter(Stockcollection.stockcollection_id == id)
-    else:
-        if 'filter' in kwargs:
-            query = query.filter(filter_parse(Stockcollection, kwargs.get('filter'), __aux_own_filter))
-        if 'order' in kwargs:
-            query = __get_query_ordered(query, kwargs.get('order'))
-        if 'pagination' in kwargs:
-            count = query.count()
-            query = paginator(query, kwargs.get('pagination'))
-    return query
+def __get_query(stockcollection_id=None, **kwargs):
+    if stockcollection_id:
+        query = chado_session.query(Stockcollection).filter(Stockcollection.stockcollection_id == stockcollection_id)
+        return query, query.count()
+    return get_query(chado_session, Stockcollection, **kwargs,
+                     aux_filter=__aux_own_filter, aux_order=__aux_own_order)
 
 
 def __aux_own_filter(filter):
@@ -80,23 +75,23 @@ def __aux_own_filter(filter):
 
     if filter.get('stock_id'):
         from biobarcoding.db_models.chado import StockcollectionStock
-        _ids = chado_session.query(StockcollectionStock.stockcollection_id)\
+        _ids = chado_session.query(StockcollectionStock.stockcollection_id) \
             .filter(filter_parse(StockcollectionStock, {'stock_id': filter.get('stock_id')}))
         clause.append(Stockcollection.stockcollection_id.in_(_ids))
 
     if filter.get('feature_id'):
         from biobarcoding.db_models.chado import Stock, StockcollectionStock
-        _ids = chado_session.query(Stock.stock_id)\
+        _ids = chado_session.query(Stock.stock_id) \
             .filter(filter_parse(Stock, {'feature_id': filter.get('feature_id')}))
-        _ids = chado_session.query(StockcollectionStock.stockcollection_id)\
+        _ids = chado_session.query(StockcollectionStock.stockcollection_id) \
             .filter(StockcollectionStock.stock_id.in_(_ids))
         clause.append(Stockcollection.stockcollection_id.in_(_ids))
 
     if filter.get('organism_id'):
         from biobarcoding.db_models.chado import Stock, StockcollectionStock
-        _ids = chado_session.query(Stock.stock_id)\
+        _ids = chado_session.query(Stock.stock_id) \
             .filter(filter_parse(Stock, {'organism_id': filter.get('organism_id')}))
-        _ids = chado_session.query(StockcollectionStock.stockcollection_id)\
+        _ids = chado_session.query(StockcollectionStock.stockcollection_id) \
             .filter(StockcollectionStock.stock_id.in_(_ids))
         clause.append(Stockcollection.stockcollection_id.in_(_ids))
 
@@ -134,6 +129,6 @@ def __aux_own_filter(filter):
     return clause
 
 
-def __get_query_ordered(query, order):
+def __aux_own_order(order):
     # query = query.order(order_parse(Stockcollection, kwargs.get('order'), __aux_own_order))
-    return query
+    return []

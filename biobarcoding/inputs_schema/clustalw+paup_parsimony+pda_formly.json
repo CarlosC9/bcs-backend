@@ -1,0 +1,443 @@
+[
+  {
+    "key": "MSA ClustalW",
+    "wrappers": ["subprocess-wrapper"],
+    "templateOptions": { "label": "MSA ClustalW" },
+    "fieldGroup": [
+      {
+        "key": "dnarna",
+        "type": "select",
+        "templateOptions": {
+          "label": "Data type",
+          "required": true,
+          "options": [
+            {
+              "value": "DNA",
+              "label": "DNA nucleotide sequences"
+            },
+            {
+              "value": "PROTEIN",
+              "label": "Protein sequences"
+            }
+          ]
+        },
+        "defaultValue": "DNA",
+        "hideExpression": true
+      },
+      {
+        "key": "outform",
+        "type": "select",
+        "templateOptions": {
+          "label": "Output alignment format",
+          "required": true,
+          "hideExpression": true,
+          "options": [
+            {
+              "value": "clustal",
+              "label": "Native Clustal output format"
+            },
+            {
+              "value": "phylip",
+              "label": "PHYLIP format"
+            },
+            {
+              "value": "fasta",
+              "label": "FASTA format"
+            }
+          ]
+        },
+        "defaultValue": "fasta"
+      },
+      {
+        "key": "out_seqnos",
+        "type": "radio",
+        "defaultValue": "OFF",
+        "templateOptions": {
+          "label": "Show residue numbers in clustal format output",
+          "required": true,
+          "options": [
+            {
+              "value": "ON",
+              "label": "Yes"
+            },
+            {
+              "value": "OFF",
+              "label": "No"
+            }
+          ]
+        },
+        "hideExpression": "model.outform!='clustal'"
+      },
+      {
+        "key": "out_order",
+        "type": "select",
+        "templateOptions": {
+          "label": "Output order",
+          "required": true,
+          "options": [
+            {
+              "value": "ALIGNED",
+              "label": "Aligned"
+            },
+            {
+              "value": "INPUT",
+              "label": "Same order as input file"
+            }
+          ]
+        },
+        "defaultValue": "ALIGNED"
+      },
+      {
+        "key": "mode",
+        "type": "select",
+        "templateOptions": {
+          "label": "Output complete alignment (or specify part to output)",
+          "required": true,
+          "options": [
+            {
+              "value": "complete",
+              "label": "Complete alignment"
+            },
+            {
+              "value": "part",
+              "label": "Only part of the alignment"
+            }
+          ]
+        },
+        "defaultValue": "complete"
+      },
+      {
+        "key": "seq_range_start",
+        "type": "input",
+        "templateOptions": {
+          "label": "Start point",
+          "required": true,
+          "description": "Sequence range to write",
+          "type": "number"
+        },
+        "defaultValue": "1",
+        "hideExpression": "model.mode!='part'"
+      },
+      {
+        "key": "seq_range_end",
+        "type": "input",
+        "templateOptions": {
+          "label": "End point",
+          "required": true,
+          "type": "number"
+        },
+        "defaultValue": "99999",
+        "hideExpression": "model.mode!='part'"
+      },
+      {
+        "key": "sequence_selector",
+        "type": "sequence-selector",
+        "validators": {
+          "validation": [
+            "sequence-selector"
+          ]
+        },
+        "templateOptions": {
+          "filename": "input_dataset",
+          "label": "Sequences Selector",
+          "required": true,
+          "extension": "fasta"
+        }
+      }
+    ]
+  },
+  {
+    "key": "PAUP Parsimony",
+    "wrappers": ["subprocess-wrapper"],
+    "templateOptions": { "label": "PAUP Parsimony" },
+    "fieldGroup": [
+      {
+      "key": "taxset",
+      "type": "taxset-field",
+      "templateOptions": {
+          "taxons": ["Cyperus_laevigatus_laevigatus","Phoenix_canariensis","Consolida_regalis_regalis","Aaronsohnia_pubescens_maroccana"]
+        }
+      },
+      {
+        "key": "outRoot",
+        "type": "select",
+        "templateOptions": {
+          "label": "Outgroup Rooting",
+          "required": true,
+          "options": [
+            {
+              "value": "politomy",
+              "label": "Politomy"
+            },
+            {
+              "value": "paraphyletic",
+              "label": "Paraphyletic"
+            },
+            {
+              "value": "monophyletic",
+              "label": "Monophyletic"
+            }
+          ]
+        },
+        "defaultValue": "monophyletic"
+      },
+      {
+        "key": "gapMode",
+        "type": "select",
+        "templateOptions": {
+          "label": "Gap Mode",
+          "required": true,
+          "options": [
+            {
+              "value": "missing",
+              "label": "Missing"
+            },
+            {
+              "value": "newState",
+              "label": "New State"
+            }
+          ]
+        },
+        "defaultValue": "newState"
+      },
+      {
+        "key": "method",
+        "type": "select",
+        "templateOptions": {
+          "label": "Analysis method",
+          "required": true,
+          "options": [
+            {
+              "value": "simple",
+              "label": "Simple Heuristic"
+            },
+            {
+              "value": "bootstrap",
+              "label": "Bootstrap"
+            },
+            {
+              "value": "jackknife",
+              "label": "Jackknife"
+            }
+          ]
+        },
+        "defaultValue": "simple"
+      },
+      {
+        "key": "nReplicas",
+        "type": "input",
+        "className": "formly_subfield",
+        "templateOptions": {
+          "type": "number",
+          "label": "Number of replicas",
+          "min": 1
+        },
+        "expressionProperties": {
+          "templateOptions.required": "model.method!='simple'"
+        },
+        "hideExpression": "model.method=='simple'",
+        "defaultValue": 1
+      },
+      {
+        "key": "search",
+        "type": "select",
+        "defaultValue": "OFF",
+        "className": "formly_subfield",
+        "templateOptions": {
+          "label": "Search Strategy",
+          "required": true,
+          "options": [
+            {
+              "value": "heuristic",
+              "label": "Heuristic"
+            },
+            {
+              "value": "BandB",
+              "label": "Branch and Bound"
+            },
+            {
+              "value": "fastStep",
+              "label": "Fast Step"
+            }
+          ]
+        },
+        "defaultValue": "heuristic",
+        "expressionProperties": {
+          "templateOptions.required": "model.method!='simple'"
+        },
+        "hideExpression": "model.method=='simple'"
+      },
+      {
+        "key": "consensus_tree_type",
+        "type": "select",
+        "className": "formly_subfield",
+        "templateOptions": {
+          "label": "Consensus Tree Type",
+          "options": [
+            {
+              "value": "strict=yes semistrict=no majRule=no adams=no",
+              "label": "Strict"
+            },
+            {
+              "value": "strict=no semistrict=yes majRule=no adams=no",
+              "label": "Semistrict"
+            },
+            {
+              "value": "strict=no semistrict=no majRule=yes adams=no",
+              "label": "Majority-Rule"
+            },
+            {
+              "value": "strict=no semistrict=no majRule=no adams=yes",
+              "label": "Adams"
+            }
+          ]
+        },
+        "defaultValue": "strict=yes semistrict=no majRule=no adams=no",
+        "expressionProperties": {
+          "templateOptions.required": "model.method=='simple'"
+        },
+        "hideExpression": "model.method!='simple'"
+      },
+      {
+        "key": "le50",
+        "type": "radio",
+        "className": "formly_sub_subfield",
+        "templateOptions": {
+          "label": "Retain less than 50% of the trees",
+          "options": [
+            {
+              "value": "yes",
+              "label": "Yes"
+            },
+            {
+              "value": "no",
+              "label": "No"
+            }
+          ]
+        },
+        "defaultValue": "no",
+        "expressionProperties": {
+          "templateOptions.required": "(model.consensus_tree_type=='strict=no semistrict=no majRule=yes adams=no' &&  model.method=='simple')"
+        },
+        "hideExpression": "(model.consensus_tree_type!='strict=no semistrict=no majRule=yes adams=no' || model.method!='simple')"
+      },
+      {
+        "key": "percent",
+        "type": "input",
+        "className": "formly_sub_subfield",
+        "templateOptions": {
+          "label": "Percentage of the trees on which a group must appear in order to be retained",
+          "type": "number",
+          "min": 0,
+          "max": 100,
+          "pattern": "\\d"
+        },
+        "defaultValue": 50,
+        "expressionProperties": {
+          "templateOptions.required": "(model.consensus_tree_type!='strict=no semistrict=no majRule=yes adams=no' || model.method!='simple')"
+        },
+        "hideExpression": "(model.consensus_tree_type!='strict=no semistrict=no majRule=yes adams=no' || model.method!='simple')"
+      },
+      {
+        "key": "addseq",
+        "type": "select",
+        "templateOptions": {
+          "label": "Addition Sequence",
+          "required": true,
+          "options": [
+            {
+              "value": "simple",
+              "label": "simple"
+            },
+            {
+              "value": "closest",
+              "label": "closest"
+            },
+            {
+              "value": "asIs",
+              "label": "as is"
+            },
+            {
+              "value": "random",
+              "label": "random"
+            },
+            {
+              "value": "furthest",
+              "label": "furthest"
+            }
+          ]
+        },
+        "defaultValue": "random",
+        "hideExpression": "(model.search!='heuristic' && model.method!='simple')"
+      },
+      {
+        "key": "swap",
+        "type": "select",
+        "templateOptions": {
+          "label": "Branch Swapping",
+          "required": true,
+          "options": [
+            {
+              "value": "none",
+              "label": "No branch swapping"
+            },
+            {
+              "value": "TBR",
+              "label": "Tree bisection-reconnection (TBR)"
+            },
+            {
+              "value": "SPR",
+              "label": "Subtree pruning-regrafting (SPR)"
+            },
+            {
+              "value": "NNI",
+              "label": "Nearest-neighbor interchange (NNI)"
+            }
+          ]
+        },
+        "defaultValue": "TBR",
+        "hideExpression": "(model.search!='heuristic' && model.method!='simple')"
+      },
+      {
+        "key": "hold",
+        "type": "input",
+        "templateOptions": {
+          "label": "Number of trees to be held ",
+          "required": true,
+          "type": "number",
+          "min": 1
+        },
+        "defaultValue": 1,
+        "expressionProperties": {
+          "templateOptions.required": "(model.search=='heuristic' || model.method=='simple')"
+        },
+        "hideExpression": "(model.search!='heuristic' && model.method!='simple')"
+      }
+    ]
+  },
+  {
+    "key": "Phylogenetic Diversity Analyzer",
+    "wrappers": [
+      "subprocess-wrapper"
+    ],
+    "templateOptions": {
+      "label": "Phylogenetic Diversity Analyzer"
+    },
+    "fieldGroup": [
+      {
+        "key": "endem",
+        "type": "checkbox",
+        "templateOptions": {
+          "label": "Compute endemic PD/SD"
+        }
+      },
+      {
+        "key": "excl",
+        "type": "checkbox",
+        "templateOptions": {
+          "label": "Compute exclusive PD/SD"
+        }
+      }
+    ]
+  }
+]

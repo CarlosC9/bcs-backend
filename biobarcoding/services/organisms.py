@@ -1,18 +1,18 @@
-from biobarcoding.db_models import DBSessionChado as chado_session
-from biobarcoding.db_models.chado import Organism
-from biobarcoding.rest import Issue, IType, filter_parse, paginator
+from ..db_models import DBSessionChado as chado_session
+from ..db_models.chado import Organism
+from ..rest import Issue, IType, filter_parse
+from . import get_query
 
 
 def create(**kwargs):
     content = None
     if not kwargs.get('genus'):
-        kwargs['genus']='organism'
+        kwargs['genus']='Organism'
     if not kwargs.get('species'):
-        kwargs['species']='undefined'
+        kwargs['species']='Unclassified'
     try:
         from biobarcoding.services import get_or_create
         content = get_or_create(chado_session, Organism, **kwargs)
-        chado_session.merge(content)
         issues, status = [Issue(IType.INFO, f'CREATE organisms: The organism "{kwargs.get("genus")} {kwargs.get("species")}" was  successfully created.')], 201
     except Exception as e:
         print(e)
@@ -20,11 +20,10 @@ def create(**kwargs):
     return issues, content, status
 
 
-count = 0
 def read(id = None, **kwargs):
-    content = None
+    content, count = None, 0
     try:
-        content = __get_query(id, **kwargs)
+        content, count = __get_query(id, **kwargs)
         if id:
             content = content.first()
         else:
@@ -44,7 +43,8 @@ def update(id, **kwargs):
 def delete(id = None, **kwargs):
     content = None
     try:
-        content = __get_query(id, **kwargs).delete(synchronize_session='fetch')
+        content, count = __get_query(id, **kwargs)
+        content = content.delete(synchronize_session='fetch')
         issues, status = [Issue(IType.INFO, 'DELETE organisms: The organisms were successfully removed.')], 200
     except Exception as e:
         print(e)
@@ -76,25 +76,15 @@ def export(id = None, format = None, output_file = None, **kwargs):
 def __print_gbk(id=None, **kwargs):
     from biobarcoding.services import conn_chado
     conn = conn_chado()
-    for org in __get_query(id, **kwargs).all():
+    for org in __get_query(id, **kwargs)[0].all():
         conn.export.export_gbk(org['organism_id'])
 
 
-def __get_query(id=None, **kwargs):
-    query = chado_session.query(Organism)
-    global count
-    count = 0
-    if id:
-        query = query.filter(Organism.organism_id==id)
-    else:
-        if 'filter' in kwargs:
-            query = query.filter(filter_parse(Organism, kwargs.get('filter'), __aux_own_filter))
-        if 'order' in kwargs:
-            query = __get_query_ordered(query, kwargs.get('order'))
-        if 'pagination' in kwargs:
-            count = query.count()
-            query = paginator(query, kwargs.get('pagination'))
-    return query
+def __get_query(organism_id=None, **kwargs):
+    if organism_id:
+        query = chado_session.query(Organism).filter(Organism.organism_id == organism_id)
+        return query, query.count()
+    return get_query(chado_session, Organism, aux_filter=__aux_own_filter, aux_order=__aux_own_order, **kwargs)
 
 
 def __aux_own_filter(filter):
@@ -137,6 +127,6 @@ def __aux_own_filter(filter):
     return clause
 
 
-def __get_query_ordered(query, order):
+def __aux_own_order(order):
     # query = query.order(order_parse(Organism, kwargs.get('order'), __aux_own_order))
-    return query
+    return []

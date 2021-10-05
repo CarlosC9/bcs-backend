@@ -1,4 +1,13 @@
 #!/bin/bash
+
+# NOTE 1
+# In case of needing connection to Balder, be sure to be at ITC or connected to ITC's VPN
+#
+# NOTE 2
+# If Docker containers do not respond after a laptop suspend (workaround):
+# sudo systemctl restart NetworkManager docker.service
+#
+
 # REDIS
 if [ ! "$(docker ps -q -f name=redis)" ] ; then
   echo Starting REDIS
@@ -20,27 +29,40 @@ function init_chado {
   ./init.sh
 }
 
-
 if [ "$(whoami)" == "rnebot" ] && [ "$#" -gt 0 ] ; then
   export ENDPOINT_URL="http://localhost:5000"
   export COOKIES_FILE_PATH="/home/rnebot/Downloads/borrame/bcs-cookies.txt"
-elif [ "$(whoami)" == "acurbelo" ] ; then
-  echo "TODO: INICIALIZAR VARIABLES DE ENTORNO!"
-elif [ "$(whoami)" == "paula" ] ; then
-  export ENDPOINT_URL="http://localhost:5000"
-  export COOKIES_FILE_PATH="/home/paula/Documentos/NEXTGENDEM/curl/bcs-cookies.txt"
-elif [ "$(whoami)" == "daniel" ] ; then
-  export ENDPOINT_URL="http://localhost:5000"
-  export COOKIES_FILE_PATH="/home/daniel/Documentos/Projects/curl/bcs-cookies.txt"
 fi
 
+
+# NOTE 1
+# Remove PostgreSQL, PostGIS, Geoserver:
+# sudo rm /home/rnebot/DATOS/pg_devel -fr
+# sudo rm /home/rnebot/DATOS/geoserver/pg -fr
+# sudo rm /home/rnebot/DATOS/geoserver/geoserver/ -fr
+#
+
+# NOTE 2
+# Before executing Geoserver "docker run" (below in the file), create data directory, for instance "/home/rnebot/DATOS/geoserver/geoserver"
+# and assign user 1000 as owner:
+#
+# mkdir /home/rnebot/DATOS/geoserver/geoserver
+# chown 1000 /home/rnebot/DATOS/geoserver/geoserver
+
 # PostgreSQL
-if [ ! "$(docker ps -q -f name=postgres_devel)" ] ; then
+postgres_started="yes"
+if [ "$(whoami)" == "rnebot2" ] && [ "$#" -gt 0 ] ; then
+  postgres_started=$(ssh rnebot@balder docker ps -q -f name=postgres_devel_rnebot)
+else
+  postgres_started=$(docker ps -q -f name=postgres_devel)
+fi
+
+if [ ! "$postgres_started" ] ; then
   echo Starting PostgreSQL-Chado
   if [ "$(whoami)" == "rnebot" ] ; then
+#    ssh rnebot@balder docker run --name postgres_devel_rnebot -d -p 8132:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v /home/rnebot/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
     docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v /home/rnebot/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
     init_chado "$(dirname $0)"
-#    docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -v /home/rnebot/DATOS/pg_devel:/var/lib/postgresql/data postgres
   elif [ "$(whoami)" == "acurbelo" ] ; then
     docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v /var/lib/nextgendem/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
     init_chado "$(dirname $0)"
@@ -50,9 +72,9 @@ if [ ! "$(docker ps -q -f name=postgres_devel)" ] ; then
     docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v /home/daniel/Documentos/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
     init_chado "$(dirname $0)"
   fi
+
 fi
 
-# Galaxy
 # api key = fakekey; user = admin; password = password
 galaxy_started="yes"
 if [ "$(whoami)" == "rnebot" ] && [ "$#" -gt 0 ] ; then
@@ -73,7 +95,7 @@ if [ ! "$galaxy_started" ] ; then
     ssh rnebot@balder docker run --name galaxy_devel_rnebot -d -p 8180:80 -p 8121:21 -p 8122:22 --rm -v /home/rnebot/DATOS/galaxy_storage/:/export  bgruening/galaxy-stable
   elif [ "$(whoami)" == "acurbelo" ] ; then
 #    ssh acurbelo@balder docker run --name galaxy_devel_acurbelo -d -p 8280:80 -p 8221:21 -p 8222:22 --rm -v /var/lib/nextgendem/galaxy_storage/:/export  bgruening/galaxy-stable
-    docker run --name galaxy_devel -d -p 8280:80 -p 8221:21 -p 8222:22 --rm -v /var/lib/nextgendem/galaxy_storage/:/export  bgruening/galaxy-stable:20.05
+    docker run --name galaxy_devel -d -p 8080:80 -p 8021:21 -p 8022:22 --rm -v /var/lib/nextgendem/galaxy_storage/:/export  bgruening/galaxy-stable:20.05
   elif [ "$(whoami)" == "paula" ] ; then
     docker run --name galaxy_devel -d -p 8080:80 -p 8021:21 -p 8022:22 --rm -v /home/paula/galaxy_storage/:/export  bgruening/galaxy-stable
   elif [ "$(whoami)" == "daniel" ] ; then
@@ -158,16 +180,21 @@ if [ "$(whoami)" == "rnebot" ] && [ "$#" -gt 0 ] ; then
     geoserver_started=$(docker ps -q -f name=geoserver)
 fi
 
+
+# IMPORTANT: the REST endpoint of GeoServer does not work properly (authenticates but does not authorize).
+# To disable authorization, move the filter directory
+# /home/rnebot/DATOS/geoserver/geoserver/security/filter/restInterceptor to another directory (for instance to
+# /home/rnebot/DATOS/geoserver/geoserver/security/restInterceptor.configs)
 if [ ! $geoserver_started ] ; then
   echo Starting Geoserver
   if [ "$(whoami)" == "rnebot" ] ; then
-    docker run --name "geoserver"   --link postgis:postgis  -p 9180:8080 --rm -v /home/rnebot/DATOS/geoserver/geoserver/:/opt/geoserver/data_dir  -d  -e DB_BACKEND=POSTGRES  -e HOST=postgis  -e POSTGRES_PORT=5432  -e POSTGRES_DB=geoserver  -e POSTGRES_USER=postgres  -e POSTGRES_PASS=postgres  -e USERNAME=postgres  -e PASS=postgres  -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37   -e GEOSERVER_ADMIN_USER=ngd_admin  kartoza/geoserver:2.19.0
+    docker run --name "geoserver"   --link postgis:postgis  -p 9180:8080 --rm -v /home/rnebot/DATOS/geoserver/geoserver/:/opt/geoserver/data_dir  -d  -e DB_BACKEND=POSTGRES  -e HOST=postgis  -e POSTGRES_PORT=5432  -e POSTGRES_DB=geoserver  -e POSTGRES_USER=postgres  -e POSTGRES_PASS=postgres  -e USERNAME=postgres  -e PASS=postgres  -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37   -e GEOSERVER_ADMIN_USER=admin  kartoza/geoserver:2.19.0
   elif [ "$(whoami)" == "acurbelo" ] ; then
-    docker run --name "geoserver"  --link postgis:postgis  -p 9280:8080 --rm -v /var/lib/nextgendem/geoserver/geoserver:/opt/geoserver/data_dir  -d  -e DB_BACKEND=POSTGRES  -e HOST=postgis  -e POSTGRES_PORT=5432  -e POSTGRES_DB=geoserver  -e POSTGRES_USER=postgres  -e POSTGRES_PASS=postgres  -e USERNAME=postgres  -e PASS=postgres  -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37   -e GEOSERVER_ADMIN_USER=ngd_admin  kartoza/geoserver:2.19.0
+    docker run --name "geoserver"  --link postgis:postgis  -p 9180:8080 --rm -v /var/lib/nextgendem/geoserver/geoserver:/opt/geoserver/data_dir  -d  -e DB_BACKEND=POSTGRES  -e HOST=postgis  -e POSTGRES_PORT=5432  -e POSTGRES_DB=geoserver  -e POSTGRES_USER=postgres  -e POSTGRES_PASS=postgres  -e USERNAME=postgres  -e PASS=postgres  -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37   -e GEOSERVER_ADMIN_USER=admin  kartoza/geoserver:2.19.0
   elif [ "$(whoami)" == "paula" ] ; then
-    docker run --name "geoserver"  --link postgis:postgis  -p 9180:8080 --rm -v /home/paula/DATOS/geoserver/geoserver:/opt/geoserver/data_dir  -d  -e DB_BACKEND=POSTGRES  -e HOST=postgis  -e POSTGRES_PORT=5432  -e POSTGRES_DB=ngd_eoserver  -e POSTGRES_USER=postgres  -e POSTGRES_PASS=postgres  -e USERNAME=postgres  -e PASS=postgres  -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37   -e GEOSERVER_ADMIN_USER=ngd_admin  kartoza/geoserver:2.19.0
+    docker run --name "geoserver"  --link postgis:postgis  -p 9180:8080 --rm -v /home/paula/DATOS/geoserver/geoserver:/opt/geoserver/data_dir  -d  -e DB_BACKEND=POSTGRES  -e HOST=postgis  -e POSTGRES_PORT=5432  -e POSTGRES_DB=ngd_eoserver  -e POSTGRES_USER=postgres  -e POSTGRES_PASS=postgres  -e USERNAME=postgres  -e PASS=postgres  -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37   -e GEOSERVER_ADMIN_USER=admin  kartoza/geoserver:2.19.0
   elif [ "$(whoami)" == "daniel" ] ; then
-    docker run --name "geoserver"  --link postgis:postgis  -p 9180:8080 --rm -v /home/daniel/Documentos/DATOS/geoserver/geoserver:/opt/geoserver/data_dir  -d  -e DB_BACKEND=POSTGRES  -e HOST=postgis  -e POSTGRES_PORT=5432  -e POSTGRES_DB=geoserver  -e POSTGRES_USER=postgres  -e POSTGRES_PASS=postgres  -e USERNAME=postgres  -e PASS=postgres  -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37   -e GEOSERVER_ADMIN_USER=ngd_admin  kartoza/geoserver:2.19.0
+    docker run --name "geoserver"  --link postgis:postgis  -p 9180:8080 --rm -v /home/daniel/Documentos/DATOS/geoserver/geoserver:/opt/geoserver/data_dir  -d  -e DB_BACKEND=POSTGRES  -e HOST=postgis  -e POSTGRES_PORT=5432  -e POSTGRES_DB=geoserver  -e POSTGRES_USER=postgres  -e POSTGRES_PASS=postgres  -e USERNAME=postgres  -e PASS=postgres  -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37   -e GEOSERVER_ADMIN_USER=admin  kartoza/geoserver:2.19.0
   fi
 fi
 

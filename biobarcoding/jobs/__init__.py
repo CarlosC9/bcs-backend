@@ -1,10 +1,10 @@
+import abc
 import os
 from abc import ABC
-import abc
 from typing import Dict
 
-from biobarcoding.rest.file_manager import FilesAPI
-from biobarcoding.tasks import celery_app
+from ..tasks import celery_app
+from .. import get_global_configuration_variable
 
 
 class JobManagementAPI:
@@ -42,8 +42,6 @@ class JobManagementAPI:
 
 
 class JobExecutorAtResource(ABC):
-    # TODO acordar el path con Rafa
-    LOCAL_WORKSPACE = os.sep + "tmp"# TODO leer desde config file
     LOG_FILENAMES_DICT = {
         "prepare_stdout": "bcs.prepare.stdout.log",
         "prepare_stderr": "bcs.prepare.stderr.log",
@@ -62,8 +60,11 @@ class JobExecutorAtResource(ABC):
         "universal_log": "bcs.stdout.log",
     }
 
-    def __init__(self, job_id):
-        self.local_workspace = os.path.join(self.LOCAL_WORKSPACE, job_id)
+    def __init__(self, identity_job_id):
+        self.local_workspace = get_global_configuration_variable("JOBS_LOCAL_WORKSPACE")
+        if not os.path.exists(self.local_workspace):
+            os.mkdir(self.local_workspace)
+        self.local_workspace = os.path.join(self.local_workspace, identity_job_id)
         if not os.path.exists(self.local_workspace):
             os.mkdir(self.local_workspace)
         self.log_filenames_dict = {}
@@ -89,15 +90,15 @@ class JobExecutorAtResource(ABC):
 
     # JOB EXECUTION
     @abc.abstractmethod
-    def create_job_workspace(self, name):
+    def create_job_workspace(self):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def job_workspace_exists(self, job_id):
+    def job_workspace_exists(self):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def remove_job_workspace(self, name):  # After Job is completed (or if Job was not started)
+    def remove_job_workspace(self):  # After Job is completed (or if Job was not started)
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -132,12 +133,11 @@ class JobExecutorAtResource(ABC):
     def get_download_files_list(self, job_context):
         raise NotImplementedError
 
-    def local_job_status(self, job_id, pid):
+    def local_job_status(self, pid):
         exit_status = "none"
         if pid:
-            job_workspace = os.path.join(self.LOCAL_WORKSPACE, str(job_id))
-            if os.path.exists(f"{job_workspace}/{pid}.exit_status"):
-                with open(f"{job_workspace}/{pid}.exit_status", "r") as f:
+            if os.path.exists(f"{self.local_workspace}/{pid}.exit_status"):
+                with open(f"{self.local_workspace}/{pid}.exit_status", "r") as f:
                     exit_status = f.readline().strip()
                     if exit_status.strip() == "0":
                         exit_status = "ok"
@@ -158,21 +158,23 @@ class JobExecutorAtResourceFactory:
         job_executor_name = job_context["resource"].get("jm_type")
         resource_param = job_context["resource"]
         k = (job_executor_name, resource_param["name"])
-        job_id = job_context.get("job_id")
         if k not in self.execs:
-            self.execs[k] = JobExecutorAtResourceFactory._create(job_executor_name, resource_param, job_id=job_id)
+            self.execs[k] = JobExecutorAtResourceFactory._create(job_executor_name,
+                                                                 resource_param,
+                                                                 job_id=job_context.get("job_id"),
+                                                                 identity_id=job_context.get("identity_id"))
         return self.execs[k]
 
     @staticmethod
     def _create(job_executor_name: str, resource_param: Dict, **kwargs):
         if job_executor_name.lower() == "galaxy":
             from biobarcoding.jobs.galaxy_resource import JobExecutorAtGalaxy
-            tmp = JobExecutorAtGalaxy(str(kwargs["job_id"]))
+            tmp = JobExecutorAtGalaxy(str(kwargs["job_id"]) + "_" + str(kwargs["identity_id"]))
             tmp.set_resource(resource_param)
             return tmp
         elif job_executor_name.lower() == "ssh":
             from biobarcoding.jobs.ssh_resource import JobExecutorWithSSH
-            tmp = JobExecutorWithSSH(str(kwargs["job_id"]))
+            tmp = JobExecutorWithSSH(str(kwargs["job_id"]) + "_" + str(kwargs["identity_id"]))
             tmp.set_resource(resource_param)
             tmp.connect()
             return tmp

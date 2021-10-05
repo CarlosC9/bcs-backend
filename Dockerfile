@@ -72,7 +72,6 @@ RUN apt-get update && \
     libdbi-perl \
     libgo-perl \
     libv-perl \
-    libpq-dev \
     cpanminus \
     libparse-recdescent-perl \
     bioperl \
@@ -142,7 +141,7 @@ COPY docker_init /app/docker_init
 #docker run --network bcs-net --name redis --rm -d -p 6379:6379 redis
 #docker run --network bcs-net --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v /home/daniel/Documentos/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
 #docker run --network bcs-net --name postgis -d -p 5435:5432 --rm -e POSTGRES_PASSWORD=postgres -e POSTGRES_DBNAME=ngd_geoserver -e POSTGRES_PASS=postgres -e POSTGRES_USER=postgres -e ALLOW_IP_RANGE=0.0.0.0/0  -v /home/daniel/Documentos/DATOS/geoserver/pg:/var/lib/postgresql kartoza/postgis:13.0
-#docker run --network bcs-net --name geoserver -d -p 9180:8080 --rm -e DB_BACKEND=POSTGRES  -e HOST=postgis  -e POSTGRES_PORT=5432  -e POSTGRES_DB=geoserver  -e POSTGRES_USER=postgres  -e POSTGRES_PASS=postgres -e USERNAME=postgres  -e PASS=postgres  -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37  -e GEOSERVER_ADMIN_USER=ngd_admin -v /home/daniel/Documentos/DATOS/geoserver/geoserver:/opt/geoserver/data_dir kartoza/geoserver:2.19.0
+#docker run --network bcs-net --name geoserver -d -p 9180:8080 --rm -e DB_BACKEND=POSTGRES  -e HOST=postgis  -e POSTGRES_PORT=5432  -e POSTGRES_DB=geoserver  -e POSTGRES_USER=postgres  -e POSTGRES_PASS=postgres -e USERNAME=postgres  -e PASS=postgres  -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37  -e GEOSERVER_ADMIN_USER=admin -v /home/daniel/Documentos/DATOS/geoserver/geoserver:/opt/geoserver/data_dir kartoza/geoserver:2.19.0
 #docker build -t nextgendem-mac/ngd-bcs-backend .
 #docker create --network bcs-net --name bcs-local -p 5000:80 -e BCS_CONFIG_FILE="bcs_docker_local.conf" nextgendem-mac/ngd-bcs-backend:latest
 #docker cp bcs_docker_config.conf bcs-local:/app/biobarcoding/rest/bcs_docker_local.conf #TODO ESTE SERÍA EL DOCUMENTO bcs_docker_local.conf del proyecto?

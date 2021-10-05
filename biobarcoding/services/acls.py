@@ -1,9 +1,8 @@
-from biobarcoding.db_models import DBSession, ObjectType
-from biobarcoding.db_models.bioinformatics import BioinformaticObject
-from biobarcoding.db_models.sysadmin import ACL, ACLDetail, PermissionType
-from biobarcoding.rest import Issue, IType
-from biobarcoding.rest import get_query
-from biobarcoding.services import get_simple_query, orm2json
+from ..db_models import DBSession, ObjectType
+from ..db_models.bioinformatics import BioinformaticObject
+from ..db_models.sysadmin import ACL, ACLDetail, PermissionType
+from ..rest import Issue, IType
+from . import orm2json, get_simple_query, get_query
 
 
 def create_acls(**kwargs):
@@ -12,14 +11,14 @@ def create_acls(**kwargs):
         if kwargs.get('object_uuid'):
             if not kwargs.get('object_type'):
                 # TODO: what for the non-bos ?
-                kwargs['object_type'] = DBSession.query(BioinformaticObject.bo_type_id)\
-                    .filter(BioinformaticObject.uuid==kwargs.get('object_uuid')).first()
+                kwargs['object_type'] = DBSession.query(BioinformaticObject.bo_type_id) \
+                    .filter(BioinformaticObject.uuid == kwargs.get('object_uuid')).first()
         elif kwargs.get('object_type'):
             if not kwargs.get('chado_id'):
                 raise Exception('Missing the chado_id')
-            kwargs['object_uuid'] = DBSession.query(BioinformaticObject)\
-                .filter(BioinformaticObject.chado_id==kwargs.pop('chado_id'),
-                        BioinformaticObject.bo_type_id==kwargs.get('object_type')).one().uuid
+            kwargs['object_uuid'] = DBSession.query(BioinformaticObject) \
+                .filter(BioinformaticObject.chado_id == kwargs.pop('chado_id'),
+                        BioinformaticObject.bo_type_id == kwargs.get('object_type')).one().uuid
         else:
             raise Exception('Missing the object_uuid or the chado_id with object_type')
         details = kwargs.pop('details') if 'details' in kwargs else None
@@ -29,7 +28,7 @@ def create_acls(**kwargs):
         if isinstance(details, (list, tuple)):
             for d in details:
                 DBSession.add(ACLDetail(acl_id=acl.id, **d))
-        issues, status = [Issue(IType.INFO, f'CREATE acls: The acl created successfully.')], 201
+        issues, status = [Issue(IType.INFO, f'CREATE acls: The acl was created successfully.')], 201
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, f'CREATE acls: The acl could not be created.')], 409
@@ -44,9 +43,9 @@ def read_acls(id=None, uuid=None, **kwargs):
         if qparams.get('chado_id') and not id and not uuid and not qparams.get('object_uuid'):
             if not qparams.get('object_type'):
                 raise Exception('Missing the object_type')
-            qparams['object_uuid'] = DBSession.query(BioinformaticObject)\
-                .filter(BioinformaticObject.chado_id==qparams.pop('chado_id'),
-                        BioinformaticObject.bo_type_id==qparams.get('object_type')).one().uuid
+            qparams['object_uuid'] = DBSession.query(BioinformaticObject) \
+                .filter(BioinformaticObject.chado_id == qparams.pop('chado_id'),
+                        BioinformaticObject.bo_type_id == qparams.get('object_type')).one().uuid
         content, count = get_query(DBSession, ACL, id=id, uuid=uuid, **kwargs)
 
         if id or uuid or qparams.get('object_uuid'):
@@ -77,13 +76,13 @@ def update_acls(id=None, uuid=None, **kwargs):
         content = content.one()
         if isinstance(details, (list, tuple)):
             # Removing missing details
-            DBSession.query(ACLDetail).filter(ACLDetail.acl_id==content.id)\
-                .filter(ACLDetail.id.notin_([d.get('id') for d in details if d.get('id')]))\
+            DBSession.query(ACLDetail).filter(ACLDetail.acl_id == content.id) \
+                .filter(ACLDetail.id.notin_([d.get('id') for d in details if d.get('id')])) \
                 .delete(synchronize_session='fetch')
             for d in details:
                 if 'id' in d:
                     # Updating existing details
-                    DBSession.query(ACLDetail).filter(ACLDetail.id==d.get('id')).update(d)
+                    DBSession.query(ACLDetail).filter(ACLDetail.id == d.get('id')).update(d)
                 else:
                     # Adding new details
                     DBSession.add(ACLDetail(acl_id=content.id, **d))
@@ -97,7 +96,8 @@ def update_acls(id=None, uuid=None, **kwargs):
 def delete_acls(id=None, uuid=None, **kwargs):
     content = 0
     try:
-        content = get_query(DBSession, ACL, id=id, uuid=uuid, **kwargs)[0].delete(synchronize_session='fetch')
+        content, count = get_query(DBSession, ACL, id=id, uuid=uuid, **kwargs)
+        content = content.delete(synchronize_session='fetch')
         issues, status = [Issue(IType.INFO, f'DELETE acls({id}): The acls were successfully deleted.')], 200
     except Exception as e:
         print(e)
@@ -114,11 +114,11 @@ def read_obj_types(id=None, uuid=None, **kwargs):
     content, count = None, 0
     try:
         content, count = get_query(DBSession, ObjectType, id=id, uuid=uuid, **kwargs)
-        if id or uuid or content.count()==1:
+        if id or uuid or content.count() == 1:
             content = orm2json(content.first())
             from biobarcoding.db_models.sysadmin import ObjectTypePermissionType
-            perms = DBSession.query(PermissionType).join(ObjectTypePermissionType)\
-                .filter(ObjectTypePermissionType.object_type_id==content.get('id'))
+            perms = DBSession.query(PermissionType).join(ObjectTypePermissionType) \
+                .filter(ObjectTypePermissionType.object_type_id == content.get('id'))
             content['permission_types'] = perms.all()
             content = [content] if not id and not uuid else content
         else:

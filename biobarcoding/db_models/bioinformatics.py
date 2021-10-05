@@ -1,9 +1,10 @@
 # BIOINFORMATIC data
-from sqlalchemy import Column, Integer, ForeignKey, UnicodeText, Unicode, String, BigInteger
+import uuid
+
+from sqlalchemy import Column, Integer, ForeignKey, UnicodeText, String, BigInteger, UniqueConstraint
 from sqlalchemy.orm import relationship
 
-from biobarcoding.db_models import ORMBase, GUID, ObjectType
-import uuid
+from . import ORMBase, GUID, ObjectType
 
 prefix = "bo_"
 
@@ -23,11 +24,14 @@ class BioinformaticObject(ORMBase):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     uuid = Column(GUID, unique=True, default=uuid.uuid4)
     bo_type_id = Column(Integer, ForeignKey(ObjectType.id))
-    chado_id = Column(BigInteger, unique=True, nullable=False, primary_key=False)  # Foreign key (not enforceable by the DB)
+    chado_id = Column(BigInteger, nullable=False)  # Foreign key (not enforceable by the DB)
     chado_table = Column(String(80))
     name = Column(String(80))
     # content = Column(UnicodeText)
 
+    __table_args__ = (
+        UniqueConstraint(chado_id, chado_table, name=__tablename__ + '_c1'),
+    )
     __mapper_args__ = {
         'polymorphic_identity': 'bioinformatic_obj',
         'polymorphic_on': bo_type_id

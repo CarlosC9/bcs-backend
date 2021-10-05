@@ -1,26 +1,52 @@
-from biobarcoding.db_models import DBSessionChado as chado_session
-from biobarcoding.db_models.chado import Analysis
-from biobarcoding.rest import Issue, IType, filter_parse, paginator
+from . import get_or_create, get_query, get_orm_params
+from ..db_models import DBSessionChado as chado_session
+from ..db_models.chado import Analysis, AnalysisCvterm
+from ..rest import Issue, IType, filter_parse
+
+
+##
+# CREATE
+##
+
+def __check_ansis_values(**values):
+    if values.get('job_id'):
+        values['sourcename'], values['sourceversion'], values['sourceuri'] = values.get('job_id'), 'job', f'/jobs/{values.get("job_id")}'
+    if not (values.get('program') or values.get('programversion') or values.get('sourcename')):
+        raise Exception('Missing required params ("program", "programversion", "sourcename").')
+    if not values.get('program'):
+        values['program'] = 'unknown'
+    if not values.get('programversion'):
+        values['programversion'] = 'unknown'
+    if not values.get('name'):
+        values['name'] = f"{values['program']} {values['programversion']}"
+    if not values.get('sourcename'):
+        values['sourcename'] = 'unknown'
+    return get_orm_params(Analysis, **values)
 
 
 def create(**kwargs):
     content = None
     try:
-        if not kwargs.get('name'):
-            kwargs['name']= f"{kwargs['program']} {kwargs['programversion']}"
-        chado_session.add(Analysis(**kwargs))
-        issues, status = [Issue(IType.INFO, f'CREATE analyses: The analysis "{kwargs.get("program")} {kwargs.get("programversion")}" created successfully.')], 201
+        values = __check_ansis_values(**kwargs)
+        content = Analysis(**values)
+        chado_session.add(content)
+        issues, status = [Issue(IType.INFO,
+                                f'CREATE analyses: The analysis "{kwargs.get("program")} {kwargs.get("programversion")}" created successfully.')], 201
     except Exception as e:
         print(e)
-        issues, status = [Issue(IType.ERROR, f'CREATE analyses: The analysis "{kwargs.get("program")} {kwargs.get("programversion")}" could not be created.')], 409
+        issues, status = [Issue(IType.ERROR,
+                                f'CREATE analyses: The analysis "{kwargs.get("program")} {kwargs.get("programversion")}" could not be created.')], 409
     return issues, content, status
 
 
-count = 0
+##
+# READ
+##
+
 def read(id=None, **kwargs):
-    content = None
+    content, count = None, 0
     try:
-        content = __get_query(id, **kwargs)
+        content, count = __get_query(id, **kwargs)
         if id:
             content = content.first()
         else:
@@ -32,22 +58,29 @@ def read(id=None, **kwargs):
     return issues, content, count, status
 
 
+##
+# UPDATE
+##
+
 def update(id, **kwargs):
     content = None
     try:
-        content = __get_query(id).first()
-        content.update(kwargs)
-        issues, status = [Issue(IType.INFO, f'UPDATE analyses: The analysis "{id}" updated successfully.')], 201
+        content = __get_query(id)[0].one().update(kwargs)
+        issues, status = [Issue(IType.INFO, f'UPDATE analyses: The analysis "{id}" was successfully updated.')], 200
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, f'UPDATE analyses: The analysis "{id}" could not be updated.')], 409
     return issues, content, status
 
 
+##
+# DELETE
+##
+
 def delete(id=None, **kwargs):
     content = None
     try:
-        query = __get_query(id, **kwargs)
+        query, count = __get_query(id, **kwargs)
         # from biobarcoding.services.sequences import delete as delete_sequences
         # _ids = [msa.analysis_id for msa in query.all()]
         # delete_sequences(filter={'analysis_id':{'op':'in','analysis_id':_ids}})
@@ -60,38 +93,44 @@ def delete(id=None, **kwargs):
     return issues, content, status
 
 
-def __get_query(id=None, **kwargs):
-    query = chado_session.query(Analysis)
-    global count
-    count = 0
-    if id:
-        query = query.filter(Analysis.analysis_id == id)
-    else:
-        if 'filter' in kwargs:
-            query = query.filter(filter_parse(Analysis, kwargs.get('filter'), __aux_own_filter))
-        if 'order' in kwargs:
-            query = __get_query_ordered(query, kwargs.get('order'))
-        if 'pagination' in kwargs:
-            count = query.count()
-            query = paginator(query, kwargs.get('pagination'))
-    return query
+##
+# GETTER AND OTHERS
+##
+
+def __get_query(analysis_id=None, **kwargs):
+    if analysis_id:
+        query = chado_session.query(Analysis).filter(Analysis.analysis_id == analysis_id)
+        return query, query.count()
+    if kwargs.get('job_id'):
+        # TODO: will there be multiple analyzes for a single job ?
+        query = chado_session.query(Analysis).filter(Analysis.sourcename == str(kwargs.get('job_id')),
+                                                     Analysis.sourceversion == 'job')
+        return query, query.count()
+    return get_query(chado_session, Analysis, aux_filter=__aux_ansis_filter, aux_order=__aux_ansis_order, **kwargs)
 
 
-def __aux_own_filter(filter):
+def __aux_ansis_filter(filter):
     clause = []
+
+    if filter.get('job_id'):
+        from biobarcoding.db_models.chado import Analysis
+        _ids = chado_session.query(Analysis.analysis_id) \
+            .filter(filter_parse(Analysis, {'sourcename': filter.get('job_id'),
+                                            'sourceversion': {'op': 'eq', 'unary': 'job'}}))
+        clause.append(Analysis.analysis_id.in_(_ids))
 
     if filter.get('feature_id'):
         from biobarcoding.db_models.chado import AnalysisFeature
-        _ids = chado_session.query(AnalysisFeature.analysis_id)\
+        _ids = chado_session.query(AnalysisFeature.analysis_id) \
             .filter(filter_parse(AnalysisFeature, {'feature_id': filter.get('feature_id')}))
         clause.append(Analysis.analysis_id.in_(_ids))
 
     if filter.get('organism_id'):
         from biobarcoding.db_models.chado import Feature
-        _ids = chado_session.query(Feature.feature_id)\
+        _ids = chado_session.query(Feature.feature_id) \
             .filter(filter_parse(Feature, {'organism_id': filter.get('organism_id')}))
         from biobarcoding.db_models.chado import AnalysisFeature
-        _ids = chado_session.query(AnalysisFeature.analysis_id)\
+        _ids = chado_session.query(AnalysisFeature.analysis_id) \
             .filter(AnalysisFeature.feature_id.in_(_ids))
         clause.append(Analysis.analysis_id.in_(_ids))
 
@@ -117,17 +156,17 @@ def __aux_own_filter(filter):
     if "added-from" in filter:
         filter["added-from"]['unary'] = datetime.strptime(filter.get("added-from")['unary'], '%Y-%m-%d')
         _ids = chado_session.query(Analysis.analysis_id) \
-            .filter(filter_parse(Analysis, {'timeexecuted':filter.get("added-from")}))
+            .filter(filter_parse(Analysis, {'timeexecuted': filter.get("added-from")}))
         clause.append(Analysis.analysis_id.in_(_ids))
     if "added-to" in filter:
         filter["added-to"]['unary'] = datetime.strptime(filter.get("added-to")['unary'], '%Y-%m-%d')
         _ids = chado_session.query(Analysis.analysis_id) \
-            .filter(filter_parse(Analysis, {'timeexecuted':filter.get("added-to")}))
+            .filter(filter_parse(Analysis, {'timeexecuted': filter.get("added-to")}))
         clause.append(Analysis.analysis_id.in_(_ids))
 
     return clause
 
 
-def __get_query_ordered(query, order):
-    # query = query.order(order_parse(Analysis, kwargs.get('order'), __aux_own_order))
-    return query
+def __aux_ansis_order(order):
+    clauses = []
+    return clauses

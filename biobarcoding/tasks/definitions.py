@@ -4,8 +4,8 @@ import re
 import subprocess
 from json import JSONDecodeError
 
-from biobarcoding.common.helpers import get_content_type_from_extension
-from biobarcoding.rest import bcs_api_base
+from biobarcoding import get_global_configuration_variable
+from biobarcoding.rest import app_api_base
 from biobarcoding.tasks import celery_app
 from biobarcoding.common.decorators import celery_wf
 from biobarcoding.jobs import JobExecutorAtResourceFactory
@@ -19,14 +19,15 @@ of course they can be debugged "off-line")
 MAX_ATTEMPTS = 3
 CELERY_LOG = ROOT + "/tests/data_test/celery_log.txt"
 
+
 # Send messages
 # Refresh queues of jobs (at different computing resources)
 
 def change_status(tmp, status: str):
-    endpoint_url = os.getenv("ENDPOINT_URL")
-    cookies_file_path = os.getenv("COOKIES_FILE_PATH")
+    endpoint = get_global_configuration_variable("ENDPOINT_URL")
+    cookies_file_path = get_global_configuration_variable("COOKIES_FILE_PATH")
     job_id = tmp["job_id"]
-    url = f"{endpoint_url}{bcs_api_base}/jobs/{job_id}"
+    url = f"{endpoint}{app_api_base}/jobs/{job_id}"
     if tmp["status"] != status:
         api_login()
         status_request = json.dumps(dict(status=status))
@@ -45,19 +46,19 @@ def write_to_file(filename, s):
 
 
 def api_login():
-    endpoint_url = os.getenv("ENDPOINT_URL")
-    cookies_file_path = os.getenv("COOKIES_FILE_PATH")
-    url = f"{endpoint_url}{bcs_api_base}/authn?user=test_user"
+    endpoint = get_global_configuration_variable("ENDPOINT_URL")
+    cookies_file_path = get_global_configuration_variable("COOKIES_FILE_PATH")
+    url = f"{endpoint}{app_api_base}/authn?user=test_user"
     cmd = ["curl", "--cookie-jar", cookies_file_path, "-X", "PUT", url]
     subprocess.run(cmd)
 
 
 def check_file_is_stored_in_backend(filename, job_id):
-    endpoint_url = os.getenv("ENDPOINT_URL")
-    cookies_file_path = os.getenv("COOKIES_FILE_PATH")
+    endpoint = get_global_configuration_variable("ENDPOINT_URL")
+    cookies_file_path = get_global_configuration_variable("COOKIES_FILE_PATH")
     api_login()
     cmd = ["curl", "--cookie-jar", cookies_file_path, "--cookie",
-           cookies_file_path, f"{endpoint_url}{bcs_api_base}/files/jobs/{job_id}/{filename}"]
+           cookies_file_path, f"{endpoint}{app_api_base}/files/jobs/{job_id}/{filename}"]
     proc = subprocess.run(cmd, capture_output=True, text=True)
     try:
         process_return_dict = json.loads(proc.stdout)
@@ -112,6 +113,36 @@ def write_to_universal_log_and_truncate(step_stdout, step_stderr, universal_log)
     with open(universal_log, "a+") as universal_log_file:
         universal_log_file.write(step_log)
 
+def generate_export_cmd(file_dict: dict, tmp_path: str, job_executor):
+    endpoint: str = get_global_configuration_variable("ENDPOINT_URL")
+    cookies_file_path: str = get_global_configuration_variable("COOKIES_FILE_PATH")
+    extension: str = file_dict['type']
+    object_type: dict = file_dict['object_type']
+    selection = file_dict['selection']
+    with_filter = False
+    if type(selection) == dict: #Get with filter
+        selection_json: str = json.dumps(selection)
+        with_filter = True
+    api_login()
+    url = ""
+    if "bos" in object_type.keys():
+        url = f"{endpoint}{app_api_base}/bos/{object_type['bos']}.{extension}"
+    if "geo" in object_type.keys():
+        if object_type['geo'] == "layers":
+            url = f"{endpoint}{app_api_base}/geo/{object_type['geo']}/{selection}.{extension}"
+
+    if with_filter:
+        curl = (f"curl --cookie-jar {cookies_file_path} --cookie {cookies_file_path} -X GET -d \'{selection_json}\' " +
+                f"-H \'Content-Type:application/json\' {url} -o \'{tmp_path}\'")
+        return (f"(nohup bash -c &quot;{curl}&quot; >>{job_executor.log_filenames_dict['export_stdout']} " +
+               f"</dev/null 2>>{job_executor.log_filenames_dict['export_stderr']} & echo $!; wait $!; " +
+               f"echo $? >> {job_executor.local_workspace}/$!.exit_status)")
+    else:
+        curl = f"curl --cookie {cookies_file_path} -X GET {url} -o \'{tmp_path}\'"
+        return (f"(nohup bash -c \"{curl}\" >>{job_executor.log_filenames_dict['export_stdout']} " +
+                f"</dev/null 2>>{job_executor.log_filenames_dict['export_stderr']} & echo $!; wait $!; " +
+                f"echo $? >> {job_executor.local_workspace}/$!.exit_status)")
+
 
 # TODO: Hay que prepararlo para las colecciones y los ficheros que suba el usuario de manera
 # que se puedan concatenar si se refieren al mismo fichero.
@@ -125,19 +156,7 @@ def export(file_dict, job_executor) -> object:
     @return: pid: PID of the executed script process
     """
     tmp_path = os.path.join(job_executor.local_workspace, file_dict["remote_name"])
-    extension = file_dict['type']
-    bos_type = file_dict['bo_type']
-    selection_dict = file_dict['selection']
-    selection_json = json.dumps(selection_dict)
-    endpoint = os.getenv("ENDPOINT_URL")
-    cookies_file_path = os.getenv("COOKIES_FILE_PATH")
-    api_login()
-    url = f"{endpoint}{bcs_api_base}/bos/{bos_type}.{extension}"
-    curl = (f"curl --cookie-jar {cookies_file_path} --cookie {cookies_file_path} -X GET -d \'{selection_json}\' " +
-            f"-H \'Content-Type:application/json\' {url} -o \'{tmp_path}\'")
-    cmd = (f"(nohup bash -c &quot;{curl}&quot; >>{job_executor.log_filenames_dict['export_stdout']} " +
-           f"</dev/null 2>>{job_executor.log_filenames_dict['export_stderr']} & echo $!; wait $!; " +
-           f"echo $? >> {job_executor.local_workspace}/$!.exit_status)")
+    cmd = generate_export_cmd(file_dict, tmp_path, job_executor)
     print(cmd)
     popen_pipe = os.popen(cmd)
     pid = popen_pipe.readline().rstrip()
@@ -145,7 +164,7 @@ def export(file_dict, job_executor) -> object:
     return pid
 
 
-def is_bos_file(input_file):
+def is_file_exported(input_file):
     if os.path.exists(input_file):  # and check that it is not an error file:
         with open(input_file) as file:
             file_content = file.read()
@@ -153,12 +172,11 @@ def is_bos_file(input_file):
         if not re.search(r'\b<!DOCTYPE HTML PUBLIC\b', file_content):
             return True
         else:
-            print(f"print {input_file} is a html file")
+            print(f"{input_file} is a html file")
             return False
     else:
-        print(f"print {input_file} does not exists")
+        print(f"{input_file} does not exists")
         return False
-
 
 
 @celery_app.task
@@ -250,7 +268,8 @@ def wf1_prepare_workspace(job_context):
                                             job_executor.log_filenames_dict["universal_log"])
         job_context = json.dumps(tmp)
         return "error", job_context
-    elif job_executor.job_workspace_exists(str(tmp["job_id"])):
+    elif job_executor.job_workspace_exists() or job_executor.job_workspace_exists() is None:
+        # None when the job is executed in localhost
         write_to_file(job_executor.log_filenames_dict["prepare_stdout"],
                       f"Job {tmp['job_id']} workspace prepared")
         write_to_universal_log_and_truncate(job_executor.log_filenames_dict["prepare_stdout"],
@@ -263,7 +282,7 @@ def wf1_prepare_workspace(job_context):
         write_to_file(job_executor.log_filenames_dict["prepare_stdout"],
                       f"Preparing Job {tmp['job_id']} workspace: Attempt: {n_attempts + 1}")
         tmp["state_dict"] = dict(n_attempts=n_attempts + 1, state="prepare")
-        job_executor.create_job_workspace(str(tmp["job_id"]))
+        job_executor.create_job_workspace()
         job_context = json.dumps(tmp)
         return None, job_context
 
@@ -305,7 +324,7 @@ def wf1_export_to_supported_file_formats(job_context: str):
 
     # Files to transfer
     files = tmp['process']['inputs']['data']
-    file_dict = files[i] if i < len(files) else {"file": "", "remote_name": "", "type": ""}
+    file_dict = files[i] if i < len(files) else {"file": "", "remote_name": "", "type": "", "bo_type": ""}
     print(file_dict)
 
     if i < len(files) and n_attempts >= MAX_ATTEMPTS:
@@ -333,7 +352,7 @@ def wf1_export_to_supported_file_formats(job_context: str):
         tmp["pid"] = None
         job_context = json.dumps(tmp)
         return None, job_context
-    elif is_bos_file(os.path.join(job_executor.local_workspace, file_dict["remote_name"])):
+    elif is_file_exported(os.path.join(job_executor.local_workspace, file_dict["remote_name"])):
         print(f"File {file_dict['remote_name']} transferred -> Moving to next")
         write_to_file(job_executor.log_filenames_dict["export_stdout"],
                       f"File {file_dict['remote_name']} exported -> Moving to next")
@@ -393,6 +412,7 @@ def wf1_transfer_data_to_resource(job_context: str) -> object:
         i = state_dict["idx"]
         n_attempts = state_dict["n_attempts"]
     else:
+        print(tmp)
         write_to_file(job_executor.log_filenames_dict["upload_stdout"],
                       "#" * 20 + " TRANSFER DATA TO SOURCE STEP " + "#" * 20)
         open(job_executor.log_filenames_dict["upload_stderr"], "x")
@@ -578,7 +598,7 @@ def wf1_wait_for_execution_end(job_context: str):
         job_context = json.dumps(tmp)
         return job_context
     elif status == "":
-        job_executor.write_submit_logs()
+        # TODO job_executor.write_submit_logs()
         write_to_file(job_executor.log_filenames_dict["submit_stdout"],
                       "Job execution finished in error.")
         write_to_universal_log_and_truncate(job_executor.log_filenames_dict["submit_stdout"],
@@ -724,6 +744,7 @@ def wf1_store_result_in_backend(job_context: str):
                 {
                     "remote_name": "",
                     "file": log_file,
+                    "content_type": "text/plain",
                     "type": "log"
                 },
             )
@@ -757,17 +778,17 @@ def wf1_store_result_in_backend(job_context: str):
         print(file_dict)
         write_to_file(job_executor.log_filenames_dict["store_stdout"],
                       f"Beginning to store result in backend of file {file_dict['file']}. Attempt: {n_attempts + 1}")
-        cookies_file_path = os.getenv("COOKIES_FILE_PATH")
-        endpoint_url = os.getenv("ENDPOINT_URL")
+        endpoint = get_global_configuration_variable("ENDPOINT_URL")
+        cookies_file_path = get_global_configuration_variable("COOKIES_FILE_PATH")
         local_path = os.path.join(job_executor.local_workspace, file_dict["file"])
-        content_type = f"\"Content-Type: {get_content_type_from_extension(file_dict['type'])}\""
+        print(file_dict)
         api_login()
         curl_cmd = (f"curl -s --cookie-jar {cookies_file_path} --cookie {cookies_file_path} " +
-                    f"-H {content_type} -XPUT --data-binary @\"{local_path}\" " +
-                    f"\"{endpoint_url}{bcs_api_base}/files/jobs/{str(tmp['job_id'])}/{file_dict['file']}.content\"")
+                    f"-H \"Content-Type: {file_dict['content_type']}\" -XPUT --data-binary @\"{local_path}\" " +
+                    f"\"{endpoint}{app_api_base}/files/jobs/{str(tmp['job_id'])}/{file_dict['file']}.content\"")
         cmd = (f"(nohup bash -c \'{curl_cmd} \' >>{job_executor.log_filenames_dict['store_stdout']} " +
                f"</dev/null 2>>{job_executor.log_filenames_dict['store_stderr']} & echo $!; wait $!; " +
-               f"echo $? >> /tmp/{tmp['job_id']}/$!.exit_status)")
+               f"echo $? >> {job_executor.local_workspace}/$!.exit_status)")
         print(cmd)
         popen_pipe = os.popen(cmd)
         pid = popen_pipe.readline().rstrip()
@@ -800,7 +821,7 @@ def wf1_cleanup_workspace(job_context: str):
         n_attempts = state_dict["n_attempts"]
     else:
         n_attempts = 0
-        #TODO: el cleanup no puede tener logs porque va después del store y por lo tanto
+        # TODO: el cleanup no puede tener logs porque va después del store y por lo tanto
         # no se puede guardar
         tmp["state_dict"] = dict(n_attempts=n_attempts)
 
@@ -815,17 +836,17 @@ def wf1_cleanup_workspace(job_context: str):
         error_str = f"It was impossible to prepare the working directory of Job {tmp['job_id']}." + \
                     f"Maybe it could be due to some disk space or credentials issue."
         tmp["error"] = error_str
-        #write_to_file(job_executor.log_filenames_dict["cleanup_stderr"], error_str)
+        # write_to_file(job_executor.log_filenames_dict["cleanup_stderr"], error_str)
         job_context = json.dumps(tmp)
         return "error", job_context
-    elif (not job_executor.job_workspace_exists(str(tmp["job_id"])) and
+    elif (not job_executor.job_workspace_exists() and
           check_exit_status_from_local_workspace_is_cleaned(job_executor.local_workspace, result_files)):
         del tmp["state_dict"]
         write_to_file(CELERY_LOG, f"cleanup:")
         job_context = json.dumps(tmp)
         return job_context
     else:
-        job_executor.remove_job_workspace(str(tmp["job_id"]))
+        job_executor.remove_job_workspace()
         clean_files_not_in_results(job_executor.local_workspace, result_files)
         tmp["state_dict"] = dict(n_attempts=n_attempts + 1)
         job_context = json.dumps(tmp)
@@ -861,7 +882,7 @@ def wf1_completed_error(job_context: str):
     """
     tmp = json.loads(job_context)
     tmp = change_status(tmp, "error")
-    write_to_file(CELERY_LOG, f"error: {tmp['error']}")
+    # TODO write_to_file(CELERY_LOG, f"error: {tmp['error']}")
     previous_state = tmp["state_dict"]["state"]
     if previous_state == "store" or previous_state == "cleanup":
         return job_context

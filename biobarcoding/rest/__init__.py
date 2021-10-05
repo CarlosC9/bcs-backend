@@ -1,37 +1,37 @@
+import json
 import logging
 import os
 import sys
 from enum import Enum
-import json
+from typing import Dict, List
 from urllib.parse import unquote
 
 import redis
 from alchemyjsonschema import SchemaFactory, StructuralWalker
 from attr import attrs, attrib
+from bioblend import galaxy
 from flask import Response, Blueprint, g, request
 from flask.views import MethodView
-from flask_socketio import SocketIO
 from sqlalchemy import orm, and_, or_
 from sqlalchemy.pool import StaticPool
-from typing import Dict, List
 
 import biobarcoding
-from biobarcoding.authentication import bcs_session
-from biobarcoding.common import generate_json
-from biobarcoding.common.helpers import get_module_logger
-from biobarcoding.common.pg_helpers import create_pg_database_engine, load_table, load_many_to_many_table, \
+from ..authentication import n_session
+from ..common import generate_json, ROOT
+from ..common.helpers import get_module_logger
+from ..common.pg_helpers import create_pg_database_engine, load_table, load_many_to_many_table, \
     load_computing_resources, load_processes_in_computing_resources, load_process_input_schema, load_table_extended
-from biobarcoding.db_models import DBSession, DBSessionChado, ORMBaseChado, DBSessionGeo
-from biobarcoding.db_models.sysadmin import *
-from biobarcoding.db_models.geographics import *
-from biobarcoding.db_models.jobs import *
-from biobarcoding.db_models.hierarchies import *
-from biobarcoding.rest.socket_service import SocketService
+from ..db_models import DBSession, DBSessionChado, ORMBaseChado, DBSessionGeo
+from ..db_models.bioinformatics import *
+from ..db_models.geographics import *
+from ..db_models.jobs import *
+from ..db_models.sysadmin import *
+from ..rest.socket_service import SocketService
 
-bcs_api_base = "/api"  # Base for all RESTful calls
-bcs_gui_base = "/gui"  # Base for the Angular2 GUI
-bcs_external_gui_base = "/gui_external"  # Base for the Angular2 GUI when loaded from URL
-bcs_proxy_base = "/pxy"  # Base for the BCS Proxy
+app_api_base = "/api"  # Base for all RESTful calls
+app_gui_base = "/gui"  # Base for the Angular2 GUI
+app_external_gui_base = "/gui_external"  # Base for the Angular2 GUI when loaded from URL
+app_proxy_base = "/pxy"  # Base for the BCS Proxy
 
 logger = get_module_logger(__name__)
 log_level = logging.DEBUG
@@ -112,26 +112,51 @@ def get_default_configuration_dict():
     BROKER_URL = f"redis://{REDIS_HOST}:{REDIS_PORT}/0"
     BACKEND_URL = BROKER_URL
 
-    return dict(CACHE_FILE_LOCATION=f"{cache_path}/cache",
-                REDIS_HOST_FILESYSTEM_DIR=f"{cache_path}/sessions",
-                REDIS_HOST="filesystem:local_session",
-                SAMESITE_NONE="True",
-                TESTING="True",
-                SELF_SCHEMA="",
-                DB_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432/",
-                POSTGIS_CONNECTION_STRING="postgresql://postgres:postgres@172.17.0.1:5435/",
-                CELERY_BROKER_URL=f"{BROKER_URL}",
-                CELERY_BACKEND_URL=f"{BACKEND_URL}",
-                GOOGLE_APPLICATION_CREDENTIALS=f"{data_path}/firebase-key.json",
-                CHADO_DATABASE="postgres",
-                CHADO_HOST="localhost",
-                CHADO_PORT="5432",
-                CHADO_USER="postgres",
-                CHADO_PASSWORD="postgres",
-                CHADO_SCHEMA="public",
-                GALAXY_API_KEY="fakekey",
-                GALAXY_LOCATION="http://localhost:8080"
-                )
+    return dict(
+        # BCS (SYSTEM DB)
+        DB_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432/",
+        # CHADO (MOLECULAR DATA DB)
+        CHADO_DATABASE="postgres",
+        CHADO_HOST="localhost",
+        CHADO_PORT="5432",
+        CHADO_USER="postgres",
+        CHADO_PASSWORD="postgres",
+        CHADO_SCHEMA="public",
+        # CELERY (TASK EXECUTION)
+        CELERY_BROKER_URL=f"{BROKER_URL}",
+        CELERY_BACKEND_URL=f"{BACKEND_URL}",
+        REDIS_HOST="filesystem:local_session",
+        REDIS_HOST_FILESYSTEM_DIR=f"{cache_path}/sessions",
+        # GEOSERVER address from BCS-Backend
+        GEOSERVER_URL="localhost:9180",
+        # GEO (GEOSPATIAL DATA)
+        GEOSERVER_USER="admin",
+        GEOSERVER_PASSWORD="ngd_ad37",
+        GEOSERVER_HOST="geoserver",
+        GEOSERVER_PORT="8080",
+        # PostGIS address from BCS-Backend
+        POSTGIS_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5435/",
+        # PostGIS address from Geoserver ("host", "port" could differ from those in POSTGIS_CONNECTION_STRING)
+        POSTGIS_USER="postgres",
+        POSTGIS_PASSWORD="postgres",
+        POSTGIS_PORT="5432",
+        POSTGIS_HOST="localhost",
+        POSTGIS_DB="ngd_geoserver",
+        # COMPUTE RESOURCES
+        RESOURCES_CONFIG_FILE_PATH="/home/resources_config.json",
+        JOBS_LOCAL_WORKSPACE=os.path.expanduser('~/ngd_jobs'),
+        SSH_JOBS_DEFAULT_REMOTE_WORKSPACE="/tmp",
+        GALAXY_API_KEY="fakekey",
+        GALAXY_LOCATION="http://localhost:8080",
+        # MISC
+        GOOGLE_APPLICATION_CREDENTIALS=f"{data_path}/firebase-key.json",  # Firebase
+        ENDPOINT_URL="http://localhost:5000",  # Self "bcs-backend" address (so Celery can update things)
+        COOKIES_FILE_PATH="/tmp/bcs-cookies.txt",  # Where cookies are stored by Celery
+        CACHE_FILE_LOCATION=f"{cache_path}/cache",  # Cached things
+        SAMESITE_NONE="True",
+        TESTING="True",
+        SELF_SCHEMA="",
+    )
 
 
 def prepare_default_configuration(create_directories):
@@ -156,29 +181,46 @@ def prepare_default_configuration(create_directories):
            data_path + os.sep + "bcs_local.conf"
 
 
+def complete_configuration_file(file_name):
+    default_cfg = get_default_configuration_dict()
+    default_cfg_keys = list(default_cfg.keys())
+    with open(file_name, 'r+') as file:
+        constants = file.read().splitlines()
+        for const in constants:
+            if const and not const.strip().startswith('#'):
+                key, _ = const.split("=")
+                if key.strip() in default_cfg_keys:
+                    default_cfg_keys.remove(key.strip())
+                else:
+                    print(f"WARNING: {key.strip()} is not in the default config")
+        for key in default_cfg_keys:
+            print(f"{key} inserted to {file_name} with value {default_cfg[key]}")
+            file.write(f'\n{key}="{default_cfg[key]}"')
+
+
 def load_configuration_file(flask_app):
     # Initialize configuration
     try:
         _, file_name = prepare_default_configuration(False)
         if not os.environ.get(biobarcoding.config_file_var):
-            found = False
             logger.debug(f"Trying {file_name}")
-            for f in [file_name]:
-                if os.path.isfile(f):
-                    print(f"Assuming {f} as configuration file")
-                    logger.debug(f"Assuming {f} as configuration file")
-                    found = True
-                    os.environ[biobarcoding.config_file_var] = f
-                    break
-                else:
-                    logger.debug(f"Creating {f} as configuration file")
+            if os.path.isfile(file_name):
+                print(f"Assuming {file_name} as configuration file")
+                logger.debug(f"Assuming {file_name} as configuration file")
+                found = True
+                complete_configuration_file(file_name)
+                os.environ[biobarcoding.config_file_var] = file_name
+            else:
+                found = False
+                logger.debug(f"Creating {file_name} as configuration file")
             if not found:
                 cfg, file_name = prepare_default_configuration(True)
                 print(f"Generating {file_name} as configuration file:\n{cfg}")
                 with open(file_name, "wt") as f:
                     f.write(cfg)
                 os.environ[biobarcoding.config_file_var] = file_name
-
+        else:
+            complete_configuration_file(os.environ.get(biobarcoding.config_file_var))
         print("-----------------------------------------------")
         print(f'Configuration file at: {os.environ[biobarcoding.config_file_var]}')
         print("-----------------------------------------------")
@@ -238,6 +280,97 @@ def construct_session_persistence_backend(flask_app):
     return d
 
 
+# GALAXY INIZIALIZATION
+def install_galaxy_tools(gi, tools):
+    '''
+    tool_shed_url, name, owner,
+    changeset_revision,
+    install_tool_dependencies = False,
+    install_repository_dependencies = False,
+    install_resolver_dependencies = False,
+    tool_panel_section_id = None,
+    new_tool_panel_section_label = Non
+    '''
+    if isinstance(tools, list):
+        for tool in tools:
+            tool_shed_url = 'https://' + tool['tool_shed']
+            gi.toolshed.install_repository_revision(tool_shed_url=tool_shed_url,
+                                                    name=tool['name'],
+                                                    owner=tool['owner'],
+                                                    changeset_revision=tool['changeset_revision'],
+                                                    install_tool_dependencies=True,
+                                                    install_repository_dependencies=True,
+                                                    install_resolver_dependencies=True,
+                                                    new_tool_panel_section_label='New'
+                                                    )
+
+
+def check_galaxy_tools(wf1_dic, wf2_dic):
+    steps1 = wf1_dic['steps']
+    steps2 = wf2_dic['steps']
+    tool_list = list()
+    for step, content in steps1.items():
+        if 'errors' in content:
+            if content['errors'] == "Tool is not installed":
+                # TODO depende de la versión de galaxy esto lleva un punto al final o no xq lo que hay que buscar
+                #  otra cosa
+                tool_list.append(steps2[step]['tool_shed_repository'])
+    if len(tool_list) == 0:
+        return 'all tools are installed'
+    else:
+        return tool_list
+
+
+def initialize_ssh(flask_app):
+    """
+    ssh_resources = conn.execute("SELECT * FROM jobs_compute_resources join jobs_job_mgmt_types as jt" +
+                                 " on jm_type_id=jt.id where jt.name='ssh'").fetchall()
+    :param flask_app:
+    :return:
+    """
+    session = DBSession()
+    ssh_resources = session.query(ComputeResource, JobManagementType).filter(
+        ComputeResource.jm_type_id == JobManagementType.id, JobManagementType.name == 'ssh').all()
+    for ssh_res in ssh_resources:
+        compute_resource = ssh_res.ComputeResource
+        ssh_credentials = compute_resource.jm_credentials
+        ssh_location = compute_resource.jm_location
+        cmd = ["ssh", "-o", "StrictHostKeyChecking=no",
+               "-o", f"UserKnownHostsFile={ssh_credentials['known_hosts_filepath']}",
+               f"{ssh_credentials['username']}@{ssh_location['host']}", "'echo'"]
+        subprocess.run(cmd)
+
+
+def initialize_galaxy(flask_app):
+    session = DBSession()
+    galaxy_resources = session.query(ComputeResource, JobManagementType).filter(
+        ComputeResource.jm_type_id == JobManagementType.id, JobManagementType.name == 'galaxy').all()
+    for galaxy_res in galaxy_resources:
+        compute_resource = galaxy_res.ComputeResource
+        url = compute_resource.jm_location['url']
+        api_key = compute_resource.jm_credentials['api_key']
+
+        # Install basic workflow if it is not installed
+        gi = galaxy.GalaxyInstance(url=url, key=api_key)
+        path = ROOT + '/biobarcoding/workflows/'
+        for workflow in os.listdir(path):
+            workflow_path = path + workflow
+            with open(workflow_path, 'r') as f:
+                wf_dict_in = json.load(f)
+            name = wf_dict_in['name']
+            wf = gi.workflows.get_workflows(name=name)
+            w_id = wf[0].get('id') if wf else None
+            if w_id:
+                gi.workflows.delete_workflow(w_id)
+            wf = gi.workflows.import_workflow_from_local_path(workflow_path)
+            wf_dict_out = gi.workflows.export_workflow_dict(wf['id'])
+            list_of_tools = check_galaxy_tools(wf_dict_out, wf_dict_in)
+            install_galaxy_tools(gi, list_of_tools)
+        # conversion of workflows galaxy into workflows formly
+        # TODO convert_workflows_to_formly()
+
+
+# SOCKET INITIALIZATION
 def init_socket(socketio):
     SocketService(socketio)
 
@@ -325,17 +458,13 @@ tm_job_mgmt_types = {
 }
 
 tm_processes = {  # Preloaded processes
-    "02f44e54-f139-4ea0-a1bf-fe27054c0d6c": "klustal-1",
-    "903a73a9-5a4e-4cec-b8fa-4fc9bd5ffab5": "blast",
-    "5c4ba6db-e7f2-4d5c-a89a-76059ac116b1": "mrbayes",
-    "ea647c4e-2063-4246-bd9a-42f6a57fb9ea": "pd-1.0",
-    "985c01ca-d9d2-4df5-a8b9-8a6da251d7d4": "migrate-3.7.2",
-    "f167eac0-2a23-4e74-bb1c-abdfb5f74a92": "import-sequences",
-    "4cfcd389-ed9e-4174-aa99-150f176e8eec": "import-msa",
-    "caaca280-2290-4625-b5c0-76bcfb06e9ac": "import-phylotree",
-    "15aa399f-dd58-433f-8e94-5b2222cd06c9": "Clustal Omega",
     "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": "MSA ClustalW",
     "ec40143f-ae32-4dac-9cfb-caa047e1adb1": "ClustalW-PhyMl",
+    "c87f58b6-cb06-4d39-a0b3-72c2705c5ae1": "PAUP Parsimony",
+    "3e0240e8-b978-48a2-8fdd-9f31f4264064": "Phylogenetic Diversity Analyzer",
+    "c55280d0-f916-4401-a1a4-bb26d8179fd7": "MSA ClustalW + PAUP Parsimony",
+    "ce018826-7b20-4b70-b9b3-168c0ba46eec": "PAUP Parsimony + Phylogenetic Diversity Analyzer",
+    "5b315dc5-ad12-4214-bb6a-bf013f0e4b8c": "MSA ClustalW + PAUP Parsimony + Phylogenetic Diversity Analyzer",
 }
 
 tm_system_functions = {
@@ -362,17 +491,15 @@ tm_browser_filter_forms = [
     (bio_object_type_id["phylogenetic-tree"], "8b62f4aa-d32a-4841-89f5-9ed50da44121"),
 ]
 
-
-#
-#
-#
-#
-# 5a01d289-8534-40c0-9f56-dc116b609afd
-# c87f58b6-cb06-4d39-a0b3-72c2705c5ae1
-# c55280d0-f916-4401-a1a4-bb26d8179fd7
-# 3e0240e8-b978-48a2-8fdd-9f31f4264064
-# ce018826-7b20-4b70-b9b3-168c0ba46eec
-# 5b315dc5-ad12-4214-bb6a-bf013f0e4b8c
+# 02f44e54-f139-4ea0-a1bf-fe27054c0d6c
+# 903a73a9-5a4e-4cec-b8fa-4fc9bd5ffab5
+# 5c4ba6db-e7f2-4d5c-a89a-76059ac116b1
+# ea647c4e-2063-4246-bd9a-42f6a57fb9ea
+# 985c01ca-d9d2-4df5-a8b9-8a6da251d7d4
+# f167eac0-2a23-4e74-bb1c-abdfb5f74a92
+# 4cfcd389-ed9e-4174-aa99-150f176e8eec
+# caaca280-2290-4625-b5c0-76bcfb06e9ac
+# 15aa399f-dd58-433f-8e94-5b2222cd06c9
 # f4ab2464-0e36-4d11-8189-a017cab360bc
 # 8713fd84-d162-49d3-8549-de0393771836
 # 4f7d285a-2d41-4115-8fe9-351c3c703910
@@ -453,11 +580,14 @@ def initialize_database_data():
                             [["sysadmin", "test_user"]])
     load_many_to_many_table(DBSession, GroupIdentity, Group, Identity, ["group_id", "identity_id"],
                             [["all-identified", "test_user"]])
-    load_many_to_many_table(DBSession, ObjectTypePermissionType, ObjectType, PermissionType, ["object_type_id", "permission_type_id"],
+    load_many_to_many_table(DBSession, ObjectTypePermissionType, ObjectType, PermissionType,
+                            ["object_type_id", "permission_type_id"],
                             [["sequence", "read"], ["sequence", "annotate"], ["sequence", "delete"],
-                            ["multiple-sequence-alignment", "read"], ["multiple-sequence-alignment", "annotate"], ["multiple-sequence-alignment", "delete"],
-                            ["phylogenetic-tree", "read"], ["phylogenetic-tree", "annotate"], ["phylogenetic-tree", "delete"],
-                            ["process", "read"], ["process", "execute"]])
+                             ["multiple-sequence-alignment", "read"], ["multiple-sequence-alignment", "annotate"],
+                             ["multiple-sequence-alignment", "delete"],
+                             ["phylogenetic-tree", "read"], ["phylogenetic-tree", "annotate"],
+                             ["phylogenetic-tree", "delete"],
+                             ["process", "read"], ["process", "execute"]])
 
     # Insert a test BOS
     # session = DBSession()
@@ -525,7 +655,7 @@ def initialize_database_chado(flask_app):
         print("Connecting to Chado database server")
         print(db_connection_string)
         print("-----------------------------")
-        biobarcoding.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=True)
+        biobarcoding.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=False)
         # global DBSessionChado # global DBSessionChado registry to get the scoped_session
         DBSessionChado.configure(
             bind=biobarcoding.chado_engine)  # reconfigure the sessionmaker used by this scoped_session
@@ -647,7 +777,7 @@ def initialize_chado_edam(flask_app):
         sys.exit(1)
 
 
-def inizialice_postgis(flask_app):
+def initialize_postgis(flask_app):
     recreate_db = False
     if 'POSTGIS_CONNECTION_STRING' in flask_app.config:
         db_connection_string = flask_app.config['POSTGIS_CONNECTION_STRING']
@@ -680,6 +810,7 @@ def register_api(bp: Blueprint, view, endpoint: str, url: str, pk='id', pk_type=
     bp.add_url_rule(url, defaults={pk: None}, view_func=view_func, methods=['GET'])
     bp.add_url_rule(url, view_func=view_func, methods=['POST'])
     bp.add_url_rule(f'{url}<{pk_type}:{pk}>', view_func=view_func, methods=['GET', 'PUT', 'DELETE'])
+    return view_func
 
 
 def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, str] = {}):
@@ -694,22 +825,15 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
 
     class CrudAPI(MethodView):
 
-        @bcs_session(read_only=True, authr=execution_rules.get("r"))
+        @n_session(read_only=True, authr=execution_rules.get("r"))
         def get(self, _id=None):  # List or Read
-            db = g.bcs_session.db_session
+            db = g.n_session.db_session
             r = ResponseObject()
             if _id is None:
                 # List of all
-                query = db.query(entity)
-                # Filter, Order, Pagination
-                kwargs = check_request_params()
-                if 'filter' in kwargs:
-                    query = query.filter(filter_parse(entity, kwargs.get('filter')))
-                if 'order' in kwargs:
-                    query = query.order_by(order_parse(entity, kwargs.get('order')))
-                if 'pagination' in kwargs:
-                    r.count = query.count()
-                    query = paginator(query, kwargs.get('pagination'))
+                kwargs = parse_request_params()
+                from ..services import get_query
+                query, count = get_query(db, entity, **kwargs)
                 # TODO Detail of fields
                 r.content = query.all()
             else:
@@ -719,18 +843,18 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
 
             return r.get_response()
 
-        @bcs_session(authr=execution_rules.get("c"))
+        @n_session(authr=execution_rules.get("c"))
         def post(self):  # Create
-            db = g.bcs_session.db_session
+            db = g.n_session.db_session
             r = ResponseObject()
             t = request.json
             s = entity.Schema().load(t, instance=entity(), partial=True)
             db.add(s)
             return r.get_response()
 
-        @bcs_session(authr=execution_rules.get("u"))
+        @n_session(authr=execution_rules.get("u"))
         def put(self, _id):  # Update (total or partial)
-            db = g.bcs_session.db_session
+            db = g.n_session.db_session
             r = ResponseObject()
             t = request.json
             s = db.query(entity).filter(entity.id == _id).first()
@@ -738,9 +862,9 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
             db.add(s)
             return r.get_response()
 
-        @bcs_session(authr=execution_rules.get("d"))
+        @n_session(authr=execution_rules.get("d"))
         def delete(self, _id):  # Delete
-            db = g.bcs_session.db_session
+            db = g.n_session.db_session
             r = ResponseObject()
             # TODO Multiple delete
             # if _id is None:
@@ -764,9 +888,9 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
 
         return r.get_response()
 
-    @bcs_session()
+    @n_session()
     def get_entity_json_schema(_id):
-        db = g.bcs_session.db_session
+        db = g.n_session.db_session
         r = ResponseObject()
         factory = SchemaFactory(StructuralWalker)
         ent = db.query(entity).filter(entity.id == _id).first()
@@ -774,10 +898,10 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
         return r.get_response()
 
     bp_entity = Blueprint(f'bp_{entity_name}', __name__)
-    register_api(bp_entity, CrudAPI, entity_name, f"{bcs_api_base}/{entity_name}/", "_id")
-    bp_entity.add_url_rule(f"{bcs_api_base}/{entity_name}.schema.json", view_func=get_entities_json_schema,
+    register_api(bp_entity, CrudAPI, entity_name, f"{app_api_base}/{entity_name}/", "_id")
+    bp_entity.add_url_rule(f"{app_api_base}/{entity_name}.schema.json", view_func=get_entities_json_schema,
                            methods=['GET'])
-    bp_entity.add_url_rule(f"{bcs_api_base}/{entity_name}/<int:_id>.schema.json", view_func=get_entity_json_schema,
+    bp_entity.add_url_rule(f"{app_api_base}/{entity_name}/<int:_id>.schema.json", view_func=get_entity_json_schema,
                            methods=['GET'])
 
     return bp_entity, CrudAPI
@@ -785,7 +909,7 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
 
 # GENERIC REST FUNCTIONS
 
-def get_decoded_params(data):
+def decode_request_params(data):
     res = {}
     for key in data:
         value = data[key]
@@ -801,23 +925,22 @@ def get_decoded_params(data):
     return res
 
 
-def check_request_params(data=None):
-    kwargs = {}
+def parse_request_params(data=None):
+    kwargs = {'filter': [], 'order': [], 'pagination': {}, 'value': {}, 'searchValue': ''}
     if not data:
         if request.json:
-            kwargs.update(check_request_params(request.json))
+            kwargs.update(parse_request_params(request.json))
         if request.values:
-            kwargs.update(check_request_params(request.values))
+            kwargs.update(parse_request_params(request.values))
     else:
         print(f'DATA: {data}')
-        input = get_decoded_params(data)
+        input = decode_request_params(data)
         for key in ('filter', 'order', 'pagination', 'value', 'searchValue'):
-            i = input.get(key)
-            if i:
-                kwargs[key] = i
-                input.pop(key)
-            else:
-                kwargs[key] = {}
+            try:
+                i = input.pop(key)
+            except Exception as e:
+                continue
+            kwargs[key] = i if i else kwargs[key]
         kwargs['value'].update(input)
     print(f'KWARGS: {kwargs}')
     return kwargs
@@ -940,6 +1063,9 @@ def filter_parse(orm, filter, aux_filter=None):
             return obj <= value
         if op == "ge":
             return obj >= value
+        if op == "contains":
+            return value.in_(obj)
+
         return True
 
     try:
@@ -993,36 +1119,3 @@ def order_parse(orm, sort, aux_order=None):
     except Exception as e:
         print(e)
         return None
-
-
-def paginator(query, pagination):
-    if 'pageIndex' in pagination and 'pageSize' in pagination:
-        page = pagination.get('pageIndex')
-        page_size = pagination.get('pageSize')
-        return query \
-            .offset((page - 1) * page_size) \
-            .limit(page_size)
-    return query
-
-
-def get_query(session, orm, id=None, aux_filter=None, aux_order=None, **kwargs):
-    query = session.query(orm)
-    count = 0
-    if id:
-        query = query.filter(orm.id == id)
-    else:
-        if not kwargs.get('value'):
-            kwargs['value'] = {}
-        for k,v in kwargs.items():
-            if not k in ['value', 'filter', 'order', 'pagination', 'searchValue'] and v:
-                kwargs['value'][k] = v
-        if kwargs.get('value'):
-            query = query.filter_by(**kwargs.get('value'))
-        if kwargs.get('filter'):
-            query = query.filter(filter_parse(orm, kwargs.get('filter'), aux_filter))
-        if kwargs.get('order'):
-            query = query.order_by(order_parse(orm, kwargs.get('order'), aux_order))
-        if kwargs.get('pagination'):
-            count = query.count()
-            query = paginator(query, kwargs.get('pagination'))
-    return query, count

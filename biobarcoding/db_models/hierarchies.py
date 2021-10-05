@@ -1,8 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship, backref
 
-from biobarcoding.db_models import ORMBase, GUID
-
+from . import ORMBase, GUID
 
 prefix = "hie_"
 
@@ -54,4 +53,3 @@ class HierarchyNode(ORMBase):
 
     referred_node_id = Column(Integer, ForeignKey(f"{prefix}hierarchy_nodes.id"), nullable=True, primary_key=False)
     referred_node = relationship("HierarchyNode", foreign_keys=[referred_node_id], remote_side=[id])
-
