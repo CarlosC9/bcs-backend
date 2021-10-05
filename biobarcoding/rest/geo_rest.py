@@ -111,14 +111,35 @@ def get_content(session, feature_class, issues, id_=None, filter_=None):
     content = None
     count = 0
     try:
-        content = session.query(feature_class)
-        if id_:
-            content = content.filter(feature_class.id == id_).first()
-        else:
-            if filter_:
-                content = content.filter(filter_parse(GeographicLayer, filter_, __aux_own_filter))
-            content = content.order_by(feature_class.id).all()
-            count = len(content)
+        if True:  # Browser compatible implementation
+            db = g.n_session.db_session
+            if id_ is None:
+                # List of all
+                query = db.query(feature_class)
+                # Filter, Order, Pagination
+                kwargs = check_request_params()
+                if 'filter' in kwargs:
+                    query = query.filter(filter_parse(feature_class, kwargs.get('filter')))
+                if 'order' in kwargs:
+                    query = query.order_by(order_parse(feature_class, kwargs.get('order')))
+                if 'pagination' in kwargs:
+                    count = query.count()
+                    query = paginator(query, kwargs.get('pagination'))
+                # TODO Detail of fields
+                content = query.all()
+            else:
+                # Detail
+                # TODO Detail of fields
+                content = db.query(feature_class).filter(feature_class.id == id_).first()
+        else:  # Former implementation
+            content = session.query(feature_class)
+            if id_:
+                content = content.filter(feature_class.id == id_).first()
+            else:
+                if filter_:
+                    content = content.filter(filter_parse(GeographicLayer, filter_, __aux_own_filter))
+                content = content.order_by(feature_class.id).all()
+                count = len(content)
     except Exception as e:
         print(e)
         _, status = issues.append(Issue(IType.ERROR,
