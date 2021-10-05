@@ -27,15 +27,15 @@ def __check_seq_values(**values):
     if values.get('residues') and not values.get('seqlen'):
         values['seqlen'] = len(values.get('residues'))
 
-    if not values.get('organism_id'):
+    if not values.get('organism_id') and values.get('organism'):
         org = values.get('organism').strip()
         if org:
             # TODO: check canónical name (getting genus and species?)
             genus = org.split()[0]
             species = org[len(genus):].strip()
             values['organism_id'] = get_or_create(chado_session, Organism, genus=genus, species=species).organism_id
-        if not values.get('organism_id'):
-            values['organism_id'] = get_or_create(chado_session, Organism, genus='Organism', species='unclassified').organism_id
+    if not values.get('organism_id'):
+        values['organism_id'] = get_or_create(chado_session, Organism, genus='Organism', species='unclassified').organism_id
 
     if not values.get('type_id') and values.get('type'):
         try:
