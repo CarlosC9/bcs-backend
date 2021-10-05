@@ -112,28 +112,18 @@ def get_content(session, feature_class, issues, id_=None):
     content = None
     count = 0
     try:
-        if True:  # Browser compatible implementation
-            db = g.n_session.db_session
-            if id_ is None:
-                # List of all
-                kwargs = parse_request_params()
-                from ..services import get_query
-                query, count = get_query(db, feature_class, **kwargs)
-                # TODO Detail of fields
-                content = query.all()
-            else:
-                # Detail
-                # TODO Detail of fields
-                content = db.query(feature_class).filter(feature_class.id == id_).first()
-        else:  # Former implementation
-            content = session.query(feature_class)
-            if id_:
-                content = content.filter(feature_class.id == id_).first()
-            else:
-                if filter_:
-                    content = content.filter(filter_parse(GeographicLayer, filter_, __aux_own_filter))
-                content = content.order_by(feature_class.id).all()
-                count = len(content)
+        db = g.n_session.db_session
+        if id_ is None:
+            # List of all
+            kwargs = parse_request_params()
+            from ..services import get_query
+            query, count = get_query(db, feature_class, **kwargs)
+            # TODO Detail of fields
+            content = query.all()
+        else:
+            # Detail
+            # TODO Detail of fields
+            content = db.query(feature_class).filter(feature_class.id == id_).first()
     except Exception as e:
         print(e)
         _, status = issues.append(Issue(IType.ERROR,
