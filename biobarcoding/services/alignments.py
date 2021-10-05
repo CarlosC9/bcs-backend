@@ -4,7 +4,7 @@ from Bio import AlignIO
 
 from ..db_models import DBSession as db_session
 from ..db_models import DBSessionChado as chado_session
-from ..db_models.chado import Organism, Feature, AnalysisFeature
+from ..db_models.chado import Organism, Feature, AnalysisFeature, Analysis
 from ..db_models.bioinformatics import MultipleSequenceAlignment
 
 from ..rest import IType, Issue
@@ -127,8 +127,15 @@ def __bind2src(feature, srcname):
     try:
         src = get_seqs_query(uniquename=srcname)[0].one()
         from ..db_models.chado import Featureloc
-        relationship = Featureloc(feature_id=feature.feature_id, srcfeature_id=src.feature_id)
-        chado_session.add(relationship)
+        relationship = get_or_create(chado_session, Featureloc, feature_id=feature.feature_id, srcfeature_id=src.feature_id)
+    except Exception as e:
+        relationship = None
+    return relationship
+
+
+def __bind2ansis(msa, feature):
+    try:
+        relationship = get_or_create(chado_session, AnalysisFeature, analysis_id=msa.analysis_id, feature_id=feature.feature_id)
     except Exception as e:
         relationship = None
     return relationship
@@ -144,7 +151,7 @@ def __msafile2chado(msa, seqs):
             organism_id=__seq_org_id(seq.id),
             type='sequence', subtype='aligned')
         __bind2src(feature, seq.id)
-        chado_session.add(AnalysisFeature(analysis_id=msa.analysis_id, feature_id=feature.feature_id))
+        __bind2ansis(msa, feature)
     return msa
 
 
@@ -205,15 +212,11 @@ def export(id, format='fasta', value={}, **kwargs):
 ##
 
 def __get_query(id=None, **kwargs):
-    aln_clause = {'analysis_id': {'op': 'in', 'unary': db_session.query(MultipleSequenceAlignment.chado_id).all()}}
-    if kwargs.get('filter'):
-        try:
-            kwargs['filter'] += [aln_clause]
-        except Exception as e:
-            kwargs['filter'] = [kwargs['filter']] + [aln_clause]
-    else:
-        kwargs['filter'] = [aln_clause]
-    return get_ansis_query(id, **kwargs)
+    aln_clause = db_session.query(MultipleSequenceAlignment.chado_id).all()
+    aln_clause = [i for i, in aln_clause]
+    aln_clause = Analysis.analysis_id.in_(aln_clause)
+    query = chado_session.query(Analysis).filter(aln_clause)
+    return get_ansis_query(id, **kwargs, query=query)
 
 
 ##
