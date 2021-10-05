@@ -64,7 +64,7 @@ def unfolded_print(obj, level=2):
 
 
 ##
-# CONVERTIONS
+# CONVERSIONS
 ##
 
 def orm2json(row):

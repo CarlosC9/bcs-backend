@@ -831,7 +831,7 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
             if _id is None:
                 # List of all
                 kwargs = parse_request_params()
-                from biobarcoding.services import get_query
+                from ..services import get_query
                 query, count = get_query(db, entity, **kwargs)
                 # TODO Detail of fields
                 r.content = query.all()

@@ -20,7 +20,8 @@ from ..authentication import n_session
 from ..db_models.geographics import GeographicRegion, Regions, GeographicLayer
 from ..geo import workspace_names, postgis_store_name
 from ..geo.biota import read_biota_file, generate_pda_species_file_from_layer, import_pda_result
-from . import app_api_base, ResponseObject, Issue, IType, register_api, app_proxy_base, filter_parse
+from . import app_api_base, ResponseObject, Issue, IType, register_api, app_proxy_base, filter_parse, \
+    parse_request_params
 from ..services.files import get_file_contents
 
 """
@@ -90,7 +91,7 @@ def geoserver_response(response) -> Tuple[Issue, int]:
         return Issue(IType.INFO, "layer succesfully published"), 200
 
 
-def get_content(session, feature_class, issues, id_=None, filter_=None):
+def get_content(session, feature_class, issues, id_=None):
     def __aux_own_filter(filt_):
         """
             Example clause:
@@ -115,16 +116,9 @@ def get_content(session, feature_class, issues, id_=None, filter_=None):
             db = g.n_session.db_session
             if id_ is None:
                 # List of all
-                query = db.query(feature_class)
-                # Filter, Order, Pagination
-                kwargs = check_request_params()
-                if 'filter' in kwargs:
-                    query = query.filter(filter_parse(feature_class, kwargs.get('filter')))
-                if 'order' in kwargs:
-                    query = query.order_by(order_parse(feature_class, kwargs.get('order')))
-                if 'pagination' in kwargs:
-                    count = query.count()
-                    query = paginator(query, kwargs.get('pagination'))
+                kwargs = parse_request_params()
+                from ..services import get_query
+                query, count = get_query(db, feature_class, **kwargs)
                 # TODO Detail of fields
                 content = query.all()
             else:
