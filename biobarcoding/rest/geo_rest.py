@@ -356,9 +356,9 @@ class LayersAPI(MethodView):
         from ..geo import geoserver_session
         self.issues = []
         layer = None
-        _filter = request.args.get("filter")
-        if _filter:
-            _filter = json.loads(_filter)
+        # _filter = request.args.get("filter")
+        # if _filter:
+        #     _filter = json.loads(_filter)
         key_col = request.args.get("key_col")
         db_sess = g.n_session.db_session
         if _id:  # A layer
@@ -379,21 +379,21 @@ class LayersAPI(MethodView):
             self.issues, layer, count, self.status = get_content(db_sess, GeographicLayer, self.issues, filter_=_filter)
             if layer:
                 layer = list(filter(lambda x: (x.is_deleted is False), layer))
-        elif _filter and key_col:  # Temporary layer
-            # TODO Ensure Temporary layer is also registered as BCS GeographicLayer
-            tmp_view = f'tmpview_{g.n_session.identity.id}'
-            sql = self._create_sql(_filter)
-            r = geoserver_session.delete_layer(layer_name=tmp_view, workspace=workspace_names[1])
-            print(r)
-            r = geoserver_session.publish_featurestore_sqlview(store_name=postgis_store_name, name=tmp_view, sql=sql,
-                                                               key_column=key_col,
-                                                               workspace=workspace_names[1])
-            print(r)
-            issue, self.status = geoserver_response(r)
-            if not self._check_layer():
-                _, self.status = self.issues.append(Issue(IType.ERROR, f"Error executing request for geoserver")), 500
-            self.issues.append(issue)
-            layer = dict(tmpview=tmp_view, sql=sql, key_col=key_col)
+        # elif _filter and key_col:  # Temporary layer
+        #     # TODO Ensure Temporary layer is also registered as BCS GeographicLayer
+        #     tmp_view = f'tmpview_{g.n_session.identity.id}'
+        #     sql = self._create_sql(_filter)
+        #     r = geoserver_session.delete_layer(layer_name=tmp_view, workspace=workspace_names[1])
+        #     print(r)
+        #     r = geoserver_session.publish_featurestore_sqlview(store_name=postgis_store_name, name=tmp_view, sql=sql,
+        #                                                        key_column=key_col,
+        #                                                        workspace=workspace_names[1])
+        #     print(r)
+        #     issue, self.status = geoserver_response(r)
+        #     if not self._check_layer():
+        #         _, self.status = self.issues.append(Issue(IType.ERROR, f"Error executing request for geoserver")), 500
+        #     self.issues.append(issue)
+        #     layer = dict(tmpview=tmp_view, sql=sql, key_col=key_col)
         else:  # No information to elaborate a response
             _, self.status = self.issues.append(Issue(IType.ERROR, f"missing data")), 400
 
