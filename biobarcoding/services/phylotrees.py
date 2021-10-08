@@ -3,9 +3,9 @@ import time
 
 from .ontologies import get_cvterm_query
 from ..db_models import DBSession as db_session, DBSessionChado as chado_session
-from ..db_models.bioinformatics import PhylogeneticTree
+from ..db_models.bioinformatics import PhylogeneticTree, bio_object_type_id
 from ..db_models.chado import Phylotree, Phylonode, Feature
-from ..rest import Issue, IType, filter_parse
+from ..rest import Issue, IType, filter_parse, auth_filter
 from . import get_query, get_bioformat, get_or_create, get_orm_params
 
 
@@ -235,12 +235,15 @@ def __tree2newick(node, is_root=True):
 # GETTER AND OTHERS
 ##
 
-def __get_query(phylotree_id=None, **kwargs):
+def __get_query(phylotree_id=None, purpose='read', **kwargs):
     if phylotree_id:
         query = chado_session.query(Phylotree).filter(Phylotree.phylotree_id == phylotree_id)
         return query, query.count()
-    phy_clause = db_session.query(PhylogeneticTree.chado_id).all()
-    phy_clause = [i for i, in phy_clause]
+    from biobarcoding.db_models.sysadmin import PermissionType
+    purpose_id = db_session.query(PermissionType.id).filter(PermissionType.name==purpose).one()
+    phy_clause = db_session.query(PhylogeneticTree.chado_id) \
+        .filter(auth_filter(PhylogeneticTree, purpose_id, [bio_object_type_id['phylogenetic-tree']]))
+    phy_clause = [i for i, in phy_clause.all()]
     phy_clause = Phylotree.phylotree_id.in_(phy_clause)
     query = chado_session.query(Phylotree).filter(phy_clause)
     return get_query(chado_session, Phylotree, query=query, aux_filter=__aux_own_filter, aux_order=__aux_own_order, **kwargs)

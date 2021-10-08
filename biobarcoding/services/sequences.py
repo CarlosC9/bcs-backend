@@ -5,9 +5,9 @@ from .ontologies import get_cvterm_query
 from ..db_models import DBSession as db_session
 from ..db_models import DBSessionChado as chado_session
 from ..db_models.chado import Feature, Organism, StockFeature
-from ..db_models.bioinformatics import Sequence
+from ..db_models.bioinformatics import Sequence, bio_object_type_id
 
-from ..rest import Issue, IType, filter_parse
+from ..rest import Issue, IType, filter_parse, auth_filter
 from . import get_orm_params, get_query
 from ..services import log_exception, get_bioformat, get_or_create
 
@@ -340,12 +340,15 @@ def export(id=None, format='fasta', **kwargs):
 # GETTER AND OTHERS
 ##
 
-def __get_query(id=None, **kwargs):
+def __get_query(id=None, purpose='read', **kwargs):
     if id:
         query = chado_session.query(Feature).filter(Feature.feature_id == id)
         return query, query.count()
-    seq_clause = db_session.query(Sequence.chado_id).all()
-    seq_clause = [i for i, in seq_clause]
+    from biobarcoding.db_models.sysadmin import PermissionType
+    purpose_id = db_session.query(PermissionType.id).filter(PermissionType.name==purpose).one()
+    seq_clause = db_session.query(Sequence.chado_id) \
+        .filter(auth_filter(Sequence, purpose_id, [bio_object_type_id['sequence']]))
+    seq_clause = [i for i, in seq_clause.all()]
     seq_clause = Feature.feature_id.in_(seq_clause)
     query = chado_session.query(Feature).filter(seq_clause)
     return get_query(chado_session, Feature, query=query, aux_filter=__aux_own_filter, aux_order=__aux_own_order, **kwargs)

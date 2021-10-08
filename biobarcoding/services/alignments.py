@@ -5,9 +5,9 @@ from Bio import AlignIO
 from ..db_models import DBSession as db_session
 from ..db_models import DBSessionChado as chado_session
 from ..db_models.chado import Organism, Feature, AnalysisFeature, Analysis
-from ..db_models.bioinformatics import MultipleSequenceAlignment
+from ..db_models.bioinformatics import MultipleSequenceAlignment, bio_object_type_id
 
-from ..rest import IType, Issue
+from ..rest import IType, Issue, auth_filter
 from ..services import get_or_create, log_exception, orm2json, get_bioformat
 from ..services.analyses import __get_query as get_ansis_query
 from ..services.sequences import __get_query as get_seqs_query, \
@@ -211,9 +211,12 @@ def export(id, format='fasta', value={}, **kwargs):
 # GETTER AND OTHERS
 ##
 
-def __get_query(id=None, **kwargs):
-    aln_clause = db_session.query(MultipleSequenceAlignment.chado_id).all()
-    aln_clause = [i for i, in aln_clause]
+def __get_query(id=None, purpose='read', **kwargs):
+    from biobarcoding.db_models.sysadmin import PermissionType
+    purpose_id = db_session.query(PermissionType.id).filter(PermissionType.name==purpose).one()
+    aln_clause = db_session.query(MultipleSequenceAlignment.chado_id) \
+        .filter(auth_filter(MultipleSequenceAlignment, purpose_id, [bio_object_type_id['multiple-sequence-alignment']]))
+    aln_clause = [i for i, in aln_clause.all()]
     aln_clause = Analysis.analysis_id.in_(aln_clause)
     query = chado_session.query(Analysis).filter(aln_clause)
     return get_ansis_query(id, **kwargs, query=query)

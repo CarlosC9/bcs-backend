@@ -966,7 +966,8 @@ def related_perm_ids(permission_id: int):
                     DBSession.query(PermissionType.rank).filter(PermissionType.id==permission_id)))
 
 
-def auth_filter(orm, identity_id, permission_types_ids, object_types_ids,
+def auth_filter(orm, permission_types_ids, object_types_ids,
+                identity_id=None,
                 object_uuids=None, time=None,
                 permission_flag=False, authorizable_flag=False):
     """
@@ -1011,6 +1012,8 @@ def auth_filter(orm, identity_id, permission_types_ids, object_types_ids,
             filter_clause.append(ACLDetail.authorizable_id.in_(related_authr_ids(identity_id)))
         elif hasattr(identity_id, '__iter__'):
             filter_clause.append(ACLDetail.authorizable_id.in_(identity_id))
+        else:
+            filter_clause.append(ACLDetail.authorizable_id.in_(related_authr_ids(g.n_session.identity.id)))
         # By permission or superior permissions
         if isinstance(permission_types_ids, int):
             filter_clause.append(ACLDetail.permission_id.in_(related_perm_ids(permission_types_ids)))
