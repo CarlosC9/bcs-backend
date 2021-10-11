@@ -15,6 +15,7 @@ from sqlalchemy.orm import relationship, backref
 
 from . import ORMBase, GUID
 from .sysadmin import Identity
+from sqlalchemy.dialects.postgresql import JSONB
 
 prefix = "jobs_"
 
@@ -210,6 +211,10 @@ class ComputeResource(ORMBase):
     jm_type = relationship(JobManagementType)
     jm_location = Column(JSON, nullable=False)
     jm_credentials = Column(JSON, nullable=False)
+    # E.g.: jm_params = {"max_running_jobs": 4}
+    #   if set, a Job is contained until the resource has number of running Jobs lower than this param
+    # ALTER TABLE jobs_compute_resources ADD COLUMN jm_params JSONB;
+    jm_params = Column(JSONB, nullable=True)
     agreement = Column(JSON)
     consumption_counters = Column(JSON)
 
