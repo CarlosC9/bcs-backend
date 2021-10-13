@@ -8,7 +8,7 @@ from multidict import MultiDict, CIMultiDict
 from sqlalchemy import and_
 from sqlalchemy.pool import QueuePool
 
-import biobarcoding
+from .. import get_global_configuration_variable, engine, case_sensitive
 from . import ROOT
 from ..db_models import ORMBase
 from ..db_models.jobs import ComputeResource, JobManagementType, Process, ProcessInComputeResource
@@ -162,7 +162,7 @@ def load_many_to_many_table(sf, clazz, lclazz, rclazz, attributes: List[str], va
 
 def load_computing_resources(sf):
     session = sf()
-    with open(biobarcoding.get_global_configuration_variable("RESOURCES_CONFIG_FILE_PATH")) as json_file:
+    with open(get_global_configuration_variable("RESOURCES_CONFIG_FILE_PATH")) as json_file:
         resources_dict = json.load(json_file)
     for resource_uuid, resource_dict in resources_dict.items():
         r = session.query(ComputeResource).filter(ComputeResource.uuid == resource_uuid).first()
@@ -181,10 +181,10 @@ def load_computing_resources(sf):
 
 
 def load_processes_in_computing_resources(sf):
-    from biobarcoding.rest import tm_processes
     session = sf()
-    with open(biobarcoding.get_global_configuration_variable("RESOURCES_CONFIG_FILE_PATH")) as json_file:
+    with open(get_global_configuration_variable("RESOURCES_CONFIG_FILE_PATH")) as json_file:
         resources_dict = json.load(json_file)
+    from ..rest import tm_processes
     for resource_uuid, resource_dict in resources_dict.items():
         for k, v in tm_processes.items():
             if v in RESOURCE_PROCESSES_DICT[resource_dict["name"]]:
@@ -238,16 +238,16 @@ def reset_database(flask_app):
     :return:
     """
     if is_testing_enabled(flask_app):
-        connection2 = biobarcoding.engine.connect()
+        connection2 = engine.connect()
         tables = ORMBase.metadata.tables
-        table_existence = [biobarcoding.engine.dialect.has_table(connection2, tables[t].name) for t in tables]
+        table_existence = [engine.dialect.has_table(connection2, tables[t].name) for t in tables]
         connection2.close()
         if False in table_existence:
-            ORMBase.metadata.bind = biobarcoding.engine
+            ORMBase.metadata.bind = engine
             ORMBase.metadata.create_all()
 
     for tbl in reversed(ORMBase.metadata.sorted_tables):
-        biobarcoding.engine.execute(tbl.delete())
+        engine.execute(tbl.delete())
 
 
 # #####################################################################################################################
@@ -332,7 +332,7 @@ class CaseInsensitiveDict(collections.MutableMapping):
         return str(dict(self.items()))
 
 
-def create_dictionary(case_sens=biobarcoding.case_sensitive, multi_dict=False, data=dict()):
+def create_dictionary(case_sens=case_sensitive, multi_dict=False, data=dict()):
     """
     Factory to create dictionaries
 
@@ -373,7 +373,7 @@ def strcmp(s1, s2):
     if not s2:
         return False
 
-    if biobarcoding.case_sensitive:
+    if case_sensitive:
         return s1.strip() == s2.strip()
     else:
         return s1.strip().lower() == s2.strip().lower()
@@ -407,7 +407,7 @@ class PartialRetrievalDictionary:
         if True:
             # Lower case values
             # Keys can be all lower case, because they will be internal Key components, not specified by users
-            if biobarcoding.case_sensitive:
+            if case_sensitive:
                 key2 = {k.lower(): v for k, v in key.items()}
             else:
                 key2 = {k.lower(): v if k.startswith("__") else v.lower() for k, v in key.items()}
@@ -456,7 +456,7 @@ class PartialRetrievalDictionary:
         if True:
             # Lower case values
             # Keys can be all lower case, because they will be internal Key components, not specified by users
-            if biobarcoding.case_sensitive:
+            if case_sensitive:
                 key2 = {k.lower(): v for k, v in key.items()}
             else:
                 key2 = {k.lower(): v if k.startswith("__") else v.lower() if isinstance(v, str) else v for k, v in
@@ -522,7 +522,7 @@ class PartialRetrievalDictionary:
             if True:
                 # Lower case values
                 # Keys can be all lower case, because they will be internal Key components, not specified by users
-                if biobarcoding.case_sensitive:
+                if case_sensitive:
                     key2 = {k.lower(): v for k, v in key.items()}
                 else:
                     key2 = {k.lower(): v if k.startswith("__") else v.lower() for k, v in key.items()}
