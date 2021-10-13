@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import subprocess
 import sys
 from enum import Enum
 from typing import Dict, List
@@ -32,7 +33,7 @@ from ..rest.socket_service import SocketService
 app_api_base = "/api"  # Base for all RESTful calls
 app_gui_base = "/gui"  # Base for the Angular2 GUI
 app_external_gui_base = "/gui_external"  # Base for the Angular2 GUI when loaded from URL
-app_proxy_base = "/pxy"  # Base for the BCS Proxy
+app_proxy_base = "/pxy"  # Base for the Backend Proxy
 app_acronym = "bcs"  # Application Short acronym (internal use)
 
 logger = get_module_logger(__name__)
@@ -579,9 +580,9 @@ def initialize_database_data():
 
     # Set test_user roles and groups
     load_many_to_many_table(DBSession, RoleIdentity, Role, Identity, ["role_id", "identity_id"],
-                            [["sysadmin", "test_user"]])
+                            [("sysadmin", "test_user")])
     load_many_to_many_table(DBSession, GroupIdentity, Group, Identity, ["group_id", "identity_id"],
-                            [["all-identified", "test_user"]])
+                            [("all-identified", "test_user")])
     load_many_to_many_table(DBSession, ObjectTypePermissionType, ObjectType, PermissionType,
                             ["object_type_id", "permission_type_id"],
                             [["sequence", "read"], ["sequence", "annotate"], ["sequence", "delete"],
@@ -625,7 +626,7 @@ def initialize_database(flask_app):
                                                            connect_args={'check_same_thread': False},
                                                            poolclass=StaticPool)
         else:
-            biobarcoding.engine = create_pg_database_engine(db_connection_string, "bcs", recreate_db=recreate_db)
+            biobarcoding.engine = create_pg_database_engine(db_connection_string, app_acronym, recreate_db=recreate_db)
 
         # global DBSession # global DBSession registry to get the scoped_session
         DBSession.configure(bind=biobarcoding.engine)  # reconfigure the sessionmaker used by this scoped_session
@@ -670,11 +671,8 @@ def initialize_database_chado(flask_app):
         sys.exit(1)
 
 
-from sqlalchemy import text, Table, Column, BigInteger, ForeignKey, Index, MetaData, UniqueConstraint
-import subprocess
-
-
 def initialize_chado_edam(flask_app):
+    from sqlalchemy import text, Table, Index, MetaData
     cfg = flask_app.config
     if 'CHADO_DATABASE' in flask_app.config:
         chado_xml_folder = os.path.join(os.sep, "app", "docker_init", "chado_xml")
@@ -1124,3 +1122,4 @@ def order_parse(orm, sort, aux_order=None):
     except Exception as e:
         print(e)
         return None
+
