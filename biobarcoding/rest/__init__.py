@@ -791,13 +791,6 @@ def initialize_postgis(flask_app):
         DBSessionGeo.configure(
             bind=biobarcoding.postgis_engine)  # reconfigure the sessionmaker used by this scoped_session
         orm.configure_mappers()  # Important for SQLAlchemy-Continuum
-        tables = ORMBaseGeo.metadata.tables
-        connection = biobarcoding.postgis_engine.connect()
-        table_existence = [biobarcoding.postgis_engine.dialect.has_table(connection, tables[t].name) for t in tables]
-        connection.close()
-        if False in table_existence:
-            ORMBaseGeo.metadata.bind = biobarcoding.postgis_engine
-            ORMBaseGeo.metadata.create_all()
         connection = biobarcoding.postgis_engine.connect()
         try:
             connection.execute("CREATE EXTENSION postgis")
@@ -805,6 +798,13 @@ def initialize_postgis(flask_app):
             pass
         connection.execute("commit")
         connection.close()
+        tables = ORMBaseGeo.metadata.tables
+        connection = biobarcoding.postgis_engine.connect()
+        table_existence = [biobarcoding.postgis_engine.dialect.has_table(connection, tables[t].name) for t in tables]
+        connection.close()
+        if False in table_existence:
+            ORMBaseGeo.metadata.bind = biobarcoding.postgis_engine
+            ORMBaseGeo.metadata.create_all()
         # Load base tables
         # initialize_gnd_geoserver_data() # not implemented
     else:
