@@ -108,7 +108,7 @@ def get_bioformat(file, format):
             'gff': 'gff3', 'gff3': 'gff3',
             'nex': 'nexus', 'nxs': 'nexus', 'nexus': 'nexus',
             'aln': 'clustal', 'clustal': 'clustal',
-            'phy': 'phylip', 'phylip': 'phylip',
+            'ph': 'phylip', 'phy': 'phylip', 'phylip': 'phylip',
             'nhx': 'newick', 'nwx': 'newick', 'tree': 'newick', 'newick': 'newick'}.get(ext)
 
 
@@ -162,6 +162,24 @@ def get_or_create(session, model, **params):
         instance = model(**params)
         session.add(instance)
         session.flush()
+        # TODO: create ACLs if possible too ?
+        try:
+            from biobarcoding.db_models import DBSession
+            # acl
+            from biobarcoding.db_models.sysadmin import ACL
+            acl = get_or_create(DBSession, ACL,
+                                    object_uuid=instance.uuid,
+                                    object_type=instance.bo_type_id)
+            # acldetail
+            from biobarcoding.db_models.sysadmin import ACLDetail
+            from flask import g
+            from biobarcoding.db_models.sysadmin import PermissionType
+            acldetail = get_or_create(DBSession, ACLDetail,
+                                          acl_id=acl.id,
+                                          authorizable_id=g.n_session.identity.id,
+                                          permission_id=DBSession.query(PermissionType.id).filter(PermissionType.name=='read').one())
+        except Exception as e:
+            pass
     return instance
 
 

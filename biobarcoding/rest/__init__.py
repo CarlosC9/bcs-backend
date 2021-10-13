@@ -394,14 +394,15 @@ tm_object_types = [  # ObjectType
     (1002, "83077626-cf8c-48d3-854b-a355afdb7df9", "process")  # Bioinformatic algorithms
 ]
 
-tm_permissions = {  # PermissionType
-    "f19ad19f-0a74-44e8-bd4e-4762404a35aa": "read",
-    "04cac7ca-a90b-4d12-a966-d8b0c77fca70": "annotate",
-    "d0924822-32fa-4456-8143-0fd48da33fd7": "contribute",
-    "83d837ab-01b2-4260-821b-8c4a3c52e9ab": "share",
-    "91a5b4a7-3359-4eed-98df-497c42d0c3c1": "execute",
-    "d3137471-84a0-4bcf-8dd8-16387ea46a30": "delete"
-}
+tm_permissions_fields = ["uuid", "name", "rank"]
+tm_permissions = [  # PermissionType
+    ("f19ad19f-0a74-44e8-bd4e-4762404a35aa", "read", 1),
+    ("04cac7ca-a90b-4d12-a966-d8b0c77fca70", "annotate", 2),
+    ("d0924822-32fa-4456-8143-0fd48da33fd7", "contribute", 2),
+    ("83d837ab-01b2-4260-821b-8c4a3c52e9ab", "share", 2),
+    ("91a5b4a7-3359-4eed-98df-497c42d0c3c1", "execute", 2),
+    ("d3137471-84a0-4bcf-8dd8-16387ea46a30", "delete", 3)
+]
 
 tm_default_users = {  # Identities
     "f3848599-4aa3-4964-b7e1-415d478560be": "admin",
@@ -547,7 +548,7 @@ def initialize_database_data():
     load_table(DBSession, Authenticator, tm_authenticators)
     load_table_extended(DBSession, ObjectType, tm_object_type_fields, tm_object_types)
     load_table(DBSession, SystemFunction, tm_system_functions)
-    load_table(DBSession, PermissionType, tm_permissions)
+    load_table_extended(DBSession, PermissionType, tm_permissions_fields, tm_permissions)
     load_table(DBSession, JobStatus, tm_job_statuses)
     load_table(DBSession, JobManagementType, tm_job_mgmt_types)
     load_table(DBSession, Process, tm_processes)
@@ -947,38 +948,98 @@ def parse_request_params(data=None):
     return kwargs
 
 
-def related_authr_ids(engine, identity_id) -> List[int]:
-    pass
+def related_authr_ids(identity_id: int):
+    # Get the organizations, groups, and roles associated to an identity
+    return DBSession.query(Authorizable.id) \
+        .join(OrganizationIdentity, OrganizationIdentity.organization_id==Authorizable.id, isouter=True) \
+        .join(GroupIdentity, GroupIdentity.group_id==Authorizable.id, isouter=True) \
+        .join(RoleIdentity, RoleIdentity.role_id==Authorizable.id, isouter=True) \
+        .filter(or_(Authorizable.id==identity_id,
+                    OrganizationIdentity.identity_id==identity_id,
+                    GroupIdentity.identity_id==identity_id,
+                    RoleIdentity.identity_id==identity_id))
 
 
-def auth_filter():
+def related_perm_ids(permission_id: int):
+    # Get the mayor permissions that also allow permission_id
+    return DBSession.query(PermissionType.id) \
+        .filter(or_(PermissionType.id==permission_id,
+                    PermissionType.rank >
+                    DBSession.query(PermissionType.rank).filter(PermissionType.id==permission_id)))
+
+
+def auth_filter(orm, permission_types_ids, object_types_ids,
+                identity_id=None,
+                object_uuids=None, time=None,
+                permission_flag=False, authorizable_flag=False):
     """
-    * Filter
-    * Identity (ids) 
-    * object types (ids)
-    * permission types (ids)
-    * object ids
-    * date time
-    
+    * orm: base (with uuid) to build the filter
+    * identity_ids: who is requesting
+    * permission_types_ids: what is requesting
+    * object_types_ids: where is requesting
+    * object_uuid: about what is requesting
+    * time: when is requesting
+    * permission_flag: extra info required
+    * authorizable_flag: extra info required
+
     CollectionDetail (cd) <> Collection (c) > ACL <> ACLDetail (ad)
-    
-SELECT 
-  CASE cd.object_id WHEN NULL THEN acl.object_uuid ELSE cd.object_uuid as oid, 
-  ad.permission_id as pid, 
-  ad.authr_id as aid  # To explain why it was authorized
-FROM CollectionDetail cd JOIN Collection c ON cd.col_id=c.id RIGHT JOIN ACL ON c.uuid=acl.object_id JOIN ACLDetail ad ON acl.id=ad.acl_id
-WHERE ad.authorizable IN (<identities>)  # Authorizable 
-      AND object_type IN (<collection object type>[, <target object type>])  # Object types
-      AND date time BETWEEN ad.validity_start AND ad.validity_end
-      [AND permission_types IN (...)]
-      [AND object_uuids IN (...)]
-      
-* Añadir lista ids objeto sirve para ver permisos de esos objetos concretos
-* Añadir lista id tipos permisos sirve para ver si esos tipos están
-    
-    @return: 
+
+        SELECT
+          CASE cd.object_uuid WHEN NULL THEN acl.object_uuid ELSE cd.object_uuid as oid,
+          ad.permission_id as pid,
+          ad.authr_id as aid  # To explain why it was authorized
+        FROM CollectionDetail cd JOIN Collection c ON cd.collection_id=c.id RIGHT JOIN ACL ON c.uuid=acl.object_uuid JOIN ACLDetail ad ON acl.id=ad.acl_id
+        WHERE ad.authorizable IN (<identities>)  # Authorizable
+              AND object_type IN (<collection object type>[, <target object type>])  # Object types
+              AND date time BETWEEN ad.validity_start AND ad.validity_end
+              [AND permission_types IN (...)]
+              [AND object_uuids IN (...)]
+
+        * Añadir lista object_ids objeto sirve para ver permisos de esos objetos concretos
+        * Añadir lista id tipos permisos sirve para ver si esos tipos están
+
+    @return: <orm_clause_filter> || object_uuids[, permissions][, authorizables]
     """
-    pass
+    from datetime import datetime
+    time = time if time else datetime.now()
+    filter_clause = [
+        or_(time >= ACLDetail.validity_start, ACLDetail.validity_start == None),
+        or_(time <= ACLDetail.validity_end, ACLDetail.validity_end == None)
+    ]
+    filter_clause.append(ACL.object_type.in_(object_types_ids)) if object_types_ids else None
+    filter_clause.append(ACL.object_uuid.in_(object_uuids)) if object_uuids else None
+    try:
+        # By identity or authorizables associated with the identity
+        if isinstance(identity_id, int):
+            filter_clause.append(ACLDetail.authorizable_id.in_(related_authr_ids(identity_id)))
+        elif hasattr(identity_id, '__iter__'):
+            filter_clause.append(ACLDetail.authorizable_id.in_(identity_id))
+        else:
+            filter_clause.append(ACLDetail.authorizable_id.in_(related_authr_ids(g.n_session.identity.id)))
+        # By permission or superior permissions
+        if isinstance(permission_types_ids, int):
+            filter_clause.append(ACLDetail.permission_id.in_(related_perm_ids(permission_types_ids)))
+        elif hasattr(permission_types_ids, '__iter__'):
+            filter_clause.append(ACLDetail.permission_id.in_(permission_types_ids))
+
+        collected = DBSession.query(CollectionDetail.object_uuid) \
+            .join(Collection) \
+            .join(ACL, Collection.uuid==ACL.object_uuid) \
+            .join(ACLDetail) \
+            .filter(*filter_clause)
+        uncollected = DBSession.query(ACL.object_uuid).join(ACLDetail).filter(*filter_clause)
+
+        final_query = collected.union(uncollected)
+        if permission_flag or authorizable_flag:
+            entities = []
+            entities += [ACLDetail.permission] if permission_flag else []
+            entities += [ACLDetail.authorizable] if authorizable_flag else []
+            return final_query.with_entities(entities)
+        else:
+            return orm.uuid.in_(final_query)
+    except Exception as e:
+        print(e)
+        return None
 
 
 def filter_parse(orm, filter, aux_filter=None):

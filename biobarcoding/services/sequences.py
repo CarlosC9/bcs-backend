@@ -5,9 +5,9 @@ from .ontologies import get_cvterm_query
 from ..db_models import DBSession as db_session
 from ..db_models import DBSessionChado as chado_session
 from ..db_models.chado import Feature, Organism, StockFeature
-from ..db_models.bioinformatics import Sequence
+from ..db_models.bioinformatics import Sequence, bio_object_type_id
 
-from ..rest import Issue, IType, filter_parse
+from ..rest import Issue, IType, filter_parse, auth_filter
 from . import get_orm_params, get_query
 from ..services import log_exception, get_bioformat, get_or_create
 
@@ -113,7 +113,7 @@ def read(id=None, **kwargs):
 def update(id, **kwargs):
     content = None
     try:
-        seq = __get_query(id)[0].one()
+        seq = __get_query(id, purpose='contribute')[0].one()
         seq.update(get_orm_params(Feature, **kwargs))
         issues, status = [Issue(IType.INFO, f'UPDATE sequences: The sequence "{seq.uniquename}" was successfully updated.')], 200
     except Exception as e:
@@ -136,7 +136,7 @@ def __delete_from_bcs(*ids):
 def delete(id=None, **kwargs):
     content = None
     try:
-        content, count = __get_query(id, **kwargs)
+        content, count = __get_query(id, purpose='delete', **kwargs)
         ids = [seq.feature_id for seq in content.all()]
         bcs_delete = __delete_from_bcs(*ids)
         content = content.delete(synchronize_session='fetch')
@@ -323,7 +323,7 @@ def __seqs2file(seqs, format='fasta', output_file=f"/tmp/output_ngd", header_for
 def export(id=None, format='fasta', **kwargs):
     content = None
     try:
-        query, count = __get_query(id, **kwargs)
+        query, count = __get_query(id, purpose='share', **kwargs)
         content = __seqs2file(query.all(),
                               format=format,
                               output_file=f'/tmp/output_ngd.{format}',
@@ -340,12 +340,15 @@ def export(id=None, format='fasta', **kwargs):
 # GETTER AND OTHERS
 ##
 
-def __get_query(id=None, **kwargs):
+def __get_query(id=None, purpose='read', **kwargs):
     if id:
         query = chado_session.query(Feature).filter(Feature.feature_id == id)
         return query, query.count()
-    seq_clause = db_session.query(Sequence.chado_id).all()
-    seq_clause = [i for i, in seq_clause]
+    from biobarcoding.db_models.sysadmin import PermissionType
+    purpose_id = db_session.query(PermissionType.id).filter(PermissionType.name==purpose).one()
+    seq_clause = db_session.query(Sequence.chado_id) \
+        .filter(auth_filter(Sequence, purpose_id, [bio_object_type_id['sequence']]))
+    seq_clause = [i for i, in seq_clause.all()]
     seq_clause = Feature.feature_id.in_(seq_clause)
     query = chado_session.query(Feature).filter(seq_clause)
     return get_query(chado_session, Feature, query=query, aux_filter=__aux_own_filter, aux_order=__aux_own_order, **kwargs)

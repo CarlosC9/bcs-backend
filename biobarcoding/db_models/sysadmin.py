@@ -153,6 +153,7 @@ class PermissionType(ORMBase):  # CODES
     id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(GUID, nullable=False, default=uuid.uuid4)  # Object ID (ACL are on objects with UUID)
     name = Column(String(80))
+    rank = Column(Integer, nullable=False, default=0)
 
 
 class ObjectTypePermissionType(ORMBase):
@@ -163,6 +164,25 @@ class ObjectTypePermissionType(ORMBase):
     permission_type_id = Column(Integer, ForeignKey(PermissionType.id), nullable=False, primary_key=True)
     object_type = relationship(ObjectType, backref=backref("permission_types", cascade="all, delete-orphan"))
     permission_type = relationship(PermissionType, backref=backref("object_types", cascade="all, delete-orphan"))
+
+
+class Collection(ORMBase):
+    """ List of objects """
+    __tablename__ = f"{prefix}collections"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(GUID, nullable=False, default=uuid.uuid4)  # Object ID (Collection are on objects with UUID)
+
+
+class CollectionDetail(ORMBase):
+    """ Association of an object with a collection """
+    __tablename__ = f"{prefix}collections_detail"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    collection_id = Column(Integer, ForeignKey(Collection.id), nullable=False)
+    collection = relationship(Collection, backref=backref("detail", cascade="all, delete-orphan"))
+    object_type = Column(Integer, ForeignKey(ObjectType.id), nullable=False)
+    object_uuid = Column(GUID, nullable=False)
 
 
 class ACL(ORMBase):
