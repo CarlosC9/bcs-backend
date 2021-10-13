@@ -113,7 +113,7 @@ def read(id=None, **kwargs):
 def update(id, **kwargs):
     content = None
     try:
-        seq = __get_query(id)[0].one()
+        seq = __get_query(id, purpose='contribute')[0].one()
         seq.update(get_orm_params(Feature, **kwargs))
         issues, status = [Issue(IType.INFO, f'UPDATE sequences: The sequence "{seq.uniquename}" was successfully updated.')], 200
     except Exception as e:
@@ -136,7 +136,7 @@ def __delete_from_bcs(*ids):
 def delete(id=None, **kwargs):
     content = None
     try:
-        content, count = __get_query(id, **kwargs)
+        content, count = __get_query(id, purpose='delete', **kwargs)
         ids = [seq.feature_id for seq in content.all()]
         bcs_delete = __delete_from_bcs(*ids)
         content = content.delete(synchronize_session='fetch')
@@ -323,7 +323,7 @@ def __seqs2file(seqs, format='fasta', output_file=f"/tmp/output_ngd", header_for
 def export(id=None, format='fasta', **kwargs):
     content = None
     try:
-        query, count = __get_query(id, **kwargs)
+        query, count = __get_query(id, purpose='share', **kwargs)
         content = __seqs2file(query.all(),
                               format=format,
                               output_file=f'/tmp/output_ngd.{format}',

@@ -20,8 +20,10 @@ def get_seq_cvterm(type='sequence'):
         'processed':                {'cv':'sequence', 'name':'experimental_feature'},
         'aligned':                  {'cv':'sequence', 'name':'sequence_assembly'},
         'chloroplast':              {'cv':'sequence', 'name':'chloroplast_DNA'},
+        'matk':   {'cv':'sequence', 'name':'gene', 'value':'matk'},
         'maturase k (matk) gene':   {'cv':'sequence', 'name':'gene', 'value':'matk'},
-        'maturase k (rbcl) gene':   {'cv':'sequence', 'name':'gene', 'value':'rbcl'},
+        'rbcl':   {'cv':'sequence', 'name':'gene', 'value':'rbcl'},
+        'ribulose (rbcl) gene':   {'cv':'sequence', 'name':'gene', 'value':'rbcl'},     # Ribulose bisphosphate carboxylase large
     }.get(type)
 
 

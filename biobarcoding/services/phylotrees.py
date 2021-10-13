@@ -113,7 +113,7 @@ def __delete_from_bcs(*ids):
 def delete(id=None, **kwargs):
     content = None
     try:
-        content, count = __get_query(id, **kwargs)
+        content, count = __get_query(id, purpose='delete', **kwargs)
         ids = [phylo.phylotree_id for phylo in content.all()]
         bcs_delete = __delete_from_bcs(*ids)
         content = content.delete(synchronize_session='fetch')
@@ -188,7 +188,7 @@ def __tree2phylonodes(phylotree_id, node, parent_id=None, index=[0]):
 def export(id=None, format='newick', **kwargs):
     # NGD newick phylotree export
     try:
-        if id and __get_query(id)[0].one():
+        if id and __get_query(id, purpose='share')[0].one():
             __tree2file(id, format, f'/tmp/output_ngd.{format}')
         else:
             # TODO: allow export by filter ?
