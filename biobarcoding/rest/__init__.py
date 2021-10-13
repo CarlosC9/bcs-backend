@@ -16,6 +16,7 @@ from sqlalchemy import orm, and_, or_
 from sqlalchemy.pool import StaticPool
 
 import biobarcoding
+from .. import config_file_var
 from ..authentication import n_session
 from ..common import generate_json, ROOT
 from ..common.helpers import get_module_logger
@@ -32,6 +33,7 @@ app_api_base = "/api"  # Base for all RESTful calls
 app_gui_base = "/gui"  # Base for the Angular2 GUI
 app_external_gui_base = "/gui_external"  # Base for the Angular2 GUI when loaded from URL
 app_proxy_base = "/pxy"  # Base for the BCS Proxy
+app_acronym = "bcs"  # Application Short acronym (internal use)
 
 logger = get_module_logger(__name__)
 log_level = logging.DEBUG
@@ -102,7 +104,7 @@ class ResponseObject:
 
 def get_default_configuration_dict():
     from appdirs import AppDirs
-    app_dirs = AppDirs("bcs-backend")
+    app_dirs = AppDirs(f"{app_acronym}-backend")
     # Default directories, multi-platform
     data_path = app_dirs.user_data_dir
     cache_path = app_dirs.user_cache_dir
@@ -113,7 +115,7 @@ def get_default_configuration_dict():
     BACKEND_URL = BROKER_URL
 
     return dict(
-        # BCS (SYSTEM DB)
+        # SYSTEM DB
         DB_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432/",
         # CHADO (MOLECULAR DATA DB)
         CHADO_DATABASE="postgres",
@@ -127,31 +129,31 @@ def get_default_configuration_dict():
         CELERY_BACKEND_URL=f"{BACKEND_URL}",
         REDIS_HOST="filesystem:local_session",
         REDIS_HOST_FILESYSTEM_DIR=f"{cache_path}/sessions",
-        # GEOSERVER address from BCS-Backend
+        # GEOSERVER address from App-Backend
         GEOSERVER_URL="localhost:9180",
         # GEO (GEOSPATIAL DATA)
         GEOSERVER_USER="admin",
-        GEOSERVER_PASSWORD="ngd_ad37",
+        GEOSERVER_PASSWORD=f"{app_acronym}_ad37",
         GEOSERVER_HOST="geoserver",
         GEOSERVER_PORT="8080",
-        # PostGIS address from BCS-Backend
+        # PostGIS address from App-Backend
         POSTGIS_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5435/",
         # PostGIS address from Geoserver ("host", "port" could differ from those in POSTGIS_CONNECTION_STRING)
         POSTGIS_USER="postgres",
         POSTGIS_PASSWORD="postgres",
         POSTGIS_PORT="5432",
         POSTGIS_HOST="localhost",
-        POSTGIS_DB="ngd_geoserver",
+        POSTGIS_DB=f"{app_acronym}_geoserver",
         # COMPUTE RESOURCES
-        RESOURCES_CONFIG_FILE_PATH="/home/resources_config.json",
-        JOBS_LOCAL_WORKSPACE=os.path.expanduser('~/ngd_jobs'),
+        RESOURCES_CONFIG_FILE_PATH=f"{data_path}/resources_config.json",
+        JOBS_LOCAL_WORKSPACE=os.path.expanduser(f'~/{app_acronym}_jobs'),
         SSH_JOBS_DEFAULT_REMOTE_WORKSPACE="/tmp",
         GALAXY_API_KEY="fakekey",
         GALAXY_LOCATION="http://localhost:8080",
         # MISC
         GOOGLE_APPLICATION_CREDENTIALS=f"{data_path}/firebase-key.json",  # Firebase
-        ENDPOINT_URL="http://localhost:5000",  # Self "bcs-backend" address (so Celery can update things)
-        COOKIES_FILE_PATH="/tmp/bcs-cookies.txt",  # Where cookies are stored by Celery
+        ENDPOINT_URL="http://localhost:5000",  # Self "app-backend" address (so Celery can update things)
+        COOKIES_FILE_PATH=f"/tmp/{app_acronym}-cookies.txt",  # Where cookies are stored by Celery
         CACHE_FILE_LOCATION=f"{cache_path}/cache",  # Cached things
         SAMESITE_NONE="True",
         TESTING="True",
@@ -163,7 +165,7 @@ def prepare_default_configuration(create_directories):
     default_cfg = get_default_configuration_dict()
 
     from appdirs import AppDirs
-    app_dirs = AppDirs("bcs-backend")
+    app_dirs = AppDirs(f"{app_acronym}-backend")
 
     # Default directories, multi-platform
     data_path = app_dirs.user_data_dir
@@ -178,7 +180,7 @@ def prepare_default_configuration(create_directories):
 
     # Default configuration
     return f"""{os.linesep.join([f'{k}="{v}"' for k, v in default_cfg.items()])}""", \
-           data_path + os.sep + "bcs_local.conf"
+           data_path + os.sep + f"{app_acronym}_local.conf"
 
 
 def complete_configuration_file(file_name):
@@ -202,14 +204,14 @@ def load_configuration_file(flask_app):
     # Initialize configuration
     try:
         _, file_name = prepare_default_configuration(False)
-        if not os.environ.get(biobarcoding.config_file_var):
+        if not os.environ.get(config_file_var):
             logger.debug(f"Trying {file_name}")
             if os.path.isfile(file_name):
                 print(f"Assuming {file_name} as configuration file")
                 logger.debug(f"Assuming {file_name} as configuration file")
                 found = True
                 complete_configuration_file(file_name)
-                os.environ[biobarcoding.config_file_var] = file_name
+                os.environ[config_file_var] = file_name
             else:
                 found = False
                 logger.debug(f"Creating {file_name} as configuration file")
@@ -218,17 +220,17 @@ def load_configuration_file(flask_app):
                 print(f"Generating {file_name} as configuration file:\n{cfg}")
                 with open(file_name, "wt") as f:
                     f.write(cfg)
-                os.environ[biobarcoding.config_file_var] = file_name
+                os.environ[config_file_var] = file_name
         else:
-            complete_configuration_file(os.environ.get(biobarcoding.config_file_var))
+            complete_configuration_file(os.environ.get(config_file_var))
         print("-----------------------------------------------")
-        print(f'Configuration file at: {os.environ[biobarcoding.config_file_var]}')
+        print(f'Configuration file at: {os.environ[config_file_var]}')
         print("-----------------------------------------------")
-        flask_app.config.from_envvar(biobarcoding.config_file_var)
+        flask_app.config.from_envvar(config_file_var)
         logger.debug(flask_app.config)
 
     except Exception as e:
-        print(f"{biobarcoding.config_file_var} environment variable not defined!")
+        print(f"{config_file_var} environment variable not defined!")
         print(e)
 
 
@@ -241,13 +243,13 @@ def construct_session_persistence_backend(flask_app):
     d = {}
     if 'REDIS_HOST' in flask_app.config:
         r_host = flask_app.config['REDIS_HOST']
-        d["SESSION_KEY_PREFIX"] = "bcs:"
+        d["SESSION_KEY_PREFIX"] = f"{app_acronym}:"
         d["SESSION_PERMANENT"] = False
         rs2 = None
         if r_host == "redis_lite":
             try:
                 import redislite
-                rs2 = redislite.Redis("tmp_bcs_backend_redislite.db")  # serverconfig={'port': '6379'}
+                rs2 = redislite.Redis(f"tmp_{app_acronym}_backend_redislite.db")  # serverconfig={'port': '6379'}
                 d["SESSION_TYPE"] = "redis"
                 d["SESSION_REDIS"] = rs2
                 # d["PERMANENT_SESSION_LIFETIME"] = 3600
@@ -613,7 +615,7 @@ def initialize_database(flask_app):
     recreate_db = False
     if 'DB_CONNECTION_STRING' in flask_app.config:
         db_connection_string = flask_app.config['DB_CONNECTION_STRING']
-        print("Connecting to BCS database server")
+        print(f"Connecting to {app_acronym.upper()} database server")
         print(db_connection_string)
         print("-----------------------------")
         if db_connection_string.startswith("sqlite://"):
@@ -780,11 +782,11 @@ def initialize_postgis(flask_app):
     recreate_db = False
     if 'POSTGIS_CONNECTION_STRING' in flask_app.config:
         db_connection_string = flask_app.config['POSTGIS_CONNECTION_STRING']
-        print("Connecting to ngd_geoserver database server")
+        print(f"Connecting to {app_acronym}_geoserver database server")
         print(db_connection_string)
         print("-----------------------------")
 
-        biobarcoding.postgis_engine = create_pg_database_engine(db_connection_string, "ngd_geoserver",
+        biobarcoding.postgis_engine = create_pg_database_engine(db_connection_string, f"{app_acronym}_geoserver",
                                                                 recreate_db=recreate_db)
         # global DBSession # global DBSession registry to get the scoped_session
         DBSessionGeo.configure(
@@ -818,7 +820,7 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
 
     :param entity: the entity class to manage
     :param entity_name: the name of the entity, in plural
-    :param execution_rules: a dictionary of execution rules (according to the decorator "bcs_session") by CRUD method
+    :param execution_rules: a dictionary of execution rules (according to the decorator "n_session") by CRUD method
     :return: the blueprint (to register it) and the class (if needed)
     """
 
@@ -879,7 +881,7 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
             return r.get_response()
 
     # If the following line is uncommented, it complains on "overwriting an existing endpoint function". This function is public, because it is just the schema, so, no problem.
-    # @bcs_session()
+    # @n_session()
     def get_entities_json_schema():
         r = ResponseObject()
         factory = SchemaFactory(StructuralWalker)
