@@ -798,6 +798,13 @@ def initialize_postgis(flask_app):
         if False in table_existence:
             ORMBaseGeo.metadata.bind = biobarcoding.postgis_engine
             ORMBaseGeo.metadata.create_all()
+        connection = biobarcoding.postgis_engine.connect()
+        try:
+            connection.execute("CREATE EXTENSION postgis")
+        except:
+            pass
+        connection.execute("commit")
+        connection.close()
         # Load base tables
         # initialize_gnd_geoserver_data() # not implemented
     else:
