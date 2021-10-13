@@ -4,7 +4,7 @@ import os
 ##
 # CONNECTIONS
 ##
-from biobarcoding.rest import filter_parse, order_parse
+from ..rest import filter_parse, order_parse
 
 
 def conn_chado():
@@ -164,16 +164,16 @@ def get_or_create(session, model, **params):
         session.flush()
         # TODO: create ACLs if possible too ?
         try:
-            from biobarcoding.db_models import DBSession
+            from ..db_models import DBSession
             # acl
-            from biobarcoding.db_models.sysadmin import ACL
+            from ..db_models.sysadmin import ACL
             acl = get_or_create(DBSession, ACL,
                                     object_uuid=instance.uuid,
                                     object_type=instance.bo_type_id)
             # acldetail
-            from biobarcoding.db_models.sysadmin import ACLDetail
+            from ..db_models.sysadmin import ACLDetail
             from flask import g
-            from biobarcoding.db_models.sysadmin import PermissionType
+            from ..db_models.sysadmin import PermissionType
             acldetail = get_or_create(DBSession, ACLDetail,
                                           acl_id=acl.id,
                                           authorizable_id=g.n_session.identity.id,

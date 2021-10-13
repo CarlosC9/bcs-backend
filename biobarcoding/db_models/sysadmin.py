@@ -172,7 +172,7 @@ class Collection(ORMBase):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(GUID, nullable=False, default=uuid.uuid4)  # Object ID (Collection are on objects with UUID)
-    name = Column(String(80))
+    name = Column(String(512))
 
 
 class CollectionDetail(ORMBase):
