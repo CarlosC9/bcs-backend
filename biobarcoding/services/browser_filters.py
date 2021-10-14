@@ -9,19 +9,19 @@ def create(datatype, **kwargs):
         if not kwargs.get('name') or not datatype:
             raise Exception
         # get Identity
-        new_filter = BrowserFilter(**kwargs, type=datatype)
+        content = BrowserFilter(**kwargs, type=datatype)
         from flask import g
-        new_filter.user_id = g.n_session.identity.id
-        db_session.add(new_filter)
+        content.user_id = g.n_session.identity.id
+        db_session.add(content)
         issues, status = [Issue(IType.INFO, f'CREATE browser_filters: It was created successfully.')], 201
     except Exception as e:
         print(e)
         issues, status = [Issue(IType.ERROR, f'CREATE browser_filters: It could not be created.')], 409
-    return issues, None, status
+    return issues, content, status
 
 
 def read(datatype, id=None, **kwargs):
-    content = None
+    content, count = None, 0
     try:
         content, count = __get_query(datatype, id, **kwargs)
         if id:

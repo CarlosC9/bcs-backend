@@ -345,7 +345,7 @@ def __get_query(id=None, purpose='read', **kwargs):
         query = chado_session.query(Feature).filter(Feature.feature_id == id)
         return query, query.count()
     from biobarcoding.db_models.sysadmin import PermissionType
-    purpose_id = db_session.query(PermissionType.id).filter(PermissionType.name==purpose).one()
+    purpose_id = db_session.query(PermissionType).filter(PermissionType.name==purpose).one().id
     seq_clause = db_session.query(Sequence.chado_id) \
         .filter(auth_filter(Sequence, purpose_id, [bio_object_type_id['sequence']]))
     seq_clause = [i for i, in seq_clause.all()]

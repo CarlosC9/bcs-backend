@@ -955,7 +955,7 @@ def parse_request_params(data=None):
 
 def related_authr_ids(identity_id: int):
     # Get the organizations, groups, and roles associated to an identity
-    return DBSession.query(Authorizable.id) \
+    ids = DBSession.query(Authorizable.id) \
         .join(OrganizationIdentity, OrganizationIdentity.organization_id==Authorizable.id, isouter=True) \
         .join(GroupIdentity, GroupIdentity.group_id==Authorizable.id, isouter=True) \
         .join(RoleIdentity, RoleIdentity.role_id==Authorizable.id, isouter=True) \
@@ -963,14 +963,16 @@ def related_authr_ids(identity_id: int):
                     OrganizationIdentity.identity_id==identity_id,
                     GroupIdentity.identity_id==identity_id,
                     RoleIdentity.identity_id==identity_id))
+    return [i for i, in ids]
 
 
 def related_perm_ids(permission_id: int):
     # Get the mayor permissions that also allow permission_id
-    return DBSession.query(PermissionType.id) \
+    ids = DBSession.query(PermissionType.id) \
         .filter(or_(PermissionType.id==permission_id,
-                    PermissionType.rank >
+                    PermissionType.rank <   # TODO: should be <= ?
                     DBSession.query(PermissionType.rank).filter(PermissionType.id==permission_id)))
+    return [i for i, in ids]
 
 
 def auth_filter(orm, permission_types_ids, object_types_ids,

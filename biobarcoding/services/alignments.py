@@ -213,7 +213,7 @@ def export(id, format='fasta', value={}, **kwargs):
 
 def __get_query(id=None, purpose='read', **kwargs):
     from biobarcoding.db_models.sysadmin import PermissionType
-    purpose_id = db_session.query(PermissionType.id).filter(PermissionType.name==purpose).one()
+    purpose_id = db_session.query(PermissionType).filter(PermissionType.name==purpose).one().id
     aln_clause = db_session.query(MultipleSequenceAlignment.chado_id) \
         .filter(auth_filter(MultipleSequenceAlignment, purpose_id, [bio_object_type_id['multiple-sequence-alignment']]))
     aln_clause = [i for i, in aln_clause.all()]

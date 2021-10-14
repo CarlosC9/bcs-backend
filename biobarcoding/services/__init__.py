@@ -177,7 +177,7 @@ def get_or_create(session, model, **params):
             acldetail = get_or_create(DBSession, ACLDetail,
                                           acl_id=acl.id,
                                           authorizable_id=g.n_session.identity.id,
-                                          permission_id=DBSession.query(PermissionType.id).filter(PermissionType.name=='read').one())
+                                          permission_id=DBSession.query(PermissionType.id).filter(PermissionType.name=='delete').one())
         except Exception as e:
             pass
     return instance

@@ -240,7 +240,7 @@ def __get_query(phylotree_id=None, purpose='read', **kwargs):
         query = chado_session.query(Phylotree).filter(Phylotree.phylotree_id == phylotree_id)
         return query, query.count()
     from biobarcoding.db_models.sysadmin import PermissionType
-    purpose_id = db_session.query(PermissionType.id).filter(PermissionType.name==purpose).one()
+    purpose_id = db_session.query(PermissionType).filter(PermissionType.name==purpose).one().id
     phy_clause = db_session.query(PhylogeneticTree.chado_id) \
         .filter(auth_filter(PhylogeneticTree, purpose_id, [bio_object_type_id['phylogenetic-tree']]))
     phy_clause = [i for i, in phy_clause.all()]
