@@ -159,6 +159,7 @@ def get_default_configuration_dict():
         SAMESITE_NONE="True",
         TESTING="True",
         SELF_SCHEMA="",
+        ACL_ENABLED="True",
     )
 
 
@@ -1007,6 +1008,10 @@ def auth_filter(orm, permission_types_ids, object_types_ids,
 
     @return: <orm_clause_filter> || object_uuids[, permissions][, authorizables]
     """
+    from flask import current_app
+    if current_app.config["ACL_ENABLED"] != 'True':
+        return True
+
     from datetime import datetime
     time = time if time else datetime.now()
     filter_clause = [
