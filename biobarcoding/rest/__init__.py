@@ -13,6 +13,7 @@ from attr import attrs, attrib
 from bioblend import galaxy
 from flask import Response, Blueprint, g, request
 from flask.views import MethodView
+import sqlalchemy
 from sqlalchemy import orm, and_, or_
 from sqlalchemy.pool import StaticPool
 
