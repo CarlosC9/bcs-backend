@@ -301,30 +301,41 @@ class BrowserFilter(ORMBase):
 prefix = "sa_annotation_"
 
 
-class AnnotationForm(ORMBase):
-    __tablename__ = f"{prefix}form"
+class AnnotationFormItem(ORMBase):
+    __tablename__ = f"{prefix}form_item"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     name = Column(String(80), nullable=False)
     description = Column(String(512))
+    cvterm_id = Column(Integer, unique=True)
     dbxref_id = Column(Integer)
 
 
-class AnnotationFormField(AnnotationForm):
+class AnnotationFormItemObjectType(ORMBase):
+    __tablename__ = f"{prefix}form_item_object_type"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    form_item_id = Column(Integer, ForeignKey(AnnotationFormItem.id), nullable=False)
+    object_type_id = Column(Integer, ForeignKey(ObjectType.id), nullable=False)
+    form_item = relationship(AnnotationFormItem, backref=backref("annotation_form_items", cascade="all, delete-orphan"))
+    object_type = relationship(ObjectType, backref=backref("object_types", cascade="all, delete-orphan"))
+
+    __table_args__ = (
+        UniqueConstraint(form_item_id, object_type_id, name=__tablename__ + '_c1'),
+    )
+
+
+class AnnotationFormField(AnnotationFormItem):
     __tablename__ = f"{prefix}form_field"
 
-    id = Column(BigInteger, ForeignKey(AnnotationForm.id), primary_key=True)
+    id = Column(BigInteger, ForeignKey(AnnotationFormItem.id), primary_key=True)
     type = Column(String(32), nullable=False)   # tag, attribute, relationship
-    cvterm_id = Column(Integer)
     range = Column(JSONB)
     view_type = Column(String(32))  # check, radio, date, etc.
     multiple = Column(Boolean, default=False)
 
-    __table_args__ = (
-        UniqueConstraint(type, cvterm_id, name=__tablename__+'_c1'),
-    )
     __mapper_args__ = {
-        'polymorphic_identity': 'annotation_field',
+        'polymorphic_identity': 'annotation_form_field',
         'polymorphic_on': type
     }
 
@@ -353,16 +364,10 @@ class AnnotationFormRelationship(AnnotationFormField):
     id = Column(BigInteger, ForeignKey(AnnotationFormField.id), primary_key=True)
 
 
-class AnnotationFormTemplate(AnnotationForm):
+class AnnotationFormTemplate(AnnotationFormItem):
     __tablename__ = f"{prefix}form_template"
 
-    id = Column(BigInteger, ForeignKey(AnnotationForm.id), primary_key=True)
-    object_type_id = Column(Integer, ForeignKey(ObjectType.id), nullable=False)
-    cvterm_id = Column(Integer)
-
-    __table_args__ = (
-        UniqueConstraint(object_type_id, cvterm_id, name=__tablename__ + '_c1'),
-    )
+    id = Column(BigInteger, ForeignKey(AnnotationFormItem.id), primary_key=True)
 
 
 class AnnotationFormTemplateField(ORMBase):
@@ -383,47 +388,48 @@ class AnnotationFormTemplateField(ORMBase):
 
 # ANNOTATION INSTANCE
 
-class AnnotationObject(ORMBase):
-    __tablename__ = f"{prefix}object"
+class AnnotationItem(ORMBase):
+    __tablename__ = f"{prefix}item"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     object_uuid = Column(GUID, ForeignKey(BioinformaticObject.uuid), nullable=False)
     type = Column(String(80), nullable=False)    # text, form, field
-    rank = Column(Integer, nullable=False, autoincrement=True)
     name = Column(String(80), nullable=False)
-    annotation_form_id = Column(Integer, ForeignKey(AnnotationForm.id))
+    rank = Column(Integer, nullable=False, autoincrement=True)
 
     __table_args__ = (
         UniqueConstraint(object_uuid, rank, name=__tablename__ + '_c1'),
     )
     __mapper_args__ = {
-        'polymorphic_identity': 'annotation_obj',
+        'polymorphic_identity': 'annotation_item',
         'polymorphic_on': type
     }
 
 
-class AnnotationText(AnnotationObject):
+class AnnotationText(AnnotationItem):
     __tablename__ = f"{prefix}text"
     __mapper_args__ = {
         'polymorphic_identity': 'text',
     }
-    id = Column(BigInteger, ForeignKey(AnnotationObject.id), primary_key=True)
+    id = Column(BigInteger, ForeignKey(AnnotationItem.id), primary_key=True)
     value = Column(String(512))
 
 
-class AnnotationTemplate(AnnotationObject):
+class AnnotationTemplate(AnnotationItem):
     __tablename__ = f"{prefix}template"
     __mapper_args__ = {
         'polymorphic_identity': 'template',
     }
-    id = Column(BigInteger, ForeignKey(AnnotationObject.id), primary_key=True)
+    id = Column(BigInteger, ForeignKey(AnnotationItem.id), primary_key=True)
+    form_template_id = Column(Integer, ForeignKey(AnnotationFormTemplate.id), nullable=False)
     value = Column(JSONB)
 
 
-class AnnotationField(AnnotationObject):
+class AnnotationField(AnnotationItem):
     __tablename__ = f"{prefix}field"
     __mapper_args__ = {
         'polymorphic_identity': 'field',
     }
-    id = Column(BigInteger, ForeignKey(AnnotationObject.id), primary_key=True)
+    id = Column(BigInteger, ForeignKey(AnnotationItem.id), primary_key=True)
+    form_field_id = Column(Integer, ForeignKey(AnnotationFormField.id), nullable=False)
     value = Column(JSONB)
