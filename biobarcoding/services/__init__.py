@@ -183,8 +183,9 @@ def get_or_create(session, model, **params):
     return instance
 
 
-def get_simple_query(session, model, **kwargs):
-    # kwargs = {k: v for k, v in kwargs.items() if v is not None}
+def get_simple_query(session, model, null_sensitive=True, **kwargs):
+    if not null_sensitive:
+        kwargs = {k: v for k, v in kwargs.items() if v is not None}
     params = get_orm_params(model, **kwargs)
     return session.query(model).filter_by(**params)
 

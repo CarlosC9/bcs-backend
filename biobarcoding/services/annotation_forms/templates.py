@@ -1,32 +1,25 @@
-from ..main import AuxServiceSuper
+from . import FormItemAuxService
+from ..main import get_orm
+from ...rest import filter_parse
+from ...db_models import DBSession
+from ...db_models.sysadmin import AnnotationFormTemplateField
 
 
 ##
 # TEMPLATE TOOLS
 ##
 
-class AuxService(AuxServiceSuper):
+class AuxService(FormItemAuxService):
 
-    def prepare_values(self, **kwargs):
-        return None
+    def __init__(self):
+        self.orm = get_orm('templates')
 
-    def create(self, **kwargs):
-        return None
+    def aux_filter(self, filter):
+        clauses = []
 
-    def post_create(self, **kwargs):
-        return None
+        if filter.get('field_id'):
+            _ids = DBSession.query(AnnotationFormTemplateField.form_template_id) \
+                .filter(filter_parse(AnnotationFormTemplateField, {'field_id': filter.get('field_id')}))
+            clauses.append(self.orm.id.in_(_ids))   # .all()
 
-    def read(self, **kwargs):
-        return None
-
-    def get_query(self, **kwargs):
-        return None
-
-    def aux_filter(self, **kwargs):
-        return None
-
-    def aux_order(self, **kwargs):
-        return None
-
-    def check_file(self, **kwargs):
-        return None
+        return clauses + super(AuxService, self).aux_filter()

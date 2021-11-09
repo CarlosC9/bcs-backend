@@ -1,28 +1,25 @@
+from . import log_exception, get_bioformat, get_orm_params, get_query
 from ..rest import Issue, IType
-from . import log_exception, get_bioformat
+from ..db_models import ORMBase, DBSession
 
 
-def __getORM(entity):
+def get_orm(entity):
     orm = None
     if entity == 'templates':
         from ..db_models.sysadmin import AnnotationFormTemplate as orm
     if entity == 'fields':
         from ..db_models.sysadmin import AnnotationFormField as orm
-    if entity == 'template_fields':
-        from ..db_models.sysadmin import AnnotationFormTemplateField as orm
     if entity == 'annotations':
         from ..db_models.sysadmin import AnnotationItem as orm
     return orm
 
 
-def __getService(entity):
+def get_service(entity):
     service = None
     if entity == 'templates':
         from .annotation_forms.templates import AuxService as service
     if entity == 'fields':
         from .annotation_forms.fields import AuxService as service
-    if entity == 'template_fields':
-        from .annotation_forms.template_fields import AuxService as service
     if entity == 'annotations':
         from .annotation_forms.annotations import AuxService as service
     return service
@@ -30,10 +27,10 @@ def __getService(entity):
 
 def getCRUDIE(entity):
 
-    ORM = __getORM(entity)
-    AuxService = __getService(entity)
+    ORM = get_orm(entity)
+    AuxService = get_service(entity)
 
-    class CRUDIE():
+    class CRUDIE:
 
         issues = []
         content = None
@@ -42,9 +39,8 @@ def getCRUDIE(entity):
 
         def create(self, **kwargs):
             try:
-                values = AuxService.prepare_values(**kwargs)
-                self.content = AuxService.create(**values)
-                add = AuxService.add_create(self.content, **kwargs)
+                self.content = AuxService.create(**kwargs)
+                extra = AuxService.after_create(self.content, **kwargs)
                 self.issues += [Issue(IType.INFO,
                                       f'CREATE {entity}: The {entity} was created successfully.')]
                 self.status = 201
@@ -129,32 +125,60 @@ def getCRUDIE(entity):
                 self.status = 409
             return self.issues, self.content, self.count, self.status
 
+    return CRUDIE
 
-    return CRUDIE()
 
+class SimpleAuxService:
 
-class AuxServiceSuper:
+    def __init__(self):
+        self.orm = ORMBase
+        self.dbsession = DBSession
 
-    def prepare_values(self):
+    # filter and deduce values (mostly ids) for creation or update
+    def prepare_values(self, **kwargs) -> dict:
+        return get_orm_params(self.orm, **kwargs)
+
+    # check the validity of the values against the constraints to create or update
+    def check_values(self, **kwargs) -> dict:
+        return kwargs
+
+    # deal with the creation
+    def create(self, **kwargs):
+        values = self.prepare_values(**kwargs)
+        content = self.orm(**values)
+        self.dbsession.add(content)
+        self.dbsession.flush()
+        return content
+
+    # any additional creation if any
+    def after_create(self, new_obj, **kwargs):
         return None
 
-    def create(self):
-        return None
+    # read like get_query, but telling if it asks only for one or more. It can use get_query
+    # @return: result, total_count
+    def read(self, **kwargs):
+        content, count = self.get_query(**kwargs)
+        if kwargs.get('id'):
+            content = content.first()
+        else:
+            content = content.all()
+        return content, count
 
-    def post_create(self):
-        return None
+    # provide a sqlalchemy query (might be paged) and the total_count
+    # @return: Query, total_count
+    def get_query(self, **kwargs):
+        return get_query(self.dbsession, self.orm,
+                         aux_filter=self.aux_filter,
+                         aux_order=self.aux_order, **kwargs)
 
-    def read(self):
-        return None
+    # method to filter by external values when querying
+    def aux_filter(self, filter) -> list:
+        return []
 
-    def get_query(self):
-        return None
+    # method to order by external values when querying
+    def aux_order(self, order) -> list:
+        return []
 
-    def aux_filter(self):
-        return None
-
-    def aux_order(self):
-        return None
-
-    def check_file(self):
-        return None
+    # verify that a given file is the data it pretend to be
+    def check_file(self, file) -> bool:
+        return True
