@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+import subprocess
 import sys
 from enum import Enum
 from typing import Dict, List
@@ -16,6 +17,7 @@ from sqlalchemy import orm, and_, or_
 from sqlalchemy.pool import StaticPool
 
 import biobarcoding
+from .. import config_file_var
 from ..authentication import n_session
 from ..common import generate_json, ROOT
 from ..common.helpers import get_module_logger
@@ -31,7 +33,8 @@ from ..rest.socket_service import SocketService
 app_api_base = "/api"  # Base for all RESTful calls
 app_gui_base = "/gui"  # Base for the Angular2 GUI
 app_external_gui_base = "/gui_external"  # Base for the Angular2 GUI when loaded from URL
-app_proxy_base = "/pxy"  # Base for the BCS Proxy
+app_proxy_base = "/pxy"  # Base for the Backend Proxy
+app_acronym = "bcs"  # Application Short acronym (internal use)
 
 logger = get_module_logger(__name__)
 log_level = logging.DEBUG
@@ -102,7 +105,7 @@ class ResponseObject:
 
 def get_default_configuration_dict():
     from appdirs import AppDirs
-    app_dirs = AppDirs("bcs-backend")
+    app_dirs = AppDirs(f"{app_acronym}-backend")
     # Default directories, multi-platform
     data_path = app_dirs.user_data_dir
     cache_path = app_dirs.user_cache_dir
@@ -113,7 +116,7 @@ def get_default_configuration_dict():
     BACKEND_URL = BROKER_URL
 
     return dict(
-        # BCS (SYSTEM DB)
+        # SYSTEM DB
         DB_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432/",
         # CHADO (MOLECULAR DATA DB)
         CHADO_DATABASE="postgres",
@@ -127,35 +130,36 @@ def get_default_configuration_dict():
         CELERY_BACKEND_URL=f"{BACKEND_URL}",
         REDIS_HOST="filesystem:local_session",
         REDIS_HOST_FILESYSTEM_DIR=f"{cache_path}/sessions",
-        # GEOSERVER address from BCS-Backend
+        # GEOSERVER address from App-Backend
         GEOSERVER_URL="localhost:9180",
         # GEO (GEOSPATIAL DATA)
         GEOSERVER_USER="admin",
-        GEOSERVER_PASSWORD="ngd_ad37",
+        GEOSERVER_PASSWORD=f"{app_acronym}_ad37",
         GEOSERVER_HOST="geoserver",
         GEOSERVER_PORT="8080",
-        # PostGIS address from BCS-Backend
+        # PostGIS address from App-Backend
         POSTGIS_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5435/",
         # PostGIS address from Geoserver ("host", "port" could differ from those in POSTGIS_CONNECTION_STRING)
         POSTGIS_USER="postgres",
         POSTGIS_PASSWORD="postgres",
         POSTGIS_PORT="5432",
         POSTGIS_HOST="localhost",
-        POSTGIS_DB="ngd_geoserver",
+        POSTGIS_DB=f"{app_acronym}_geoserver",
         # COMPUTE RESOURCES
-        RESOURCES_CONFIG_FILE_PATH="/home/resources_config.json",
-        JOBS_LOCAL_WORKSPACE=os.path.expanduser('~/ngd_jobs'),
+        RESOURCES_CONFIG_FILE_PATH=f"{data_path}/resources_config.json",
+        JOBS_LOCAL_WORKSPACE=os.path.expanduser(f'~/{app_acronym}_jobs'),
         SSH_JOBS_DEFAULT_REMOTE_WORKSPACE="/tmp",
         GALAXY_API_KEY="fakekey",
         GALAXY_LOCATION="http://localhost:8080",
         # MISC
         GOOGLE_APPLICATION_CREDENTIALS=f"{data_path}/firebase-key.json",  # Firebase
-        ENDPOINT_URL="http://localhost:5000",  # Self "bcs-backend" address (so Celery can update things)
-        COOKIES_FILE_PATH="/tmp/bcs-cookies.txt",  # Where cookies are stored by Celery
+        ENDPOINT_URL="http://localhost:5000",  # Self "app-backend" address (so Celery can update things)
+        COOKIES_FILE_PATH=f"/tmp/{app_acronym}-cookies.txt",  # Where cookies are stored by Celery
         CACHE_FILE_LOCATION=f"{cache_path}/cache",  # Cached things
         SAMESITE_NONE="True",
         TESTING="True",
         SELF_SCHEMA="",
+        ACL_ENABLED="True",
     )
 
 
@@ -163,7 +167,7 @@ def prepare_default_configuration(create_directories):
     default_cfg = get_default_configuration_dict()
 
     from appdirs import AppDirs
-    app_dirs = AppDirs("bcs-backend")
+    app_dirs = AppDirs(f"{app_acronym}-backend")
 
     # Default directories, multi-platform
     data_path = app_dirs.user_data_dir
@@ -178,7 +182,7 @@ def prepare_default_configuration(create_directories):
 
     # Default configuration
     return f"""{os.linesep.join([f'{k}="{v}"' for k, v in default_cfg.items()])}""", \
-           data_path + os.sep + "bcs_local.conf"
+           data_path + os.sep + f"{app_acronym}_local.conf"
 
 
 def complete_configuration_file(file_name):
@@ -202,14 +206,14 @@ def load_configuration_file(flask_app):
     # Initialize configuration
     try:
         _, file_name = prepare_default_configuration(False)
-        if not os.environ.get(biobarcoding.config_file_var):
+        if not os.environ.get(config_file_var):
             logger.debug(f"Trying {file_name}")
             if os.path.isfile(file_name):
                 print(f"Assuming {file_name} as configuration file")
                 logger.debug(f"Assuming {file_name} as configuration file")
                 found = True
                 complete_configuration_file(file_name)
-                os.environ[biobarcoding.config_file_var] = file_name
+                os.environ[config_file_var] = file_name
             else:
                 found = False
                 logger.debug(f"Creating {file_name} as configuration file")
@@ -218,17 +222,17 @@ def load_configuration_file(flask_app):
                 print(f"Generating {file_name} as configuration file:\n{cfg}")
                 with open(file_name, "wt") as f:
                     f.write(cfg)
-                os.environ[biobarcoding.config_file_var] = file_name
+                os.environ[config_file_var] = file_name
         else:
-            complete_configuration_file(os.environ.get(biobarcoding.config_file_var))
+            complete_configuration_file(os.environ.get(config_file_var))
         print("-----------------------------------------------")
-        print(f'Configuration file at: {os.environ[biobarcoding.config_file_var]}')
+        print(f'Configuration file at: {os.environ[config_file_var]}')
         print("-----------------------------------------------")
-        flask_app.config.from_envvar(biobarcoding.config_file_var)
+        flask_app.config.from_envvar(config_file_var)
         logger.debug(flask_app.config)
 
     except Exception as e:
-        print(f"{biobarcoding.config_file_var} environment variable not defined!")
+        print(f"{config_file_var} environment variable not defined!")
         print(e)
 
 
@@ -241,13 +245,13 @@ def construct_session_persistence_backend(flask_app):
     d = {}
     if 'REDIS_HOST' in flask_app.config:
         r_host = flask_app.config['REDIS_HOST']
-        d["SESSION_KEY_PREFIX"] = "bcs:"
+        d["SESSION_KEY_PREFIX"] = f"{app_acronym}:"
         d["SESSION_PERMANENT"] = False
         rs2 = None
         if r_host == "redis_lite":
             try:
                 import redislite
-                rs2 = redislite.Redis("tmp_bcs_backend_redislite.db")  # serverconfig={'port': '6379'}
+                rs2 = redislite.Redis(f"tmp_{app_acronym}_backend_redislite.db")  # serverconfig={'port': '6379'}
                 d["SESSION_TYPE"] = "redis"
                 d["SESSION_REDIS"] = rs2
                 # d["PERMANENT_SESSION_LIFETIME"] = 3600
@@ -392,14 +396,15 @@ tm_object_types = [  # ObjectType
     (1002, "83077626-cf8c-48d3-854b-a355afdb7df9", "process")  # Bioinformatic algorithms
 ]
 
-tm_permissions = {  # PermissionType
-    "f19ad19f-0a74-44e8-bd4e-4762404a35aa": "read",
-    "04cac7ca-a90b-4d12-a966-d8b0c77fca70": "annotate",
-    "d0924822-32fa-4456-8143-0fd48da33fd7": "contribute",
-    "83d837ab-01b2-4260-821b-8c4a3c52e9ab": "share",
-    "91a5b4a7-3359-4eed-98df-497c42d0c3c1": "execute",
-    "d3137471-84a0-4bcf-8dd8-16387ea46a30": "delete"
-}
+tm_permissions_fields = ["uuid", "name", "rank"]
+tm_permissions = [  # PermissionType
+    ("f19ad19f-0a74-44e8-bd4e-4762404a35aa", "read", 1),
+    ("04cac7ca-a90b-4d12-a966-d8b0c77fca70", "annotate", 2),
+    ("d0924822-32fa-4456-8143-0fd48da33fd7", "contribute", 2),
+    ("83d837ab-01b2-4260-821b-8c4a3c52e9ab", "share", 2),
+    ("91a5b4a7-3359-4eed-98df-497c42d0c3c1", "execute", 2),
+    ("d3137471-84a0-4bcf-8dd8-16387ea46a30", "delete", 3)
+]
 
 tm_default_users = {  # Identities
     "f3848599-4aa3-4964-b7e1-415d478560be": "admin",
@@ -545,7 +550,7 @@ def initialize_database_data():
     load_table(DBSession, Authenticator, tm_authenticators)
     load_table_extended(DBSession, ObjectType, tm_object_type_fields, tm_object_types)
     load_table(DBSession, SystemFunction, tm_system_functions)
-    load_table(DBSession, PermissionType, tm_permissions)
+    load_table_extended(DBSession, PermissionType, tm_permissions_fields, tm_permissions)
     load_table(DBSession, JobStatus, tm_job_statuses)
     load_table(DBSession, JobManagementType, tm_job_mgmt_types)
     load_table(DBSession, Process, tm_processes)
@@ -576,9 +581,9 @@ def initialize_database_data():
 
     # Set test_user roles and groups
     load_many_to_many_table(DBSession, RoleIdentity, Role, Identity, ["role_id", "identity_id"],
-                            [["sysadmin", "test_user"]])
+                            [("sysadmin", "test_user")])
     load_many_to_many_table(DBSession, GroupIdentity, Group, Identity, ["group_id", "identity_id"],
-                            [["all-identified", "test_user"]])
+                            [("all-identified", "test_user")])
     load_many_to_many_table(DBSession, ObjectTypePermissionType, ObjectType, PermissionType,
                             ["object_type_id", "permission_type_id"],
                             [["sequence", "read"], ["sequence", "annotate"], ["sequence", "delete"],
@@ -613,7 +618,7 @@ def initialize_database(flask_app):
     recreate_db = False
     if 'DB_CONNECTION_STRING' in flask_app.config:
         db_connection_string = flask_app.config['DB_CONNECTION_STRING']
-        print("Connecting to BCS database server")
+        print(f"Connecting to {app_acronym.upper()} database server")
         print(db_connection_string)
         print("-----------------------------")
         if db_connection_string.startswith("sqlite://"):
@@ -622,7 +627,7 @@ def initialize_database(flask_app):
                                                            connect_args={'check_same_thread': False},
                                                            poolclass=StaticPool)
         else:
-            biobarcoding.engine = create_pg_database_engine(db_connection_string, "bcs", recreate_db=recreate_db)
+            biobarcoding.engine = create_pg_database_engine(db_connection_string, app_acronym, recreate_db=recreate_db)
 
         # global DBSession # global DBSession registry to get the scoped_session
         DBSession.configure(bind=biobarcoding.engine)  # reconfigure the sessionmaker used by this scoped_session
@@ -667,11 +672,8 @@ def initialize_database_chado(flask_app):
         sys.exit(1)
 
 
-from sqlalchemy import text, Table, Column, BigInteger, ForeignKey, Index, MetaData, UniqueConstraint
-import subprocess
-
-
 def initialize_chado_edam(flask_app):
+    from sqlalchemy import text, Table, Index, MetaData
     cfg = flask_app.config
     if 'CHADO_DATABASE' in flask_app.config:
         chado_xml_folder = os.path.join(os.sep, "app", "docker_init", "chado_xml")
@@ -780,16 +782,23 @@ def initialize_postgis(flask_app):
     recreate_db = False
     if 'POSTGIS_CONNECTION_STRING' in flask_app.config:
         db_connection_string = flask_app.config['POSTGIS_CONNECTION_STRING']
-        print("Connecting to ngd_geoserver database server")
+        print(f"Connecting to {app_acronym}_geoserver database server")
         print(db_connection_string)
         print("-----------------------------")
 
-        biobarcoding.postgis_engine = create_pg_database_engine(db_connection_string, "ngd_geoserver",
+        biobarcoding.postgis_engine = create_pg_database_engine(db_connection_string, f"{app_acronym}_geoserver",
                                                                 recreate_db=recreate_db)
         # global DBSession # global DBSession registry to get the scoped_session
         DBSessionGeo.configure(
             bind=biobarcoding.postgis_engine)  # reconfigure the sessionmaker used by this scoped_session
         orm.configure_mappers()  # Important for SQLAlchemy-Continuum
+        connection = biobarcoding.postgis_engine.connect()
+        try:
+            connection.execute("CREATE EXTENSION postgis")
+        except:
+            pass
+        connection.execute("commit")
+        connection.close()
         tables = ORMBaseGeo.metadata.tables
         connection = biobarcoding.postgis_engine.connect()
         table_existence = [biobarcoding.postgis_engine.dialect.has_table(connection, tables[t].name) for t in tables]
@@ -818,7 +827,7 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
 
     :param entity: the entity class to manage
     :param entity_name: the name of the entity, in plural
-    :param execution_rules: a dictionary of execution rules (according to the decorator "bcs_session") by CRUD method
+    :param execution_rules: a dictionary of execution rules (according to the decorator "n_session") by CRUD method
     :return: the blueprint (to register it) and the class (if needed)
     """
 
@@ -831,7 +840,7 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
             if _id is None:
                 # List of all
                 kwargs = parse_request_params()
-                from biobarcoding.services import get_query
+                from ..services import get_query
                 query, count = get_query(db, entity, **kwargs)
                 # TODO Detail of fields
                 r.content = query.all()
@@ -879,7 +888,7 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
             return r.get_response()
 
     # If the following line is uncommented, it complains on "overwriting an existing endpoint function". This function is public, because it is just the schema, so, no problem.
-    # @bcs_session()
+    # @n_session()
     def get_entities_json_schema():
         r = ResponseObject()
         factory = SchemaFactory(StructuralWalker)
@@ -945,38 +954,104 @@ def parse_request_params(data=None):
     return kwargs
 
 
-def related_authr_ids(engine, identity_id) -> List[int]:
-    pass
+def related_authr_ids(identity_id: int):
+    # Get the organizations, groups, and roles associated to an identity
+    ids = DBSession.query(Authorizable.id) \
+        .join(OrganizationIdentity, OrganizationIdentity.organization_id==Authorizable.id, isouter=True) \
+        .join(GroupIdentity, GroupIdentity.group_id==Authorizable.id, isouter=True) \
+        .join(RoleIdentity, RoleIdentity.role_id==Authorizable.id, isouter=True) \
+        .filter(or_(Authorizable.id==identity_id,
+                    OrganizationIdentity.identity_id==identity_id,
+                    GroupIdentity.identity_id==identity_id,
+                    RoleIdentity.identity_id==identity_id))
+    return [i for i, in ids]
 
 
-def auth_filter():
+def related_perm_ids(permission_id: int):
+    # Get the mayor permissions that also allow permission_id
+    ids = DBSession.query(PermissionType.id) \
+        .filter(or_(PermissionType.id==permission_id,
+                    PermissionType.rank <   # TODO: should be <= ?
+                    DBSession.query(PermissionType.rank).filter(PermissionType.id==permission_id)))
+    return [i for i, in ids]
+
+
+def auth_filter(orm, permission_types_ids, object_types_ids,
+                identity_id=None,
+                object_uuids=None, time=None,
+                permission_flag=False, authorizable_flag=False):
     """
-    * Filter
-    * Identity (ids) 
-    * object types (ids)
-    * permission types (ids)
-    * object ids
-    * date time
-    
+    * orm: base (with uuid) to build the filter
+    * identity_ids: who is requesting
+    * permission_types_ids: what is requesting
+    * object_types_ids: where is requesting
+    * object_uuid: about what is requesting
+    * time: when is requesting
+    * permission_flag: extra info required
+    * authorizable_flag: extra info required
+
     CollectionDetail (cd) <> Collection (c) > ACL <> ACLDetail (ad)
-    
-SELECT 
-  CASE cd.object_id WHEN NULL THEN acl.object_uuid ELSE cd.object_uuid as oid, 
-  ad.permission_id as pid, 
-  ad.authr_id as aid  # To explain why it was authorized
-FROM CollectionDetail cd JOIN Collection c ON cd.col_id=c.id RIGHT JOIN ACL ON c.uuid=acl.object_id JOIN ACLDetail ad ON acl.id=ad.acl_id
-WHERE ad.authorizable IN (<identities>)  # Authorizable 
-      AND object_type IN (<collection object type>[, <target object type>])  # Object types
-      AND date time BETWEEN ad.validity_start AND ad.validity_end
-      [AND permission_types IN (...)]
-      [AND object_uuids IN (...)]
-      
-* Añadir lista ids objeto sirve para ver permisos de esos objetos concretos
-* Añadir lista id tipos permisos sirve para ver si esos tipos están
-    
-    @return: 
+
+        SELECT
+          CASE cd.object_uuid WHEN NULL THEN acl.object_uuid ELSE cd.object_uuid as oid,
+          ad.permission_id as pid,
+          ad.authr_id as aid  # To explain why it was authorized
+        FROM CollectionDetail cd JOIN Collection c ON cd.collection_id=c.id RIGHT JOIN ACL ON c.uuid=acl.object_uuid JOIN ACLDetail ad ON acl.id=ad.acl_id
+        WHERE ad.authorizable IN (<identities>)  # Authorizable
+              AND object_type IN (<collection object type>[, <target object type>])  # Object types
+              AND date time BETWEEN ad.validity_start AND ad.validity_end
+              [AND permission_types IN (...)]
+              [AND object_uuids IN (...)]
+
+        * Añadir lista object_ids objeto sirve para ver permisos de esos objetos concretos
+        * Añadir lista id tipos permisos sirve para ver si esos tipos están
+
+    @return: <orm_clause_filter> || object_uuids[, permissions][, authorizables]
     """
-    pass
+    from flask import current_app
+    if current_app.config["ACL_ENABLED"] != 'True':
+        return True
+
+    from datetime import datetime
+    time = time if time else datetime.now()
+    filter_clause = [
+        or_(time >= ACLDetail.validity_start, ACLDetail.validity_start == None),
+        or_(time <= ACLDetail.validity_end, ACLDetail.validity_end == None)
+    ]
+    filter_clause.append(ACL.object_type.in_(object_types_ids)) if object_types_ids else None
+    filter_clause.append(ACL.object_uuid.in_(object_uuids)) if object_uuids else None
+    try:
+        # By identity or authorizables associated with the identity
+        if isinstance(identity_id, int):
+            filter_clause.append(ACLDetail.authorizable_id.in_(related_authr_ids(identity_id)))
+        elif hasattr(identity_id, '__iter__'):
+            filter_clause.append(ACLDetail.authorizable_id.in_(identity_id))
+        else:
+            filter_clause.append(ACLDetail.authorizable_id.in_(related_authr_ids(g.n_session.identity.id)))
+        # By permission or superior permissions
+        if isinstance(permission_types_ids, int):
+            filter_clause.append(ACLDetail.permission_id.in_(related_perm_ids(permission_types_ids)))
+        elif hasattr(permission_types_ids, '__iter__'):
+            filter_clause.append(ACLDetail.permission_id.in_(permission_types_ids))
+
+        collected = DBSession.query(CollectionDetail.object_uuid) \
+            .join(Collection) \
+            .join(ACL, Collection.uuid==ACL.object_uuid) \
+            .join(ACLDetail) \
+            .filter(*filter_clause)
+        uncollected = DBSession.query(ACL.object_uuid).join(ACLDetail).filter(*filter_clause)
+
+        final_query = collected.union(uncollected)
+        if permission_flag or authorizable_flag:
+            entities = []
+            entities += [ACLDetail.permission] if permission_flag else []
+            entities += [ACLDetail.authorizable] if authorizable_flag else []
+            return final_query.with_entities(entities)
+        else:
+            return orm.uuid.in_(final_query)
+    except Exception as e:
+        print(e)
+        return None
 
 
 def filter_parse(orm, filter, aux_filter=None):
@@ -1061,3 +1136,4 @@ def order_parse(orm, sort, aux_order=None):
     except Exception as e:
         print(e)
         return None
+

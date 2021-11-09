@@ -3,8 +3,9 @@ import json
 import os
 import pathlib
 import tempfile
-from typing import List, Tuple
+from typing import List, Tuple, Union
 from urllib.parse import urlparse
+from zipfile import ZipFile, ZIP_DEFLATED
 
 import geopandas as gpd
 import pandas as pd
@@ -20,7 +21,8 @@ from ..authentication import n_session
 from ..db_models.geographics import GeographicRegion, Regions, GeographicLayer
 from ..geo import workspace_names, postgis_store_name
 from ..geo.biota import read_biota_file, generate_pda_species_file_from_layer, import_pda_result
-from . import app_api_base, ResponseObject, Issue, IType, register_api, app_proxy_base, filter_parse
+from . import app_api_base, ResponseObject, Issue, IType, register_api, app_proxy_base, filter_parse, \
+    parse_request_params
 from ..services.files import get_file_contents
 
 """
@@ -90,7 +92,7 @@ def geoserver_response(response) -> Tuple[Issue, int]:
         return Issue(IType.INFO, "layer succesfully published"), 200
 
 
-def get_content(session, feature_class, issues, id_=None, filter_=None):
+def get_content(session, feature_class, issues, id_=None):
     def __aux_own_filter(filt_):
         """
             Example clause:
@@ -111,14 +113,18 @@ def get_content(session, feature_class, issues, id_=None, filter_=None):
     content = None
     count = 0
     try:
-        content = session.query(feature_class)
-        if id_:
-            content = content.filter(feature_class.id == id_).first()
+        db = g.n_session.db_session
+        if id_ is None:
+            # List of all
+            kwargs = parse_request_params()
+            from ..services import get_query
+            query, count = get_query(db, feature_class, **kwargs)
+            # TODO Detail of fields
+            content = query.all()
         else:
-            if filter_:
-                content = content.filter(filter_parse(GeographicLayer, filter_, __aux_own_filter))
-            content = content.order_by(feature_class.id).all()
-            count = len(content)
+            # Detail
+            # TODO Detail of fields
+            content = db.query(feature_class).filter(feature_class.id == id_).first()
     except Exception as e:
         print(e)
         _, status = issues.append(Issue(IType.ERROR,
@@ -264,6 +270,56 @@ def create_and_publish_ramp_style(gs_session,
     gs_session.publish_style(layer_name, style_name, wkspc)
 
 
+def export_geolayer(db_sess, layer_id: int, layer_name: str, format_: str) -> Tuple[object, str]:
+    from .. import postgis_engine
+    if format_.lower() in ["geojson", "shp", "gpkg"]:
+        try:
+            gdf = gpd.read_postgis(f"{layer_name}", postgis_engine, geom_col="geometry")
+        except:
+            gdf = gpd.read_postgis(f"{layer_name}", postgis_engine, geom_col="geom")
+    else:
+        gdf = pd.read_sql(f"select * from {layer_name}", postgis_engine)
+
+    # Write to temporary directory
+    with tempfile.TemporaryDirectory() as tmpdirname:
+        if format_.lower() == "geojson":
+            fname = f"{tmpdirname}{os.sep}{layer_name}.geojson"
+            gdf.to_file(fname, driver="GeoJSON")
+            content_type = "application/geo+json"
+        elif format_.lower() == "shp":
+            import zipfile
+            fname = f"{tmpdirname}{os.sep}{layer_name}.shp"
+            gdf.to_file(fname)
+
+            def zip_dir(zip_name: str, source_dir: Union[str, os.PathLike]):
+                src_path = pathlib.Path(source_dir).expanduser().resolve(strict=True)
+                with ZipFile(zip_name, 'w', ZIP_DEFLATED) as zf:
+                    for file in src_path.rglob('*'):
+                        if not str(file).endswith(".zip"):
+                            zf.write(file, file.relative_to(src_path))
+
+            fname = f"{tmpdirname}{os.sep}{layer_name}.zip"
+            zip_dir(fname, tmpdirname)
+            content_type = "application/zip"
+        elif format_.lower() == "gpkg":
+            fname = f"{tmpdirname}{os.sep}{layer_name}.gpkg"
+            gdf.to_file(fname, driver="GPKG")
+            content_type = "application/geopackage+sqlite3"
+        elif format_.lower() == "csv":
+            fname = f"{tmpdirname}{os.sep}{layer_name}.csv"
+            gdf.to_csv(fname, index=False)
+            content_type = "text/csv"
+        elif format_.lower() == "xlsx":
+            fname = f"{tmpdirname}{os.sep}{layer_name}.xlsx"
+            gdf.to_excel(fname, index=False, sheet_name=layer_name, engine='xlsxwriter')
+            content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        # Read into memory
+        with open(fname, 'rb') as fh:
+            buf = io.BytesIO(fh.read())
+
+    return buf.getvalue(), content_type
+
+
 class LayersAPI(MethodView):
     """
     GET:    the list of layers info from Geographiclayer table on bcs
@@ -289,8 +345,20 @@ class LayersAPI(MethodView):
     issues = []
     status = int()
 
-    def _export(self, sess, lay: GeographicLayer, _format):
-        supported_formats = {"nexus": ("Nexus for PDA", generate_pda_species_file_from_layer),
+    def _export(self, sess, lay: GeographicLayer, _format) -> Tuple[object, str]:
+        """
+
+        :param sess:
+        :param lay:
+        :param _format:
+        :return: A tuple with the exported layer and the content type
+        """
+        supported_formats = {"gpkg": ("Geopackage", export_geolayer),
+                             "shp": ("Shapefile (zipped)", export_geolayer),
+                             "geojson": ("GeoJSON", export_geolayer),
+                             "csv": ("CSV (only layers without Geometry column)", export_geolayer),
+                             "xlsx": ("XLSX (only layers without Geometry column)", export_geolayer),
+                             "nexus": ("Nexus for PDA", generate_pda_species_file_from_layer),
                              "pda_simple": ("PDA simple", generate_pda_species_file_from_layer),
                              "species": ("List of species", generate_pda_species_file_from_layer),
                              "species_canon": ("List of normalized species", generate_pda_species_file_from_layer),
@@ -301,19 +369,19 @@ class LayersAPI(MethodView):
                                    f'to format "{_format}". Supported: {", ".join(supported_formats.keys())}',
                       f"Export {lay.name}"))
             return None
-        _ = supported_formats[_format][1](sess, lay.id, lay.geoserver_name, _format)
+        _, content_type = supported_formats[_format][1](sess, lay.id, lay.geoserver_name, _format)
         if _ is None:
             self.issues.append(
                 Issue(IType.ERROR, f'Could not export layer {lay.name} (internal name "{lay.geoserver_name}").',
                       f"Export {lay.name} as {supported_formats[_format][0]}"))
-            return None
+            return None, None
         elif _ == "":
             self.issues.append(Issue(IType.ERROR,
-                                     f'Empty Biota layer {lay.name} (internal name "{lay.geoserver_name}").',
+                                     f'Empty layer {lay.name} (internal name "{lay.geoserver_name}").',
                                      f"Export {lay.name}"))
-            return None
+            return None, None
         else:
-            return _
+            return _, content_type
 
     @n_session()
     def get(self, _id=None, _format=None):
@@ -334,10 +402,18 @@ class LayersAPI(MethodView):
         curl --cookie app-cookies.txt "$API_BASE_URL/geo/layers/"
         curl --cookie app-cookies.txt "$API_BASE_URL/geo/layers/?filter=%7B%22tags%22%3A%20%22biota%22%7D"
 
+        (Metadata)
         curl --cookie app-cookies.txt "$API_BASE_URL/geo/layers/1"
+        (Contents)
+        curl --cookie app-cookies.txt "$API_BASE_URL/geo/layers/1.gpkg"
+        curl --cookie app-cookies.txt "$API_BASE_URL/geo/layers/1.shp"
+        curl --cookie app-cookies.txt "$API_BASE_URL/geo/layers/1.geojson"
+        (Contents, only layers without Geometry column:)
+        curl --cookie app-cookies.txt "$API_BASE_URL/geo/layers/1.csv"
+        curl --cookie app-cookies.txt "$API_BASE_URL/geo/layers/1.xlsx"
 
-        Specially, a Biota layer can be exported as one of 3 supported formats. The first two are for PDA, the third
-        just enumerates available species:
+        Specially, a Biota layer can be exported as one of 4 supported formats. The first two are for PDA, 3rd and 4th
+        just enumerate available species:
 
         curl --cookie app-cookies.txt "$API_BASE_URL/geo/layers/1.pda_simple"
         curl --cookie app-cookies.txt "$API_BASE_URL/geo/layers/1.nexus"
@@ -351,9 +427,6 @@ class LayersAPI(MethodView):
         from ..geo import geoserver_session
         self.issues = []
         layer = None
-        _filter = request.args.get("filter")
-        if _filter:
-            _filter = json.loads(_filter)
         key_col = request.args.get("key_col")
         db_sess = g.n_session.db_session
         if _id:  # A layer
@@ -362,33 +435,39 @@ class LayersAPI(MethodView):
                 layer = None
                 _, self.status = self.issues.append(Issue(IType.INFO, f'no data available')), 200
             else:
-                if _format:
-                    content = self._export(db_sess, layer, _format=_format)
+                if _format:  # Layer contents
+                    content, content_type = self._export(db_sess, layer, _format=_format)
                     if content:
-                        return Response(content, mimetype=f"text/{_format}", status=200)
-                else:
+                        return Response(content, mimetype=content_type, status=200)
+                else:  # Layer metadata
                     if layer:
                         serializer = layer.Schema()
                         serializer.dump(layer)
         elif not key_col:  # ALL LAYERS layers (maybe filtered)
-            self.issues, layer, count, self.status = get_content(db_sess, GeographicLayer, self.issues, filter_=_filter)
+            self.issues, layer, count, self.status = get_content(db_sess, GeographicLayer, self.issues)
             if layer:
                 layer = list(filter(lambda x: (x.is_deleted is False), layer))
-        elif _filter and key_col:  # Temporary layer
-            # TODO Ensure Temporary layer is also registered as BCS GeographicLayer
-            tmp_view = f'tmpview_{g.n_session.identity.id}'
-            sql = self._create_sql(_filter)
-            r = geoserver_session.delete_layer(layer_name=tmp_view, workspace=workspace_names[1])
-            print(r)
-            r = geoserver_session.publish_featurestore_sqlview(store_name=postgis_store_name, name=tmp_view, sql=sql,
-                                                               key_column=key_col,
-                                                               workspace=workspace_names[1])
-            print(r)
-            issue, self.status = geoserver_response(r)
-            if not self._check_layer():
-                _, self.status = self.issues.append(Issue(IType.ERROR, f"Error executing request for geoserver")), 500
-            self.issues.append(issue)
-            layer = dict(tmpview=tmp_view, sql=sql, key_col=key_col)
+                # Modify "wms_url" for local layers
+                tmp = urlparse(request.base_url)
+                base_url = f"{tmp.scheme}://{tmp.netloc}"
+                for l in layer:
+                    if l.wms_url.endswith(f"{app_proxy_base}/geoserver/wms"):
+                        l.wms_url = f"{base_url}{app_proxy_base}/geoserver/wms"
+        # elif _filter and key_col:  # Temporary layer
+        #     # TODO Ensure Temporary layer is also registered as BCS GeographicLayer
+        #     tmp_view = f'tmpview_{g.n_session.identity.id}'
+        #     sql = self._create_sql(_filter)
+        #     r = geoserver_session.delete_layer(layer_name=tmp_view, workspace=workspace_names[1])
+        #     print(r)
+        #     r = geoserver_session.publish_featurestore_sqlview(store_name=postgis_store_name, name=tmp_view, sql=sql,
+        #                                                        key_column=key_col,
+        #                                                        workspace=workspace_names[1])
+        #     print(r)
+        #     issue, self.status = geoserver_response(r)
+        #     if not self._check_layer():
+        #         _, self.status = self.issues.append(Issue(IType.ERROR, f"Error executing request for geoserver")), 500
+        #     self.issues.append(issue)
+        #     layer = dict(tmpview=tmp_view, sql=sql, key_col=key_col)
         else:  # No information to elaborate a response
             _, self.status = self.issues.append(Issue(IType.ERROR, f"missing data")), 400
 
@@ -405,7 +484,7 @@ class LayersAPI(MethodView):
         s = c.lower()
         return s.startswith("id") or s.endswith("id") or "codigo" in s or s in ["coordx", "coordy", "geom", "geometry"]
 
-    def _create_properties_and_geoserver_styles(self, gdf, wks, layer_name, lc_attributes):
+    def _create_properties_and_geoserver_styles(self, gdf, wks, layer_name, lc_attributes, create_style=True):
         from ..geo import geoserver_session
         _ = []
         for c in gdf.columns:
@@ -426,7 +505,7 @@ class LayersAPI(MethodView):
                 style_name = None
 
             # Create style for properties (_publish_in_geoserver
-            if style_name:
+            if create_style and style_name:
                 create_and_publish_ramp_style(geoserver_session,
                                               wkspc=wks,
                                               layer_name=layer_name,
@@ -441,11 +520,10 @@ class LayersAPI(MethodView):
     @n_session()
     def post(self):
         """
-        1. import a raster file (tif and twf file)
-        2. import vector layer from SHP file (import shp shx...)
-        3. import layer from GeoJSON data
-        4. create a new layer from a temp_view
-        5. create a new vector file from shape file and convert data to json
+        (CURRENTLY, NO) 1. import a raster file (tif and twf file)
+        2. import vector layer: from SHP file (import shp shx...), GeoPackage, GeoJSON, CSV, ...
+        3. create a new layer from a temp_view
+        4. create a new vector file from shape file and convert data to json
         {"name":"",
         "wks": "ngd",
         "attributes" -> json attributes like {"tags"["tag1", "tag2"]
@@ -464,6 +542,7 @@ class LayersAPI(MethodView):
         POST from FilesAPI:
         First, upload a file to FilesAPI:
         curl --cookie app-cookies.txt -H "Content-Type: application/zip" -XPUT --data-binary @/home/rnebot/GoogleDrive/AA_NEXTGENDEM/plantae_canarias/Plantas.zip "$API_BASE_URL/files/f1/f2/f3/plantas.zip.content"
+
         Then, do the POST, like
         curl --cookie app-cookies.txt -XPOST "$API_BASE_URL/geo/layers/?filesAPI=%2Ff1%2Ff2%2Ff3%2Fplantas.zip&job_id=6"
         """
@@ -475,8 +554,10 @@ class LayersAPI(MethodView):
         # Put self.kwargs into a geographic layer
         geographic_layer_schema = getattr(GeographicLayer, "Schema")()
         geographic_layer_data = get_json_from_schema(GeographicLayer, self.kwargs)
+        geographic_layer_data["id"] = 0
         # Create object in memory
         geographic_layer = geographic_layer_schema.load(geographic_layer_data, instance=GeographicLayer())
+        geographic_layer.id = None
         geographic_layer.identity_id = g.n_session.identity.id
         # Persist object in BCS DB
         db.add(geographic_layer)
@@ -492,32 +573,32 @@ class LayersAPI(MethodView):
             # Store file in PostGIS
             lower_case_attributes = True
             layer_name = f"layer_{geographic_layer.id}"  # (internal) Geoserver layer name
-            status, gdf = self._post_in_postgis(layer_name, lower_case_attributes)
+            status, gdf, has_geom_column = self._post_in_postgis(layer_name, lower_case_attributes)
             # Delete temporary file
             os.remove(self.kwargs["path"])
             # Publish layer in Geoserver
             if status == 200:
                 geographic_layer.in_postgis = True
 
-            status, layer_type = self._publish_in_geoserver(layer_name)
-            # if self.kwargs.get("property"):
-            #     prop = self.kwargs["property"]
-            #     if lower_case_attributes:
-            #         prop = prop.lower()
-            #     tmp = gdf[prop].values
-            #     style_name = f"{layer_name}_{prop}"
-            #     status, layer_type = self._publish_in_geoserver(layer_name, prop, style_name, min(tmp), max(tmp))
-            # else:
-            #     prop = None
-            #     status, layer_type = self._publish_in_geoserver(layer_name)
-
-            if status == 200:
-                geographic_layer.published = True
+            if has_geom_column:  # Only representable layers can be shown with GeoServer
+                # Publish layer in Geoserver
+                status, layer_type = self._publish_in_geoserver(layer_name)
+                if status == 200:
+                    geographic_layer.published = True
+                    geographic_layer.geoserver_name = layer_name
+                    geographic_layer.properties = self._create_properties_and_geoserver_styles(gdf,
+                                                                                               self.kwargs["wks"],
+                                                                                               layer_name,
+                                                                                               lower_case_attributes)
+            else:
+                layer_type = "no_explicit_geometry_layer"
                 geographic_layer.geoserver_name = layer_name
                 geographic_layer.properties = self._create_properties_and_geoserver_styles(gdf,
                                                                                            self.kwargs["wks"],
                                                                                            layer_name,
-                                                                                           lower_case_attributes)
+                                                                                           lower_case_attributes,
+                                                                                           create_style=False)
+
             geographic_layer.layer_type = layer_type
             db.flush()
         return ResponseObject(issues=self.issues, status=self.status, content=geographic_layer).get_response()
@@ -676,6 +757,9 @@ class LayersAPI(MethodView):
                     df = self._get_df_from_view()
             else:  # go to geoserver
                 return None
+
+        has_geom_column = df.geometry.dropna().shape[0] > 0
+
         try:
             # Make PK for sqlview work properly using id_column as PK
             idx_column = self.kwargs.get("idx_field")
@@ -689,15 +773,19 @@ class LayersAPI(MethodView):
             else:
                 # All columns to lower case
                 df.columns = [c.lower() for c in df.columns]
-                # Write to PostGIS
-                df.to_postgis(layer_name, postgis_engine, if_exists="replace")
+                if has_geom_column:
+                    # Write to PostGIS
+                    df.to_postgis(layer_name, postgis_engine, if_exists="replace")
+                else:
+                    del df[df.geometry.name]
+                    df.to_sql(layer_name, postgis_engine, if_exists="replace", index=False)
         except ValueError as e:
             _, self.status = self.issues.append(Issue(IType.INFO, f"Layer named as {layer_name} error {e}")), 400
         else:
             self.kwargs[
                 "data"] = "dummy"  # "add geoserver layer" function looks for any value in "data" to create a layer that is stored in PostGIS
             _, self.status = self.issues.append(Issue(IType.INFO, f"layer stored in geo database")), 200
-        return self.status, df
+        return self.status, df, has_geom_column
 
     def _publish_in_geoserver(self, layer_name, attribute=None, style_name=None, min_value=None, max_value=None):
         """
@@ -831,7 +919,7 @@ class LayersAPI(MethodView):
 
     def _receive_and_prepare_file(self):
         import os
-        formats = [".tif", ".gpkg", ".zip", ".json", ".geojson"]
+        formats = [".tif", ".gpkg", ".zip", ".json", ".geojson", ".csv", ".xlsx", ".xls"]
         path = ""
         folder = tempfile.mkdtemp(prefix="bcs_")
         from werkzeug.utils import secure_filename

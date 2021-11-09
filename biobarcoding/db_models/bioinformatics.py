@@ -23,7 +23,7 @@ class BioinformaticObject(ORMBase):
     __tablename__ = f"{prefix}bos"
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     uuid = Column(GUID, unique=True, default=uuid.uuid4)
-    bo_type_id = Column(Integer, ForeignKey(ObjectType.id))
+    bo_type_id = Column(Integer, ForeignKey(ObjectType.id))     # TODO: should be renamed to obj_type_id ?
     chado_id = Column(BigInteger, nullable=False)  # Foreign key (not enforceable by the DB)
     chado_table = Column(String(80))
     name = Column(String(80))

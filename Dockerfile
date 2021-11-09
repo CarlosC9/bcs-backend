@@ -72,7 +72,6 @@ RUN apt-get update && \
     libdbi-perl \
     libgo-perl \
     libv-perl \
-    libpq-dev \
     cpanminus \
     libparse-recdescent-perl \
     bioperl \

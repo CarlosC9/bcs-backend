@@ -4,10 +4,10 @@ from Bio import AlignIO
 
 from ..db_models import DBSession as db_session
 from ..db_models import DBSessionChado as chado_session
-from ..db_models.chado import Organism, Feature, AnalysisFeature
-from ..db_models.bioinformatics import MultipleSequenceAlignment
+from ..db_models.chado import Organism, Feature, AnalysisFeature, Analysis
+from ..db_models.bioinformatics import MultipleSequenceAlignment, bio_object_type_id
 
-from ..rest import IType, Issue
+from ..rest import IType, Issue, auth_filter
 from ..services import get_or_create, log_exception, orm2json, get_bioformat
 from ..services.analyses import __get_query as get_ansis_query
 from ..services.sequences import __get_query as get_seqs_query, \
@@ -100,7 +100,7 @@ def delete(id=None, **kwargs):
     content = None
     try:
         # TODO: The BCS data are not being deleted yet.
-        content, count = __get_query(id, **kwargs)
+        content, count = __get_query(id, purpose='delete', **kwargs)
         ids = [msa.analysis_id for msa in content.all()]
         delete_sequences(filter=[{'analysis_id':{'op':'in','unary':ids}}])
         bcs_delete = __delete_from_bcs(*ids)
@@ -125,10 +125,17 @@ def __seq_org_id(name):
 
 def __bind2src(feature, srcname):
     try:
-        src = get_seqs_query(uniquename=srcname)[0].one()
+        src = get_seqs_query(purpose='annotate', uniquename=srcname)[0].one()
         from ..db_models.chado import Featureloc
-        relationship = Featureloc(feature_id=feature.feature_id, srcfeature_id=src.feature_id)
-        chado_session.add(relationship)
+        relationship = get_or_create(chado_session, Featureloc, feature_id=feature.feature_id, srcfeature_id=src.feature_id)
+    except Exception as e:
+        relationship = None
+    return relationship
+
+
+def __bind2ansis(msa, feature):
+    try:
+        relationship = get_or_create(chado_session, AnalysisFeature, analysis_id=msa.analysis_id, feature_id=feature.feature_id)
     except Exception as e:
         relationship = None
     return relationship
@@ -144,7 +151,7 @@ def __msafile2chado(msa, seqs):
             organism_id=__seq_org_id(seq.id),
             type='sequence', subtype='aligned')
         __bind2src(feature, seq.id)
-        chado_session.add(AnalysisFeature(analysis_id=msa.analysis_id, feature_id=feature.feature_id))
+        __bind2ansis(msa, feature)
     return msa
 
 
@@ -189,7 +196,7 @@ def export(id, format='fasta', value={}, **kwargs):
     content = None
     try:
         if format in ('fasta', 'nexus'):
-            seqs = get_seqs_query(filter={'analysis_id': {'op': 'eq', 'unary': id}})[0]
+            seqs = get_seqs_query(purpose='share', filter={'analysis_id': {'op': 'eq', 'unary': id}})[0]
             content = export_sequences(seqs.all(), format=format, header_format=value.get('header'), only_headers=value.get('only_headers'))
             issues, status = [Issue(IType.INFO, f'EXPORT alignments: The alignment was successfully imported.')], 200
         else:
@@ -204,16 +211,15 @@ def export(id, format='fasta', value={}, **kwargs):
 # GETTER AND OTHERS
 ##
 
-def __get_query(id=None, **kwargs):
-    aln_clause = {'analysis_id': {'op': 'in', 'unary': db_session.query(MultipleSequenceAlignment.chado_id).all()}}
-    if kwargs.get('filter'):
-        try:
-            kwargs['filter'] += [aln_clause]
-        except Exception as e:
-            kwargs['filter'] = [kwargs['filter']] + [aln_clause]
-    else:
-        kwargs['filter'] = [aln_clause]
-    return get_ansis_query(id, **kwargs)
+def __get_query(id=None, purpose='read', **kwargs):
+    from biobarcoding.db_models.sysadmin import PermissionType
+    purpose_id = db_session.query(PermissionType).filter(PermissionType.name==purpose).one().id
+    aln_clause = db_session.query(MultipleSequenceAlignment.chado_id) \
+        .filter(auth_filter(MultipleSequenceAlignment, purpose_id, [bio_object_type_id['multiple-sequence-alignment']]))
+    aln_clause = [i for i, in aln_clause.all()]
+    aln_clause = Analysis.analysis_id.in_(aln_clause)
+    query = chado_session.query(Analysis).filter(aln_clause)
+    return get_ansis_query(id, query=query, **kwargs)
 
 
 ##
