@@ -15,14 +15,14 @@ def get_orm(entity):
 
 
 def get_service(entity):
-    service = None
+    AuxService = None
     if entity == 'templates':
-        from .annotation_forms.templates import AuxService as service
+        from .annotation_forms.templates import AuxService
     if entity == 'fields':
-        from .annotation_forms.fields import AuxService as service
+        from .annotation_forms.fields import AuxService
     if entity == 'annotations':
-        from .annotation_forms.annotations import AuxService as service
-    return service
+        from .annotation_forms.annotations import AuxService
+    return AuxService()
 
 
 def getCRUDIE(entity):
@@ -36,6 +36,9 @@ def getCRUDIE(entity):
         content = None
         count = 0
         status = 200
+
+        def __init__(self):
+            pass
 
         def create(self, **kwargs):
             try:
@@ -125,14 +128,14 @@ def getCRUDIE(entity):
                 self.status = 409
             return self.issues, self.content, self.count, self.status
 
-    return CRUDIE
+    return CRUDIE()
 
 
 class SimpleAuxService:
 
     def __init__(self):
         self.orm = ORMBase
-        self.dbsession = DBSession
+        self.db = DBSession
 
     # filter and deduce values (mostly ids) for creation or update
     def prepare_values(self, **kwargs) -> dict:
@@ -146,8 +149,8 @@ class SimpleAuxService:
     def create(self, **kwargs):
         values = self.prepare_values(**kwargs)
         content = self.orm(**values)
-        self.dbsession.add(content)
-        self.dbsession.flush()
+        self.db.add(content)
+        self.db.flush()
         return content
 
     # any additional creation if any
@@ -167,7 +170,7 @@ class SimpleAuxService:
     # provide a sqlalchemy query (might be paged) and the total_count
     # @return: Query, total_count
     def get_query(self, **kwargs):
-        return get_query(self.dbsession, self.orm,
+        return get_query(self.db, self.orm,
                          aux_filter=self.aux_filter,
                          aux_order=self.aux_order, **kwargs)
 

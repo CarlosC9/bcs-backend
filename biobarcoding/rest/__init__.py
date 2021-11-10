@@ -935,22 +935,24 @@ def decode_request_params(data):
 
 
 def parse_request_params(data=None):
-    kwargs = {'filter': [], 'order': [], 'pagination': {}, 'value': {}, 'searchValue': ''}
+    kwargs = {'filter': [], 'order': [], 'pagination': {}, 'values': {}, 'searchValue': ''}
     if not data:
         if request.json:
             kwargs.update(parse_request_params(request.json))
+        if request.data:
+            kwargs.update(parse_request_params(request.data))
         if request.values:
             kwargs.update(parse_request_params(request.values))
     else:
         print(f'DATA: {data}')
         input = decode_request_params(data)
-        for key in ('filter', 'order', 'pagination', 'value', 'searchValue'):
+        for key in ('filter', 'order', 'pagination', 'values', 'searchValue'):
             try:
                 i = input.pop(key)
             except Exception as e:
                 continue
             kwargs[key] = i if i else kwargs[key]
-        kwargs['value'].update(input)
+        kwargs['values'].update(input)
     print(f'KWARGS: {kwargs}')
     return kwargs
 

@@ -167,12 +167,13 @@ def create_app(debug, cfg_dict=None):
 
 
 # FLASK_ENV=development FLASK_APP=biobarcoding.rest.main flask run
+biobarcoding.flask_app = create_app(True)
 if __name__ == "__main__":
-    biobarcoding.flask_app = create_app(True)
     biobarcoding.flask_app.run(host='0.0.0.0',
                                use_reloader=False,  # Avoid loading twice the application
                                )
     socket_service_socketio.run(biobarcoding.flask_app, host='0.0.0.0')
+
 
 @biobarcoding.flask_app.route("/")
 def index():

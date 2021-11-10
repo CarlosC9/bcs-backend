@@ -12,6 +12,7 @@ from ...db_models.sysadmin import AnnotationFormTemplateField
 class AuxService(FormItemAuxService):
 
     def __init__(self):
+        super(AuxService, self).__init__()
         self.orm = get_orm('templates')
 
     def aux_filter(self, filter):

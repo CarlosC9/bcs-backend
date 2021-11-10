@@ -20,7 +20,7 @@ class FormItemAuxService(SimpleAuxService):
 
         if db and dbxref and not values.get('dbxref_id'):
             values['dbxref_id'] = DBSessionChado.query(Dbxref).join(Db) \
-                .filter(Db.name == db, Dbxref.name == dbxref).one().dbxref_id
+                .filter(Db.name == db, Dbxref.accession == dbxref).one().dbxref_id
 
         if values.get('cvterm_id') and not values.get('dbxref_id'):
             values['dbxref_id'] = DBSessionChado.query(Cvterm) \

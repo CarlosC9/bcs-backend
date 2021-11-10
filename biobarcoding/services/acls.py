@@ -38,7 +38,7 @@ def create_acls(**kwargs):
 def read_acls(id=None, uuid=None, **kwargs):
     content, count = None, 0
     try:
-        qparams = kwargs['value'] if kwargs.get('value') else kwargs
+        qparams = kwargs['values'] if kwargs.get('values') else kwargs
         # IDs: id, uuid, object_uuid, chado_id + object_type
         if qparams.get('chado_id') and not id and not uuid and not qparams.get('object_uuid'):
             if not qparams.get('object_type'):
