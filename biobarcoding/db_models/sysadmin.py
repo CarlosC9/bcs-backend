@@ -1,7 +1,8 @@
 import datetime
 import uuid
 
-from sqlalchemy import Column, ForeignKey, UniqueConstraint, Boolean, Integer, BigInteger, String, DateTime, Text, JSON
+from sqlalchemy import Column, ForeignKey, UniqueConstraint, Boolean, Integer, BigInteger, String, DateTime, Text, JSON, \
+    Sequence
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship, backref
 
@@ -289,7 +290,7 @@ class BrowserFilter(ORMBase):
     name = Column(String(80), nullable=False)
     type = Column(String(80), nullable=False)
     values = Column(JSON)
-    user_id = Column(Integer, ForeignKey(Identity.id), nullable=False)
+    user_id = Column(Integer, ForeignKey(Identity.id, ondelete="CASCADE"), nullable=False)
 
     __table_args__ = (
         UniqueConstraint(name, type, user_id, name=__tablename__+'_c1'),
@@ -328,7 +329,7 @@ class AnnotationFormItemObjectType(ORMBase):
 class AnnotationFormField(AnnotationFormItem):
     __tablename__ = f"{prefix}form_field"
 
-    id = Column(BigInteger, ForeignKey(AnnotationFormItem.id), primary_key=True)
+    id = Column(BigInteger, ForeignKey(AnnotationFormItem.id, ondelete="CASCADE"), primary_key=True)
     type = Column(String(32), nullable=False)   # tag, attribute, relationship
     range = Column(JSONB)
     view_type = Column(String(32))  # check, radio, date, etc.
@@ -345,7 +346,7 @@ class AnnotationFormTag(AnnotationFormField):
     __mapper_args__ = {
         'polymorphic_identity': 'tag',
     }
-    id = Column(BigInteger, ForeignKey(AnnotationFormField.id), primary_key=True)
+    id = Column(BigInteger, ForeignKey(AnnotationFormField.id, ondelete="CASCADE"), primary_key=True)
 
 
 class AnnotationFormAttribute(AnnotationFormField):
@@ -353,7 +354,7 @@ class AnnotationFormAttribute(AnnotationFormField):
     __mapper_args__ = {
         'polymorphic_identity': 'attribute',
     }
-    id = Column(BigInteger, ForeignKey(AnnotationFormField.id), primary_key=True)
+    id = Column(BigInteger, ForeignKey(AnnotationFormField.id, ondelete="CASCADE"), primary_key=True)
 
 
 class AnnotationFormRelationship(AnnotationFormField):
@@ -361,13 +362,13 @@ class AnnotationFormRelationship(AnnotationFormField):
     __mapper_args__ = {
         'polymorphic_identity': 'relationship',
     }
-    id = Column(BigInteger, ForeignKey(AnnotationFormField.id), primary_key=True)
+    id = Column(BigInteger, ForeignKey(AnnotationFormField.id, ondelete="CASCADE"), primary_key=True)
 
 
 class AnnotationFormTemplate(AnnotationFormItem):
     __tablename__ = f"{prefix}form_template"
 
-    id = Column(BigInteger, ForeignKey(AnnotationFormItem.id), primary_key=True)
+    id = Column(BigInteger, ForeignKey(AnnotationFormItem.id, ondelete="CASCADE"), primary_key=True)
 
 
 class AnnotationFormTemplateField(ORMBase):
@@ -379,7 +380,8 @@ class AnnotationFormTemplateField(ORMBase):
     form_field = relationship(AnnotationFormField, backref=backref("annotation_form_fields", cascade="all, delete-orphan"))
     form_template = relationship(AnnotationFormTemplate, backref=backref("annotation_form_templates", cascade="all, delete-orphan"))
     name = Column(String(80))
-    rank = Column(Integer, nullable=False, autoincrement=True)
+    rank = Column(Integer, Sequence('annotation_form_rank_seq'), nullable=False)
+    # rank = Column(Integer, nullable=False, default=select([func.max(1, func.max(rank))]))
 
     __table_args__ = (
         UniqueConstraint(form_template_id, rank, name=__tablename__ + '_c1'),
@@ -392,10 +394,11 @@ class AnnotationItem(ORMBase):
     __tablename__ = f"{prefix}item"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    object_uuid = Column(GUID, ForeignKey(BioinformaticObject.uuid), nullable=False)
+    object_uuid = Column(GUID, ForeignKey(BioinformaticObject.uuid, ondelete="CASCADE"), nullable=False)
     type = Column(String(80), nullable=False)    # text, form, field
     name = Column(String(80), nullable=False)
-    rank = Column(Integer, nullable=False, autoincrement=True)
+    rank = Column(Integer, Sequence('annotation_rank_seq'), nullable=False)
+    # rank = Column(Integer, nullable=False, default=select([func.max(1, func.max(rank))]))
 
     __table_args__ = (
         UniqueConstraint(object_uuid, rank, name=__tablename__ + '_c1'),
@@ -411,7 +414,7 @@ class AnnotationText(AnnotationItem):
     __mapper_args__ = {
         'polymorphic_identity': 'text',
     }
-    id = Column(BigInteger, ForeignKey(AnnotationItem.id), primary_key=True)
+    id = Column(BigInteger, ForeignKey(AnnotationItem.id, ondelete="CASCADE"), primary_key=True)
     value = Column(String(512))
 
 
@@ -420,8 +423,9 @@ class AnnotationTemplate(AnnotationItem):
     __mapper_args__ = {
         'polymorphic_identity': 'template',
     }
-    id = Column(BigInteger, ForeignKey(AnnotationItem.id), primary_key=True)
+    id = Column(BigInteger, ForeignKey(AnnotationItem.id, ondelete="CASCADE"), primary_key=True)
     form_template_id = Column(Integer, ForeignKey(AnnotationFormTemplate.id), nullable=False)
+    form_template = relationship(AnnotationFormTemplate, backref=backref("annotation_templates", cascade="all, delete-orphan"))
     value = Column(JSONB)
 
 
@@ -430,6 +434,7 @@ class AnnotationField(AnnotationItem):
     __mapper_args__ = {
         'polymorphic_identity': 'field',
     }
-    id = Column(BigInteger, ForeignKey(AnnotationItem.id), primary_key=True)
+    id = Column(BigInteger, ForeignKey(AnnotationItem.id, ondelete="CASCADE"), primary_key=True)
     form_field_id = Column(Integer, ForeignKey(AnnotationFormField.id), nullable=False)
+    form_field = relationship(AnnotationFormField, backref=backref("annotation_fields", cascade="all, delete-orphan"))
     value = Column(JSONB)

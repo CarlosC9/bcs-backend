@@ -13,6 +13,7 @@ from ...db_models.sysadmin import AnnotationFormTemplate, AnnotationFormTemplate
 class AuxService(FormItemAuxService):
 
     def __init__(self):
+        super(AuxService, self).__init__()
         self.orm = get_orm('fields')
 
     def after_create(self, new_object, template=[], **kwargs):

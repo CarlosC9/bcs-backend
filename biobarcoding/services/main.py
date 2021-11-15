@@ -1,4 +1,4 @@
-from . import log_exception, get_bioformat, get_orm_params, get_query
+from . import log_exception, get_bioformat, get_orm_params
 from ..rest import Issue, IType
 from ..db_models import ORMBase, DBSession
 
@@ -67,10 +67,10 @@ def getCRUDIE(entity):
                 self.status = 400
             return self.issues, self.content, self.count, self.status
 
-        def update(self, value={}, **kwargs):
+        def update(self, values={}, **kwargs):
             try:
                 self.content, self.count = AuxService.get_query(**kwargs)
-                self.content = self.content.update(AuxService.prepare_values(**value))
+                self.content = self.content.update(AuxService.prepare_values(**values))
                 self.issues += [Issue(IType.INFO,
                                       f'UPDATE {entity}: The {entity} was/were updated successfully.')]
                 self.status = 200
@@ -84,7 +84,10 @@ def getCRUDIE(entity):
         def delete(self, **kwargs):
             try:
                 self.content, self.count = AuxService.get_query(**kwargs)
-                self.content = self.content.delete(synchronize_session='fetch')
+                # self.content = self.content.delete(synchronize_session='fetch')
+                self.content = self.content.all()
+                for row in self.content:
+                    DBSession.delete(row)
                 self.issues += [Issue(IType.INFO,
                                       f'DELETE {entity}: The {entity} was/were removed successfully.')]
                 self.status = 200
@@ -148,9 +151,15 @@ class SimpleAuxService:
     # deal with the creation
     def create(self, **kwargs):
         values = self.prepare_values(**kwargs)
-        content = self.orm(**values)
-        self.db.add(content)
-        self.db.flush()
+        from sqlalchemy.exc import SQLAlchemyError
+        try:
+            content = self.orm(**values)
+            self.db.add(content)
+            self.db.flush()
+        except SQLAlchemyError as e:
+            print(type(e))
+            print(str(e.__dict__['orig']))
+            raise e
         return content
 
     # any additional creation if any
@@ -169,10 +178,38 @@ class SimpleAuxService:
 
     # provide a sqlalchemy query (might be paged) and the total_count
     # @return: Query, total_count
-    def get_query(self, **kwargs):
-        return get_query(self.db, self.orm,
-                         aux_filter=self.aux_filter,
-                         aux_order=self.aux_order, **kwargs)
+    def get_query(self, query=None, id=None, **kwargs):
+        """
+         reserved keywords in kwargs:
+           'values': specific values of orm fields to filter
+           'filter': advanced filtering clauses (see also filter_parse)
+           'order': advanced ordering clauses (see also order_parse)
+           'pagination': pageIndex and pageSize to paginate
+           'searchValue': full-text search value (hopefully)
+         otherwise it will be treated as 'value'
+        """
+        from ..rest import filter_parse, order_parse
+        from ..services import paginator
+        query = query or self.db.query(self.orm)
+        count = 0
+        if id:
+            query = query.filter(self.orm.id == id)
+        else:
+            if not kwargs.get('values'):
+                kwargs['values'] = {}
+            for k, v in kwargs.items():
+                if not k in ['values', 'filter', 'order', 'pagination', 'searchValue'] and v:
+                    kwargs['values'][k] = v
+            if kwargs.get('values'):
+                query = query.filter_by(**self.prepare_values(**kwargs.get('values')))
+            if kwargs.get('filter'):
+                query = query.filter(filter_parse(self.orm, kwargs.get('filter'), self.aux_filter))
+            if kwargs.get('order'):
+                query = query.order_by(order_parse(self.orm, kwargs.get('order'), self.aux_order))
+            count = query.count()
+            if kwargs.get('pagination'):
+                query = paginator(query, kwargs.get('pagination'))
+        return query, count
 
     # method to filter by external values when querying
     def aux_filter(self, filter) -> list:

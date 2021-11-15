@@ -60,7 +60,7 @@ bp_annotations.add_url_rule(
     methods=['GET', 'PUT', 'DELETE']
 )
 bp_annotations.add_url_rule(
-    app_api_base + '/annotation_form_<string:item_type>/<string:db>:<int:dbxref>',
+    app_api_base + '/annotation_form_<string:item_type>/<string:db>:<string:dbxref>',
     view_func=annotation_form_item_view,
     methods=['GET', 'PUT', 'DELETE']
 )
