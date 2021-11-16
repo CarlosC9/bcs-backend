@@ -306,7 +306,7 @@ class AnnotationFormItem(ORMBase):
     __tablename__ = f"{prefix}form_item"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    name = Column(String(80), nullable=False)
+    name = Column(String(80), nullable=False, unique=True)
     description = Column(String(512))
     cvterm_id = Column(Integer, unique=True)
     dbxref_id = Column(Integer)
@@ -402,6 +402,7 @@ class AnnotationItem(ORMBase):
 
     __table_args__ = (
         UniqueConstraint(object_uuid, rank, name=__tablename__ + '_c1'),
+        UniqueConstraint(object_uuid, name, name=__tablename__ + '_c2'),
     )
     __mapper_args__ = {
         'polymorphic_identity': 'annotation_item',

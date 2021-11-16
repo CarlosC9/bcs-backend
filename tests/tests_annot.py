@@ -1,9 +1,8 @@
 import unittest
 import requests
-import json
-
 
 session = requests.Session()
+
 
 def test_log_in():
     url = "http://localhost:5000/api/authn?user=test_user"
@@ -61,13 +60,12 @@ class TemplatesAPITest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         return None
 
-    def test_detele_template(self):
-        return None
-        response = session.delete(f"{self.url}{self.post_req.get('db')}:{self.post_req.get('dbxref')}")
-        print(response.text)
-
-        self.assertEqual(response.status_code, 200)
-        return None
+    # def test_detele_template(self):
+    #     response = session.delete(f"{self.url}{self.post_req.get('db')}:{self.post_req.get('dbxref')}")
+    #     print(response.text)
+    #
+    #     self.assertEqual(response.status_code, 200)
+    #     return None
 
 
 class FieldsAPITest(unittest.TestCase):
@@ -82,10 +80,10 @@ class FieldsAPITest(unittest.TestCase):
         "dbxref": "0000001",
         "object_type": ["sequences", "multiple-sequence-alignments"],
         "type": "tag",
-        "range": "tag",
-        "view_type": "tag",
+        "range": "",
+        "view_type": "select",
         "multiple": "0",
-        "template_id": "1",
+        "template": TemplatesAPITest.post_req.get('name'),
     }
 
     put_req = {
@@ -120,13 +118,12 @@ class FieldsAPITest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         return None
 
-    def test_detele_field(self):
-        return None
-        response = session.delete(f"{self.url}{self.post_req.get('db')}:{self.post_req.get('dbxref')}")
-        print(response.text)
-
-        self.assertEqual(response.status_code, 200)
-        return None
+    # def test_detele_field(self):
+    #     response = session.delete(f"{self.url}{self.post_req.get('db')}:{self.post_req.get('dbxref')}")
+    #     print(response.text)
+    #
+    #     self.assertEqual(response.status_code, 200)
+    #     return None
 
 
 class AnnotationsAPITest(unittest.TestCase):
@@ -138,8 +135,7 @@ class AnnotationsAPITest(unittest.TestCase):
         "object_uuid": "99856669-d9d9-45f6-beba-24e0a64a669e",
         "name": "new_annotation_template",
         "type": "template",
-        "db": "SO",
-        "dbxref": "0000110",
+        "template": TemplatesAPITest.post_req.get('name'),
         "value": "matk",
     }
 
@@ -148,8 +144,7 @@ class AnnotationsAPITest(unittest.TestCase):
         "object_uuid": "99856669-d9d9-45f6-beba-24e0a64a669e",
         "name": "new_annotation_field",
         "type": "field",
-        "db": "SO",
-        "dbxref": "0000001",
+        "field": FieldsAPITest.post_req.get('name'),
         "value": "matk",
     }
 
@@ -162,7 +157,7 @@ class AnnotationsAPITest(unittest.TestCase):
     }
 
     put_req = {
-        "rank": "modified",
+        "value": "modified",
     }
 
     def test_create_annotation(self):
@@ -196,33 +191,10 @@ class AnnotationsAPITest(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         return None
 
-    def test_detele_annotation(self):
-        return None
-        response = session.delete(f"{self.url}{self.post_req_text.get('object_uuid')}")
-        print(response.text)
+    # def test_detele_annotation(self):
+    #     response = session.delete(f"{self.url}{self.post_req_text.get('object_uuid')}")
+    #     print(response.text)
+    #
+    #     self.assertEqual(response.status_code, 200)
+    #     return None
 
-        self.assertEqual(response.status_code, 200)
-        return None
-
-
-if __name__ == '__main__':
-    TemplatesAPITest.test_detele_template()
-    TemplatesAPITest.test_create_template()
-    TemplatesAPITest.test_get_templates()
-    TemplatesAPITest.test_get_template_by_id()
-    TemplatesAPITest.test_modify_template()
-    TemplatesAPITest.test_detele_template()
-
-    FieldsAPITest.test_detele_field()
-    FieldsAPITest.test_create_field()
-    FieldsAPITest.test_get_fields()
-    FieldsAPITest.test_get_field_by_id()
-    FieldsAPITest.test_modify_field()
-    FieldsAPITest.test_detele_field()
-
-    AnnotationsAPITest.test_detele_annotation()
-    AnnotationsAPITest.test_create_annotation()
-    AnnotationsAPITest.test_get_annotations()
-    AnnotationsAPITest.test_get_annotation_by_id()
-    AnnotationsAPITest.test_modify_annotation()
-    AnnotationsAPITest.test_detele_annotation()

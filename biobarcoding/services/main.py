@@ -1,3 +1,5 @@
+from flask import g
+
 from . import log_exception, get_bioformat, get_orm_params
 from ..rest import Issue, IType
 from ..db_models import ORMBase, DBSession
@@ -11,6 +13,12 @@ def get_orm(entity):
         from ..db_models.sysadmin import AnnotationFormField as orm
     if entity == 'annotations':
         from ..db_models.sysadmin import AnnotationItem as orm
+    if entity == 'annotation_template':
+        from ..db_models.sysadmin import AnnotationTemplate as orm
+    if entity == 'annotation_field':
+        from ..db_models.sysadmin import AnnotationField as orm
+    if entity == 'annotation_text':
+        from ..db_models.sysadmin import AnnotationText as orm
     return orm
 
 
@@ -49,6 +57,7 @@ def getCRUDIE(entity):
                 self.status = 201
             except Exception as e:
                 log_exception(e)
+                g.commit_after = False
                 self.issues += [Issue(IType.ERROR,
                                       f'CREATE {entity}: The {entity} could not be created.')]
                 self.status = 409
@@ -62,6 +71,7 @@ def getCRUDIE(entity):
                 self.status = 200
             except Exception as e:
                 log_exception(e)
+                g.commit_after = False
                 self.issues += [Issue(IType.ERROR,
                                       f'READ {entity}: The {entity} could not be read.')]
                 self.status = 400
@@ -69,13 +79,14 @@ def getCRUDIE(entity):
 
         def update(self, values={}, **kwargs):
             try:
-                self.content, self.count = AuxService.get_query(**kwargs)
-                self.content = self.content.update(AuxService.prepare_values(**values))
+                self.content = AuxService.update(values=values, **kwargs)
+                extra = AuxService.after_update(self.content, values=values, **kwargs)
                 self.issues += [Issue(IType.INFO,
                                       f'UPDATE {entity}: The {entity} was/were updated successfully.')]
                 self.status = 200
             except Exception as e:
                 log_exception(e)
+                g.commit_after = False
                 self.issues += [Issue(IType.ERROR,
                                       f'UPDATE {entity}: The {entity} could not be updated.')]
                 self.status = 409
@@ -83,16 +94,14 @@ def getCRUDIE(entity):
 
         def delete(self, **kwargs):
             try:
-                self.content, self.count = AuxService.get_query(**kwargs)
-                # self.content = self.content.delete(synchronize_session='fetch')
-                self.content = self.content.all()
-                for row in self.content:
-                    DBSession.delete(row)
+                self.content, self.count = AuxService.delete(**kwargs)
+                extra = AuxService.after_delete(self.content, **kwargs)
                 self.issues += [Issue(IType.INFO,
                                       f'DELETE {entity}: The {entity} was/were removed successfully.')]
                 self.status = 200
             except Exception as e:
                 log_exception(e)
+                g.commit_after = False
                 self.issues += [Issue(IType.ERROR,
                                       f'DELETE {entity}: The {entity} could not be removed.')]
                 self.status = 404
@@ -111,6 +120,7 @@ def getCRUDIE(entity):
                 self.status = 200
             except Exception as e:
                 log_exception(e)
+                g.commit_after = False
                 self.issues += [Issue(IType.ERROR,
                                       f'IMPORT {entity}: The file {input_file} could not be imported.')]
                 self.status = 409
@@ -126,6 +136,7 @@ def getCRUDIE(entity):
                 self.status = 200
             except Exception as e:
                 log_exception(e)
+                g.commit_after = False
                 self.issues += [Issue(IType.ERROR,
                                       f'EXPORT {entity}: The {entity} could not be exported.')]
                 self.status = 409
@@ -156,14 +167,14 @@ class SimpleAuxService:
             content = self.orm(**values)
             self.db.add(content)
             self.db.flush()
-        except SQLAlchemyError as e:
+        except SQLAlchemyError as e:    # IntegrityError: already exists
             print(type(e))
             print(str(e.__dict__['orig']))
             raise e
         return content
 
     # any additional creation if any
-    def after_create(self, new_obj, **kwargs):
+    def after_create(self, new_object, **kwargs):
         return None
 
     # read like get_query, but telling if it asks only for one or more. It can use get_query
@@ -218,6 +229,34 @@ class SimpleAuxService:
     # method to order by external values when querying
     def aux_order(self, order) -> list:
         return []
+
+    # deal with the update
+    def update(self, values={}, **kwargs):
+        content, count = self.get_query(**kwargs)
+        values = self.prepare_values(**values)
+        # self.content = self.content.update(AuxService.prepare_values(**values))
+        content = content.all()
+        for row in content:
+            for k, v in values.items():
+                setattr(row, k, v)
+        return content
+
+    # any additional update if any
+    def after_update(self, new_object, values={}, **kwargs):
+        return None
+
+    # deal with the delete
+    def delete(self, **kwargs):
+        content, count = self.get_query(**kwargs)
+        # content = content.delete(synchronize_session='fetch')
+        content = content.all()
+        for row in content:
+            DBSession.delete(row)
+        return content, count
+
+    # any additional delete if any
+    def after_delete(self, new_object, **kwargs):
+        return None
 
     # verify that a given file is the data it pretend to be
     def check_file(self, file) -> bool:

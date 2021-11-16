@@ -37,7 +37,7 @@ class FormItemAuxService(SimpleAuxService):
     def prepare_external_values(self, object_type=[], **values):
 
         if object_type and not values.get('object_type_id'):
-            if hasattr(object_type, '__iter__'):
+            if isinstance(object_type, (tuple, list, set)):
                 object_types = object_type
             else:
                 object_types = [object_type]
@@ -50,7 +50,7 @@ class FormItemAuxService(SimpleAuxService):
     def after_create(self, new_object, object_type=[], **kwargs):
         values = self.prepare_external_values(**kwargs)
         if values.get('object_type_id'):
-            if hasattr(values['object_type_id'], '__iter__'):
+            if isinstance(values['object_type_id'], (tuple, list, set)):
                 ids = values.get('object_type_id')
             else:
                 ids = [values.get('object_type_id')]

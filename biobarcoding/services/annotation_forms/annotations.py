@@ -15,10 +15,24 @@ class AuxService(SimpleAuxService):
         super(AuxService, self).__init__()
         self.orm = get_orm('annotations')
 
-    def read(self, **kwargs):
-        content, count = self.get_query(**kwargs)
-        if kwargs.get('id') or kwargs.get('object_uuid'):
-            content = content.first()
-        else:
-            content = content.all()
-        return content, count
+    def prepare_values(self, template=None, field=None, **values):
+
+        if template:
+            if not field and not values.get("type"):
+                values["type"] = 'template'
+            if not values.get('form_template') and not values.get('form_template_id'):
+                from biobarcoding.db_models.sysadmin import AnnotationFormTemplate
+                values['form_template'] = self.db.query(AnnotationFormTemplate)\
+                    .filter(AnnotationFormTemplate.name == template).one()
+        if field:
+            if not template and not values.get("type"):
+                values["type"] = 'field'
+            if not values.get('form_field') and not values.get('form_field_id'):
+                from biobarcoding.db_models.sysadmin import AnnotationFormField
+                values['form_field'] = self.db.query(AnnotationFormField)\
+                    .filter(AnnotationFormField.name == field).one()
+
+        if values.get("type") in ('template', 'field', 'text'):
+            self.orm = get_orm(f'annotation_{values.get("type")}')
+
+        return super(AuxService, self).prepare_values(**values)

@@ -1027,14 +1027,14 @@ def auth_filter(orm, permission_types_ids, object_types_ids,
         # By identity or authorizables associated with the identity
         if isinstance(identity_id, int):
             filter_clause.append(ACLDetail.authorizable_id.in_(related_authr_ids(identity_id)))
-        elif hasattr(identity_id, '__iter__'):
+        elif isinstance(identity_id, (tuple, list, set)):
             filter_clause.append(ACLDetail.authorizable_id.in_(identity_id))
         else:
             filter_clause.append(ACLDetail.authorizable_id.in_(related_authr_ids(g.n_session.identity.id)))
         # By permission or superior permissions
         if isinstance(permission_types_ids, int):
             filter_clause.append(ACLDetail.permission_id.in_(related_perm_ids(permission_types_ids)))
-        elif hasattr(permission_types_ids, '__iter__'):
+        elif isinstance(permission_types_ids, (tuple, list, set)):
             filter_clause.append(ACLDetail.permission_id.in_(permission_types_ids))
 
         collected = DBSession.query(CollectionDetail.object_uuid) \

@@ -163,7 +163,7 @@ def __fasSeq2chado(seq, **params):
         if isinstance(features, str):
             features = features.split(',')
         features = [ {'type': f.split()[-1], 'qualifiers': {f.split()[-1]:f[:-len(f.split()[-1])].strip()}} for f in features ]
-        params['features'] = features if hasattr(features, '__iter__') else params['features']
+        params['features'] = features if isinstance(features, (tuple, list, set)) else params['features']
         params['molecule_type'] = features[-1]['type']
     elif origin:
         params['molecule_type'] = params.get('origin')

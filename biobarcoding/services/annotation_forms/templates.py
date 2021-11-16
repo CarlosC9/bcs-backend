@@ -23,4 +23,4 @@ class AuxService(FormItemAuxService):
                 .filter(filter_parse(AnnotationFormTemplateField, {'field_id': filter.get('field_id')}))
             clauses.append(self.orm.id.in_(_ids))   # .all()
 
-        return clauses + super(AuxService, self).aux_filter()
+        return clauses + super(AuxService, self).aux_filter(filter)
