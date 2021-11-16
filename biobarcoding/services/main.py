@@ -50,8 +50,7 @@ def getCRUDIE(entity):
 
         def create(self, **kwargs):
             try:
-                self.content = AuxService.create(**kwargs)
-                extra = AuxService.after_create(self.content, **kwargs)
+                self.content, self.count = AuxService.create(**kwargs)
                 self.issues += [Issue(IType.INFO,
                                       f'CREATE {entity}: The {entity} was created successfully.')]
                 self.status = 201
@@ -63,7 +62,7 @@ def getCRUDIE(entity):
                 self.status = 409
             return self.issues, self.content, self.count, self.status
 
-        def read(self, id=None, **kwargs):
+        def read(self, **kwargs):
             try:
                 self.content, self.count = AuxService.read(**kwargs)
                 self.issues += [Issue(IType.INFO,
@@ -77,10 +76,9 @@ def getCRUDIE(entity):
                 self.status = 400
             return self.issues, self.content, self.count, self.status
 
-        def update(self, values={}, **kwargs):
+        def update(self, **kwargs):
             try:
-                self.content = AuxService.update(values=values, **kwargs)
-                extra = AuxService.after_update(self.content, values=values, **kwargs)
+                self.content, self.count = AuxService.update(**kwargs)
                 self.issues += [Issue(IType.INFO,
                                       f'UPDATE {entity}: The {entity} was/were updated successfully.')]
                 self.status = 200
@@ -95,7 +93,6 @@ def getCRUDIE(entity):
         def delete(self, **kwargs):
             try:
                 self.content, self.count = AuxService.delete(**kwargs)
-                extra = AuxService.after_delete(self.content, **kwargs)
                 self.issues += [Issue(IType.INFO,
                                       f'DELETE {entity}: The {entity} was/were removed successfully.')]
                 self.status = 200
@@ -108,13 +105,9 @@ def getCRUDIE(entity):
             return self.issues, self.content, self.count, self.status
 
         # TODO: generic import in progress
-        def import_file(self, input_file, format=None, **kwargs):
-            format = get_bioformat(input_file, format)
+        def import_file(self, input_file, **kwargs):
             try:
-                # AuxService.check_file(input_file, format)
-                values = AuxService.prepare_values(**kwargs)
-                # create required rows ?
-                # file2db ?
+                self.content, self.count = AuxService.import_file(input_file, **kwargs)
                 self.issues += [Issue(IType.INFO,
                                       f'IMPORT {entity}: The file {input_file} was imported successfully.')]
                 self.status = 200
@@ -127,10 +120,9 @@ def getCRUDIE(entity):
             return self.issues, self.content, self.count, self.status
 
         # TODO: generic export in progress
-        def export_file(self, format='fasta', **kwargs):
+        def export_file(self, **kwargs):
             try:
-                # get_query ?
-                # export ?
+                self.content, self.count = AuxService.export_file(**kwargs)
                 self.issues = [Issue(IType.INFO,
                                         f'EXPORT {entity}: The {entity} were exported successfully.')]
                 self.status = 200
@@ -171,7 +163,8 @@ class SimpleAuxService:
             print(type(e))
             print(str(e.__dict__['orig']))
             raise e
-        return content
+        self.after_create(content, **kwargs)
+        return content, 1
 
     # any additional creation if any
     def after_create(self, new_object, **kwargs):
@@ -239,7 +232,8 @@ class SimpleAuxService:
         for row in content:
             for k, v in values.items():
                 setattr(row, k, v)
-        return content
+        self.after_update(content, values=values, **kwargs)
+        return content, count
 
     # any additional update if any
     def after_update(self, new_object, values={}, **kwargs):
@@ -252,6 +246,7 @@ class SimpleAuxService:
         content = content.all()
         for row in content:
             DBSession.delete(row)
+        self.after_delete(content, **kwargs)
         return content, count
 
     # any additional delete if any
@@ -259,5 +254,20 @@ class SimpleAuxService:
         return None
 
     # verify that a given file is the data it pretend to be
-    def check_file(self, file) -> bool:
+    def check_file(self, file, format) -> bool:
         return True
+
+    # TODO: import
+    def import_file(self, file, format=None, **kwargs):
+        format = get_bioformat(file, format)
+        self.check_file(file, format)
+        values = self.prepare_values(**kwargs)
+        # create required rows ?
+        # file2db ?
+        return None, 0
+
+    # TODO: export
+    def export_file(self, format=None, **kwargs):
+        # get_query ?
+        # export ?
+        return None, 0

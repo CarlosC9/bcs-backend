@@ -79,6 +79,6 @@ class FormItemAuxService(SimpleAuxService):
         if filter.get('object_type_id'):
             _ids = DBSession.query(AnnotationFormItemObjectType.form_item_id) \
                 .filter(filter_parse(AnnotationFormItemObjectType, {'object_type_id': filter.get('object_type_id')}))
-            clauses.append(self.orm.id.in_(_ids))   # .all()
+            clauses.append(self.orm.id.in_(_ids.subquery()))
 
         return clauses

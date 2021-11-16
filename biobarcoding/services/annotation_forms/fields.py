@@ -40,6 +40,6 @@ class AuxService(FormItemAuxService):
         if filter.get('template_id'):
             _ids = DBSession.query(AnnotationFormTemplateField.form_field_id) \
                 .filter(filter_parse(AnnotationFormTemplateField, {'template_id': filter.get('template_id')}))
-            clauses.append(self.orm.id.in_(_ids))   # .all()
+            clauses.append(self.orm.id.in_(_ids.subquery()))
 
         return clauses + super(AuxService, self).aux_filter(filter)
