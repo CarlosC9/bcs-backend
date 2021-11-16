@@ -39,6 +39,7 @@ from .identities_and_company import bp_identities, bp_sys_functions, bp_roles, b
     bp_groups, bp_organizations, bp_acl
 from .jobs import bp_jobs
 from .metadata import bp_metadata
+from .annotation_forms import bp_annotations
 from .processes import bp_processes, bp_resources
 from .proxy import bp_proxy
 from .tasks import bp_tasks
@@ -132,26 +133,27 @@ def create_app(debug, cfg_dict=None):
 
     # RESTful endpoints
     for bp in [bp_auth,
-               bp_files,
-               bp_jobs,
-               bp_tasks,
-               bp_gui,
-               bp_identities,
-               bp_sys_functions,
-               bp_roles,
-               bp_identities_roles,
-               bp_groups,
-               bp_organizations,
-               bp_acl,
-               bp_processes,
-               bp_resources,
-               bp_bos,
-               bp_metadata,
-               bp_bfilters,
-               bp_geo,
-               bp_views,
-               bp_proxy,
-               ]:
+			   bp_files,
+			   bp_jobs,
+			   bp_tasks,
+			   bp_gui,
+			   bp_identities,
+			   bp_sys_functions,
+			   bp_roles,
+			   bp_identities_roles,
+			   bp_groups,
+			   bp_organizations,
+			   bp_acl,
+			   bp_processes,
+			   bp_resources,
+			   bp_bos,
+			   bp_metadata,
+			   bp_annotations,
+			   bp_bfilters,
+			   bp_geo,
+			   bp_views,
+			   bp_proxy,
+			   ]:
         app.register_blueprint(bp)
 
     # Celery
@@ -165,12 +167,13 @@ def create_app(debug, cfg_dict=None):
 
 
 # FLASK_ENV=development FLASK_APP=biobarcoding.rest.main flask run
+biobarcoding.flask_app = create_app(True)
 if __name__ == "__main__":
-    biobarcoding.flask_app = create_app(True)
     biobarcoding.flask_app.run(host='0.0.0.0',
                                use_reloader=False,  # Avoid loading twice the application
                                )
     socket_service_socketio.run(biobarcoding.flask_app, host='0.0.0.0')
+
 
 @biobarcoding.flask_app.route("/")
 def index():

@@ -163,7 +163,7 @@ def __fasSeq2chado(seq, **params):
         if isinstance(features, str):
             features = features.split(',')
         features = [ {'type': f.split()[-1], 'qualifiers': {f.split()[-1]:f[:-len(f.split()[-1])].strip()}} for f in features ]
-        params['features'] = features if hasattr(features, '__iter__') else params['features']
+        params['features'] = features if isinstance(features, (tuple, list, set)) else params['features']
         params['molecule_type'] = features[-1]['type']
     elif origin:
         params['molecule_type'] = params.get('origin')
@@ -327,8 +327,8 @@ def export(id=None, format='fasta', **kwargs):
         content = __seqs2file(query.all(),
                               format=format,
                               output_file=f'/tmp/output_ngd.{format}',
-                              header_format=kwargs.get('value').get('header'),
-                              only_headers=kwargs.get('value').get('only_headers'))
+                              header_format=kwargs.get('values').get('header'),
+                              only_headers=kwargs.get('values').get('only_headers'))
         issues, status = [Issue(IType.INFO, f'EXPORT sequences: {count} sequences were successfully exported.')], 200
     except Exception as e:
         log_exception(e)

@@ -278,10 +278,12 @@ class n_session(object):
                             can_execute = True  # If no rule is found, allow execution for everybody!
                         # Execute
                         if can_execute:
+                            g.commit_after = True
                             res = f(*args, **kwargs)
-                            db_session.commit()
-                            chado_db_session.commit()  # Chado test
-                            postgis_db_session.commit()
+                            if g.commit_after:
+                                db_session.commit()
+                                chado_db_session.commit()  # Chado test
+                                postgis_db_session.commit()
                         else:
                             raise Exception(
                                 f"Current user ({sess.identity_name}) cannot execute function {f_code_name}")
