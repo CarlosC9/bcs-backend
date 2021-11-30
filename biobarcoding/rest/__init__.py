@@ -918,33 +918,37 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
 
 # GENERIC REST FUNCTIONS
 
+def chew_data(param):
+    try:
+        param = unquote(param)
+    except Exception as e:
+        pass
+    try:
+        param = json.loads(param)
+    except Exception as e:
+        pass
+    return param
+
+
 def decode_request_params(data):
     res = {}
-    for key in data:
-        value = data[key]
-        try:
-            value = unquote(value)
-        except Exception as e:
-            pass
-        try:
-            value = json.loads(value)
-        except Exception as e:
-            pass
-        res[key] = value
+    params = chew_data(data)
+    for key in params:
+        res[key] = chew_data(params[key])
     return res
 
 
 def parse_request_params(data=None):
     kwargs = {'filter': [], 'order': [], 'pagination': {}, 'values': {}, 'searchValue': ''}
-    if not data:
+    if not data and request:
         if request.json:
             kwargs.update(parse_request_params(request.json))
         if request.data:
             kwargs.update(parse_request_params(request.data))
         if request.values:
             kwargs.update(parse_request_params(request.values))
-    else:
-        print(f'DATA: {data}')
+    elif data:
+        print(f'RAW_DATA: {data}')
         input = decode_request_params(data)
         for key in ('filter', 'order', 'pagination', 'values', 'searchValue'):
             try:
@@ -953,7 +957,7 @@ def parse_request_params(data=None):
                 continue
             kwargs[key] = i if i else kwargs[key]
         kwargs['values'].update(input)
-    print(f'KWARGS: {kwargs}')
+        print(f'CLEAN_DATA: {kwargs}')
     return kwargs
 
 

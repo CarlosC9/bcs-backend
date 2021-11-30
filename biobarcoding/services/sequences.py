@@ -277,21 +277,31 @@ def import_file(input_file, format=None, **kwargs):
 # EXPORT
 ##
 
+def __force_underscored(str: str):
+    replacable = " ,.-"
+    # replacable = "".join(set(c for c in str if not c.isalnum()))
+    return str.translate({ord(i): "_" for i in replacable})
+
+
 def __seqs_header_parser(seqs, format):     # return dict(uniquename, header)
     # TODO: seqs header parser
     headers = {}
-    if format == 'organism' or format == 'organism_canon' or format == 'organism_canon_underscored':
-        orgs = chado_session.query(Feature.uniquename, Organism.genus, Organism.species) \
+    if format in ('organismID', 'organism', 'organism_canon', 'organism_canon_underscored'):
+        orgs = chado_session.query(Feature.uniquename, Organism.organism_id, Organism.genus, Organism.species) \
             .join(Organism).filter(Feature.uniquename.in_([x.uniquename for x in seqs])).all()
         from .species_names import get_canonical_species_names
         underscored = True if format == 'organism_canon_underscored' else False
-        for seqID, genus, species in orgs:
-            headers[seqID] = genus + ' ' + species
-            if format in ('organism_canon', 'organism_canon_underscored'):
-                headers[seqID] = get_canonical_species_names(db_session,
-                                                             [headers[seqID]],
-                                                             underscores=underscored)[0] \
-                                or headers[seqID].replace(' ', '_').replace('-', '_') if underscored else headers[seqID]
+        if format == 'organismID':
+            for seqID, orgID, genus, species in orgs:
+                headers[seqID] = orgID
+        else:
+            for seqID, orgID, genus, species in orgs:
+                headers[seqID] = genus + ' ' + species
+                if format in ('organism_canon', 'organism_canon_underscored'):
+                    headers[seqID] = get_canonical_species_names(db_session,
+                                                                 [headers[seqID]],
+                                                                 underscores=underscored)[0] \
+                                or __force_underscored(headers[seqID]) if underscored else headers[seqID]
     return headers
 
 
