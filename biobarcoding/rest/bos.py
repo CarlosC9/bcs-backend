@@ -32,17 +32,17 @@ class BioObjAPI(MethodView):
     def post(self, bos, format=None):
         print(f'POST {request.path}\nCreating {bos}')
         kwargs = self._prepare(bos)
-        if request.files or kwargs.get('value') and 'filesAPI' in kwargs.get('value'):
-            issues, content, status = self._import_files(format, kwargs.get('value'))
+        if request.files or kwargs.get('values') and 'filesAPI' in kwargs.get('values'):
+            issues, content, status = self._import_files(format, kwargs.get('values'))
         else:
-            issues, content, status = self.service.create(**kwargs.get('value'))
+            issues, content, status = self.service.create(**kwargs.get('values'))
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
     @n_session()
     def put(self, bos, id, format=None):
         print(f'PUT {request.path}\nUpdating {bos} {id}')
         kwargs = self._prepare(bos)
-        issues, content, status = self.service.update(id, **kwargs.get('value'))
+        issues, content, status = self.service.update(id, **kwargs.get('values'))
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
     @n_session()

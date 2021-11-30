@@ -95,14 +95,14 @@ class ACLAPI(MethodView):
     def post(self):
         print(f'POST {request.path}\nCreating ACL')
         kwargs = parse_request_params()
-        issues, content, status = create_acls(**kwargs.get('value'))
+        issues, content, status = create_acls(**kwargs.get('values'))
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
     @n_session()
     def put(self, id=None, uuid=None):
         print(f'PUT {request.path}\nCreating ACL {id}')
         kwargs = parse_request_params()
-        issues, content, status = update_acls(id=id, uuid=uuid, **kwargs.get('value'))
+        issues, content, status = update_acls(id=id, uuid=uuid, **kwargs.get('values'))
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
     @n_session()

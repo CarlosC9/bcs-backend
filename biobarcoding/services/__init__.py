@@ -1,11 +1,8 @@
-import os
 
 
 ##
 # CONNECTIONS
 ##
-from ..rest import filter_parse, order_parse
-
 
 def conn_chado():
     from flask import current_app
@@ -102,6 +99,7 @@ def get_encoding(file):
 
 
 def get_bioformat(file, format):
+    import os
     ext = format if format else os.path.splitext(file)[1][1:]
     return {'frn': 'fasta', 'fna': 'fasta', 'faa': 'fasta', 'fas': 'fasta', 'fasta': 'fasta',
             'gb': 'genbank', 'gbf': 'genbank', 'gbk': 'genbank', 'genbank': 'genbank',
@@ -152,7 +150,8 @@ def seqs_parser(file, format='fasta'):
 ##
 
 def get_orm_params(orm, **params):
-    return dict([(k, v) for k, v in params.items() if k in orm.__table__.columns])
+    schema = orm.Schema._declared_fields or orm.__table__.columns
+    return dict([(k, v) for k, v in params.items() if k in schema])
 
 
 def get_or_create(session, model, **params):
@@ -183,8 +182,9 @@ def get_or_create(session, model, **params):
     return instance
 
 
-def get_simple_query(session, model, **kwargs):
-    # kwargs = {k: v for k, v in kwargs.items() if v is not None}
+def get_simple_query(session, model, null_sensitive=True, **kwargs):
+    if not null_sensitive:
+        kwargs = {k: v for k, v in kwargs.items() if v is not None}
     params = get_orm_params(model, **kwargs)
     return session.query(model).filter_by(**params)
 
@@ -202,25 +202,26 @@ def paginator(query, pagination):
 def get_query(session, orm, query=None, id=None, aux_filter=None, aux_order=None, **kwargs):
     """
      reserved keywords in kwargs:
-       'value': specific values of orm fields to filter
+       'values': specific values of orm fields to filter
        'filter': advanced filtering clauses (see also filter_parse)
        'order': advanced ordering clauses (see also order_parse)
        'pagination': pageIndex and pageSize to paginate
        'searchValue': full-text search value (hopefully)
      otherwise it will be treated as 'value'
     """
+    from ..rest import filter_parse, order_parse
     query = query or session.query(orm)
     count = 0
     if id:
         query = query.filter(orm.id == id)
     else:
-        if not kwargs.get('value'):
-            kwargs['value'] = {}
+        if not kwargs.get('values'):
+            kwargs['values'] = {}
         for k, v in kwargs.items():
-            if not k in ['value', 'filter', 'order', 'pagination', 'searchValue'] and v:
-                kwargs['value'][k] = v
-        if kwargs.get('value'):
-            query = query.filter_by(**get_orm_params(orm, **kwargs.get('value')))
+            if not k in ['values', 'filter', 'order', 'pagination', 'searchValue'] and v:
+                kwargs['values'][k] = v
+        if kwargs.get('values'):
+            query = query.filter_by(**get_orm_params(orm, **kwargs.get('values')))
         if kwargs.get('filter'):
             query = query.filter(filter_parse(orm, kwargs.get('filter'), aux_filter))
         if kwargs.get('order'):

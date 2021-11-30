@@ -25,14 +25,14 @@ class BrowserFilterAPI(MethodView):
     def post(self, datatype):
         print(f'POST {request.path}\nCreating filters')
         self.kwargs = parse_request_params()
-        issues, content, status = browser_filters.create(datatype, **self.kwargs.get('value'))
+        issues, content, status = browser_filters.create(datatype, **self.kwargs.get('values'))
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
     @n_session()
     def put(self, datatype, id):
         print(f'PUT {request.path}\nUpdating filter {id}')
         self.kwargs = parse_request_params()
-        issues, content, status = browser_filters.update(datatype, id, **self.kwargs.get('value'))
+        issues, content, status = browser_filters.update(datatype, id, **self.kwargs.get('values'))
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
     @n_session()

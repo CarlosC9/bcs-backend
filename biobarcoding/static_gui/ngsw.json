@@ -1,25 +1,35 @@
 {
   "configVersion": 1,
-  "timestamp": 1602252814788,
+  "timestamp": 1637156206570,
   "index": "/gui/index.html",
   "assetGroups": [
     {
       "name": "app",
       "installMode": "prefetch",
       "updateMode": "prefetch",
+      "cacheQueryOptions": {
+        "ignoreVary": true
+      },
       "urls": [
-        "/gui/5-es2015.72014c6ad91c0506a7ea.js",
-        "/gui/5-es5.72014c6ad91c0506a7ea.js",
+        "/gui/10-es2015.6931442d691a81723ae9.js",
+        "/gui/10-es5.6931442d691a81723ae9.js",
+        "/gui/11-es2015.80f6aa1c0a1b5b6c6c91.js",
+        "/gui/11-es5.80f6aa1c0a1b5b6c6c91.js",
         "/gui/favicon.ico",
         "/gui/index.html",
-        "/gui/main-es2015.05f58f73cff6b5655504.js",
-        "/gui/main-es5.05f58f73cff6b5655504.js",
+        "/gui/main-es2015.37dfe79c772d6f261f57.js",
+        "/gui/main-es5.37dfe79c772d6f261f57.js",
         "/gui/manifest.webmanifest",
-        "/gui/polyfills-es2015.6daee520f35267e9e80c.js",
-        "/gui/polyfills-es5.dbd43042a7cf47dc578f.js",
-        "/gui/runtime-es2015.2dad524228c95adbd595.js",
-        "/gui/runtime-es5.2dad524228c95adbd595.js",
-        "/gui/styles.31cce6312f51f9103364.css"
+        "/gui/polyfills-es2015.1f8f6409ef8c7b8a0073.js",
+        "/gui/polyfills-es5.1d7dc8c353c9287a63a2.js",
+        "/gui/runtime-es2015.4d47dfb60b89f2351ea5.js",
+        "/gui/runtime-es5.4d47dfb60b89f2351ea5.js",
+        "/gui/styles.8ca4a923f244b4eba673.css",
+        "/gui/themeCyan.css",
+        "/gui/themeCyan2.css",
+        "/gui/themeGold.css",
+        "/gui/themeGrassGreen.css",
+        "/gui/themeGray.css"
       ],
       "patterns": []
     },
@@ -27,7 +37,11 @@
       "name": "assets",
       "installMode": "lazy",
       "updateMode": "prefetch",
+      "cacheQueryOptions": {
+        "ignoreVary": true
+      },
       "urls": [
+        "/gui/assets/GRCh38.aliases.txt",
         "/gui/assets/animal/panda.js",
         "/gui/assets/animal/panda.svg",
         "/gui/assets/facebook.svg",
@@ -1650,8 +1664,11 @@
   ],
   "dataGroups": [],
   "hashTable": {
-    "/gui/5-es2015.72014c6ad91c0506a7ea.js": "e61377bd10bdd42e9ac31f00e54d7d1f705ede69",
-    "/gui/5-es5.72014c6ad91c0506a7ea.js": "e61377bd10bdd42e9ac31f00e54d7d1f705ede69",
+    "/gui/10-es2015.6931442d691a81723ae9.js": "079472d5973ffcd711c57d0b7caf73be7aa435ad",
+    "/gui/10-es5.6931442d691a81723ae9.js": "079472d5973ffcd711c57d0b7caf73be7aa435ad",
+    "/gui/11-es2015.80f6aa1c0a1b5b6c6c91.js": "222609d7d1b301124360613d09c9e8383ba6a999",
+    "/gui/11-es5.80f6aa1c0a1b5b6c6c91.js": "33cbc9d7a874899c126d8788c7aaef274f01d88b",
+    "/gui/assets/GRCh38.aliases.txt": "5c217e3de4346fb4591e8082b3b6e42c54967f48",
     "/gui/assets/animal/panda.js": "fec2868bb3053dd2da45f96bbcb86d5116ed72b1",
     "/gui/assets/animal/panda.svg": "bebd302cdc601e0ead3a6d2710acf8753f3d83b1",
     "/gui/assets/facebook.svg": "6bfd221fdb3c9d6af4e550fd0d01a59e31df5e1d",
@@ -3269,15 +3286,20 @@
     "/gui/fontawesome-webfont.8b43027f47b20503057d.eot": "d980c2ce873dc43af460d4d572d441304499f400",
     "/gui/fontawesome-webfont.c1e38fd9e0e74ba58f7a.svg": "98a8aa5cf7d62c2eff5f07ede8d844b874ef06ed",
     "/gui/fontawesome-webfont.f691f37e57f04c152e23.woff": "28b782240b3e76db824e12c02754a9731a167527",
-    "/gui/index.html": "1564a386c81f6301ddc87e9b83e523e1267cf2b8",
-    "/gui/main-es2015.05f58f73cff6b5655504.js": "ea508249df083708756197a6e6d22bc4eb7768a3",
-    "/gui/main-es5.05f58f73cff6b5655504.js": "c449a1c9564f0eb90f3924b78201cabb149f3b33",
+    "/gui/index.html": "d346ecb4e9fbeb646d3d3e4aa472ad47a02d608e",
+    "/gui/main-es2015.37dfe79c772d6f261f57.js": "0eb26b0818f71e62223ec66036a56a12838abc23",
+    "/gui/main-es5.37dfe79c772d6f261f57.js": "a9c4a896f66f2db8dd3e4cabf02d24d4275ddac5",
     "/gui/manifest.webmanifest": "253a2f19661459cb833880df7ce047922a9d5335",
-    "/gui/polyfills-es2015.6daee520f35267e9e80c.js": "90fb474e1a7d87bd57bc8a95fb3fd361b919d815",
-    "/gui/polyfills-es5.dbd43042a7cf47dc578f.js": "ccfff1a6bd0b9531245e25bf3c0c8cf948ced8c2",
-    "/gui/runtime-es2015.2dad524228c95adbd595.js": "44dff94ac6964a6bfb2995babaa159cc4fd01a47",
-    "/gui/runtime-es5.2dad524228c95adbd595.js": "cf3bc690ae0a8c39fa42b89325b3c69ab67e40a4",
-    "/gui/styles.31cce6312f51f9103364.css": "0f598b9ce5fa2f8de18f29f9cad4eac5f3d09695"
+    "/gui/polyfills-es2015.1f8f6409ef8c7b8a0073.js": "0d3a2c339bcefda55131cd3bfdfd376946401bb7",
+    "/gui/polyfills-es5.1d7dc8c353c9287a63a2.js": "a4d504e6ed65f3cfffef028bdb7fc908ce039e15",
+    "/gui/runtime-es2015.4d47dfb60b89f2351ea5.js": "dc82c60eb733e388d74f515c93611527013a1efe",
+    "/gui/runtime-es5.4d47dfb60b89f2351ea5.js": "abdbf4f93282765e0d7290fb8eb740bf90e8127b",
+    "/gui/styles.8ca4a923f244b4eba673.css": "f2956d31966b7e32f92c05b6f4bbe5d6932cc753",
+    "/gui/themeCyan.css": "d6fa6c0f36f93cf9ca65f7b6a37e86c3fe2f6d23",
+    "/gui/themeCyan2.css": "9532cbfc017087245c41f841767a381d6d151ac0",
+    "/gui/themeGold.css": "9b462d3983e4be9f8e40c5f547671fa798d65dab",
+    "/gui/themeGrassGreen.css": "d30ebec2e0c7e933f5dac6353475355f6e3c54b8",
+    "/gui/themeGray.css": "3c5257ce03eb6922dac4ea7c4e9643134a9cf000"
   },
   "navigationUrls": [
     {
@@ -3296,5 +3318,6 @@
       "positive": false,
       "regex": "^\\/(?:.+\\/)?[^/]*__[^/]*\\/.*$"
     }
-  ]
+  ],
+  "navigationRequestStrategy": "performance"
 }

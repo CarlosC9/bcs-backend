@@ -13,6 +13,7 @@ from attr import attrs, attrib
 from bioblend import galaxy
 from flask import Response, Blueprint, g, request
 from flask.views import MethodView
+import sqlalchemy
 from sqlalchemy import orm, and_, or_
 from sqlalchemy.pool import StaticPool
 
@@ -934,22 +935,24 @@ def decode_request_params(data):
 
 
 def parse_request_params(data=None):
-    kwargs = {'filter': [], 'order': [], 'pagination': {}, 'value': {}, 'searchValue': ''}
+    kwargs = {'filter': [], 'order': [], 'pagination': {}, 'values': {}, 'searchValue': ''}
     if not data:
         if request.json:
             kwargs.update(parse_request_params(request.json))
+        if request.data:
+            kwargs.update(parse_request_params(request.data))
         if request.values:
             kwargs.update(parse_request_params(request.values))
     else:
         print(f'DATA: {data}')
         input = decode_request_params(data)
-        for key in ('filter', 'order', 'pagination', 'value', 'searchValue'):
+        for key in ('filter', 'order', 'pagination', 'values', 'searchValue'):
             try:
                 i = input.pop(key)
             except Exception as e:
                 continue
             kwargs[key] = i if i else kwargs[key]
-        kwargs['value'].update(input)
+        kwargs['values'].update(input)
     print(f'KWARGS: {kwargs}')
     return kwargs
 
@@ -1024,14 +1027,14 @@ def auth_filter(orm, permission_types_ids, object_types_ids,
         # By identity or authorizables associated with the identity
         if isinstance(identity_id, int):
             filter_clause.append(ACLDetail.authorizable_id.in_(related_authr_ids(identity_id)))
-        elif hasattr(identity_id, '__iter__'):
+        elif isinstance(identity_id, (tuple, list, set)):
             filter_clause.append(ACLDetail.authorizable_id.in_(identity_id))
         else:
             filter_clause.append(ACLDetail.authorizable_id.in_(related_authr_ids(g.n_session.identity.id)))
         # By permission or superior permissions
         if isinstance(permission_types_ids, int):
             filter_clause.append(ACLDetail.permission_id.in_(related_perm_ids(permission_types_ids)))
-        elif hasattr(permission_types_ids, '__iter__'):
+        elif isinstance(permission_types_ids, (tuple, list, set)):
             filter_clause.append(ACLDetail.permission_id.in_(permission_types_ids))
 
         collected = DBSession.query(CollectionDetail.object_uuid) \
