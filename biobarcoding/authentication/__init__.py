@@ -21,8 +21,8 @@ from ..authorization import ast_evaluator, authr_expression, string_to_ast
 from ..common import generate_json
 from ..common.helpers import serialize_from_object, deserialize_to_object
 from ..db_models import DBSession, ObjectType, DBSessionChado, DBSessionGeo
-from ..db_models.sysadmin import Authenticator, Identity, IdentityAuthenticator, ACLExpression, ACL, \
-    SystemFunction
+from ..db_models.sysadmin import Authenticator, Identity, IdentityAuthenticator, ACLExpression, ACL, SystemFunction, \
+    Role, RoleIdentity
 
 
 def initialize_firebase(app):
@@ -70,7 +70,7 @@ def build_json_response(obj, status=200):
 
 
 @dataclass
-class BCSSession:
+class AppSession:
     identity_id: int = 0
     identity_name: str = "anonymous"
     login_time: str = ""
@@ -87,78 +87,126 @@ EXEMPT_METHODS = {'OPTIONS'}
 NO_SESS_RESPONSE = build_json_response({"error": "No active session. Please, open one first ('PUT /api/authn')"}, 400)
 
 
-# def login_required(func):
-#     @wraps(func)
-#     def decorated_view(*args, **kwargs):
-#         if request.method in EXEMPT_METHODS:
-#             return func(*args, **kwargs)
-#         elif current_app.config.get('LOGIN_DISABLED'):
-#             return func(*args, **kwargs)
-#         elif current_session is None:
-#             return NO_SESS_RESPONSE
-#         return func(*args, **kwargs)
-#     return decorated_view
-
-
 def obtain_idauth_from_request() -> str:
+    from ..rest import logger
+
     def prepare_identity(tok_dict: Dict) -> IdentityAuthenticator:
+        def initialize_identity_roles():
+            from ..rest import tm_default_users
+
+            # Role initialization applies to non-system users
+            if str(identity.uuid) not in tm_default_users.keys():
+                # if "sys-admin" role is empty (of normal identities),
+                # add current identity is a normal identity, add identity to sys-admin
+                sys_admin_role = session.query(Role).filter(Role.uuid == 'c79b4ff7-9576-45f6-a439-551ac23c563b').first()
+                found = False
+                for rol_ident in sys_admin_role.identities:
+                    if str(rol_ident.identity.uuid) not in tm_default_users.keys():
+                        found = True
+                        break
+                if not found:
+                    rol_ident = RoleIdentity(identity=identity, role=sys_admin_role)
+                    session.add(rol_ident)
+                    # sys_admin_role.identities.append(identity)
+                    # identity.roles.append(sys_admin_role)
+                # if current identity does not have a role, add it to guest
+                if len(identity.roles) == 0:
+                    guest_role = session.query(Role).filter(Role.uuid == 'feb13f20-4223-4602-a195-a3ea14615982').first()
+                    rol_ident = RoleIdentity(identity=identity, role=guest_role)
+                    session.add(rol_ident)
+                    # guest_role.identities.append(identity)
+                    # identity.roles.append(guest_role)
+
+        # Get Authenticator, Name and e-mail (e-mail is used as identifier in "Identity")
+        identity = None
         name = None
         email = None
-        auth_type = None
+        authenticator = None
         session = DBSession()
         if "auth_method" in tok_dict:
             if tok_dict["auth_method"] == "local-api-key":
-                auth_type = session.query(Authenticator).filter(Authenticator.name == "local-api-key").first()
+                authenticator = session.query(Authenticator).filter(Authenticator.name == "local-api-key").first()
+                s = f'SELECT identity_id FROM {IdentityAuthenticator.__tablename__} ' \
+                    f'WHERE authenticator_id={authenticator.id} AND ' \
+                    f'authenticator_info @> \'{{"key": "{tok_dict["key"]}"}}\''
+                close_connection = session.transaction is None
+                conn = session.connection()
+                result = conn.execute(s)
+                identity_id = result.first()[0]
+                if close_connection:
+                    conn.close()
+                # If there is some result, get identity_id and e-mail
+                identity = session.query(Identity).get(identity_id)
+                email = identity.email
+                name = identity.name
             elif tok_dict["auth_method"] == "local":
-                auth_type = session.query(Authenticator).filter(Authenticator.name == "local").first()
+                authenticator = session.query(Authenticator).filter(Authenticator.name == "local").first()
                 name = tok_dict["user"]
+                # TODO Check the network the request is coming from.
+                #  It must be the same network of the backend
+                request_ip = request.remote_addr
         elif "firebase" in tok_dict:
             # Firebase token, subauthenticator
-            auth_type = session.query(Authenticator).filter(Authenticator.name == "firebase").first()
+            authenticator = session.query(Authenticator).filter(Authenticator.name == "firebase").first()
             if tok["firebase"]["sign_in_provider"] == "anonymous":
                 name = "_anonymous"
+            elif tok["firebase"]["sign_in_provider"] == "password":
+                email = tok_dict["email"]
             else:
                 name = tok_dict["name"]
                 email = tok_dict["email"]
-        iden = session.query(Identity).filter(Identity.name == name).first()
-        if not iden:
-            iden = session.query(Identity).filter(Identity.email == email).first()
-        if not iden:
-            iden = Identity()
-            iden.email = email
-            iden.name = name
-            session.add(iden)
 
-        iden_authenticator = session.query(IdentityAuthenticator).filter(
-            and_(IdentityAuthenticator.identity == iden, IdentityAuthenticator.authenticator == auth_type)).first()
-        if not iden_authenticator and auth_type.name == "firebase":  # Create (others must exist previously)
-            iden_authenticator = IdentityAuthenticator()
-            iden_authenticator.email = email
-            iden_authenticator.name = name
-            iden_authenticator.authenticator_info = tok_dict
-            iden_authenticator.identity = iden
-            iden_authenticator.authenticator = auth_type
-            session.add(iden_authenticator)
+        # Find or create Identity
+        if not identity:
+            if name:
+                identity = session.query(Identity).filter(Identity.name == name).first()
+        if not identity:
+            identity = session.query(Identity).filter(Identity.email == email).first()
+        if not identity:
+            identity = Identity()
+            identity.can_login = True
+            identity.email = email
+            identity.name = name
+            session.add(identity)
+
+        # Find or create IdentityAuthenticator
+        ident_auth = session.query(IdentityAuthenticator).filter(
+            and_(IdentityAuthenticator.identity == identity, IdentityAuthenticator.authenticator == authenticator)).first()
+        if not ident_auth and authenticator.name == "firebase":  # Create (others must exist previously)
+            ident_auth = IdentityAuthenticator()
+            ident_auth.email = email
+            ident_auth.name = name
+            ident_auth.authenticator_info = tok_dict
+            ident_auth.identity = identity
+            ident_auth.authenticator = authenticator
+            session.add(ident_auth)
+
+        if ident_auth:
+            ident_auth.last_login_time = datetime.utcnow()
+
+        # Roles initialization
+        initialize_identity_roles()
+
         session.commit()
-        return iden_authenticator
 
-    tok = None
-    if 'Authorization' in request.headers:
+        return ident_auth
+
+    # ------------------------------------------------------------------------------------------------------------------
+    # Get the token from the request
+    tok = {}
+    if 'Authorization' in request.headers:  # Firebase authentication
         auth_token = request.headers['Authorization'].split(" ")[1]
         try:
             tok = auth.verify_id_token(auth_token)
-            print(tok)
         except Exception as e:
-            print(e)
+            logger.debug(e)
+            traceback.print_exc()
             abort(401, 'The session token is not valid or has expired')
-    elif 'X-API-Key' in request.headers:
-        # api_key
+    elif 'X-API-Key' in request.headers:  # "API-KEY" authentication
         tok = dict(api_key=request.headers["X-API-Key"], auth_method="local-api-key")
-
-    user = request.args.get("user")
-    if user:
-        if tok is None:
-            tok = {"user": user, "auth_method": "local"}
+    elif "user" in request.args:  # "local" authentication
+        user = request.args.get("user")
+        tok = dict(user=user, auth_method="local")
 
     if len(tok) == 0:
         abort(401, 'No authentication information provided')
@@ -166,14 +214,14 @@ def obtain_idauth_from_request() -> str:
     return prepare_identity(tok)
 
 
-def serialize_session(state: BCSSession):
+def serialize_session(state: AppSession):
     tmp = serialize_from_object(state)
     tmp = blosc.compress(bytearray(tmp, "utf-8"), cname="zlib", typesize=8)
     return tmp
 
 
-def deserialize_session(s, return_error_response_if_none=True) -> BCSSession:
-    def deserialize_session_sub(st: str) -> BCSSession:
+def deserialize_session(s, return_error_response_if_none=True) -> AppSession:
+    def deserialize_session_sub(st: str) -> AppSession:
         if isinstance(st, bytes):
             st = blosc.decompress(st).decode("utf-8")
         if isinstance(st, str):
@@ -201,7 +249,7 @@ def deserialize_session(s, return_error_response_if_none=True) -> BCSSession:
 class n_session(object):
     """
     Decorator for RESTful methods requiring: Session, and Authentication/Authorization
-    @bcs_session(read_only=False)
+    @n_session(read_only=False)
     """
 
     def __init__(self, read_only=False, authr=None):
@@ -232,7 +280,7 @@ class n_session(object):
     def __call__(self, f):
         def wrapped_f(*args, **kwargs):
             sess = deserialize_session(flask_session.get("session"))
-            if isinstance(sess, BCSSession):
+            if isinstance(sess, AppSession):
                 try:
                     g.n_session = sess
                     db_session = DBSession()
@@ -259,11 +307,12 @@ class n_session(object):
                                 obj_type = db_session.query(ObjectType).filter(
                                     ObjectType.name == "sys-functions").first()
                                 # Rule stored in the database. Find the active one for the desired function
-                                # TODO if there is no ACLExpression, search ACL elements (or maybe generate an expression from the ACL elements)
+                                # TODO if there is no ACLExpression, search ACL elements
+                                #  (or maybe generate an expression from the ACL elements)
                                 rule = db_session.query(ACLExpression.expression). \
                                     filter(and_(
-                                    or_(ACLExpression.validity_start is None, ACLExpression.validity_start <= ahora),
-                                    or_(ACLExpression.validity_end is None, ACLExpression.validity_end > ahora))). \
+                                    or_(ACLExpression.validity_start == None, ACLExpression.validity_start <= ahora),
+                                    or_(ACLExpression.validity_end == None, ACLExpression.validity_end > ahora))). \
                                     join(ACLExpression.acl).filter(
                                     and_(ACL.object_type == obj_type.id, ACL.object_uuid == function.uuid)).first()
                             else:
@@ -306,7 +355,7 @@ class n_session(object):
                         g.n_session.chado_db_session = None  # Chado test
                         g.n_session.postgis_db_session = None
                         flask_session["session"] = serialize_session(g.n_session)
-                    # g.bcs_session = None  -- NO need for this line, "g" is reset after every request
+                    # g.n_session = None  -- NO need for this line, "g" is reset after every request
                 return res
             else:
                 return sess

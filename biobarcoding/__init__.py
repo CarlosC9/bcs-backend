@@ -46,6 +46,9 @@ def get_global_configuration_variable(key: str, default=None) -> str:
     if global_configuration is None:
         global_configuration = read_configuration()
     if default is None:
-        from biobarcoding.rest import get_default_configuration_dict
+        from .rest import get_default_configuration_dict
         default = get_default_configuration_dict().get(key)
     return global_configuration.get(key.lower(), default)
+
+
+app_acronym = "bcs"  # Application Short acronym (internal use)

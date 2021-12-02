@@ -3,7 +3,7 @@ import copy
 from flask import request, session as flask_session
 from flask_socketio import SocketIO, ConnectionRefusedError
 
-from ..authentication import deserialize_session, BCSSession
+from ..authentication import deserialize_session, AppSession
 
 
 class SocketService:
@@ -18,7 +18,7 @@ class SocketService:
             def connect(auth):
                 print('Connect to socket')
                 sess = deserialize_session(flask_session.get("session"))
-                if sess is not None and isinstance(sess, BCSSession):
+                if sess is not None and isinstance(sess, AppSession):
                     self.socket_userId_dict[request.sid] = {'user_id': sess.identity_id}
                 else:
                     raise ConnectionRefusedError('Authenticate First')

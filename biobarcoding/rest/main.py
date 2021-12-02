@@ -1,14 +1,15 @@
-import sys
 from pathlib import Path
+import sys
 
 from NamedAtomicLock import NamedAtomicLock
+from flask_session import Session as FlaskSessionServerSide
 from flask import (Flask, request, session as flask_session, redirect, current_app)
 from flask_cors import CORS
-from flask_session import Session as FlaskSessionServerSide
 from flask_socketio import SocketIO
 
 # Workaround for relative imports in a "__main__"
 # From: https://stackoverflow.com/a/28154841
+
 if __name__ == '__main__' and (__package__ is None or __package__ == ""):
     file = Path(__file__).resolve()
     parent, top = file.parent, file.parents[3]
@@ -26,17 +27,21 @@ if __name__ == '__main__' and (__package__ is None or __package__ == ""):
 import biobarcoding
 from ..authentication import initialize_firebase
 from ..geo import initialize_geoserver
-from . import logger, log_level, load_configuration_file, construct_session_persistence_backend, \
-    initialize_database, initialize_database_chado, app_gui_base, ResponseObject, initialize_chado_edam, \
-    init_socket, initialize_postgis, initialize_ssh, initialize_galaxy
+from . import logger, log_level, load_configuration_file, construct_session_persistence_backend, initialize_database, app_gui_base, ResponseObject, init_socket, initialize_postgis, initialize_ssh, \
+    initialize_chado_edam, initialize_database_chado, initialize_galaxy
+from biobarcoding import app_acronym
+from ..services.geoprocesses import update_geoprocesses
 from .auth import bp_auth
 from .bos import bp_bos
 from .browser_filters import bp_bfilters
 from .files import bp_files
 from .geo_rest import bp_geo
+from .geoprocesses_and_case_studies import bp_case_studies, bp_geoprocesses, bp_geoprocesses_ports, bp_geoprocess_instances, \
+    bp_geoprocess_port_types, bp_case_studies_fos
 from .gui_static import bp_gui
+from .hierarchies import bp_hierarchies, bp_hierarchy_nodes
 from .identities_and_company import bp_identities, bp_sys_functions, bp_roles, bp_identities_roles, \
-    bp_groups, bp_organizations, bp_acl
+    bp_groups, bp_organizations, bp_acl, bp_identities_authenticators
 from .jobs import bp_jobs
 from .metadata import bp_metadata
 from .annotation_forms import bp_annotations
@@ -51,7 +56,7 @@ socket_service_socketio = None
 app = None
 
 
-def create_app(debug, cfg_dict=None):
+def create_app(debug, start_socket=True, cfg_dict=None):
     """
 
     TODO - Possible improvements, noted at: http://www.patricksoftwareblog.com/structuring-a-flask-project/
@@ -82,13 +87,15 @@ def create_app(debug, cfg_dict=None):
          supports_credentials=True
          )
 
-    global socket_service_socketio
-    socket_service_socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
-    init_socket(socket_service_socketio)
-    lock = NamedAtomicLock("bcs-backend-lock")
+    if start_socket:
+        global socket_service_socketio
+        socket_service_socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+        init_socket(socket_service_socketio)
+
+    lock = NamedAtomicLock(f"{app_acronym}-backend-lock")
     lock.acquire()
     try:
-        # Database BCS
+        # Database
         initialize_database(app)
 
         # Database Chado
@@ -97,19 +104,18 @@ def create_app(debug, cfg_dict=None):
         # Insert EDAM Ontology in chado
         initialize_chado_edam(app)
 
-        # iniitalize postgis Database
+        # PostGIS Database
         initialize_postgis(app)
 
         # Galaxy
         print("Initializing Galaxy instances")
-        initialize_galaxy(app)
+        # initialize_galaxy(app)
         print("Initializing Galaxy instances - DONE")
 
         # SSH
         print("Initializing SSH resources connections")
         initialize_ssh(app)
         print("Initializing SSH resources connections - DONE")
-
     finally:
         lock.release()
 
@@ -124,6 +130,10 @@ def create_app(debug, cfg_dict=None):
     # content = LayersAPI()._export(DBSession(), layer, _format="nexus")
     # sys.exit(1)
 
+    print("Initializing Geoprocesses - requesting info to geoprocess executors")
+    update_geoprocesses()
+    print("Initializing Geoprocesses - DONE")
+
     print("Initializing Geoserver")
     initialize_geoserver(app)
     print("Initializing Geoserver - DONE")
@@ -132,12 +142,15 @@ def create_app(debug, cfg_dict=None):
     # initialize_authn_authr(app)
 
     # RESTful endpoints
-    for bp in [bp_auth,
+    for bp in [
+               bp_auth,
 			   bp_files,
 			   bp_jobs,
-			   bp_tasks,
 			   bp_gui,
-			   bp_identities,
+               bp_hierarchies,
+               bp_hierarchy_nodes,
+               bp_identities,
+               bp_identities_authenticators,
 			   bp_sys_functions,
 			   bp_roles,
 			   bp_identities_roles,
@@ -146,13 +159,20 @@ def create_app(debug, cfg_dict=None):
 			   bp_acl,
 			   bp_processes,
 			   bp_resources,
-			   bp_bos,
-			   bp_metadata,
 			   bp_annotations,
 			   bp_bfilters,
 			   bp_geo,
 			   bp_views,
 			   bp_proxy,
+               bp_case_studies,
+               bp_case_studies_fos,
+               bp_geoprocesses,
+               bp_geoprocesses_ports,
+               bp_geoprocess_instances,
+               bp_geoprocess_port_types,
+               bp_bos,
+			   bp_metadata,
+			   bp_tasks,
 			   ]:
         app.register_blueprint(bp)
 
@@ -161,19 +181,15 @@ def create_app(debug, cfg_dict=None):
 
     # Logger
     app.logger.setLevel(log_level)
-    logger.setLevel(log_level)
 
     return app
 
 
 # FLASK_ENV=development FLASK_APP=biobarcoding.rest.main flask run
-biobarcoding.flask_app = create_app(True)
-if __name__ == "__main__":
-    biobarcoding.flask_app.run(host='0.0.0.0',
-                               use_reloader=False,  # Avoid loading twice the application
-                               )
-    socket_service_socketio.run(biobarcoding.flask_app, host='0.0.0.0')
+logger.debug("BACKEND is STARTING !!!")
 
+start_socket = False
+biobarcoding.flask_app = create_app(True, start_socket=start_socket)
 
 @biobarcoding.flask_app.route("/")
 def index():
@@ -183,12 +199,14 @@ def index():
 @biobarcoding.flask_app.route("/test")
 def test_rest_open():
     r = ResponseObject()
-    r.content = dict(it_works="yes!", other_info=dict(conn=biobarcoding.flask_app.config['DB_CONNECTION_STRING']))
+    r.content = dict(it_works="yes!")
     return r.get_response()
 
 
 @biobarcoding.flask_app.after_request
 def after_a_request(response):
+    return response
+
     # Keep cookies ...
     for i in request.cookies.items():
         response.set_cookie(i[0], i[1])
@@ -204,3 +222,15 @@ def after_a_request(response):
                     response.headers[i] = (h[0], f"{h[1]}; SameSite=None")
 
     return response
+
+
+if __name__ == "__main__":
+    localhost_name = "0.0.0.0"  # "localhost"  # 0.0.0.0, 127.0.0.1
+    if not start_socket:
+        logger.debug("BACKEND is STARTING FLASK SERVER !!!")
+        biobarcoding.flask_app.run(host=localhost_name,
+                                   use_reloader=False,  # Avoid loading twice the application
+                                   )
+    else:
+        logger.debug("BACKEND is STARTING FLASK SERVER WITH WEBSOCKETS !!!")
+        socket_service_socketio.run(biobarcoding.flask_app, host=localhost_name, use_reloader=False)

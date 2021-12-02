@@ -1,7 +1,8 @@
 import collections
 import json
 import os
-from typing import List, Tuple
+from typing import List, Tuple, Union
+import uuid
 
 import sqlalchemy
 from multidict import MultiDict, CIMultiDict
@@ -102,8 +103,49 @@ def load_table(sf, clazz, d):
             ins.uuid = k
             ins.name = v
             session.add(ins)
+        else:
+            i.name = v
     session.commit()
     sf.remove()
+
+
+def create_or_update_entity(session, clazz, attributes: List[str], t: Union[List, Tuple], id_attr="uuid", update=False):
+    uuid_idx = attributes.index(id_attr)
+    if t[uuid_idx] is not None:
+        i = session.query(clazz).filter(clazz.uuid == t[uuid_idx]).first()
+    else:
+        i = None
+    modify_attributes = update
+    if not i:
+        entity = clazz()
+        add_to_session = True
+        modify_attributes = True
+    else:
+        entity = i
+        add_to_session = False
+
+    if modify_attributes:
+        for i, f in enumerate(t):
+            v = f
+            attr = attributes[i]
+            if isinstance(attr, tuple):
+                foreign_clazz = attr[0]
+                foreign_filter_field = attr[1]
+                foreign_refer_field = attr[2]
+                attr = attr[3]
+                i2 = session.query(foreign_clazz).filter(getattr(foreign_clazz, foreign_filter_field) == v).first()
+                v = getattr(i2, foreign_refer_field)
+            else:
+                if isinstance(f, dict):
+                    v = getattr(entity, attr)
+                    if v is not None:
+                        v = {**v, **f}
+            setattr(entity, attr, v)
+
+    if add_to_session:
+        session.add(entity)
+
+    return entity
 
 
 def load_table_extended(sf, clazz, attributes: List[str], values: List[Tuple]):
@@ -120,14 +162,8 @@ def load_table_extended(sf, clazz, attributes: List[str], values: List[Tuple]):
     :return:
     """
     session = sf()
-    uuid_idx = attributes.index("uuid")
     for t in values:
-        i = session.query(clazz).filter(clazz.uuid == t[uuid_idx]).first()
-        if not i:
-            ins = clazz()
-            for i, f in enumerate(t):
-                setattr(ins, attributes[i], f)
-            session.add(ins)
+        create_or_update_entity(session, clazz, attributes, t)
     session.commit()
     sf.remove()
 
@@ -165,17 +201,20 @@ def load_computing_resources(sf):
     with open(get_global_configuration_variable("RESOURCES_CONFIG_FILE_PATH")) as json_file:
         resources_dict = json.load(json_file)
     for resource_uuid, resource_dict in resources_dict.items():
+        jm_type = session.query(JobManagementType).filter(
+            JobManagementType.name == resource_dict["job_management_type"]).first()
         r = session.query(ComputeResource).filter(ComputeResource.uuid == resource_uuid).first()
         if not r:
             r = ComputeResource()
             r.uuid = resource_uuid
             r.name = resource_dict["name"]
-            jm_type = session.query(JobManagementType).filter(
-                JobManagementType.name == resource_dict["job_management_type"]).first()
-            r.jm_type = jm_type
-            r.jm_location = resource_dict["job_management_location"]
-            r.jm_credentials = resource_dict["job_management_credentials"]
             session.add(r)
+        # Overwrite
+        r.jm_type = jm_type
+        r.jm_location = resource_dict["job_management_location"]
+        r.jm_credentials = resource_dict["job_management_credentials"]
+        r.jm_params = resource_dict.get("job_management_params", {})
+
     session.commit()
     sf.remove()
 
@@ -209,11 +248,12 @@ def load_process_input_schema(sf):
     session = sf()
     for k, v in PROCESSES_INPUTS.items():
         process = session.query(Process).filter(Process.uuid == k).first()
-        if not process.schema_inputs:
-            path = os.path.join(ROOT, v)
-            with open(path, 'r') as f:
-                inputs = json.load(f)
-                process.schema_inputs = inputs
+        if process:
+            if not process.schema_inputs:
+                path = os.path.join(ROOT, v)
+                with open(path, 'r') as f:
+                    inputs = json.load(f)
+                    process.schema_inputs = inputs
     session.commit()
     sf.remove()
 

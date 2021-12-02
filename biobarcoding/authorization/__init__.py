@@ -157,7 +157,7 @@ if __name__ == '__main__':
     in_examples = ["role in ('admin', 'advanced_user')",
                    "group in ('nextgendem', 'students')"]
 
-    # Example combining several IN conditions with AND and ON
+    # Example combining several IN-conditions with AND, OR and NOT
     full_examples = [
         "(role in ('admin', 'advanced_user') and group in ('nextgendem')) or not role in ('people') and not group in ('students')"]
 

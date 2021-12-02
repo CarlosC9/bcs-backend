@@ -95,13 +95,11 @@ def after_proxy_prepare(proxy_resp):
 
 def make_proxy_response(service_response, response_headers, redirected_url=None):
     # Rewrite URLs in the content to point to our URL scheme instead.
-    # Ugly, but seems to mostly work.
+    # Ugly, but seems to work.
     contents = service_response.read()
     # TODO: check service_response.info().get_content_maintype() in (json,) ?
     if redirected_url:
         try:
-            contents = contents.decode("utf-8")
-
             root = request.host + url_for(request.endpoint)
             root = root[:-1] if root.endswith('/') else root
             redirected_url = redirected_url[:-1] if redirected_url.endswith('/') else redirected_url
@@ -109,7 +107,8 @@ def make_proxy_response(service_response, response_headers, redirected_url=None)
                 root = root.replace(residue, '')
                 redirected_url = redirected_url.replace(residue, '')
 
-            contents = contents.replace(redirected_url, root)
+            if not contents.startswith(b"\x89PNG"):
+                contents = contents.decode("utf-8").replace(redirected_url, root)
         except Exception as e:
             pass
     return Response(response=contents,
@@ -127,7 +126,7 @@ GeoServe Proxy
 @bp_proxy.route(app_proxy_base + '/geoserver/<path:path>', methods=["GET"])
 @n_session(read_only=True)
 def geoserver_gate(path=None):
-    print(f'<PROXY> GET {request.path}\nGetting {path}')
+    # print(f'<PROXY> GET {request.path}\nGetting {path}')
     from flask import current_app
     # <obtener Identity; analizar ruta -> capas, comprobar que usuario actual tiene permiso>
     check_identity_access()
@@ -137,7 +136,7 @@ def geoserver_gate(path=None):
     if 'GEOSERVER_URL' in current_app.config:
         host = current_app.config['GEOSERVER_URL']
     else:
-        print("no geoserver data in config file cant open GEOSERVER session")
+        print("GEOSERVER_URL not defined in config file. Can't open GEOSERVER session")
         return Response(status=500,
                         response={'issues': [
                             Issue(IType.ERROR, 'no geoserver data in config file cant open GEOSERVER session')]})

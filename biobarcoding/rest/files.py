@@ -4,7 +4,7 @@ from flask import Blueprint, request, g
 from flask.views import MethodView
 
 from ..authentication import n_session
-from ..db_models.files import Folder, File, BioinformaticObjectInFile
+from ..db_models.files import Folder, File, FunctionalObjectInFile
 from . import register_api, app_api_base, ResponseObject, Issue, IType
 from ..services.files import receive_file_submission, clean_path, prepare_path, process_folder, get_or_create_file, \
     get_file_system_object
@@ -31,8 +31,8 @@ curl --cookie app-cookies.txt -H "Content-Type: application/json" -XPUT -d '{}' 
 curl --cookie app-cookies.txt -H "Content-Type: application/x-fasta" -XPUT --data-binary @"$TEST_FILES_PATH/ls_orchid.fasta" "$API_BASE_URL/files/f1/f2/file.fasta.content"
 
 ##### PUT File (Create or Overwrite file "List of Bioinformatic Objects" of "/f1/f2/file.fasta")
-##### NOTE: Update the JSON file to a list of "id" (not UUID) of existing BOS objects
-curl --cookie app-cookies.txt -H "Content-Type: application/json" -XPUT --data-binary @"$TEST_FILES_PATH/ls_orchid_bos.json" "$API_BASE_URL/files/f1/f2/file.fasta.bos"
+##### NOTE: Update the JSON file to a list of "id" (not UUID) of existing FOS objects
+curl --cookie app-cookies.txt -H "Content-Type: application/json" -XPUT --data-binary @"$TEST_FILES_PATH/ls_orchid_bos.json" "$API_BASE_URL/files/f1/f2/file.fasta.fos"
 
 ##### GET Folder (List folder contents)
 curl --cookie app-cookies.txt "$API_BASE_URL/files/f1/"
@@ -80,13 +80,13 @@ curl --cookie app-cookies.txt "$API_BASE_URL/files/f1/f2/file.fasta.bos"
             if file_name.endswith(".content"):
                 put_content = True
                 file_name = file_name[:-len(".content")]
-            elif file_name.endswith(".bos"):
+            elif file_name.endswith(".fos"):
                 put_content = False
-                file_name = file_name[:-len(".bos")]
-                put_bos = True
+                file_name = file_name[:-len(".fos")]
+                put_fos = True
             else:
                 put_content = False
-                put_bos = False
+                put_fos = False
 
             accum_name += file_name
             file = get_or_create_file(session, file_name, accum_name, parent)
@@ -94,22 +94,22 @@ curl --cookie app-cookies.txt "$API_BASE_URL/files/f1/f2/file.fasta.bos"
                 file.content_type, file.embedded_content, file.content_size = receive_file_submission(request)
             else:
                 # Other properties
-                if put_bos:
+                if put_fos:
                     content_type, lst, size = receive_file_submission(request)
                     if content_type in ("application/json", "text/json"):
                         lst = lst.decode("utf-8")
                         lst = json.loads(lst)
-                    # Delete all BOS of file
-                    session.query(BioinformaticObjectInFile).filter(BioinformaticObjectInFile.file == file).delete()
+                    # Delete all FOS of file
+                    session.query(FunctionalObjectInFile).filter(FunctionalObjectInFile.file == file).delete()
                     for i in lst:
-                        bos_file = BioinformaticObjectInFile()
-                        bos_file.file = file
-                        bos_file.bos_id = i
-                        session.add(bos_file)
+                        fos_file = FunctionalObjectInFile()
+                        fos_file.file = file
+                        fos_file.fos_id = i
+                        session.add(fos_file)
 
         return r.get_response()
 
-    @n_session()
+    @n_session(read_only=True)
     def get(self, fso_path):
         """
         Get a file or the list of files of a folder
@@ -127,13 +127,13 @@ curl --cookie app-cookies.txt "$API_BASE_URL/files/f1/f2/file.fasta.bos"
         if fso_path.endswith(".content"):
             get_content = True
             fso_path = fso_path[:-len(".content")]
-        elif fso_path.endswith(".bos"):
+        elif fso_path.endswith(".fos"):
             get_content = False
-            get_bos = True
-            fso_path = fso_path[:-len(".bos")]
+            get_fos = True
+            fso_path = fso_path[:-len(".fos")]
         else:
             get_content = False
-            get_bos = False
+            get_fos = False
 
         fso = get_file_system_object(session, fso_path)
         if fso:
@@ -142,9 +142,9 @@ curl --cookie app-cookies.txt "$API_BASE_URL/files/f1/f2/file.fasta.bos"
                     r.content_type = fso.content_type
                     r.content = fso.embedded_content
                 else:
-                    if get_bos:
-                        r.content = [bos_file.bos_id for bos_file in session.query(BioinformaticObjectInFile).filter(
-                            BioinformaticObjectInFile.file == fso)]
+                    if get_fos:
+                        r.content = [fos_file.fos_id for fos_file in session.query(FunctionalObjectInFile).filter(
+                            FunctionalObjectInFile.file == fso)]
                     else:
                         r.content = FilesAPI._get_fso_dict(fso)
             elif isinstance(fso, Folder):
@@ -184,8 +184,8 @@ curl --cookie app-cookies.txt "$API_BASE_URL/files/f1/f2/file.fasta.bos"
         fso_path = "/" + clean_path(fso_path)
         if fso_path.endswith(".content"):
             fso_path = fso_path[:-len(".content")]
-        elif fso_path.endswith(".bos"):
-            fso_path = fso_path[:-len(".bos")]
+        elif fso_path.endswith(".fos"):
+            fso_path = fso_path[:-len(".fos")]
 
         fso = get_file_system_object(session, fso_path)
         if fso:

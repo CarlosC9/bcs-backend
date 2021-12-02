@@ -1,4 +1,4 @@
-datetime = [{
+datetime_filter_fields = [{
     'key': 'added-from',
     'type': 'input',
     'templateOptions': {
@@ -27,15 +27,6 @@ datetime = [{
         'label': 'Modificado antes de',
     }
 }]
-
-
-def getJSONFilterSchema(**kwargs):
-    schema = []
-    for key in kwargs:
-        # if there are values for the filter and the filter itself
-        if kwargs[key]:
-            schema.append(__getJSONFilter(key, kwargs[key]))
-    return [x for x in schema if x] + datetime
 
 
 formly = {'types':
@@ -151,3 +142,15 @@ def __getJSONFilter(type, value):
     filter = formly[type].copy()
     filter['templateOptions']['options'] = value
     return filter
+
+
+def getJSONFilterSchema(**kwargs):
+    schema = []
+    for key in kwargs:
+        # if there are values for the filter and the filter itself
+        if key in formly:
+            schema.append(__getJSONFilter(key, kwargs[key]))
+        else:
+            schema.append(kwargs[key])
+    return [x for x in schema if x] + datetime_filter_fields
+

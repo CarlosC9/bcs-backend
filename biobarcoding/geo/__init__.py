@@ -1,5 +1,7 @@
 from geo.Geoserver import Geoserver
 
+from .. import app_acronym
+
 '''
 https://geoserver-rest.readthedocs.io/en/latest/how_to_use.html#getting-started-with-geoserver-rest
 geo_sesion inizialization (just object with admin and password information)
@@ -10,7 +12,7 @@ http://localhost:9180/geoserver/web/wicket/bookmarkable/org.geoserver.web.data.s
 check Expose primary keys
 '''
 geoserver_session = None
-workspace_names = ["ngd", "ngd_users"]
+workspace_names = [f"{app_acronym}", f"{app_acronym}_users"]
 postgis_store_name = f"postgis"
 
 
@@ -26,12 +28,12 @@ def initialize_geoserver(flask_app):
         # CHECK GEOSERVER:
         # get geoserver version
         version = geoserver_session.get_version()
-        print(version)
+        # print(version)
         # Get system info
         status = geoserver_session.get_status()
-        print(status)
+        # print(status)
         system_status = geoserver_session.get_system_status()
-        print(system_status)
+        # print(system_status)
         # Create workspaces
         workspaces = geoserver_session.get_workspaces()
         for wkspc in workspace_names:

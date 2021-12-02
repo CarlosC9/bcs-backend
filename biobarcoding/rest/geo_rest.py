@@ -3,11 +3,14 @@ import json
 import os
 import pathlib
 import tempfile
+import traceback
+import urllib
 from typing import List, Tuple, Union
 from urllib.parse import urlparse
 from zipfile import ZipFile, ZIP_DEFLATED
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 import regex as re
 import requests
@@ -16,14 +19,21 @@ from flask import Blueprint, request, g, Response
 from flask.views import MethodView
 from marshmallow import EXCLUDE
 from matplotlib.colors import rgb2hex
+from sqlalchemy import Integer, and_
 
+from .. import get_global_configuration_variable, app_acronym
 from ..authentication import n_session
+from ..common.decorators import Memoize
+from ..common.helpers import read_yaml
+from ..db_models.core import data_object_type_id, Dataset, PortInProcessInstance, CProcessInstance, CProcess, \
+    CProcessPort
 from ..db_models.geographics import GeographicRegion, Regions, GeographicLayer
+from ..db_models.sysadmin import PermissionType
 from ..geo import workspace_names, postgis_store_name
-from ..geo.biota import read_biota_file, generate_pda_species_file_from_layer, import_pda_result
-from . import app_api_base, ResponseObject, Issue, IType, register_api, app_proxy_base, filter_parse, \
-    parse_request_params
+from . import app_api_base, ResponseObject, Issue, IType, register_api, app_proxy_base, get_content, auth_filter, \
+    filter_parse, parse_request_params
 from ..services.files import get_file_contents
+from ..geo.biota import read_biota_file, generate_pda_species_file_from_layer, import_pda_result
 
 """
 Support operations regarding Geographical layers
@@ -92,53 +102,6 @@ def geoserver_response(response) -> Tuple[Issue, int]:
         return Issue(IType.INFO, "layer succesfully published"), 200
 
 
-def get_content(session, feature_class, issues, id_=None):
-    def __aux_own_filter(filt_):
-        """
-            Example clause:
-                {"tags": "biota"} meaning "the layer contains 'biota' as one of the tags"
-        """
-        clause = []
-
-        if 'tags' in filt_:
-            v = filt_.get('tags')
-            # 3 implementations
-            # from sqlalchemy import text
-            # clause.append(text(f"attributes->'tags' ? :n").params(n=v))
-            # clause.append(GeographicLayer.attributes["tags"].op("?")(v))
-            clause.append(GeographicLayer.attributes["tags"].has_key(v))
-
-        return clause
-
-    content = None
-    count = 0
-    try:
-        db = g.n_session.db_session
-        if id_ is None:
-            # List of all
-            kwargs = parse_request_params()
-            from ..services import get_query
-            query, count = get_query(db, feature_class, **kwargs)
-            # TODO Detail of fields
-            content = query.all()
-        else:
-            # Detail
-            # TODO Detail of fields
-            content = db.query(feature_class).filter(feature_class.id == id_).first()
-    except Exception as e:
-        print(e)
-        _, status = issues.append(Issue(IType.ERROR,
-                                        f'READ "{feature_class.__name__}" data: The "{feature_class.__name__}"'
-                                        f' data could not be read.')), 500
-    if not content:
-        _, status = issues.append(Issue(IType.INFO, f'no data available')), 200
-    else:
-        _, status = issues.append(
-            Issue(IType.INFO, f'READ "{feature_class.__name__}": The "{feature_class.__name__}"'
-                              f' data were successfully read')), 200
-    return issues, content, count, status
-
-
 def response_to_dataframe(item):
     r = ResponseObject()
     r.content = item
@@ -157,77 +120,7 @@ def get_json_from_schema(entity, input_):
     return json.loads(t_json)
 
 
-def generate_ramp_sld_file(
-        style_name: str,
-        column_name: str,
-        values: List[float],
-        n_intervals: int = 5,
-        color_ramp: str = None,
-        geom_type: str = "polygon",
-):
-    """
-
-
-    Base on function "Style.classified_xml"
-
-    :param style_name:
-    :param column_name:
-    :param values:
-    :param n_intervals:
-    :param color_ramp:
-    :param geom_type:
-    :return:
-    """
-    max_value = max(values)
-    min_value = min(values)
-    diff = max_value - min_value
-    n = n_intervals
-    interval = diff / 5
-    palette = sns.color_palette(color_ramp, int(n))
-    palette_hex = [rgb2hex(i) for i in palette]
-    # interval = N/4
-    # color_values = [{value: color} for value, color in zip(values, palette_hex)]
-    # print(color_values)
-    rule = ""
-    for i, color in enumerate(palette_hex):
-        rule += """
-            <sld:Rule>
-                <sld:Name>{1}</sld:Name>
-                <sld:Title>{4}</sld:Title>
-                <ogc:Filter xmlns:ogc="http://www.opengis.net/ogc">
-                    <ogc:And>
-                    <ogc:PropertyIsGreaterThan{6}>
-                        <ogc:PropertyName>{0}</ogc:PropertyName>
-                        <ogc:Literal>{4}</ogc:Literal>
-                    </ogc:PropertyIsGreaterThan{6}>
-                    <ogc:PropertyIsLessThanOrEqualTo>
-                        <ogc:PropertyName>{0}</ogc:PropertyName>
-                        <ogc:Literal>{5}</ogc:Literal>
-                    </ogc:PropertyIsLessThanOrEqualTo>
-                    </ogc:And>
-                </ogc:Filter>
-                <sld:PolygonSymbolizer>
-                    <sld:Fill>
-                      <sld:CssParameter name="fill">{2}</sld:CssParameter>
-                    </sld:Fill>
-                    <sld:Stroke>
-                      <sld:CssParameter name="stroke">{3}</sld:CssParameter>
-                      <sld:CssParameter name="stroke-width">1</sld:CssParameter>
-                      <sld:CssParameter name="stroke-linejoin">mitre</sld:CssParameter>
-                    </sld:Stroke>
-                </sld:PolygonSymbolizer>
-            </sld:Rule>
-
-        """.format(
-            column_name,
-            style_name,
-            color,
-            "#000000",
-            min_value + interval * i,
-            min_value + interval * (i + 1),
-            "OrEqualTo" if i == 0 else ""
-        )
-
+def generate_sld_file(style_name, rule):
     style = """
             <sld:StyledLayerDescriptor xmlns="http://www.opengis.net/sld" xmlns:sld="http://www.opengis.net/sld" xmlns:gml="http://www.opengis.net/gml" xmlns:ogc="http://www.opengis.net/ogc" version="1.0.0">
                 <sld:NamedLayer>
@@ -248,24 +141,184 @@ def generate_ramp_sld_file(
         f.write(style)
 
 
-def create_and_publish_ramp_style(gs_session,
-                                  wkspc,
-                                  layer_name, attribute, min_value, max_value,
-                                  style_name, color_ramp: str = "RdYlGn_r", cmap_type: str = "ramp",
-                                  number_of_classes: int = 5, overwrite: bool = False):
-    sld_version = "1.0.0"
-    generate_ramp_sld_file(style_name=style_name,
-                           column_name=attribute,
-                           values=[min_value, max_value],
-                           n_intervals=number_of_classes,
-                           color_ramp=color_ramp)
-    # Style.classified_xml(style_name=style_name,
-    #                      column_name=attribute,
-    #                      values=[min_value, max_value],
-    #                      color_ramp=color_ramp)
-    # sld_version = "1.1.0"
+def generate_sld_category_rule(column_name, style_name, color, value, geom_type="Polygon"):
+    return """
+                <sld:Rule>
+                    <sld:Name>{1}</sld:Name>
+                    <sld:Title>{5}</sld:Title>
+                    <ogc:Filter xmlns:ogc="http://www.opengis.net/ogc">
+                        <ogc:PropertyIsEqualTo>
+                            <ogc:PropertyName>{0}</ogc:PropertyName>
+                            <ogc:Literal>{4}</ogc:Literal>
+                        </ogc:PropertyIsEqualTo>
+                    </ogc:Filter>
+                    <sld:{7}Symbolizer>
+                        <sld:Fill>
+                          <sld:CssParameter name="fill">{2}</sld:CssParameter>
+                        </sld:Fill>
+                        <sld:Stroke>
+                          <sld:CssParameter name="stroke">{3}</sld:CssParameter>
+                          <sld:CssParameter name="stroke-width">{6}</sld:CssParameter>
+                          <sld:CssParameter name="stroke-linejoin">mitre</sld:CssParameter>
+                        </sld:Stroke>
+                    </sld:{7}Symbolizer>
+                </sld:Rule>
+            """.format(
+        column_name,  # 0
+        style_name,  # 1
+        color,  # 2
+        "#000000",  # 3
+        value,  # 4
+        value,  # 5
+        1 if geom_type == "Polygon" else 2,  # 6
+        geom_type  # 7
+    )
 
-    gs_session.upload_style("style.sld", style_name, wkspc, sld_version=sld_version, overwrite=overwrite)
+
+def generate_sld_continuous_rule(column_name, style_name, color, left, right, first, geom_type="Polygon"):
+    return """
+        <sld:Rule>
+            <sld:Name>{1}</sld:Name>
+            <sld:Title>{7}</sld:Title>
+            <ogc:Filter xmlns:ogc="http://www.opengis.net/ogc">
+                <ogc:And>
+                <ogc:PropertyIsGreaterThan{6}>
+                    <ogc:PropertyName>{0}</ogc:PropertyName>
+                    <ogc:Literal>{4}</ogc:Literal>
+                </ogc:PropertyIsGreaterThan{6}>
+                <ogc:PropertyIsLessThanOrEqualTo>
+                    <ogc:PropertyName>{0}</ogc:PropertyName>
+                    <ogc:Literal>{5}</ogc:Literal>
+                </ogc:PropertyIsLessThanOrEqualTo>
+                </ogc:And>
+            </ogc:Filter>
+            <sld:{9}Symbolizer>
+                <sld:Fill>
+                  <sld:CssParameter name="fill">{2}</sld:CssParameter>
+                </sld:Fill>
+                <sld:Stroke>
+                  <sld:CssParameter name="stroke">{3}</sld:CssParameter>
+                  <sld:CssParameter name="stroke-width">{8}</sld:CssParameter>
+                  <sld:CssParameter name="stroke-linejoin">mitre</sld:CssParameter>
+                </sld:Stroke>
+            </sld:{9}Symbolizer>
+        </sld:Rule>
+        """.format(
+        column_name,  # 0
+        style_name,  # 1
+        color,  # 2
+        "#000000",  # 3
+        left - (1e-4 if first else 0),  # 4. First left value discounts a bit due to precision in floats
+        right,  # 5
+        "OrEqualTo" if first else "",  # 6
+        f"{'[' if first else '('}{left:.1f}, {right:.1f}]",  # 7
+        1 if geom_type == "Polygon" else 2,  # 8
+        geom_type  # 9
+        )
+
+
+def generate_category_sld_file(
+        style_name: str,
+        column_name: str,
+        categories: List[str],
+        color_ramp: str,
+        geom_type: str = "Polygon"
+):
+    palette_hex, values = get_fixed_style(color_ramp)
+    rule = ""
+    if len(categories) < len(palette_hex):
+        for i, category in enumerate(categories):
+            rule += generate_sld_category_rule(column_name, style_name, palette_hex[i], category, geom_type)
+    else:
+        for i, color in enumerate(palette_hex):
+            rule += generate_sld_category_rule(column_name, style_name, color, categories[i], geom_type)
+
+    generate_sld_file(style_name, rule)
+
+
+def generate_fixed_ramp_sld_file(
+        style_name: str,
+        column_name: str,
+        color_ramp: str,
+        geom_type: str = "Polygon"
+):
+    # Read RGB values and intervals from the name
+    palette_hex, intervals = get_fixed_style(color_ramp)
+    rule = ""
+    for i, color in enumerate(palette_hex):
+        rule += generate_sld_continuous_rule(column_name, style_name, color,
+                                             intervals[i][0], intervals[i][1],
+                                             i == 0,
+                                             geom_type)
+
+    generate_sld_file(style_name, rule)
+
+
+def generate_dynamic_ramp_sld_file(
+        style_name: str,
+        column_name: str,
+        values: List[float],
+        n_intervals: int = 5,
+        color_ramp: str = None,
+        geom_type: str = "polygon",
+):
+    """
+    Base on function "Style.classified_xml"
+
+    :param style_name:
+    :param column_name:
+    :param values:
+    :param n_intervals:
+    :param color_ramp:
+    :param geom_type:
+    :return:
+    """
+    max_value = max(values)
+    min_value = min(values)
+    diff = max_value - min_value
+    n = n_intervals
+    interval = diff / n
+    palette = sns.color_palette(color_ramp, int(n))
+    palette_hex = [rgb2hex(i) for i in palette]
+    # interval = N/4
+    # color_values = [{value: color} for value, color in zip(values, palette_hex)]
+    # print(color_values)
+    rule = ""
+    for i, color in enumerate(palette_hex):
+        rule += generate_sld_continuous_rule(column_name, style_name, color,
+                                             min_value + interval * i, min_value + interval * (i + 1),
+                                             i == 0,
+                                             geom_type)
+
+    generate_sld_file(style_name, rule)
+
+
+def create_and_publish_style(gs_session,
+                             wkspc,
+                             layer_name,
+                             attribute,
+                             min_value,
+                             max_value,
+                             categories: List[str],
+                             style_name,
+                             color_ramp: str = "RdYlGn_r",
+                             cmap_type: str = "ramp",
+                             number_of_classes: int = 5,
+                             overwrite: bool = False,
+                             geom_type: str = "polygon"):
+    if get_styles()[color_ramp]:  # Dynamic
+        generate_dynamic_ramp_sld_file(style_name=style_name,
+                                       column_name=attribute,
+                                       values=[min_value, max_value],
+                                       n_intervals=number_of_classes,
+                                       color_ramp=color_ramp,
+                                       geom_type=geom_type)
+    else:  # Static
+        if categories:
+            generate_category_sld_file(style_name, attribute, categories, color_ramp, geom_type)
+        else:
+            generate_fixed_ramp_sld_file(style_name, attribute, color_ramp, geom_type)
+    gs_session.upload_style("style.sld", style_name, wkspc, sld_version="1.0.0", overwrite=overwrite)
     os.remove("style.sld")
     gs_session.publish_style(layer_name, style_name, wkspc)
 
@@ -287,7 +340,6 @@ def export_geolayer(db_sess, layer_id: int, layer_name: str, format_: str) -> Tu
             gdf.to_file(fname, driver="GeoJSON")
             content_type = "application/geo+json"
         elif format_.lower() == "shp":
-            import zipfile
             fname = f"{tmpdirname}{os.sep}{layer_name}.shp"
             gdf.to_file(fname)
 
@@ -383,7 +435,7 @@ class LayersAPI(MethodView):
         else:
             return _, content_type
 
-    @n_session()
+    @n_session(read_only=True)
     def get(self, _id=None, _format=None):
         """
         - get the list of layers in postgis
@@ -424,29 +476,188 @@ class LayersAPI(MethodView):
         @param _format: export format
         @return:
         """
-        from ..geo import geoserver_session
+
+        def custom_geolayers_filter(filter, session=None):
+            """
+            for_geoprocesses, for_port_types
+
+            sess.query(PortType).
+            :param filter:
+            :return:
+            """
+            clauses = []
+            close_connection = session.transaction is None
+            conn = session.connection()
+            ids = None
+            avoid_no_entity = False
+
+            json_attributes = []
+            for q_field, p_field, op in [("subjects", "themes_id", "?|"),
+                                         ("sources", "source_id", "="),
+                                         ("crs", "crs_id", "=")]:
+                if filter.get(q_field):
+                    # Thanks to (?| does not support a list of integers, only of strings, so a workaround):
+                    # https://stackoverflow.com/questions/48321403/postgres-jsonb-int-array-contains-any-of-array-values
+                    if op == "?|":
+                        _ = []
+                        for m in filter[q_field]["unary"]:
+                            _.append(f"ds.attributes->'{p_field}' @> '{int(m)}'::jsonb")
+                        json_attributes.append(f'({" OR ".join(_)})')
+                    else:
+                        json_attributes.append(
+                            f"ds.attributes->'{p_field}' {op} '{int(filter[q_field]['unary'])}'::jsonb")
+            if json_attributes:
+                sql_select = f"SELECT DISTINCT(ds.id) " \
+                             f"FROM rvc_fos ds " \
+                             f"WHERE {' AND '.join(json_attributes)}"
+                sql_result = conn.execute(sql_select)
+                _ = [r[0] for r in sql_result]
+                if not _:
+                    avoid_no_entity = True
+                if ids:
+                    ids.intersect(_)
+                else:
+                    ids = set(_)
+
+            for q_field, port_direction_condition in [("used_as_input_of", "gp.input"),
+                                                      ("resulting_from", "not gp.input")]:
+                if filter.get(q_field):
+                    _ = ', '.join(['\'' + str(i) + '\'' for i in ids]) if ids else ''
+                    remaining_layers_condition = f" AND ds.id IN ({_})" if ids else ""
+                    lst = ', '.join([f"{ds}" for ds in filter[q_field]["unary"]])
+                    sql_select = f"SELECT DISTINCT(ds.id) " \
+                                 f"FROM {Dataset.__tablename__} ds " \
+                                 f"JOIN {PortInProcessInstance.__tablename__} ppi ON ds.id=ppi.dataset_id " \
+                                 f"JOIN {CProcessInstance.__tablename__} pi ON ppi.process_instance_id=pi.id " \
+                                 f"JOIN {CProcess.__tablename__} g ON pi.instantiated_process_id=g.id " \
+                                 f"JOIN {CProcessPort.__tablename__} gp ON gp.id=ppi.port_id " \
+                                 f"WHERE {port_direction_condition} AND g.id IN ({lst})" \
+                                 f"{remaining_layers_condition}"
+                    sql_result = conn.execute(sql_select)
+                    _ = [r[0] for r in sql_result]
+                    if not _:
+                        avoid_no_entity = True
+                    if ids:
+                        ids.intersect(_)
+                    else:
+                        ids = set(_)
+
+            if filter.get('for_geoprocesses'):  # May be used as input of a geoprocess (it could have been used already)
+                _ = ', '.join(['\'' + str(i) + '\'' for i in ids]) if ids else ''
+                remaining_layers_condition = f" AND ds.id IN ({_})" if ids else ""
+                lst = ', '.join([f"{ds}" for ds in filter["for_geoprocesses"]["unary"]])
+                sql_select = f"SELECT DISTINCT(ds.id) " \
+                             f"FROM rvc_datasets ds JOIN rvc_dataset_port_types ds_pt ON ds.id=ds_pt.dataset_id " \
+                             f"WHERE ds_pt.port_type_id IN " \
+                             f"(SELECT DISTINCT(gp.port_type_id) " \
+                             f" FROM rvc_processes g JOIN rvc_processes_ports gp ON g.id=gp.process_id " \
+                             f" WHERE gp.input AND g.id IN ({lst})) " \
+                             f"{remaining_layers_condition}"
+                sql_result = conn.execute(sql_select)
+                _ = [r[0] for r in sql_result]
+                if not _:
+                    avoid_no_entity = True
+                if ids:
+                    ids.intersect(_)
+                else:
+                    ids = set(_)
+
+            if filter.get('for_port_types'):
+                _ = ', '.join(['\'' + str(i) + '\'' for i in ids]) if ids else ''
+                remaining_layers_condition = f" AND ds.id IN ({_})" if ids else ""
+                lst = ', '.join([f"{ds}" for ds in filter["for_port_types"]["unary"]])
+                sql_select = f"SELECT DISTINCT(ds.id) " \
+                             f"FROM rvc_datasets ds JOIN rvc_dataset_port_types ds_pt ON ds.id=ds_pt.dataset_id " \
+                             f"WHERE ds_pt.port_type_id IN ({lst}) " \
+                             f"{remaining_layers_condition}"
+                sql_result = conn.execute(sql_select)
+                _ = [r[0] for r in sql_result]
+                if not _:
+                    avoid_no_entity = True
+                if ids:
+                    ids.intersect(_)
+                else:
+                    ids = set(_)
+
+            if filter.get("case_studies_"):
+                _ = ', '.join(['\'' + str(i) + '\'' for i in ids]) if ids else ''
+                remaining_layers_condition = f" AND ds.id IN ({_})" if ids else ""
+                lst = ', '.join([f"{ds}" for ds in filter["case_studies_"]["unary"]])
+                sql_select = f"SELECT DISTINCT(ds.id) " \
+                             f"FROM rvc_datasets ds " \
+                             f"JOIN rvc_case_studies_functional_objects cs ON ds.id=cs.functional_object_id " \
+                             f"WHERE cs.case_study_id IN ({lst}) " \
+                             f"{remaining_layers_condition}"
+                sql_result = conn.execute(sql_select)
+                _ = [r[0] for r in sql_result]
+                if not _:
+                    avoid_no_entity = True
+                if ids:
+                    ids.intersect(_)
+                else:
+                    ids = set(_)
+
+            if avoid_no_entity and len(ids) == 0:
+                ids = [-1]
+
+            if ids and len(ids) > 0:
+                clauses.append(GeographicLayer.id.in_(list(ids)))
+
+            if close_connection:
+                conn.close()
+
+            return clauses
+
         self.issues = []
         layer = None
+        count = 1
         key_col = request.args.get("key_col")
         db_sess = g.n_session.db_session
         if _id:  # A layer
-            self.issues, layer, count, self.status = get_content(db_sess, GeographicLayer, self.issues, _id)
+            if _id.startswith("job"):
+                job_id = _id[len("job"):]
+                layer = db_sess.query(GeographicLayer). \
+                    filter(GeographicLayer.attributes["job_id"].astext.cast(Integer) == int(job_id)).first()
+                if layer:
+                    self.status = 200
+                else:
+                    self.status = 400
+            else:
+                self.issues, layer, count, self.status = get_content(db_sess, GeographicLayer, self.issues, _id)
             if layer and layer.is_deleted:
                 layer = None
                 _, self.status = self.issues.append(Issue(IType.INFO, f'no data available')), 200
             else:
-                if _format:  # Layer contents
+                if _format:  # Download Layer contents
                     content, content_type = self._export(db_sess, layer, _format=_format)
-                    if content:
+                    if content:  # Export layer
                         return Response(content, mimetype=content_type, status=200)
                 else:  # Layer metadata
                     if layer:
                         serializer = layer.Schema()
                         serializer.dump(layer)
         elif not key_col:  # ALL LAYERS layers (maybe filtered)
-            self.issues, layer, count, self.status = get_content(db_sess, GeographicLayer, self.issues)
+            # ACL Filter
+            purpose_id = db_sess.query(PermissionType).filter(PermissionType.name == "read").one().id
+            ids_clause = db_sess.query(GeographicLayer.id). \
+                filter(auth_filter(GeographicLayer, purpose_id, [data_object_type_id['geolayer']])).subquery()
+            query = db_sess.query(GeographicLayer).filter(GeographicLayer.id.in_(ids_clause))
+            # Modify request.values to filter by "is_deleted" attribute of GeographicLayer
+            _ = dict(request.values)
+            if "filter" in _:
+                f = json.loads(urllib.parse.unquote(_["filter"]))
+            else:
+                f = {}
+            if isinstance(f, dict):
+                f["is_deleted"] = {"op": "eq", "unary": "False"}
+            _["filter"] = urllib.parse.quote(json.dumps(f))
+            request.values = _
+
+            # Get content
+            self.issues, layer, count, self.status = get_content(db_sess, GeographicLayer, self.issues,
+                                                                 aux_filter=custom_geolayers_filter,
+                                                                 query=query)
             if layer:
-                layer = list(filter(lambda x: (x.is_deleted is False), layer))
                 # Modify "wms_url" for local layers
                 tmp = urlparse(request.base_url)
                 base_url = f"{tmp.scheme}://{tmp.netloc}"
@@ -471,7 +682,7 @@ class LayersAPI(MethodView):
         else:  # No information to elaborate a response
             _, self.status = self.issues.append(Issue(IType.ERROR, f"missing data")), 400
 
-        return ResponseObject(issues=self.issues, status=self.status, content=layer).get_response()
+        return ResponseObject(issues=self.issues, status=self.status, content=layer, count=count).get_response()
 
     @staticmethod
     def _exclude(c):
@@ -484,38 +695,107 @@ class LayersAPI(MethodView):
         s = c.lower()
         return s.startswith("id") or s.endswith("id") or "codigo" in s or s in ["coordx", "coordy", "geom", "geometry"]
 
-    def _create_properties_and_geoserver_styles(self, gdf, wks, layer_name, lc_attributes, create_style=True):
+    def _create_properties_and_geoserver_styles(self,
+                                                gdf: gpd.GeoDataFrame,
+                                                wks: str,
+                                                layer_name: str,
+                                                lc_attributes: bool,
+                                                create_style=True,
+                                                geometry_type: str = "Polygon"):
+        """
+
+        :param gdf: GeoDataFrame to analyze
+        :param wks: Workspace that will container the style
+        :param layer_name: Name of the layer, for the style
+        :param lc_attributes: Lowercase attributes
+        :param create_style: True to create a style, False to skip style creation (for non-geometry datasets)
+        :return:
+        """
         from ..geo import geoserver_session
+        five_levels_semaphore = set(["1", "2", "3", "4", "5"])
         _ = []
-        for c in gdf.columns:
+        for i, c in enumerate(gdf.columns):
             if self._exclude(c):
                 continue
+            # Set variables
             if lc_attributes:
                 c = c.lower()
-            tmp = gdf[c].values
-            try:
-                min_v = float(min(tmp))
-                max_v = float(max(tmp))
-                p_type = "numeric"
-                style_name = f"{layer_name}_{c}"
-            except:
-                min_v = None
-                max_v = None
+            # Skip empty columns
+            if sum(gdf[c].notna()) == 0:
+                _.append(dict(name=c, type="empty"))
+                continue
+
+            min_v = None
+            max_v = None
+            categories = None
+            style_name = None
+            colormap = None
+            # Obtain the type of the attribute from the data
+            uniq = gdf[c].unique()
+            if gdf.dtypes[i] in (np.int64, np.dtype("O")) and uniq.size <= 10:
+                # Change column type to "category"
+                if gdf.dtypes[i] == np.int64:
+                    categories = sorted(list([int(x) for x in uniq]))
+                else:
+                    categories = sorted(list(uniq))
+                p_type = "category"
+                gdf[c] = gdf[c].astype('category')
+                # Find appropriate static style or create a dynamic one
+                if set(uniq).issubset(five_levels_semaphore) or len(uniq) < 5:
+                    colormap = "__semaforo_impactos"
+                    style_name = f"{layer_name}_{c}"
+            elif gdf.dtypes[i] in (np.float, np.float32, np.float64):
+                # Numeric column
+                tmp = gdf[c].values
+                try:
+                    min_v = float(min(tmp))
+                    max_v = float(max(tmp))
+                    p_type = "numeric"
+                    style_name = f"{layer_name}_{c}"
+                    colormap = "RdYlGn_r"
+                except:
+                    p_type = "string"
+                # TODO Find style: dynamic or static
+            else:
+                # String column, do not create style
                 p_type = "string"
-                style_name = None
 
             # Create style for properties (_publish_in_geoserver
             if create_style and style_name:
-                create_and_publish_ramp_style(geoserver_session,
-                                              wkspc=wks,
-                                              layer_name=layer_name,
-                                              attribute=c,
-                                              min_value=min_v, max_value=max_v,
-                                              number_of_classes=7,
-                                              style_name=style_name)
+                create_and_publish_style(geoserver_session,
+                                         wkspc=wks,
+                                         layer_name=layer_name,
+                                         attribute=c,
+                                         min_value=min_v, max_value=max_v,
+                                         number_of_classes=7,
+                                         categories=categories,
+                                         color_ramp=colormap,
+                                         style_name=style_name,
+                                         geom_type=geometry_type)
 
-            _.append(dict(name=c, type=p_type, style=style_name, min=min_v, max=max_v))
+            if p_type == "numeric":
+                _.append(dict(name=c, type=p_type, style=style_name, min=min_v, max=max_v))
+            elif p_type == "category":
+                _.append(dict(name=c, type=p_type, style=style_name, categories=categories))
+            else:
+                _.append(dict(name=c, type=p_type))
         return _
+
+    def fill_types_and_case_studies(self, session, geographic_layer, geographic_layer_data):
+        if "types" in geographic_layer_data:
+            # Update new
+            types = self.kwargs["types"]
+            for i, t in enumerate(geographic_layer.types):
+                t.dataset = geographic_layer
+                t.port_type_id = types[i]
+                session.add(t)
+        if "case_studies" in geographic_layer_data:
+            # Update new
+            case_studies = self.kwargs["case_studies"]
+            for i, t in enumerate(geographic_layer.case_studies):
+                t.functional_object = geographic_layer
+                t.case_study_id = case_studies[i]
+                session.add(t)
 
     @n_session()
     def post(self):
@@ -546,7 +826,7 @@ class LayersAPI(MethodView):
         Then, do the POST, like
         curl --cookie app-cookies.txt -XPOST "$API_BASE_URL/geo/layers/?filesAPI=%2Ff1%2Ff2%2Ff3%2Fplantas.zip&job_id=6"
         """
-        db = g.n_session.db_session
+        session = g.n_session.db_session
         self.issues = []
         self.kwargs = self._build_args_from_request_data()
         system_layer = True  # or user layer
@@ -559,9 +839,10 @@ class LayersAPI(MethodView):
         geographic_layer = geographic_layer_schema.load(geographic_layer_data, instance=GeographicLayer())
         geographic_layer.id = None
         geographic_layer.identity_id = g.n_session.identity.id
+        self.fill_types_and_case_studies(session, geographic_layer, geographic_layer_data)
         # Persist object in BCS DB
-        db.add(geographic_layer)
-        db.flush()
+        session.add(geographic_layer)
+        session.flush()
         # Receive file
         if self._file_posted():
             # Set URL
@@ -574,9 +855,12 @@ class LayersAPI(MethodView):
             lower_case_attributes = True
             layer_name = f"layer_{geographic_layer.id}"  # (internal) Geoserver layer name
             status, gdf, has_geom_column = self._post_in_postgis(layer_name, lower_case_attributes)
+            # Geometry type
+            if not geographic_layer.attributes:
+                geographic_layer.attributes = {}
+            geographic_layer.attributes["geom_type"] = "Line" if gdf.geom_type[0] == "MultiLineString" else "Polygon"
             # Delete temporary file
             os.remove(self.kwargs["path"])
-            # Publish layer in Geoserver
             if status == 200:
                 geographic_layer.in_postgis = True
 
@@ -589,7 +873,8 @@ class LayersAPI(MethodView):
                     geographic_layer.properties = self._create_properties_and_geoserver_styles(gdf,
                                                                                                self.kwargs["wks"],
                                                                                                layer_name,
-                                                                                               lower_case_attributes)
+                                                                                               lower_case_attributes,
+                                                                                               geometry_type=geographic_layer.attributes["geom_type"])
             else:
                 layer_type = "no_explicit_geometry_layer"
                 geographic_layer.geoserver_name = layer_name
@@ -600,7 +885,20 @@ class LayersAPI(MethodView):
                                                                                            create_style=False)
 
             geographic_layer.layer_type = layer_type
-            db.flush()
+            session.flush()
+
+            # Update PortInProcessInstance if metadata is available. IMPORT PACKAGES LOCALLY
+            if "attributes" in self.kwargs and \
+                    "port_id" in self.kwargs["attributes"] and \
+                    "instance_id" in self.kwargs["attributes"]:
+                from ..db_models.core import PortInProcessInstance
+                port_id = self.kwargs["attributes"]["port_id"]
+                instance_id = self.kwargs["attributes"]["instance_id"]
+                _ = session.query(PortInProcessInstance). \
+                    filter(and_(PortInProcessInstance.port_id == int(port_id),
+                                PortInProcessInstance.process_instance_id == int(instance_id))).one()
+                _.dataset_id = geographic_layer.id
+
         return ResponseObject(issues=self.issues, status=self.status, content=geographic_layer).get_response()
 
     @n_session()
@@ -625,7 +923,7 @@ class LayersAPI(MethodView):
         :param _id:
         :return:
         """
-        db = g.n_session.db_session
+        session = g.n_session.db_session
         self.issues = []
         self.kwargs = self._build_args_from_request_data()
         system_layer = True
@@ -637,39 +935,23 @@ class LayersAPI(MethodView):
                   "wks"]:
             if k in geographic_layer_data:
                 del geographic_layer_data[k]
-        self.issues, geographic_layer, count, self.status = get_content(db, GeographicLayer, self.issues, _id)
+        self.issues, geographic_layer, count, self.status = get_content(session, GeographicLayer, self.issues, _id)
         if geographic_layer:
             # Update layer metadata
+            if "types" in geographic_layer_data:
+                # Remove previous types
+                for t in geographic_layer.types:
+                    session.delete(t)
+            if "case_studies" in geographic_layer_data:
+                # Remove previous case studies
+                for t in geographic_layer.case_studies:
+                    session.delete(t)
             geographic_layer = geographic_layer_schema.load(geographic_layer_data,
                                                             instance=geographic_layer,
                                                             partial=True, unknown=EXCLUDE)
-            # TODO Update layer content disabled (not defined how to
-            # if self.kwargs.get("data") or request.files:
-            #     layer_name = f"layer_{geographic_layer.id}"
-            #     geographic_layer.published = False
-            #     geographic_layer.in_postgis = False
-            #     db.flush()
-            #     if request.files:
-            #         self._receive_and_prepare_file()
-            #     if not self.kwargs.get("wks"):
-            #         self.kwargs["wks"] = geographic_layer.wks
-            #     status, gdf = self._post_in_postgis(layer_name)
-            #     if status == 200:
-            #         geographic_layer.in_postgis = True
-            #     # re-publish in geoserver is need when the layer is changed (why?)
-            #     # (note that it is not necessary when sql_view layer)
-            #     if self.kwargs.get("property"):
-            #         prop = self.kwargs["property"]
-            #         tmp = gdf[prop].values
-            #         status, layer_type = self._publish_in_geoserver(layer_name, prop, min(tmp), max(tmp))
-            #     else:
-            #         status, layer_type = self._publish_in_geoserver(layer_name)
-            #     if status == 200:
-            #         geographic_layer.published = True
-            #         geographic_layer.layer_type = layer_type
-            #         db.flush()
-            #     else:
-            #         db.rollback()
+            self.fill_types_and_case_studies(session, geographic_layer, geographic_layer_data)
+
+            # NOTE: Update layer content disabled (it should be another layer). Previous code available in Git
         else:
             if _id is None:
                 self.issues.append(Issue(IType.ERROR, '<id> not specified'))
@@ -717,17 +999,6 @@ class LayersAPI(MethodView):
                 db.delete(geographic_layer)
         return ResponseObject(content=None, issues=self.issues, status=self.status).get_response()
 
-    def _create_sql(self, _filter):
-        """
-        TODO create sintaxis
-        @param _filter: filter build by the user in GUI
-        @return: sql query for postgis
-        """
-        # key_col = _filter["key"]
-        # sql = _filter["sql"]
-        # _filter = _filter.encode('utf-8')
-        return _filter
-
     def _post_in_postgis(self, layer_name, lower_columns=True):
         """
         Create (store) feature layer in PostGIS
@@ -759,6 +1030,27 @@ class LayersAPI(MethodView):
                 return None
 
         has_geom_column = df.geometry.dropna().shape[0] > 0
+
+        # Convert columns to number, when possible
+        for i, c in enumerate(df.columns):
+            if self._exclude(c):
+                continue
+            if lower_columns:
+                c = c.lower()
+
+            # Skip empty columns
+            if sum(df[c].notna()) == 0:
+                continue
+
+            if df.dtypes[i] == np.dtype("O"):
+                try:
+                    df[c] = pd.to_numeric(df[c])
+                except:
+                    pass
+
+        # Missing geometries substituted by empty geometries
+        from shapely.geometry import Polygon
+        df.geometry[df.geometry.isna()] = Polygon([])
 
         try:
             # Make PK for sqlview work properly using id_column as PK
@@ -811,13 +1103,14 @@ class LayersAPI(MethodView):
                                                        store_name=postgis_store_name,
                                                        pg_table=layer_name)
             if attribute:
-                create_and_publish_ramp_style(geoserver_session,
-                                              wkspc=self.kwargs['wks'],
-                                              layer_name=layer_name,
-                                              attribute=attribute,
-                                              min_value=min_value, max_value=max_value,
-                                              number_of_classes=7,
-                                              style_name=style_name)
+                create_and_publish_style(geoserver_session,
+                                         wkspc=self.kwargs['wks'],
+                                         layer_name=layer_name,
+                                         attribute=attribute,
+                                         min_value=min_value, max_value=max_value,
+                                         categories=None,
+                                         number_of_classes=7,
+                                         style_name=style_name)
         elif "layer_name" in self.kwargs.keys():
             layer = geoserver_session.get_layer(layer_name=self.kwargs["layer_name"])
             if isinstance(layer, dict):
@@ -827,7 +1120,6 @@ class LayersAPI(MethodView):
                                                                pg_table=layer_name)
             else:
                 r = "no view available 500 "
-
         elif self.kwargs.get("filter"):
             sql = self.kwargs["filter"]
             key_col = self.kwargs["key_col"]
@@ -912,6 +1204,8 @@ class LayersAPI(MethodView):
             # Define default name
             if "job_id" in args["attributes"]:
                 args["name"] = f'Capa salida del job {args["attributes"]["job_id"]}'
+            else:
+                args["name"] = "Nombre no definido, ir a detalle para renombrar"
         return args
 
     def _file_posted(self):
@@ -921,7 +1215,7 @@ class LayersAPI(MethodView):
         import os
         formats = [".tif", ".gpkg", ".zip", ".json", ".geojson", ".csv", ".xlsx", ".xls"]
         path = ""
-        folder = tempfile.mkdtemp(prefix="bcs_")
+        folder = tempfile.mkdtemp(prefix=f"{app_acronym}_")
         from werkzeug.utils import secure_filename
 
         # Download to a local file if self.kwargs.data contains a FilesAPI path
@@ -967,6 +1261,7 @@ class LayersAPI(MethodView):
                 gdf = import_pda_result(path, session=g.n_session.db_session)
                 return gdf
             except:
+                traceback.print_exc()
                 return None
 
     def _read_raster_file(self, layer_name):
@@ -999,13 +1294,111 @@ class LayersAPI(MethodView):
         return r, layer_type
 
 
-_ = register_api(bp_geo, LayersAPI, "geo/layers", f"{app_api_base}/geo/layers/", pk="_id")
+_ = register_api(bp_geo, LayersAPI, "geo/layers", f"{app_api_base}/geo/layers/", pk="_id", pk_type="string")
 bp_geo.add_url_rule(app_api_base + '/geo/layers/<_id>.<string:_format>', view_func=_, methods=['GET'])
 
 
-# view_func = LayerAPI.as_view("geo/layers")
-# bp_geo.add_url_rule(f"{bcs_api_base}/geo/layers/", defaults={"_id": None}, view_func=view_func, methods=['GET', 'POST'])
-# bp_geo.add_url_rule(f"{bcs_api_base}/geo/layers/<int:_id>", view_func=view_func, methods=['GET', 'PUT', 'DELETE'])
+@Memoize
+def get_styles():
+    """ Dictionary of styles and a boolean telling if the palette is fixed or dynamic """
+    palettes = {}
+    # List of dynamic palettes
+    try:
+        sns.color_palette("", 3)
+    except:
+        s = traceback.format_exc()
+        a = s.index('values are')
+        s = s[a + 11:]
+        a = s.index("\n")
+        for palette in [_[1:] for _ in s[:a].split("', ")]:
+            palettes[palette] = True
+    # List of fixed palettes
+    try:
+        f_palettes = read_yaml(get_global_configuration_variable("COLOR_PALETTES"))
+        for palette in f_palettes:
+            palettes[palette["name"]] = False
+    except:
+        pass
+
+    return palettes
+
+
+def get_fixed_style(name):
+    # palette_hex, intervals = get_fixed_style(color_ramp)
+    # List of fixed palettes
+    f_palettes = read_yaml(get_global_configuration_variable("COLOR_PALETTES"))
+    colors = []
+    intervals = []
+    for palette in f_palettes:
+        if name.lower() == palette["name"].lower():
+            palette_type = palette.get("type", "continuous")
+            for i in palette["intervals"]:
+                colors.append(i["color"])
+                if palette_type == "continuous":
+                    intervals.append((i["left"], i["right"]))
+                else:
+                    intervals.append(i["value"])
+    return colors, intervals
+
+
+@n_session()
+def get_styles_rest():
+    # Return a list of available styles
+    return ResponseObject(issues=[], status=200, content=get_styles(), count=0).get_response()
+
+
+@n_session()
+def put_property_style(id_, property_):
+    from ..geo import geoserver_session
+    issues = []
+    status = 200
+    req = request.get_json()
+    palette = req.get("palette")
+    resp = dict()
+    # Check if the layer "id_" and then, if the property exists
+    session = g.n_session.db_session
+    layer = session.query(GeographicLayer).filter(GeographicLayer.id == id_).first()
+    property_dict = None
+    if layer:
+        for p in layer.properties:
+            if p["name"] == property_ and p["type"] == "numeric":
+                property_dict = p
+                break
+    # Check if the specified style exists
+    if layer and property_dict and palette in get_styles():
+        style_name = f"layer_{id_}_{property_}"
+        system_layer = True
+        wkspc = workspace_names[0] if system_layer else workspace_names[1]
+        geom_type = layer.attributes.get("geom_type", "Polygon") if layer.attributes else "Polygon"
+        create_and_publish_style(geoserver_session,
+                                 wkspc=wkspc,
+                                 layer_name=layer.geoserver_name,
+                                 attribute=property_,
+                                 min_value=property_dict.get("min"),
+                                 max_value=property_dict.get("max"),
+                                 number_of_classes=req.get("bins", 7),
+                                 categories=property_dict.get("categories"),
+                                 style_name=style_name,
+                                 color_ramp=palette,
+                                 overwrite=True,
+                                 geom_type=geom_type)
+    else:
+        if not layer:
+            issues.append(Issue(IType.ERROR, f"Layer {id_} does not exist"))
+        else:
+            issues.append(Issue(IType.ERROR, f"Property {property_} does not exist or it is not 'numeric'"))
+        if palette not in get_styles():
+            issues.append(Issue(IType.ERROR, f"Palette {palette} does not exist"))
+
+        status = 400
+
+    return ResponseObject(issues=issues, status=status, content=resp, count=0).get_response()
+
+
+bp_geo.add_url_rule(app_api_base + '/geo/layers/<int:id_>/<string:property_>',
+                    view_func=put_property_style, methods=['PUT'])
+bp_geo.add_url_rule(app_api_base + '/geo/layers/styles/',
+                    endpoint="geo/layers/styles", view_func=get_styles_rest, methods=['GET'])
 
 
 class RegionsAPI(MethodView):

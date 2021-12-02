@@ -42,31 +42,34 @@ class JobManagementAPI:
 
 
 class JobExecutorAtResource(ABC):
+    LOCAL_WORKSPACE = os.sep + "tmp"  # TODO read from config file
+    prefix = "jobs"
     LOG_FILENAMES_DICT = {
-        "prepare_stdout": "bcs.prepare.stdout.log",
-        "prepare_stderr": "bcs.prepare.stderr.log",
-        "export_stdout": "bcs.export.stdout.log",
-        "export_stderr": "bcs.export.stderr.log",
-        "upload_stdout": "bcs.upload.stdout.log",
-        "upload_stderr": "bcs.upload.stderr.log",
-        "submit_stdout": "bcs.submit.stdout.log",
-        "submit_stderr": "bcs.submit.stderr.log",
-        "download_stdout": "bcs.download.stdout.log",
-        "download_stderr": "bcs.download.stderr.log",
-        "store_stdout": "bcs.store.stdout.log",
-        "store_stderr": "bcs.store.stderr.log",
-        "cleanup_stdout": "bcs.cleanup.stdout.log",
-        "cleanup_stderr": "bcs.cleanup.stderr.log",
-        "universal_log": "bcs.stdout.log",
+        "prepare_stdout": f"{prefix}.prepare.stdout.log",
+        "prepare_stderr": f"{prefix}.prepare.stderr.log",
+        "export_stdout": f"{prefix}.export.stdout.log",
+        "export_stderr": f"{prefix}.export.stderr.log",
+        "upload_stdout": f"{prefix}.upload.stdout.log",
+        "upload_stderr": f"{prefix}.upload.stderr.log",
+        "submit_stdout": f"{prefix}.submit.stdout.log",
+        "submit_stderr": f"{prefix}.submit.stderr.log",
+        "download_stdout": f"{prefix}.download.stdout.log",
+        "download_stderr": f"{prefix}.download.stderr.log",
+        "store_stdout": f"{prefix}.store.stdout.log",
+        "store_stderr": f"{prefix}.store.stderr.log",
+        "cleanup_stdout": f"{prefix}.cleanup.stdout.log",
+        "cleanup_stderr": f"{prefix}.cleanup.stderr.log",
+        "universal_log": f"{prefix}.stdout.log",
     }
 
-    def __init__(self, identity_job_id):
-        self.local_workspace = get_global_configuration_variable("JOBS_LOCAL_WORKSPACE")
-        if not os.path.exists(self.local_workspace):
-            os.mkdir(self.local_workspace)
-        self.local_workspace = os.path.join(self.local_workspace, identity_job_id)
-        if not os.path.exists(self.local_workspace):
-            os.mkdir(self.local_workspace)
+    def __init__(self, identity_job_id, create_local_workspace=True):
+        self.local_workspace = os.path.join(
+            get_global_configuration_variable("JOBS_LOCAL_WORKSPACE", self.LOCAL_WORKSPACE),
+            identity_job_id)
+        if create_local_workspace:
+            if not os.path.exists(self.local_workspace):
+                os.mkdir(self.local_workspace, parents=True)
+
         self.log_filenames_dict = {}
         for k, v in self.LOG_FILENAMES_DICT.items():
             self.log_filenames_dict[k] = os.path.join(self.local_workspace, v)
@@ -81,7 +84,7 @@ class JobExecutorAtResource(ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def connect(self):
+    def connect(self, create_local_workspace=True):
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -90,15 +93,15 @@ class JobExecutorAtResource(ABC):
 
     # JOB EXECUTION
     @abc.abstractmethod
-    def create_job_workspace(self):
+    def create_job_workspace(self, name):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def job_workspace_exists(self):
+    def job_workspace_exists(self, job_id):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def remove_job_workspace(self):  # After Job is completed (or if Job was not started)
+    def remove_job_workspace(self, name):  # After Job is completed (or if Job was not started)
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -154,27 +157,29 @@ class JobExecutorAtResourceFactory:
     def __init__(self):
         self.execs = dict()
 
-    def get(self, job_context):
+    def get(self, job_context, create_local_workspace=True):
         job_executor_name = job_context["resource"].get("jm_type")
         resource_param = job_context["resource"]
         k = (job_executor_name, resource_param["name"])
+        job_id = job_context.get("job_id")
         if k not in self.execs:
             self.execs[k] = JobExecutorAtResourceFactory._create(job_executor_name,
                                                                  resource_param,
-                                                                 job_id=job_context.get("job_id"),
+                                                                 create_local_workspace=create_local_workspace,
+                                                                 job_id=job_id,
                                                                  identity_id=job_context.get("identity_id"))
         return self.execs[k]
 
     @staticmethod
-    def _create(job_executor_name: str, resource_param: Dict, **kwargs):
+    def _create(job_executor_name: str, resource_param: Dict, create_local_workspace, **kwargs):
         if job_executor_name.lower() == "galaxy":
             from biobarcoding.jobs.galaxy_resource import JobExecutorAtGalaxy
             tmp = JobExecutorAtGalaxy(str(kwargs["job_id"]) + "_" + str(kwargs["identity_id"]))
             tmp.set_resource(resource_param)
             return tmp
         elif job_executor_name.lower() == "ssh":
-            from biobarcoding.jobs.ssh_resource import JobExecutorWithSSH
-            tmp = JobExecutorWithSSH(str(kwargs["job_id"]) + "_" + str(kwargs["identity_id"]))
+            from ..jobs.ssh_resource import JobExecutorWithSSH
+            tmp = JobExecutorWithSSH(str(kwargs["job_id"]) + "_" + str(kwargs["identity_id"]), create_local_workspace)
             tmp.set_resource(resource_param)
-            tmp.connect()
+            tmp.connect(create_local_workspace)
             return tmp

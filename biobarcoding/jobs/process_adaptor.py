@@ -46,6 +46,9 @@ class ProcessAdaptorFactory:
             from biobarcoding.jobs.ssh_process_adaptors.SSHClustal_PaupParsimony_PdaProcessAdaptor import \
                 SSHClustal_PaupParsimony_PdaProcessAdaptor
             ssh_process_adaptor = SSHClustal_PaupParsimony_PdaProcessAdaptor()
+        elif tm_processes[process_id] == "geoprocess":
+            from ..jobs.ssh_process_adaptors.GeoprocessProcessAdaptor import SSHGeoprocessProcessAdaptor
+            ssh_process_adaptor = SSHGeoprocessProcessAdaptor()
 
         return ssh_process_adaptor
 

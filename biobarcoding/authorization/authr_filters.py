@@ -11,7 +11,7 @@ from datetime import datetime
 
 from sqlalchemy import and_, or_
 
-from ..db_models.bioinformatics import BioinformaticObject
+from ..db_models.core import FunctionalObject
 from ..db_models.sysadmin import Identity, ACLExpression, ACL, PermissionType, ACLDetail
 
 
@@ -25,8 +25,8 @@ def check(sess, o, ident: Identity, permission: PermissionType) -> bool:
     :return:
     """
 
-    if isinstance(o, BioinformaticObject):
-        obj_type_id = o.bo_type_id
+    if isinstance(o, FunctionalObject):
+        obj_type_id = o.obj_type_id
         o_uuid = o.uuid
 
     ahora = datetime.now()
@@ -40,8 +40,8 @@ def check(sess, o, ident: Identity, permission: PermissionType) -> bool:
     #  Permission granted if any record found. Positive permission
     acl_details = sess.query(ACLDetail). \
         filter(and_(
-        or_(ACLDetail.validity_start is None, ACLDetail.validity_start <= ahora),
-        or_(ACLDetail.validity_end is None, ACLDetail.validity_end > ahora))). \
+                or_(ACLDetail.validity_start == None, ACLDetail.validity_start <= ahora),
+                or_(ACLDetail.validity_end == None, ACLDetail.validity_end > ahora))). \
         join(ACLDetail.acl).filter(
         and_(ACL.object_type == obj_type_id, ACL.object_uuid == o_uuid)).first()
 
@@ -49,8 +49,8 @@ def check(sess, o, ident: Identity, permission: PermissionType) -> bool:
     # TODO if there is no ACLExpression, search ACL elements (or maybe generate an expression from the ACL elements)
     rule = sess.query(ACLExpression.expression). \
         filter(and_(
-        or_(ACLExpression.validity_start is None, ACLExpression.validity_start <= ahora),
-        or_(ACLExpression.validity_end is None, ACLExpression.validity_end > ahora))). \
+                or_(ACLExpression.validity_start == None, ACLExpression.validity_start <= ahora),
+                or_(ACLExpression.validity_end == None, ACLExpression.validity_end > ahora))). \
         join(ACLExpression.acl).filter(
         and_(ACL.object_type == obj_type_id, ACL.object_uuid == o_uuid)).first()
 

@@ -1,8 +1,28 @@
-from ..db_models.sysadmin import Identity, SystemFunction, Group, Role, Organization, RoleIdentity
-from . import make_simple_rest_crud, parse_request_params
+from ..db_models.sysadmin import Identity, SystemFunction, Group, Role, Organization, RoleIdentity, \
+    IdentityAuthenticator
+from . import make_simple_rest_crud, parse_request_params, tm_default_users
+
+from flask import Blueprint, request
+from flask.views import MethodView
+from ..authentication import n_session
+from ..rest import app_api_base, ResponseObject
+from ..services.acls import *
+
 
 # --------------------------------------------------------------------------------------------------------------------
-bp_identities, IdentitiesAPI = make_simple_rest_crud(Identity, "identities")
+
+def custom_identities_filter(filter, session=None):
+    """
+    Obtain non-system identities
+
+    :param filter: A dictionary (str, dict)
+    :return:
+    """
+    return [Identity.uuid.notin_([i for i in tm_default_users.keys()])]
+
+
+bp_identities, IdentitiesAPI = make_simple_rest_crud(Identity, "identities", aux_filter=custom_identities_filter, default_filter={'-': {}})
+bp_identities_authenticators, IdentitiesAuthenticatorAPI = make_simple_rest_crud(IdentityAuthenticator, "identities_authenticators")
 bp_roles, RolesAPI = make_simple_rest_crud(Role, "roles")
 bp_identities_roles, IdentitiesRolesAPI = make_simple_rest_crud(RoleIdentity, "identities_roles")
 bp_groups, GroupsAPI = make_simple_rest_crud(Group, "groups")
@@ -12,69 +32,6 @@ bp_organizations, OrganizationsAPI = make_simple_rest_crud(Organization, "organi
 bp_sys_functions, SystemFunctionsAPI = make_simple_rest_crud(SystemFunction, "system_functions")
 
 # --------------------------------------------------------------------------------------------------------------------
-# bp_sys_functions = Blueprint('bp_sys_functions', __name__)
-#
-#
-# class SystemFunctionsAPI(RestfulView):
-#     primary_key = ('id',)
-#
-#     @bcs_session(read_only=True)
-#     def list(self):
-#         db = g.bcs_session.db_session
-#         r = ResponseObject()
-#         r.content = db.query(SystemFunction).all()
-#         return r.get_response()
-#
-#     @bcs_session()
-#     def create(self):
-#         db = g.bcs_session.db_session
-#         r = ResponseObject()
-#         t = request.json
-#         s = SystemFunction.Schema().load(t, instance=SystemFunction())
-#         db.add(s)
-#         return r.get_response()
-#
-#     @bcs_session()
-#     def get(self, _id):
-#         db = g.bcs_session.db_session
-#         r = ResponseObject()
-#         r.content = db.query(SystemFunction).get(_id)
-#         return r.get_response()
-#
-#     @bcs_session()
-#     def replace(self, _id):
-#         db = g.bcs_session.db_session
-#         r = ResponseObject()
-#         s = SystemFunction()
-#         db.save(s, _id)
-#         return r.get_response()
-#
-#     @bcs_session()
-#     def update(self, _id):
-#         db = g.bcs_session.db_session
-#         r = ResponseObject()
-#         s = SystemFunction()
-#         db.save(s)
-#         return r.get_response()
-#
-#     @bcs_session()
-#     def delete(self, _id):
-#         db = g.bcs_session.db_session
-#         r = ResponseObject()
-#         s = SystemFunction()
-#         db.delete(s)
-#         return r.get_response()
-#
-#
-# SystemFunctionsAPI.\
-#     route_as_view(bp_sys_functions, 'system_functions',
-#                   (f"{bcs_api_base}/system_functions/", f"{bcs_api_base}/system_functions/<int:_id>"))
-
-from flask import Blueprint, request
-from flask.views import MethodView
-from biobarcoding.authentication import n_session
-from biobarcoding.rest import app_api_base, ResponseObject
-from biobarcoding.services.acls import *
 
 bp_acl = Blueprint('bp_acl', __name__)
 
@@ -88,28 +45,28 @@ class ACLAPI(MethodView):
     def get(self, id=None, uuid=None):
         print(f'GET {request.path}\nGetting ACL {id}')
         kwargs = parse_request_params()
-        issues, content, count, status = read_acls(id=id, uuid=uuid, **kwargs)
+        issues, content, count, status = read_acls(id_=id, uuid=uuid, **kwargs)
         return ResponseObject(content=content, count=count, issues=issues, status=status).get_response()
 
     @n_session()
     def post(self):
         print(f'POST {request.path}\nCreating ACL')
         kwargs = parse_request_params()
-        issues, content, status = create_acls(**kwargs.get('values'))
+        issues, content, status = create_acls(**kwargs.get('value'))
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
     @n_session()
     def put(self, id=None, uuid=None):
         print(f'PUT {request.path}\nCreating ACL {id}')
         kwargs = parse_request_params()
-        issues, content, status = update_acls(id=id, uuid=uuid, **kwargs.get('values'))
+        issues, content, status = update_acls(id_=id, uuid=uuid, **kwargs.get('value'))
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
     @n_session()
     def delete(self, id=None, uuid=None):
         print(f'DELETE {request.path}\nDeleting ACL {id}')
         kwargs = parse_request_params()
-        issues, content, status = delete_acls(id=id, uuid=uuid, **kwargs)
+        issues, content, status = delete_acls(id_=id, uuid=uuid, **kwargs)
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
@@ -145,7 +102,7 @@ class ObjectTypeAPI(MethodView):
     def get(self, id=None, uuid=None):
         print(f'GET {request.path}\nGetting ACL {id}')
         kwargs = parse_request_params()
-        issues, content, count, status = read_obj_types(id=id, uuid=uuid, **kwargs)
+        issues, content, count, status = read_obj_types(id_=id, uuid=uuid, **kwargs)
         return ResponseObject(content=content, count=count, issues=issues, status=status).get_response()
 
 

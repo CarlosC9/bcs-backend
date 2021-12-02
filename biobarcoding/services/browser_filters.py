@@ -73,11 +73,11 @@ def __aux_own_order(order):
     return []
 
 
-def read_form(datatype):
+def read_form(datatype, session):
     content = None
     try:
-        from biobarcoding.forms.filter_forms import getFilterSchema
-        content = getFilterSchema(datatype)
+        from ..forms.filter_forms import getFilterSchema
+        content = getFilterSchema(datatype, session)
         issues, status = [Issue(IType.INFO, 'READ browser_filter forms: successfully read.')], 200
     except Exception as e:
         print(e)

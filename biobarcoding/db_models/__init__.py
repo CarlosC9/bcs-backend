@@ -12,7 +12,7 @@ from marshmallow_sqlalchemy import ModelConverter as BaseModelConverter
 from shapely.geometry import shape
 from shapely.geometry.multipolygon import MultiPolygon
 from sqlalchemy import event, TypeDecorator, CHAR, Column, Integer, String
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import UUID, TSVECTOR
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker, class_mapper, ColumnProperty, RelationshipProperty, mapper
 from sqlalchemy_continuum import make_versioned
@@ -62,6 +62,10 @@ class GUID(TypeDecorator):
             return value
         else:
             return uuid.UUID(value)
+
+
+class TSVector(TypeDecorator):
+    impl = TSVECTOR
 
 
 class BaseMixin(object):
@@ -154,8 +158,8 @@ def setup_schema(Base, session):
     from biobarcoding.db_models.geographics import Regions
 
     # Create a function which incorporates the Base and session information
-    def setup_schema_fn():
 
+    def setup_schema_fn():
         # https://stackoverflow.com/questions/58299923/serialize-geometry-using-flask-marshmallow
         # https://github.com/marshmallow-code/marshmallow-sqlalchemy/issues/55
 
@@ -180,6 +184,8 @@ def setup_schema(Base, session):
 
                 class Meta(object):
                     include_fk = True
+                    if hasattr(class_, "_ts_vector"):
+                        exclude = ("_ts_vector",)
                     model = class_
                     sqla_session = session
                     generate_polymorphic_schemas = True

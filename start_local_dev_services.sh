@@ -29,7 +29,7 @@ function init_chado {
   ./init.sh
 }
 
-if [ "$(whoami)" == "rnebot" ] && [ "$#" -gt 0 ] ; then
+if [ "$(whoami)" == "rnebot" ] ; then
   export ENDPOINT_URL="http://localhost:5000"
   export COOKIES_FILE_PATH="/home/rnebot/Downloads/borrame/bcs-cookies.txt"
 fi
@@ -51,7 +51,7 @@ fi
 
 # PostgreSQL
 postgres_started="yes"
-if [ "$(whoami)" == "rnebot2" ] && [ "$#" -gt 0 ] ; then
+if [ "$(whoami)" == "rnebot2" ] ; then
   postgres_started=$(ssh rnebot@balder docker ps -q -f name=postgres_devel_rnebot)
 else
   postgres_started=$(docker ps -q -f name=postgres_devel)
@@ -77,7 +77,7 @@ fi
 
 # api key = fakekey; user = admin; password = password
 galaxy_started="yes"
-if [ "$(whoami)" == "rnebot" ] && [ "$#" -gt 0 ] ; then
+if [ "$(whoami)" == "rnebot" ] ; then
   galaxy_started=$(ssh rnebot@balder docker ps -q -f name=galaxy_devel_rnebot)
 elif [ "$(whoami)" == "acurbelo" ] ; then
 #  galaxy_started=$(ssh acurbelo@balder docker ps -q -f name=galaxy_devel_acurbelo)
@@ -125,7 +125,7 @@ fi
 
 # postgis
 postgis_started="yes"
-if [ "$(whoami)" == "rnebot" ] && [ "$#" -gt 0 ] ; then
+if [ "$(whoami)" == "rnebot" ] ; then
   postgis_started=$(docker ps -q -f name=postgis)
 elif [ "$(whoami)" == "acurbelo" ] ; then
   postgis_started=$(docker ps -q -f name=postgis)
@@ -170,7 +170,7 @@ fi
 
 # Geoserver
 geoserver_started="yes"
-if [ "$(whoami)" == "rnebot" ] && [ "$#" -gt 0 ] ; then
+if [ "$(whoami)" == "rnebot" ] ; then
     geoserver_started=$(docker ps -q -f name=geoserver)
   elif [ "$(whoami)" == "acurbelo" ] ; then
     geoserver_started=$(docker ps -q -f name=geoserver)
