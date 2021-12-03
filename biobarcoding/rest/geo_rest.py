@@ -19,6 +19,7 @@ from flask import Blueprint, request, g, Response
 from flask.views import MethodView
 from marshmallow import EXCLUDE
 from matplotlib.colors import rgb2hex
+from pandas.core.indexes.numeric import Float64Index
 from sqlalchemy import Integer, and_
 
 from .. import get_global_configuration_variable, app_acronym
@@ -731,19 +732,19 @@ class LayersAPI(MethodView):
             style_name = None
             colormap = None
             # Obtain the type of the attribute from the data
-            uniq = gdf[c].unique()
-            if gdf.dtypes[i] in (np.int64, np.dtype("O")) and uniq.size <= 10:
-                # Change column type to "category"
-                if gdf.dtypes[i] == np.int64:
-                    categories = sorted(list([int(x) for x in uniq]))
-                else:
-                    categories = sorted(list(uniq))
-                p_type = "category"
-                gdf[c] = gdf[c].astype('category')
-                # Find appropriate static style or create a dynamic one
-                if set(uniq).issubset(five_levels_semaphore) or len(uniq) < 5:
-                    colormap = "__semaforo_impactos"
-                    style_name = f"{layer_name}_{c}"
+            if gdf.dtypes[i] == np.int64 or gdf.dtypes[i].name == "category":
+                uniq = gdf[c].unique()
+                if uniq.size <= 10:
+                    p_type = "category"
+                    # Find the set of different values
+                    if gdf.dtypes[i] == np.int64:
+                        categories = sorted(list([int(x) for x in uniq]))
+                    else:
+                        categories = sorted(list(uniq))
+                    # Find appropriate static style or create a dynamic one
+                    if set(uniq).issubset(five_levels_semaphore) or len(uniq) < 5:
+                        colormap = "__semaforo_impactos"
+                        style_name = f"{layer_name}_{c}"
             elif gdf.dtypes[i] in (np.float, np.float32, np.float64):
                 # Numeric column
                 tmp = gdf[c].values
@@ -776,7 +777,10 @@ class LayersAPI(MethodView):
             if p_type == "numeric":
                 _.append(dict(name=c, type=p_type, style=style_name, min=min_v, max=max_v))
             elif p_type == "category":
-                _.append(dict(name=c, type=p_type, style=style_name, categories=categories))
+                if style_name:
+                    _.append(dict(name=c, type=p_type, style=style_name, categories=categories))
+                else:
+                    _.append(dict(name=c, type=p_type))
             else:
                 _.append(dict(name=c, type=p_type))
         return _
@@ -854,7 +858,7 @@ class LayersAPI(MethodView):
             # Store file in PostGIS
             lower_case_attributes = True
             layer_name = f"layer_{geographic_layer.id}"  # (internal) Geoserver layer name
-            status, gdf, has_geom_column = self._post_in_postgis(layer_name, lower_case_attributes)
+            status, gdf, has_geom_column = self._read_and_store_into_postgis(layer_name, lower_case_attributes)
             # Geometry type
             if not geographic_layer.attributes:
                 geographic_layer.attributes = {}
@@ -999,7 +1003,7 @@ class LayersAPI(MethodView):
                 db.delete(geographic_layer)
         return ResponseObject(content=None, issues=self.issues, status=self.status).get_response()
 
-    def _post_in_postgis(self, layer_name, lower_columns=True):
+    def _read_and_store_into_postgis(self, layer_name, lower_columns=True):
         """
         Create (store) feature layer in PostGIS
         NOTE: implicit parameters in self.kwargs
@@ -1042,7 +1046,17 @@ class LayersAPI(MethodView):
             if sum(df[c].notna()) == 0:
                 continue
 
-            if df.dtypes[i] == np.dtype("O"):
+            uniq = df[c].unique()
+            # Check if column "c" can be converted to "category" or to "number"
+            if df.dtypes[i] in (np.int64, np.float64, np.dtype("O")) and uniq.size <= 10:
+                df[c] = df[c].astype('category')
+                if isinstance(df[c].cat.categories, Float64Index):
+                    try:
+                        df[c].cat.categories = df[c].cat.categories.astype("int64")
+                    except:
+                        pass
+            elif df.dtypes[i] == np.dtype("O"):
+                # Numeric?
                 try:
                     df[c] = pd.to_numeric(df[c])
                 except:
