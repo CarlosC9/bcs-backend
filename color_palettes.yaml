@@ -137,3 +137,5 @@
       color: "#FCAA78"
     - value: 5
       color: "#F8696B"
+    - value: 0
+      color: "#333333"

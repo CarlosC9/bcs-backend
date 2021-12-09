@@ -4,6 +4,7 @@ from flask import g, request, Blueprint
 from flask.views import MethodView
 from sqlalchemy import and_
 
+from .. import app_acronym
 from ..authentication import n_session
 from ..common import generate_json
 from ..db_models.core import CaseStudy, CProcess, CProcessInstance, CProcessPort, Dataset, PortType, \
@@ -45,11 +46,11 @@ def custom_geoprocesses_filter(filter, session=None):
     if filter.get('for_layers'):
         ds_lst = ', '.join([f"{ds}" for ds in filter["for_layers"]["unary"]])
         sql_select = f"SELECT DISTINCT(g.id) " \
-                     f"FROM rvc_processes g " \
-                     f"JOIN rvc_processes_ports gp ON g.id=gp.process_id " \
+                     f"FROM {app_acronym}_processes g " \
+                     f"JOIN {app_acronym}_processes_ports gp ON g.id=gp.process_id " \
                      f"WHERE gp.input AND " \
                      f"gp.port_type_id IN (" \
-                     f"SELECT DISTINCT(port_type_id) FROM rvc_dataset_port_types d WHERE d.dataset_id in ({ds_lst})" \
+                     f"SELECT DISTINCT(port_type_id) FROM {app_acronym}_dataset_port_types d WHERE d.dataset_id in ({ds_lst})" \
                      f")"
         close_connection = session.transaction is None
         conn = session.connection()

@@ -509,7 +509,7 @@ class LayersAPI(MethodView):
                             f"ds.attributes->'{p_field}' {op} '{int(filter[q_field]['unary'])}'::jsonb")
             if json_attributes:
                 sql_select = f"SELECT DISTINCT(ds.id) " \
-                             f"FROM rvc_fos ds " \
+                             f"FROM {app_acronym}_fos ds " \
                              f"WHERE {' AND '.join(json_attributes)}"
                 sql_result = conn.execute(sql_select)
                 _ = [r[0] for r in sql_result]
@@ -548,10 +548,10 @@ class LayersAPI(MethodView):
                 remaining_layers_condition = f" AND ds.id IN ({_})" if ids else ""
                 lst = ', '.join([f"{ds}" for ds in filter["for_geoprocesses"]["unary"]])
                 sql_select = f"SELECT DISTINCT(ds.id) " \
-                             f"FROM rvc_datasets ds JOIN rvc_dataset_port_types ds_pt ON ds.id=ds_pt.dataset_id " \
+                             f"FROM {app_acronym}_datasets ds JOIN {app_acronym}_dataset_port_types ds_pt ON ds.id=ds_pt.dataset_id " \
                              f"WHERE ds_pt.port_type_id IN " \
                              f"(SELECT DISTINCT(gp.port_type_id) " \
-                             f" FROM rvc_processes g JOIN rvc_processes_ports gp ON g.id=gp.process_id " \
+                             f" FROM {app_acronym}_processes g JOIN {app_acronym}_processes_ports gp ON g.id=gp.process_id " \
                              f" WHERE gp.input AND g.id IN ({lst})) " \
                              f"{remaining_layers_condition}"
                 sql_result = conn.execute(sql_select)
@@ -568,7 +568,7 @@ class LayersAPI(MethodView):
                 remaining_layers_condition = f" AND ds.id IN ({_})" if ids else ""
                 lst = ', '.join([f"{ds}" for ds in filter["for_port_types"]["unary"]])
                 sql_select = f"SELECT DISTINCT(ds.id) " \
-                             f"FROM rvc_datasets ds JOIN rvc_dataset_port_types ds_pt ON ds.id=ds_pt.dataset_id " \
+                             f"FROM {app_acronym}_datasets ds JOIN {app_acronym}_dataset_port_types ds_pt ON ds.id=ds_pt.dataset_id " \
                              f"WHERE ds_pt.port_type_id IN ({lst}) " \
                              f"{remaining_layers_condition}"
                 sql_result = conn.execute(sql_select)
@@ -585,8 +585,8 @@ class LayersAPI(MethodView):
                 remaining_layers_condition = f" AND ds.id IN ({_})" if ids else ""
                 lst = ', '.join([f"{ds}" for ds in filter["case_studies_"]["unary"]])
                 sql_select = f"SELECT DISTINCT(ds.id) " \
-                             f"FROM rvc_datasets ds " \
-                             f"JOIN rvc_case_studies_functional_objects cs ON ds.id=cs.functional_object_id " \
+                             f"FROM {app_acronym}_datasets ds " \
+                             f"JOIN {app_acronym}_case_studies_functional_objects cs ON ds.id=cs.functional_object_id " \
                              f"WHERE cs.case_study_id IN ({lst}) " \
                              f"{remaining_layers_condition}"
                 sql_result = conn.execute(sql_select)
@@ -713,7 +713,7 @@ class LayersAPI(MethodView):
         :return:
         """
         from ..geo import geoserver_session
-        five_levels_semaphore = set(["1", "2", "3", "4", "5"])
+        impact_levels_semaphore = set(["1", "2", "3", "4", "5", "0"])
         _ = []
         for i, c in enumerate(gdf.columns):
             if self._exclude(c):
@@ -742,7 +742,7 @@ class LayersAPI(MethodView):
                     else:
                         categories = sorted(list(uniq))
                     # Find appropriate static style or create a dynamic one
-                    if set(uniq).issubset(five_levels_semaphore) or len(uniq) < 5:
+                    if set(uniq).issubset(impact_levels_semaphore) or len(uniq) < 6:
                         colormap = "__semaforo_impactos"
                         style_name = f"{layer_name}_{c}"
             elif gdf.dtypes[i] in (np.float, np.float32, np.float64):
