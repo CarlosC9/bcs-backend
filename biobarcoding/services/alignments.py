@@ -192,12 +192,12 @@ def import_file(input_file, format=None, **kwargs):
 # EXPORT
 ##
 
-def export(id, format='fasta', value={}, **kwargs):
+def export(id, format='fasta', values={}, **kwargs):
     content = None
     try:
         if format in ('fasta', 'nexus'):
             seqs = get_seqs_query(purpose='share', filter={'analysis_id': {'op': 'eq', 'unary': id}})[0]
-            content = export_sequences(seqs.all(), format=format, header_format=value.get('header'), only_headers=value.get('only_headers'))
+            content = export_sequences(seqs.all(), format=format, header_format=values.get('header'), only_headers=values.get('only_headers'))
             issues, status = [Issue(IType.INFO, f'EXPORT alignments: The alignment was successfully imported.')], 200
         else:
             issues, status = [Issue(IType.ERROR, f'EXPORT alignments: The format {format} could not be exported.')], 404
