@@ -116,6 +116,7 @@ COPY requirements.txt /app
 RUN pip3 install --no-cache-dir -r requirements.txt
 
 COPY supervisord.conf /etc/supervisord.conf
+COPY color_palettes.yaml /app/color_palettes.yml
 
 RUN mkdir -p /srv
 RUN mkdir -p /chado_setup
