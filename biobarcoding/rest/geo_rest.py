@@ -142,7 +142,7 @@ def generate_sld_file(style_name, rule):
         f.write(style)
 
 
-def generate_sld_category_rule(column_name, style_name, color, value, geom_type="Polygon"):
+def generate_sld_category_rule(column_name, style_name, color, value, value_title, geom_type="Polygon"):
     return """
                 <sld:Rule>
                     <sld:Name>{1}</sld:Name>
@@ -170,7 +170,7 @@ def generate_sld_category_rule(column_name, style_name, color, value, geom_type=
         color,  # 2
         "#000000",  # 3
         value,  # 4
-        value,  # 5
+        value_title,  # 5
         1 if geom_type == "Polygon" else 2,  # 6
         geom_type  # 7
     )
@@ -222,17 +222,51 @@ def generate_category_sld_file(
         style_name: str,
         column_name: str,
         categories: List[str],
-        color_ramp: str,
+        color_palette: str,
         geom_type: str = "Polygon"
 ):
-    palette_hex, values = get_fixed_style(color_ramp)
+    """
+    Read color palette.
+    - Match categories of palette with input categories
+    - Assign remaining colors
+    :param style_name:
+    :param column_name:
+    :param categories:
+    :param color_palette:
+    :param geom_type:
+    :return:
+    """
+    palette_hex, values = get_fixed_style(color_palette)
     rule = ""
-    if len(categories) < len(palette_hex):
-        for i, category in enumerate(categories):
-            rule += generate_sld_category_rule(column_name, style_name, palette_hex[i], category, geom_type)
-    else:
-        for i, color in enumerate(palette_hex):
-            rule += generate_sld_category_rule(column_name, style_name, color, categories[i], geom_type)
+    intersect = set(categories) & set(values)
+    difference = set(categories) - set(values)
+    palette_indices = set(range(len(palette_hex)))
+    cont_rules = 0
+    # Categories matching those in the palette
+    for i, category in enumerate(categories):
+        if category in intersect:
+            # Find index of category in palette
+            index = values.index(category)
+            palette_indices.remove(index)
+            category_title = category
+            rule += generate_sld_category_rule(column_name, style_name, palette_hex[index], category, category_title, geom_type)
+            cont_rules += 1
+    # Remaining categories
+    palette_indices = sorted(list(palette_indices))
+    use_remaining_colors = True
+    for i, category in enumerate(categories):
+        if category in difference:
+            # Find index of category in palette
+            if use_remaining_colors:
+                index = palette_indices[i % len(palette_indices)]
+            else:
+                index = i % len(palette_hex)
+            category_title = category
+            rule += generate_sld_category_rule(column_name, style_name, palette_hex[index], category, category_title, geom_type)
+            cont_rules += 1
+
+    if cont_rules == 1:  # Force at least two rules (a bug in Geoserver?)
+        rule += generate_sld_category_rule(column_name, style_name, palette_hex[index], category, category_title, geom_type)
 
     generate_sld_file(style_name, rule)
 
