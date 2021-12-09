@@ -3,7 +3,7 @@ from ..main import get_orm
 from ...rest import filter_parse
 from ...services import get_or_create
 from ...db_models import DBSession
-from ...db_models.sysadmin import AnnotationFormTemplate, AnnotationFormTemplateField
+from ...db_models.sa_annotations import AnnotationFormTemplate, AnnotationFormTemplateField
 
 
 ##

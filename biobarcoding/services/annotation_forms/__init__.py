@@ -3,7 +3,7 @@ from ..main import SimpleAuxService
 from ...rest import filter_parse
 from ...db_models import DBSession, DBSessionChado, ObjectType
 from ...db_models.chado import Cv, Cvterm, Db, Dbxref
-from ...db_models.sysadmin import AnnotationFormItemObjectType
+from ...db_models.sa_annotations import AnnotationFormItemObjectType
 
 
 ##
