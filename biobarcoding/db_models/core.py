@@ -29,7 +29,7 @@ class FunctionalObject(ORMBase):
     uuid = Column(GUID, unique=True, default=uuid.uuid4)
 
     obj_type_id = Column("fo_type_id", Integer, ForeignKey(ObjectType.id))
-    native_id = Column(BigInteger, unique=True, nullable=True, primary_key=False)
+    native_id = Column(BigInteger, nullable=True, primary_key=False)
     native_table = Column(String(80))
 
     name = Column(String(300))
