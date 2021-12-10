@@ -780,7 +780,8 @@ def wf1_store_result_in_backend(job_context: str):
                       f"Beginning to store result in backend of file {file_dict['file']}. Attempt: {n_attempts + 1}")
         endpoint = get_global_configuration_variable("ENDPOINT_URL")
         cookies_file_path = get_global_configuration_variable("COOKIES_FILE_PATH")
-        local_path = os.path.join(job_executor.local_workspace, file_dict["file"])
+        filename = f'{file_dict["file"].split(".")[0]}.{file_dict["type"]}'
+        local_path = os.path.join(job_executor.local_workspace, filename)
         print(file_dict)
         api_login()
         curl_cmd = (f"curl -s --cookie-jar {cookies_file_path} --cookie {cookies_file_path} " +
