@@ -155,26 +155,33 @@ class JobExecutorAtResourceFactory:
         self.execs = dict()
 
     def get(self, job_context):
-        job_executor_name = job_context["resource"].get("jm_type")
+        job_executor_type = job_context["resource"].get("jm_type")
         resource_param = job_context["resource"]
-        k = (job_executor_name, resource_param["name"])
+        k = (job_executor_type, resource_param["name"])
         if k not in self.execs:
-            self.execs[k] = JobExecutorAtResourceFactory._create(job_executor_name,
+            self.execs[k] = JobExecutorAtResourceFactory._create(job_executor_type,
                                                                  resource_param,
                                                                  job_id=job_context.get("job_id"),
                                                                  identity_id=job_context.get("identity_id"))
         return self.execs[k]
 
     @staticmethod
-    def _create(job_executor_name: str, resource_param: Dict, **kwargs):
-        if job_executor_name.lower() == "galaxy":
+    def _create(job_executor_type: str, resource_param: Dict, **kwargs):
+        if job_executor_type.lower() == "galaxy":
             from biobarcoding.jobs.galaxy_resource import JobExecutorAtGalaxy
             tmp = JobExecutorAtGalaxy(str(kwargs["job_id"]) + "_" + str(kwargs["identity_id"]))
             tmp.set_resource(resource_param)
             return tmp
-        elif job_executor_name.lower() == "ssh":
+        elif job_executor_type.lower() == "ssh":
             from biobarcoding.jobs.ssh_resource import JobExecutorWithSSH
             tmp = JobExecutorWithSSH(str(kwargs["job_id"]) + "_" + str(kwargs["identity_id"]))
             tmp.set_resource(resource_param)
             tmp.connect()
             return tmp
+        elif job_executor_type.lower() == "slurm":
+            from .slurm_ssh_resource import JobExecutorWithSlurm
+            tmp = JobExecutorWithSlurm(str(kwargs["job_id"]) + "_" + str(kwargs["identity_id"]))
+            tmp.set_resource(resource_param)
+            tmp.connect()
+            return tmp
+

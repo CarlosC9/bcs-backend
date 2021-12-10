@@ -12,13 +12,6 @@
         }
       },
       {
-        "key": "charset",
-        "type": "charset-field",
-        "templateOptions": {
-          "posMax": 36
-        }
-      },
-      {
         "key": "outRoot",
         "type": "select",
         "templateOptions": {

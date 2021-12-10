@@ -1,0 +1,70 @@
+[
+  {
+    "key": "BLAST",
+    "wrappers": ["subprocess-wrapper"],
+    "templateOptions": { "label": "MSA ClustalW" },
+    "fieldGroup": [
+      {
+        "key": "sequence_selector",
+        "type": "sequence-selector",
+        "validators": {
+          "validation": [
+            "sequence-selector"
+          ]
+        },
+        "templateOptions": {
+          "filename": "query",
+          "label": "Query Sequences Selector",
+          "required": true,
+          "extension": "fasta"
+        }
+      },
+      {
+        "key": "db",
+        "type": "select",
+        "templateOptions": {
+          "label": "Database",
+          "required": true,
+          "options": [
+            {
+              "value": "nt",
+              "label": "Genbank"
+            },
+            {
+              "value": "jardin_botanico",
+              "label": "Jardín Botánico"
+            }
+          ]
+        },
+        "defaultValue": "jardin_botanico"
+      },
+      {
+        "key": "task",
+        "type": "select",
+        "templateOptions": {
+          "label": "Program",
+          "required": true,
+          "options": [
+            {
+              "value": "blastn",
+              "label": "blastn"
+            },
+            {
+              "value": "blastn-short",
+              "label": "blastn-short"
+            },
+            {
+              "value": "megablast",
+              "label": "megablast"
+            },
+            {
+              "value": "dc-megablast",
+              "label": "dc-megablast"
+            }
+          ]
+        },
+        "defaultValue": "megablast"
+      }
+    ]
+  }
+]
