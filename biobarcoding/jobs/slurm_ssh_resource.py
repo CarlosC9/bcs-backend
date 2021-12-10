@@ -1,5 +1,6 @@
 import os
-from .ssh_resource import JobExecutorWithSSH, RemoteSSHClient
+
+from .ssh_resource import RemoteSSHClient, JobExecutorWithSSH
 from .. import get_global_configuration_variable
 
 
@@ -39,28 +40,29 @@ class RemoteSlurmClient(RemoteSSHClient):
         @param script_params: Parameters of the script and hpc (ncpus, ngpus, time..)
         @return: pid: Job ID of the executed script process
         """
-        resources_params = script_params["resources_params"]
-        cpus_per_task = f"--cpus-per-task={resources_params['cpus_per_task']}" if 'cpus_per_task' in resources_params else ""
-        cpus_per_gpu = f"--cpus-per-gpu={resources_params['cpus_per_gpu']}" if 'cpus_per_gpu' in resources_params else ""
-        gpus = f"--gpus={resources_params['gpus']}" if 'gpus' in resources_params else ""
-        mem_per_gpu = f"--mem-per-gpu={resources_params['mem_per_gpu']}" if 'mem_per_gpu' in resources_params else ""
-        mem_per_cpu = f"--mem-per-cpu={resources_params['mem_per_cpu']}" if 'mem_per_cpu' in resources_params else ""
-        priority = f"--priority={resources_params['priority']}" if 'priority' in resources_params else ""
-        threads_per_core = f"--threads-per-core={resources_params['threads_per_core']}" if 'threads_per_core' in resources_params else ""
-        time = f"--time={resources_params['time']}" if 'time' in resources_params else ""#TODO hablar lo del PENDING
-        time_min = f"--time-min={resources_params['time_min']}" if 'time_min' in resources_params else ""
-        tmp = f"--tmp={resources_params['tmp']}" if 'tmp' in resources_params else ""
-        process_params = ""
-        for key, value in script_params['process_params']:
-            process_params += f"{key}={value},"
-        process_params = process_params[:-1] #remove last comma
+        hpc_parameters = script_params["hpc_parameters"]
+        ntasks = f"--ntasks={hpc_parameters['ntasks']}" if 'ntasks' in hpc_parameters else ""
+        cpus_per_task = f"--cpus-per-task={hpc_parameters['cpus_per_task']}" if 'cpus_per_task' in hpc_parameters else ""
+        cpus_per_gpu = f"--cpus-per-gpu={hpc_parameters['cpus_per_gpu']}" if 'cpus_per_gpu' in hpc_parameters else ""
+        gpus = f"--gpus={hpc_parameters['gpus']}" if 'gpus' in hpc_parameters else ""
+        '''mem_per_gpu = f"--mem-per-gpu={hpc_parameters['mem_per_gpu']}" if 'mem_per_gpu' in hpc_parameters else ""
+        mem_per_cpu = f"--mem-per-cpu={hpc_parameters['mem_per_cpu']}" if 'mem_per_cpu' in hpc_parameters else ""'''
+        priority = f"--priority={hpc_parameters['priority']}" if 'priority' in hpc_parameters else ""
+        #threads_per_core = f"--threads-per-core={hpc_parameters['threads_per_core']}" if 'threads_per_core' in hpc_parameters else ""
+        time = f"--time={hpc_parameters['time']}" if 'time' in hpc_parameters else ""#TODO hablar lo del PENDING
+        '''time_min = f"--time-min={hpc_parameters['time_min']}" if 'time_min' in hpc_parameters else ""
+        tmp = f"--tmp={hpc_parameters['tmp']}" if 'tmp' in hpc_parameters else ""'''
+        process_parameters = ""
+        for key, value in script_params['process_parameters'].items():
+            process_parameters += f"{key}={value},"
+        process_parameters = process_parameters[:-1] #remove last comma
         cmd = (
-                f"ssh {self.SSH_OPTIONS} {self.username}@{self.host} 'cd {self.remote_workspace} " +
-                f"&& sbatch {cpus_per_task} {cpus_per_gpu} {gpus} {mem_per_gpu} {mem_per_cpu} {priority} " +
-                f"{threads_per_core} {time} {time_min} {tmp} --export=ALL,{process_params} --chdir={self.remote_workspace} " +
+                f"ssh {self.SSH_OPTIONS} {self.username}@{self.host} \"cd {self.remote_workspace} " +
+                f"&& sbatch {ntasks} {cpus_per_task} {cpus_per_gpu} {gpus} {priority} " +
+                f"{time} --export=ALL,{process_parameters} --chdir={self.remote_workspace} " +
                 f"--open-mode=append --error={self.remote_workspace}/{os.path.basename(self.logs_dict['submit_stderr'])} " +
                 f"--output={self.remote_workspace}/{os.path.basename(self.logs_dict['submit_stdout'])} " +
-                f"{script_file}" + " | awk 'NF{print $NF; exit}'")
+                f"{script_file}\"" + " | awk 'NF{print $NF; exit}'")
 
         print(repr(cmd))
         popen_pipe = os.popen(cmd)
@@ -78,10 +80,13 @@ class RemoteSlurmClient(RemoteSSHClient):
         cmd = f"ssh {self.SSH_OPTIONS} {self.username}@{self.host} 'sacct -n -X --jobs={pid} --format=state'"
         popen_pipe = os.popen(cmd)
         job_state = popen_pipe.readline().strip()
-        exit_status = self.JOB_STATES_DICT[job_state]
-        print(f"Job State: {job_state}")
-        print(f"Exit Status: {exit_status}")
-        return exit_status
+        if job_state != '':
+            exit_status = self.JOB_STATES_DICT[job_state]
+            print(f"Job State: {job_state}")
+            print(f"Exit Status: {exit_status}")
+            return exit_status
+        else:
+            return "running"
 
     def kill_process(self, pid):
         """
@@ -107,7 +112,6 @@ class JobExecutorWithSlurm(JobExecutorWithSSH):
 
     def submit(self, process):
         params = process["inputs"]["parameters"]
+        print(params)
         return self.loop.run_until_complete(
-            self.remote_client.run_client(params["scripts"][0]["remote_name"],
-                                          {"process_params": params["script_params"],
-                                           "resources_params": params["hpc_params"]}))
+            self.remote_client.run_client(params["scripts"][0]["remote_name"], params["script_params"]))

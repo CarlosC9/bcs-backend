@@ -7,8 +7,6 @@ import asyncssh
 from .. import get_global_configuration_variable
 from ..jobs import JobExecutorAtResource
 
-SSH_OPTIONS = "-o StrictHostKeyChecking=no"
-
 
 class CustomSSHClient(asyncssh.SSHClient):
 
@@ -32,6 +30,7 @@ class RemoteSSHClient:
         self.sftp = None
         self.conn = None
         self.last_job_remotely = None
+        self.SSH_OPTIONS = "-o StrictHostKeyChecking=no"
 
     async def connect(self):
         """
@@ -67,7 +66,7 @@ class RemoteSSHClient:
         @param script_params: Parameters of the script
         @return: pid: PID of the executed script process
         """
-        cmd = (f"ssh {SSH_OPTIONS} {self.username}@{self.host} 'cd {self.remote_workspace} && chmod +x {script_file} " +
+        cmd = (f"ssh {self.SSH_OPTIONS} {self.username}@{self.host} 'cd {self.remote_workspace} && chmod +x {script_file} " +
                f"&& (nohup ./{script_file} {script_params} " +
                f">/{self.remote_workspace}/{os.path.basename(self.logs_dict['submit_stdout'])} " +
                f"</dev/null 2>/{self.remote_workspace}/{os.path.basename(self.logs_dict['submit_stderr'])}" +
@@ -102,7 +101,7 @@ class RemoteSSHClient:
         @return: String defining satus of the pid. "running", "ok" and "" for error.
         """
         if await self.exists_remotely(f"{self.remote_workspace}/{pid}.exit_status"):
-            cmd = f"ssh {SSH_OPTIONS} {self.username}@{self.host} 'cat {self.remote_workspace}/{pid}.exit_status'"
+            cmd = f"ssh {self.SSH_OPTIONS} {self.username}@{self.host} 'cat {self.remote_workspace}/{pid}.exit_status'"
             popen_pipe = os.popen(cmd)
             exit_status = popen_pipe.readline().strip()
             if exit_status.strip() == "0":
@@ -164,7 +163,7 @@ class RemoteSSHClient:
             create_remote_dir_cmd = f"--rsync-path='mkdir -p {remote_dir} & rsync'"
         else:
             create_remote_dir_cmd = ""
-        cmd = (f"(nohup bash -c \"rsync {SSH_OPTIONS} {create_remote_dir_cmd} {local_path} " +
+        cmd = (f"(nohup bash -c \"rsync {self.SSH_OPTIONS} {create_remote_dir_cmd} {local_path} " +
                f"{self.username}@{self.host}:{remote_path}\" >>{self.logs_dict['upload_stdout']} " +
                f"</dev/null 2>>{self.logs_dict['upload_stderr']} & echo $!; wait $!; echo $? >> " +
                f"{self.local_workspace}/$!.exit_status)")
@@ -185,7 +184,7 @@ class RemoteSSHClient:
         if self.sftp is not None:
             remote_file = os.path.join(self.remote_workspace, remote_file)
             if await self.sftp.isfile(remote_file):
-                cmd = (f"(nohup scp {SSH_OPTIONS} {self.username}@{self.host}:{remote_file} {local_file} " +
+                cmd = (f"(nohup scp {self.SSH_OPTIONS} {self.username}@{self.host}:{remote_file} {local_file} " +
                        f">>{self.logs_dict['download_stdout']} </dev/null 2>>{self.logs_dict['download_stderr']} " +
                        f"& echo $!; wait $!; echo $? >> {self.local_workspace}/$!.exit_status)")
 

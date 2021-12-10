@@ -3,7 +3,6 @@ import os
 from abc import ABC
 from typing import Dict
 
-from .slurm_ssh_resource import JobExecutorWithSlurm
 from ..tasks import celery_app
 from .. import get_global_configuration_variable
 
@@ -180,7 +179,7 @@ class JobExecutorAtResourceFactory:
             tmp.connect()
             return tmp
         elif job_executor_type.lower() == "slurm":
-            from biobarcoding.jobs.ssh_resource import JobExecutorWithSSH
+            from .slurm_ssh_resource import JobExecutorWithSlurm
             tmp = JobExecutorWithSlurm(str(kwargs["job_id"]) + "_" + str(kwargs["identity_id"]))
             tmp.set_resource(resource_param)
             tmp.connect()
