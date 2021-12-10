@@ -469,6 +469,8 @@ tm_processes = {  # Preloaded processes
     "c87f58b6-cb06-4d39-a0b3-72c2705c5ae1": "PAUP Parsimony",
     "3e0240e8-b978-48a2-8fdd-9f31f4264064": "Phylogenetic Diversity Analyzer",
     "903a73a9-5a4e-4cec-b8fa-4fc9bd5ffab5": "MAFFT",
+    "ea647c4e-2063-4246-bd9a-42f6a57fb9ea": "Mr Bayes",
+    "985c01ca-d9d2-4df5-a8b9-8a6da251d7d4": "BLAST",
     "c55280d0-f916-4401-a1a4-bb26d8179fd7": "MSA ClustalW + PAUP Parsimony",
     "ce018826-7b20-4b70-b9b3-168c0ba46eec": "PAUP Parsimony + Phylogenetic Diversity Analyzer",
     "5b315dc5-ad12-4214-bb6a-bf013f0e4b8c": "MSA ClustalW + PAUP Parsimony + Phylogenetic Diversity Analyzer",
@@ -498,9 +500,6 @@ tm_browser_filter_forms = [
     (bio_object_type_id["phylogenetic-tree"], "8b62f4aa-d32a-4841-89f5-9ed50da44121"),
 ]
 
-# 5c4ba6db-e7f2-4d5c-a89a-76059ac116b1
-# ea647c4e-2063-4246-bd9a-42f6a57fb9ea
-# 985c01ca-d9d2-4df5-a8b9-8a6da251d7d4
 # f167eac0-2a23-4e74-bb1c-abdfb5f74a92
 # 4cfcd389-ed9e-4174-aa99-150f176e8eec
 # caaca280-2290-4625-b5c0-76bcfb06e9ac
