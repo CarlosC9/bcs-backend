@@ -19,10 +19,16 @@ class SSHPdaProcessAdaptor(SSHProcessAdaptor):
                 "file": os.path.join(self.ASSETS_FOLDER, "pda_assets", "heuristic_phylogeny.newick"),
                 "subprocess": "Phylogenetic Diversity Analyzer",
                 "type": "newick"
+            },
+            {
+                "remote_name": "area.txt",
+                "file": os.path.join(self.ASSETS_FOLDER, "pda_assets", "area.txt"),
+                "subprocess": "Phylogenetic Diversity Analyzer",
+                "type": "txt"
             }
         ]
 
-    def get_script_params_string(self, process_parameters):
+    def parse_script_params(self, process_parameters):
         pda_parameters = process_parameters["Phylogenetic Diversity Analyzer"]
         params_str = ""
         params_str += "-endem " if pda_parameters['endem'] else params_str
