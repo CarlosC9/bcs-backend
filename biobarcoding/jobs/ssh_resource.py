@@ -5,7 +5,7 @@ from shutil import rmtree
 
 import asyncssh
 
-from .ssh_process_adaptors import SCRIPT_FILES_KEY, SCRIPT_KEY, SCRIPT_PARAMS_KEY
+from .ssh_process_adaptors import SSHProcessAdaptor
 from .. import get_global_configuration_variable
 from ..jobs import JobExecutorAtResource
 
@@ -414,7 +414,8 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         params = process["inputs"]["parameters"]
         return self.loop.run_until_complete(
             # TODO params[SCRIPT_KEY][0]["remote_name"]?
-            self.remote_client.run_client(params[SCRIPT_KEY][0], params[SCRIPT_PARAMS_KEY]))
+            self.remote_client.run_client(params[SSHProcessAdaptor.SCRIPT_KEY][0],
+                                          params[SSHProcessAdaptor.SCRIPT_PARAMS_KEY]))
 
     def step_status(self, job_context):
         pid = job_context["pid"]
@@ -444,7 +445,7 @@ class JobExecutorWithSSH(JobExecutorAtResource):
     def get_upload_files_list(self, job_context):
         # TODO : check if script files appear duplicated in the resulting list
         return list(job_context["process"]["inputs"]["data"]) + \
-               list(job_context["process"]["inputs"]["parameters"][SCRIPT_FILES_KEY]) + \
+               list(job_context["process"]["inputs"]["parameters"][SSHProcessAdaptor.SCRIPT_FILES_KEY]) + \
                list(job_context["process"]["inputs"]["parameters"].get("scripts", []))
 
     def get_download_files_list(self, job_context):

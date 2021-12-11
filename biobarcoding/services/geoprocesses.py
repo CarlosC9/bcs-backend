@@ -20,7 +20,7 @@ from ..db_models.core import CProcessInstance, CProcess, PortInProcessInstance, 
     CaseStudy, CaseStudy2FunctionalObject
 from ..db_models.jobs import ComputeResource, JobManagementType, Process, Job
 from ..jobs import JobManagementAPI
-from ..jobs.ssh_process_adaptors import SCRIPT_KEY, SCRIPT_PARAMS_KEY, SCRIPT_FILES_KEY
+from ..jobs.ssh_process_adaptors import SSHProcessAdaptor
 from ..rest import Issue, IType, logger
 from ..services.files import put_file_contents
 
@@ -101,9 +101,9 @@ def submit_geoprocess_instances(session, geoprocess_instances):
         d.process.name = f"geoprocess {params.geoprocess}"
         d.process.inputs = DottedDict()
         d.process.inputs.parameters = DottedDict()
-        d.process.inputs.parameters[SCRIPT_KEY] = ["geoprocess"]
-        d.process.inputs.parameters[SCRIPT_FILES_KEY] = []
-        d.process.inputs.parameters[SCRIPT_PARAMS_KEY] = "execute ."
+        d.process.inputs.parameters[SSHProcessAdaptor.SCRIPT_KEY] = ["geoprocess"]
+        d.process.inputs.parameters[SSHProcessAdaptor.SCRIPT_FILES_KEY] = []
+        d.process.inputs.parameters[SSHProcessAdaptor.SCRIPT_PARAMS_KEY] = "execute ."
         d.process.callbacks = DottedDict()
         d.process.callbacks.endpoint = f"/geo/processes/instances/{instance.id}"
         d.process.callbacks.success_status = "success"
