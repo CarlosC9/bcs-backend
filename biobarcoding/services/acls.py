@@ -14,13 +14,19 @@ def create_acls(**kwargs):
                 kwargs['object_type'] = DBSession.query(FunctionalObject.obj_type_id) \
                     .filter(FunctionalObject.uuid == kwargs.get('object_uuid')).first()
         elif kwargs.get('object_type'):
-            if not kwargs.get('chado_id'):
-                raise Exception('Missing the chado_id')
-            kwargs['object_uuid'] = DBSession.query(FunctionalObject) \
-                .filter(FunctionalObject.native_id == kwargs.pop('chado_id'),
-                        FunctionalObject.obj_type_id == kwargs.get('object_type')).one().uuid
+            if not kwargs.get('native_id') and not kwargs.get('chado_id'):
+                raise Exception('Missing native_id')
+            id_ = kwargs.pop('chado_id') if 'chado_id' in kwargs else kwargs.pop('native_id')
+            # Find the object "uuid"
+            try:
+                _ = DBSession.query(FunctionalObject).get(id_)
+                kwargs['object_uuid'] = _.uuid
+            except:
+                kwargs['object_uuid'] = DBSession.query(FunctionalObject) \
+                    .filter(FunctionalObject.native_id == id_,
+                            FunctionalObject.obj_type_id == kwargs.get('object_type')).one().uuid
         else:
-            raise Exception('Missing the object_uuid or the chado_id with object_type')
+            raise Exception('Missing the object_uuid or the native_id with object_type')
         details = kwargs.pop('details') if 'details' in kwargs else None
         acl = ACL(**kwargs)
         DBSession.add(acl)
@@ -39,13 +45,20 @@ def read_acls(id_=None, uuid=None, **kwargs):
     content, count = None, 0
     try:
         qparams = kwargs['values'] if kwargs.get('values') else kwargs
-        # IDs: id, uuid, object_uuid, chado_id + object_type
-        if qparams.get('chado_id') and not id_ and not uuid and not qparams.get('object_uuid'):
+        # IDs: id, uuid, object_uuid, native_id + object_type
+        if (qparams.get('native_id') or qparams.get('chado_id')) and \
+                not id_ and not uuid and not qparams.get('object_uuid'):
             if not qparams.get('object_type'):
                 raise Exception('Missing the object_type')
-            qparams['object_uuid'] = DBSession.query(FunctionalObject) \
-                .filter(FunctionalObject.native_id == qparams.pop('chado_id'),
-                        FunctionalObject.obj_type_id == qparams.get('object_type')).one().uuid
+            id__ = qparams.pop('chado_id') if 'chado_id' in qparams else qparams.pop('native_id')
+            try:
+                _ = DBSession.query(FunctionalObject).get(id__)
+                qparams['object_uuid'] = _.uuid
+            except:
+                qparams['object_uuid'] = DBSession.query(FunctionalObject) \
+                    .filter(FunctionalObject.native_id == id__,
+                            FunctionalObject.obj_type_id == kwargs.get('object_type')).one().uuid
+
         content, count = get_query(DBSession, ACL, id=id_, uuid=uuid, **kwargs)
 
         if id_ or uuid or qparams.get('object_uuid'):
@@ -70,9 +83,9 @@ def update_acls(id_=None, uuid=None, **kwargs):
     content = None
     try:
         details = kwargs.pop('details')
-        content = get_simple_query(DBSession, ACL, id=id_, uuid=uuid)
-        if kwargs:
-            content.update(kwargs)
+        content = get_simple_query(DBSession, ACL, id=id_)
+        # if kwargs:
+        #     content.update(kwargs)
         content = content.one()
         if isinstance(details, (list, tuple)):
             # Removing missing details

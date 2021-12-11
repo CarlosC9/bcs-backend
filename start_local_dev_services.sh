@@ -1,19 +1,19 @@
 #!/bin/bash
 
-# NOTE 1
+# NOTE 1 - VPN
 # In case of needing connection to Balder, be sure to be at ITC or connected to ITC's VPN
 #
-# NOTE 2
+# NOTE 2 - Restart Docker and Network if containers cannot be accessed
 # If Docker containers do not respond after a laptop suspend (workaround):
 # sudo systemctl restart NetworkManager docker.service
 #
-# NOTE 3
+# NOTE 3 - Container data
 # To remove PostgreSQL, PostGIS, Geoserver volumes:
 # sudo rm /home/rnebot/DATOS/pg_devel -fr
 # sudo rm /home/rnebot/DATOS/geoserver/pg -fr
 # sudo rm /home/rnebot/DATOS/geoserver/geoserver/ -fr
 #
-# NOTE 4
+# NOTE 4 - Geoserver
 # (automated below -search "chown" in this file-)
 # Before executing Geoserver "docker run" (below in the file), create data directory, for instance "/home/rnebot/DATOS/geoserver/geoserver"
 # and assign user 1000 as owner:
@@ -21,6 +21,12 @@
 # mkdir /home/rnebot/DATOS/geoserver/geoserver
 # chown 1000 /home/rnebot/DATOS/geoserver/geoserver
 #
+# NOTE 5 - Geoserver
+# IMPORTANT: the REST endpoint of GeoServer does not work properly (authenticates but does not authorize).
+# To disable authorization, move the filter directory:
+#
+# mv /home/rnebot/DATOS/geoserver/geoserver/security/filter/restInterceptor /home/rnebot/DATOS/geoserver/geoserver/security/restInterceptor.configs
+
 
 # REDIS
 if [ ! "$(docker ps -q -f name=redis)" ] ; then
@@ -195,11 +201,6 @@ elif [ "$(whoami)" == "carlos" ] ; then
     geoserver_started=$(docker ps -q -f name=geoserver)
 fi
 
-
-# IMPORTANT: the REST endpoint of GeoServer does not work properly (authenticates but does not authorize).
-# To disable authorization, move the filter directory
-# /home/rnebot/DATOS/geoserver/geoserver/security/filter/restInterceptor to another directory (for instance to
-# /home/rnebot/DATOS/geoserver/geoserver/security/restInterceptor.configs)
 if [ ! $geoserver_started ] ; then
   echo Starting Geoserver
   if [ "$(whoami)" == "rnebot" ] ; then

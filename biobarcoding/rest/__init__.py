@@ -321,14 +321,17 @@ tm_object_types = [  # ObjectType
 
 tm_permissions_fields = ["uuid", "name", "rank"]
 tm_permissions = [  # PermissionType
+    ("5ac8ed2c-20d7-4905-9184-f584947719dd", "view", 1),
     ("f19ad19f-0a74-44e8-bd4e-4762404a35aa", "read", 1),
-    ("04cac7ca-a90b-4d12-a966-d8b0c77fca70", "annotate", 2),
-    ("d0924822-32fa-4456-8143-0fd48da33fd7", "contribute", 2),
-    ("83d837ab-01b2-4260-821b-8c4a3c52e9ab", "share", 2),
-    ("91a5b4a7-3359-4eed-98df-497c42d0c3c1", "execute", 2),
-    ("fb1bdaec-3379-4930-b3f8-fea67d0783b7", "modify", 3),
-    ("62885891-db3c-4a06-bc28-a407ffdb08a4", "change-permissions", 4),
-    ("d3137471-84a0-4bcf-8dd8-16387ea46a30", "delete", 5)
+    ("feb13f20-4223-4602-a195-a3ea14615982", "export", 2),
+    ("04cac7ca-a90b-4d12-a966-d8b0c77fca70", "annotate", 3),
+    ("d0924822-32fa-4456-8143-0fd48da33fd7", "contribute", 3),
+    ("83d837ab-01b2-4260-821b-8c4a3c52e9ab", "share", 3),
+    ("91a5b4a7-3359-4eed-98df-497c42d0c3c1", "execute", 3),
+    ("640de355-f58e-4446-a12a-2a99f2cfb2eb", "import", 4),  # Modify data of existing object
+    ("fb1bdaec-3379-4930-b3f8-fea67d0783b7", "edit", 4),
+    ("62885891-db3c-4a06-bc28-a407ffdb08a4", "permissions", 5),
+    ("d3137471-84a0-4bcf-8dd8-16387ea46a30", "delete", 6)
 ]
 
 tm_default_users = {  # Identities
@@ -588,9 +591,6 @@ tm_code_list_sources = [
 ]
 
 #
-# feb13f20-4223-4602-a195-a3ea14615982
-# 5ac8ed2c-20d7-4905-9184-f584947719dd
-# 640de355-f58e-4446-a12a-2a99f2cfb2eb
 # a31b2a73-d2b2-4d50-a64c-8d6d86559a02
 # 7ece7ead-4de9-436f-a12d-86350129e444
 # 071a22e8-1d90-4900-936a-0466880480d4
@@ -622,7 +622,7 @@ def initialize_database_data():
     load_table(DBSession, Authenticator, tm_authenticators)
     load_table_extended(DBSession, ObjectType, tm_object_type_fields, tm_object_types)
     load_table(DBSession, SystemFunction, tm_system_functions)
-    load_table_extended(DBSession, PermissionType, tm_permissions_fields, tm_permissions)
+    load_table_extended(DBSession, PermissionType, tm_permissions_fields, tm_permissions, update=True)
     load_table(DBSession, JobStatus, tm_job_statuses)
     load_table(DBSession, JobManagementType, tm_job_mgmt_types)
     load_table(DBSession, Process, tm_processes)
@@ -729,7 +729,14 @@ def initialize_database_data():
                              ["phylogenetic-tree", "annotate"],
                              ["phylogenetic-tree", "delete"],
                              ["process", "read"],
-                             ["process", "execute"]])
+                             ["process", "execute"],
+                             ["geolayer", "view"],
+                             ["geolayer", "read"],
+                             ["geolayer", "export"],
+                             ["geolayer", "edit"],
+                             ["geolayer", "delete"],
+                             ["geolayer", "permissions"],
+                             ])
 
 
 def initialize_database(flask_app):

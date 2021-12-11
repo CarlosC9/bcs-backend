@@ -148,7 +148,7 @@ def _json_serial(obj):
         return int(obj)
     elif isinstance(obj, pandas.DataFrame):
         return obj.to_dict("records")
-    elif getattr(obj, "Schema"):
+    elif hasattr(obj, "Schema"):
         return getattr(obj, "Schema")().dump(obj)  # "marshmallow"
     raise TypeError(f"Type {type(obj)} not serializable")
 

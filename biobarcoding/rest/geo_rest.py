@@ -775,6 +775,8 @@ class LayersAPI(MethodView):
                         categories = sorted(list([int(x) for x in uniq]))
                     else:
                         categories = sorted(list(uniq))
+                    # CATEGORY values must be strings (the SLD generation assumes this)
+                    categories = [str(x) for x in categories]
                     # Find appropriate static style or create a dynamic one
                     if set(uniq).issubset(impact_levels_semaphore) or len(uniq) < 6:
                         colormap = "__semaforo_impactos"
@@ -1073,8 +1075,6 @@ class LayersAPI(MethodView):
         for i, c in enumerate(df.columns):
             if self._exclude(c):
                 continue
-            if lower_columns:
-                c = c.lower()
 
             # Skip empty columns
             if sum(df[c].notna()) == 0:
@@ -1112,7 +1112,8 @@ class LayersAPI(MethodView):
                     con.execute(f'ALTER TABLE {layer_name} ADD PRIMARY KEY ({idx_column});')
             else:
                 # All columns to lower case
-                df.columns = [c.lower() for c in df.columns]
+                if lower_columns:
+                    df.columns = [c.lower() for c in df.columns]
                 if has_geom_column:
                     # Write to PostGIS
                     df.to_postgis(layer_name, postgis_engine, if_exists="replace")
@@ -1385,7 +1386,7 @@ def get_fixed_style(name):
                 if palette_type == "continuous":
                     intervals.append((i["left"], i["right"]))
                 else:
-                    intervals.append(i["value"])
+                    intervals.append(str(i["value"]))  # CATEGORY read as String
     return colors, intervals
 
 

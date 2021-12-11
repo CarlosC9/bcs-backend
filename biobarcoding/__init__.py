@@ -51,4 +51,4 @@ def get_global_configuration_variable(key: str, default=None) -> str:
     return global_configuration.get(key.lower(), default)
 
 
-app_acronym = "bcs"  # Application Short acronym (internal use)
+app_acronym = "ngd"  # Application Short acronym (internal use)

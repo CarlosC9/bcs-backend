@@ -148,7 +148,7 @@ def create_or_update_entity(session, clazz, attributes: List[str], t: Union[List
     return entity
 
 
-def load_table_extended(sf, clazz, attributes: List[str], values: List[Tuple]):
+def load_table_extended(sf, clazz, attributes: List[str], values: List[Tuple], update=False):
     """
     Insert records into a relational table
     Loads records in "values" using "attributes" names, into a relational table associated to the class "clazz",
@@ -159,11 +159,12 @@ def load_table_extended(sf, clazz, attributes: List[str], values: List[Tuple]):
     :param sf:
     :param clazz:
     :param attributes: a list of attribute names
+    :param update: True if update of attributes is wanted
     :return:
     """
     session = sf()
     for t in values:
-        create_or_update_entity(session, clazz, attributes, t)
+        create_or_update_entity(session, clazz, attributes, t, update=update)
     session.commit()
     sf.remove()
 
