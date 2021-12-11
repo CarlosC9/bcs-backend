@@ -163,7 +163,7 @@ class JobExecutorAtResourceFactory:
         k = (job_executor_name, resource_param["name"])
         job_id = job_context.get("job_id")
         if k not in self.execs:
-            self.execs[k] = JobExecutorAtResourceFactory._create(job_executor_name,
+            self.execs[k] = JobExecutorAtResourceFactory._create(job_executor_type,
                                                                  resource_param,
                                                                  create_local_workspace=create_local_workspace,
                                                                  job_id=job_id,
@@ -183,3 +183,10 @@ class JobExecutorAtResourceFactory:
             tmp.set_resource(resource_param)
             tmp.connect(create_local_workspace)
             return tmp
+        elif job_executor_type.lower() == "slurm":
+            from .slurm_ssh_resource import JobExecutorWithSlurm
+            tmp = JobExecutorWithSlurm(str(kwargs["job_id"]) + "_" + str(kwargs["identity_id"]))
+            tmp.set_resource(resource_param)
+            tmp.connect()
+            return tmp
+

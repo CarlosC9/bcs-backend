@@ -1,0 +1,172 @@
+[
+  {
+    "key": "Mr Bayes",
+    "wrappers": ["subprocess-wrapper"],
+    "templateOptions": { "label": "Mr Bayes" },
+    "fieldGroup": [
+      {
+        "key": "alignment_selector",
+        "type": "alignment-selector",
+        "validators": {
+          "validation": [
+            "alignment-selector"
+          ]
+        },
+        "templateOptions": {
+          "filename": "aln",
+          "label": "Alignment Selector",
+          "extension": "nexus",
+          "required": true,
+          "changeExpr": "this.changeTaxons($event, field)"
+        }
+      },
+      {
+        "key": "taxons_select",
+        "type": "select",
+        "templateOptions": {
+            "options": [],
+            "label": "Taxons Selector"
+        },
+        "expressionProperties": {
+          "templateOptions.required": "model.alignment_selector"
+        },
+        "hideExpression": "!model.alignment_selector"
+      },
+      {
+          "key": "start_phylotree",
+          "type": "checkbox",
+          "templateOptions": {
+            "label": "Start with a given Phylogenetic Tree?",
+            "required": true
+          },
+          "defaultValue": false
+      },
+      {
+        "key": "phylotree_selector",
+        "type": "phylotree-selector",
+        "validators": {
+          "validation": [
+            "phylotree-selector"
+          ]
+        },
+        "templateOptions": {
+          "filename": "start_phylotree",
+          "label": "Phylogenetic Tree Selector",
+          "extension": "nexus"
+        },
+        "expressionProperties": {
+          "templateOptions.required": "model.start_phylotree==true"
+        },
+        "hideExpression": "model.start_phylotree==false"
+      },
+      {
+        "key": "nst",
+        "type": "select",
+        "templateOptions": {
+          "label": "Number of substitution types",
+          "required": true,
+          "options": [
+            {
+              "value": "1",
+              "label": "1"
+            },
+            {
+              "value": "2",
+              "label": "2"
+            },
+            {
+              "value": "6",
+              "label": "6"
+            },
+            {
+              "value": "mixed",
+              "label": "mixed"
+            }
+          ]
+        },
+        "defaultValue": "6"
+      },
+      {
+        "key": "rates",
+        "type": "select",
+        "templateOptions": {
+          "label": "Among-site rate variation model",
+          "required": true,
+          "options": [
+            {
+              "value": "equal",
+              "label": "equal"
+            },
+            {
+              "value": "gamma",
+              "label": "gamma"
+            },
+            {
+              "value": "lnorm",
+              "label": "lnorm"
+            },
+            {
+              "value": "adgamma",
+              "label": "adgamma"
+            },
+            {
+              "value": "propinv",
+              "label": "propinv"
+            },
+            {
+              "value": "invgamma",
+              "label": "invgamma"
+            },
+            {
+              "value": "kmixture",
+              "label": "kmixture"
+            }
+          ]
+        },
+        "defaultValue": "invgamma"
+      },
+      {
+        "key": "ngen",
+        "type": "input",
+        "templateOptions": {
+          "label": "Number of generations",
+          "required": true,
+          "type": "number"
+        },
+        "defaultValue": "1000000"
+      },
+      {
+        "key": "nchains",
+        "type": "input",
+        "templateOptions": {
+          "label": "Number of chains",
+          "required": true,
+          "type": "number"
+        },
+        "defaultValue": "4"
+      },
+      {
+        "key": "samplefreq",
+        "type": "input",
+        "templateOptions": {
+          "label": "Sample frequency",
+          "required": true,
+          "type": "number"
+        },
+        "defaultValue": "500"
+      },
+      {
+        "key": "burninfrac",
+        "type": "input",
+        "templateOptions": {
+          "label": "Burnin Fraction",
+          "required": true,
+          "type": "number",
+          "min": 0,
+          "max": 1
+        },
+        "defaultValue": "0.25"
+      }
+    ]
+  }
+]

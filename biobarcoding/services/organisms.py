@@ -1,7 +1,7 @@
-from ..db_models import DBSessionChado as chado_session
+from ..db_models import DBSession as db_session, DBSessionChado as chado_session
 from ..db_models.chado import Organism
 from ..rest import Issue, IType, filter_parse
-from . import get_query
+from . import get_query, orm2json
 
 
 def create(**kwargs):
@@ -20,14 +20,38 @@ def create(**kwargs):
     return issues, content, status
 
 
-def read(id = None, **kwargs):
+def __force_underscored(str: str):
+    replacable = " ,.-"
+    # replacable = "".join(set(c for c in str if not c.isalnum()))
+    return str.translate({ord(i): "_" for i in replacable})
+
+
+def __append_canonical(*orgs):
+    from biobarcoding.services.species_names import get_canonical_species_names
+    res = []
+    for org in orgs:
+        new = orm2json(org)
+        new['name'] = org.genus + ' ' + org.species
+        new['canonical_name'] = get_canonical_species_names(db_session,
+                                                     [new['name']])[0] \
+                         or new['name']
+        new['canonical_underscored_name'] = get_canonical_species_names(db_session,
+                                                     [new['name']],
+                                                     underscores=True)[0] \
+                         or __force_underscored(new['name'])
+        res.append(new)
+    return res
+
+
+def read(id=None, **kwargs):
     content, count = None, 0
     try:
         content, count = __get_query(id, **kwargs)
         if id:
-            content = content.first()
+            content = __append_canonical(content.first())
         else:
-            content = content.all()
+            content = __append_canonical(*content.all())
+        # TODO?: append name, canonical_name, canonical_name_underscored
         issues, status = [Issue(IType.INFO, f'READ organisms: The organisms were successfully read.')], 200
     except Exception as e:
         print(e)

@@ -390,7 +390,8 @@ tm_job_statuses = {
 tm_job_mgmt_types = {
     "38fb34f7-a952-4036-9b0b-4d6c59e8f8d4": "galaxy",
     "0292821a-dd33-450a-bdd8-813b2b95c456": "ssh",
-    "fc1fb247-6b76-420c-9c48-f69f154cbe1d": "ebi"
+    "02f44e54-f139-4ea0-a1bf-fe27054c0d6c": "slurm",
+    "fc1fb247-6b76-420c-9c48-f69f154cbe1d": "ebi",
 }
 
 tm_processes = {  # Preloaded processes
@@ -399,6 +400,9 @@ tm_processes = {  # Preloaded processes
     "ec40143f-ae32-4dac-9cfb-caa047e1adb1": "ClustalW-PhyMl",
     "c87f58b6-cb06-4d39-a0b3-72c2705c5ae1": "PAUP Parsimony",
     "3e0240e8-b978-48a2-8fdd-9f31f4264064": "Phylogenetic Diversity Analyzer",
+    "903a73a9-5a4e-4cec-b8fa-4fc9bd5ffab5": "MAFFT",
+    "ea647c4e-2063-4246-bd9a-42f6a57fb9ea": "Mr Bayes",
+    "985c01ca-d9d2-4df5-a8b9-8a6da251d7d4": "BLAST",
     "c55280d0-f916-4401-a1a4-bb26d8179fd7": "MSA ClustalW + PAUP Parsimony",
     "ce018826-7b20-4b70-b9b3-168c0ba46eec": "PAUP Parsimony + Phylogenetic Diversity Analyzer",
     "5b315dc5-ad12-4214-bb6a-bf013f0e4b8c": "MSA ClustalW + PAUP Parsimony + Phylogenetic Diversity Analyzer",

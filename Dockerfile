@@ -60,6 +60,9 @@ RUN apt-get update && \
     gcc \
     git \
     curl \
+    vim \
+    openssh-client \
+    rsync \
     build-essential \
     libpq-dev \
 	libcurl4-openssl-dev \
@@ -68,17 +71,17 @@ RUN apt-get update && \
 	libxml2-dev \
 	libxslt-dev \
 	zlib1g-dev \
-    perl \
-    libdbi-perl \
-    libgo-perl \
-    libv-perl \
-    cpanminus \
     libparse-recdescent-perl \
-    bioperl \
     wget \
     unzip \
     libgnutls28-dev \
     libgdal-dev \
+    perl \
+    libdbi-perl \
+    libgo-perl \
+    libv-perl \
+    bioperl \
+    cpanminus \
 	&& apt-get clean
 
 # COMMON

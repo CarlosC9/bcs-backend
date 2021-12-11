@@ -28,7 +28,7 @@ class SSHPaupParsimony_PdaProcessAdaptor(SSHProcessAdaptor):
                    "type": "txt"
                }]
 
-    def get_script_params_string(self, process_parameters):
+    def parse_script_params(self, process_parameters):
         return f"{self.paupParsimonyAdaptor.get_script_params_string(process_parameters)} " + \
                f"{self.pdaAdaptor.get_script_params_string(process_parameters)}"
 

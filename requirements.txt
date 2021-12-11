@@ -59,8 +59,6 @@ pytest==6.2.2
 selenium==3.141.0
 google_auth_oauthlib==0.4.2
 flower==0.9.7
-biopython==1.78
-chado==2.3.4
 #cachier==1.2.2
 #tablib <- dictmapper (convert nested dict's to CSV)
 # some installations for :

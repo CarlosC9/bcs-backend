@@ -3,13 +3,13 @@ import os
 
 from ..process_adaptor import ProcessAdaptor
 
-SCRIPT_KEY = "scripts"
-SCRIPT_FILES_KEY = "scripts_files"
-SCRIPT_PARAMS_KEY = "script_params"
-RESULTS_KEY = "results"
-
 
 class SSHProcessAdaptor(ProcessAdaptor, abc.ABC):
+    SCRIPT_KEY = "scripts"
+    SCRIPT_FILES_KEY = "scripts_files"
+    SCRIPT_PARAMS_KEY = "script_params"
+    RESULTS_KEY = "results"
+
     '''The methods of the subinterfaces are all private'''
 
     ASSETS_FOLDER = os.path.join(os.path.dirname(os.path.abspath(__file__)),
@@ -21,12 +21,12 @@ class SSHProcessAdaptor(ProcessAdaptor, abc.ABC):
         process_parameters = job_context["process"]["inputs"]["parameters"]
         print(process_parameters)
         new_process_parameters = {
-            SCRIPT_KEY: self.get_script_filenames(),
-            SCRIPT_FILES_KEY: self.get_script_files_list(),
-            SCRIPT_PARAMS_KEY: self.get_script_params_string(process_parameters),
+            self.SCRIPT_KEY: self.get_script_filenames(),
+            self.SCRIPT_FILES_KEY: self.get_script_files_list(),
+            self.SCRIPT_PARAMS_KEY: self.parse_script_params(process_parameters),
         }
         job_context["process"]["inputs"]["parameters"] = new_process_parameters
-        job_context[RESULTS_KEY] = self.get_results_files_list(process_parameters)
+        job_context[self.RESULTS_KEY] = self.get_results_files_list(process_parameters)
         return job_context
 
     @abc.abstractmethod
@@ -38,7 +38,7 @@ class SSHProcessAdaptor(ProcessAdaptor, abc.ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def get_script_params_string(self, process_parameters):
+    def parse_script_params(self, process_parameters):
         raise NotImplementedError
 
     @abc.abstractmethod

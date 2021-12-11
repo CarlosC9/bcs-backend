@@ -38,10 +38,10 @@ class SSHClustal_PaupParsimony_PdaProcessAdaptor(SSHProcessAdaptor):
                        "type": "python"
                    }]
 
-    def get_script_params_string(self, process_parameters):
-        return f"{self.clustalAdaptor.get_script_params_string(process_parameters)} " + \
-               f"{self.paupParsimonyAdaptor.get_script_params_string(process_parameters)} " + \
-               f"{self.pdaAdaptor.get_script_params_string(process_parameters)}"
+    def parse_script_params(self, process_parameters):
+        return f"{self.clustalAdaptor.parse_script_params(process_parameters)} " + \
+               f"{self.paupParsimonyAdaptor.parse_script_params(process_parameters)} " + \
+               f"{self.pdaAdaptor.parse_script_params(process_parameters)}"
 
     def get_results_files_list(self, process_parameters):
         return self.clustalAdaptor.get_results_files_list(process_parameters) + \
