@@ -105,7 +105,7 @@ if [ ! "$postgres_started" ] ; then
   if [ "$(hostname)" == "balder" ] ; then
     docker run --name postgres_devel -d -p 7433:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v ${NGD_BALDER_BASE}/volumes/chado_pg/data:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
     docker run --name postgres_devel_2 -d -p 7432:5432 --rm -e POSTGRES_PASSWORD=postgres -e PGDATA=/var/lib/postgresql/data/ -v ${NGD_BALDER_BASE}/volumes/app_pg/data:/var/lib/postgresql/data postgres:13.0-alpine
-    init_chado "$(dirname $0)"
+#    init_chado "$(dirname $0)"
   elif [ "$(whoami)" == "rnebot" ] ; then
 #    ssh rnebot@balder docker run --name postgres_devel_rnebot -d -p 8132:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v /home/rnebot/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
     docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v /home/rnebot/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
@@ -194,27 +194,27 @@ fi
 
 if [ "$(hostname)" == "balder" ] ; then
   if [ ! -d "${NGD_BALDER_BASE}/volumes/geoserver" ]; then
-    mkdir ${NGD_BALDER_BASE}/volumes/geoserver/ && sudo chown 1000 ${NGD_BALDER_BASE}/volumes/geoserver
+    mkdir ${NGD_BALDER_BASE}/volumes/geoserver/; sudo chown 1000 ${NGD_BALDER_BASE}/volumes/geoserver
   fi
 elif [ "$(whoami)" == "rnebot" ] ; then
   if [ ! -d "/home/rnebot/DATOS/geoserver/geoserver" ]; then
-    mkdir /home/rnebot/DATOS/geoserver/geoserver/ && sudo chown 1000 /home/rnebot/DATOS/geoserver/geoserver
+    mkdir /home/rnebot/DATOS/geoserver/geoserver/; sudo chown 1000 /home/rnebot/DATOS/geoserver/geoserver
   fi
 elif [ "$(whoami)" == "acurbelo" ] ; then
   if [ ! -d "/var/lib/nextgendem/geoserver/geoserver" ]; then
-    mkdir /var/lib/nextgendem/geoserver/geoserver && sudo chown 1000 /var/lib/nextgendem/geoserver/geoserver
+    mkdir /var/lib/nextgendem/geoserver/geoserver; sudo chown 1000 /var/lib/nextgendem/geoserver/geoserver
   fi
 elif [ "$(whoami)" == "paula" ] ; then
    if [ ! -d "/home/paula/DATOS/geoserver/geoserver" ]; then
-    mkdir /home/paula/DATOS/geoserver/geoserver && sudo chown 1000 /home/paula/DATOS/geoserver/geoserver
+    mkdir /home/paula/DATOS/geoserver/geoserver; sudo chown 1000 /home/paula/DATOS/geoserver/geoserver
    fi
 elif [ "$(whoami)" == "daniel" ] ; then
   if [ ! -d "/home/daniel/Documentos/DATOS/geoserver/geoserver" ]; then
-    mkdir /home/daniel/Documentos/DATOS/geoserver/geoserver && sudo chown 1000 /home/daniel/Documentos/DATOS/geoserver/geoserver
+    mkdir /home/daniel/Documentos/DATOS/geoserver/geoserver; sudo chown 1000 /home/daniel/Documentos/DATOS/geoserver/geoserver
   fi
 elif [ "$(whoami)" == "carlos" ] ; then
   if [ ! -d "/home/carlos/DATOS/bcs/geoserver" ]; then
-    mkdir /home/carlos/DATOS/bcs/geoserver && sudo chown 1000 /home/carlos/DATOS/bcs/geoserver
+    mkdir /home/carlos/DATOS/bcs/geoserver; sudo chown 1000 /home/carlos/DATOS/bcs/geoserver
   fi
 fi
 
@@ -264,14 +264,12 @@ if [ "$(hostname)" == "balder" ] ; then
   # --rm
   balder_started=$(docker ps -q -f name="^ngd_backend$")
   if [ ! "$balder_started" ] ; then
-    # TODO: rewrite the dirty work
     echo Starting Backend
-    docker run --name ngd_backend -p 443:443 -p 80:80 --rm \
+    docker run --name ngd_backend -p 80:80 --rm \
         --link postgres_devel_2:app_db --link postgres_devel:chado_db --link postgis:postgis \
         --link redis:redis --link geoserver:geoserver \
         -v ${NGD_BALDER_BASE}/private-conf/bcs_balder_dev.conf:/root/.local/share/ngd-backend/ngd_local.conf \
         -v ${NGD_BALDER_BASE}/private-conf/firebase-key.json:/root/.local/share/ngd-backend/firebase-key.json \
-        -v ${NGD_BALDER_BASE}/private-conf/firebase-key.json:/root/.local/share/bcs-backend/firebase-key.json \
         -v ${NGD_BALDER_BASE}/private-conf/resources.json:/root/.local/share/ngd-backend/resources.json \
         -v ${NGD_BALDER_BASE}/private-conf/.ssh/:/root/.ssh/ \
         -d nextgendem-mac/ngd-bcs-backend:latest
