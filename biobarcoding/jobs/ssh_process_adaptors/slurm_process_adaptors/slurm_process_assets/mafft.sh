@@ -6,9 +6,7 @@ export MAFFT_MPIRUN="mpirun -n $n -N $cpus_per_task -bind-to none --oversubscrib
 
 if [[ $algorithm = "--6merpair" ]]
 then
-  echo "srun mafft --mpi --large $algorithm --retree $retree $parttree --maxiterate $maxiterate $input_filename > $output_filename" > test.txt
   srun mafft --mpi --large $algorithm --retree $retree $parttree --maxiterate $maxiterate $input_filename > $output_filename
 else
-  echo "srun mafft --mpi --large $algorithm --maxiterate $maxiterate $input_filename > $output_filename" > test.txt
   srun mafft --mpi --large $algorithm --maxiterate $maxiterate $input_filename > $output_filename
 fi

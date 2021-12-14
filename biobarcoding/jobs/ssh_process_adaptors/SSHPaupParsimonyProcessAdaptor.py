@@ -55,11 +55,11 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
         parameters = process_parameters["PAUP Parsimony"]
         files = []
         if parameters.get("method") == "bootstrap":
-            consensus_tree_filename = "bootstrap_consensus.tre"
+            consensus_tree_filename = "bootstrap_consensus.nexus"
             files = [
                 {
-                    "remote_name": f"bootstrap_replicas.tre",
-                    "file": f"bootstrap_replicas.tre",
+                    "remote_name": f"bootstrap_replicas.nexus",
+                    "file": f"bootstrap_replicas.nexus",
                     "subprocess": "PAUP Parsimony",
                     "object_type": {"bos": "phylotrees"},
                     "content_type": "text/x-nexus",
@@ -67,11 +67,11 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
                 },
             ]
         elif parameters.get("method") == "jackknife":
-            consensus_tree_filename = "jackknife_consensus.tre"
+            consensus_tree_filename = "jackknife_consensus.nexus"
             files = [
                 {
-                    "remote_name": f"jackknife_replicas.tre",
-                    "file": f"jackknife_replicas.tre",
+                    "remote_name": f"jackknife_replicas.nexus",
+                    "file": f"jackknife_replicas.nexus",
                     "subprocess": "PAUP Parsimony",
                     "object_type": {"bos": "phylotrees"},
                     "content_type": "text/x-nexus",
@@ -79,7 +79,7 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
                 },
             ]
         elif parameters.get("method") == "simple":
-            consensus_tree_filename = "hsearch_consensus.tre"
+            consensus_tree_filename = "hsearch_consensus.nexus"
         return files + [
             {
                 "remote_name": consensus_tree_filename,
@@ -88,12 +88,6 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
                 "object_type": {"bos": "phylotrees"},
                 "content_type": "text/x-nexus",
                 "type": "nexus"
-            },
-            {
-                "remote_name": consensus_tree_filename,
-                "file": "tree.nexus",
-                "object_type": {"bos": "tree"},
-                "content_type": "text/xxnexus",
             },
             {
                 "remote_name": f"cladogram.txt",
@@ -116,7 +110,7 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
                 "file": "ngd_paup_parsimony.txt",
                 "subprocess": "PAUP Parsimony",
                 "object_type": {"bos": "phylotrees"},
-                "content_type": "text/x-nhx",
+                "content_type": "text/plain",
                 "type": "txt"
             },
             {
@@ -124,7 +118,7 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
                 "file": "sets_and_assumptions.txt",
                 "subprocess": "PAUP Parsimony",
                 "object_type": {"bos": "phylotrees"},
-                "content_type": "text/x-nhx",
+                "content_type": "text/plain",
                 "type": "txt"
             },
         ]

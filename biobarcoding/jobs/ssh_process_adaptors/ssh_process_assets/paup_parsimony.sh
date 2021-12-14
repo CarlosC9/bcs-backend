@@ -32,6 +32,9 @@ then
   check_error $?
   paup ngd_paup_parsimony.txt
   check_error $?
+  for f in *.tre; do
+    mv -- "$f" "${f%.tre}.nexus"
+  done
 else
   echo "Something went wrong with the arguments." >&2
   exit 1

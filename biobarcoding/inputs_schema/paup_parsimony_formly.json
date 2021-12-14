@@ -4,12 +4,32 @@
     "wrappers": ["subprocess-wrapper"],
     "templateOptions": { "label": "PAUP Parsimony" },
     "fieldGroup": [
+       {
+        "key": "alignment_selector",
+        "type": "alignment-selector",
+        "validators": {
+          "validation": [
+            "alignment-selector"
+          ]
+        },
+        "templateOptions": {
+          "filename": "aln",
+          "label": "Alignment Selector",
+          "extension": "nexus",
+          "required": true,
+          "changeExpr": "this.changeTaxons($event, field)"
+        }
+      },
       {
       "key": "taxset",
       "type": "taxset-field",
       "templateOptions": {
-          "taxons": ["Cyperus_laevigatus_laevigatus","Phoenix_canariensis","Consolida_regalis_regalis","Aaronsohnia_pubescens_maroccana","fkHelianthemuminaguae"]
-        }
+          "taxons": []
+        },
+        "expressionProperties": {
+          "templateOptions.required": "model.alignment_selector"
+        },
+        "hideExpression": "!model.alignment_selector"
       },
       {
         "key": "outRoot",

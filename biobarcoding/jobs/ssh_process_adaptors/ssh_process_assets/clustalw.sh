@@ -25,3 +25,4 @@ else
 fi
 
 check_error $?
+mv input_dataset.dnd input_dataset.newick

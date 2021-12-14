@@ -52,28 +52,28 @@ class SlurmMrBayesProcessAdaptor(SlurmProcessAdaptor):
     def get_results_files_list(self, process_parameters):
         return [
             {
-                "remote_name": f"{self.OUTPUT_FILENAME_WITHOUT_EXTENSION}.t",
-                "file": f"{self.OUTPUT_FILENAME_WITHOUT_EXTENSION}.t",
+                "remote_name": f"{self.OUTPUT_FILENAME_WITHOUT_EXTENSION}_phylotrees.nexus",
+                "file": f"{self.OUTPUT_FILENAME_WITHOUT_EXTENSION}_phylotrees.nexus",
                 "subprocess": "Mr Bayes",
                 "object_type": {"bos": "phylotrees"},
                 "content_type": "text/x-nexus",
                 "type": "nexus"
             },
             {
-                "remote_name": f"{self.OUTPUT_FILENAME_WITHOUT_EXTENSION}.p",
-                "file": f"{self.OUTPUT_FILENAME_WITHOUT_EXTENSION}.p",
+                "remote_name": f"{self.OUTPUT_FILENAME_WITHOUT_EXTENSION}_substitution_model_parameters.tsv",
+                "file": f"{self.OUTPUT_FILENAME_WITHOUT_EXTENSION}_substitution_model_parameters.tsv",
                 "subprocess": "Mr Bayes",
-                "object_type": {"bos": "mrbayes_samples"},
-                "content_type": "text/x-nexus",
-                "type": "nexus"
+                "object_type": {"bos": "mrbayes_substitution_model_parameters"},
+                "content_type": "text/tab-separated-values",
+                "type": "tsv"
             },
             {
-                "remote_name": f"{self.OUTPUT_FILENAME_WITHOUT_EXTENSION}.mcmc",
-                "file": f"{self.OUTPUT_FILENAME_WITHOUT_EXTENSION}.mcmc",
+                "remote_name": f"{self.OUTPUT_FILENAME_WITHOUT_EXTENSION}_convergence_diagnostics.tsv",
+                "file": f"{self.OUTPUT_FILENAME_WITHOUT_EXTENSION}_convergence_diagnostics.tsv",
                 "subprocess": "Mr Bayes",
-                "object_type": {"bos": "mrbayes_diagnostics"},
-                "content_type": "text/x-nexus",
-                "type": "nexus"
+                "object_type": {"bos": "mrbayes_convergence_diagnostics"},
+                "content_type": "text/tab-separated-values",
+                "type": "tsv"
             }
 
         ]
