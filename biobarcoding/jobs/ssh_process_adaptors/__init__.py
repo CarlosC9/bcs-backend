@@ -18,14 +18,14 @@ class SSHProcessAdaptor(ProcessAdaptor, abc.ABC):
                                      "converters")
 
     def adapt_job_context(self, job_context):
-        process_parameters = job_context["process"]["inputs"]["parameters"]
+        process_parameters = job_context["process"]["inputs"]["parameters"]["script_params"]
         print(process_parameters)
         new_process_parameters = {
             self.SCRIPT_KEY: self.get_script_filenames(),
             self.SCRIPT_FILES_KEY: self.get_script_files_list(),
             self.SCRIPT_PARAMS_KEY: self.parse_script_params(process_parameters),
         }
-        job_context["process"]["inputs"]["parameters"] = new_process_parameters
+        job_context["process"]["inputs"]["adapted_parameters"] = new_process_parameters
         job_context[self.RESULTS_KEY] = self.get_results_files_list(process_parameters)
         return job_context
 

@@ -25,6 +25,6 @@ class SlurmProcessAdaptor(SSHProcessAdaptor, abc.ABC):
                 "hpc_parameters": hpc_parameters},
             self.HPC_PARAMETERS_KEY: hpc_parameters
         }
-        job_context["process"]["inputs"]["parameters"] = new_process_parameters
+        job_context["process"]["inputs"]["adapted_parameters"] = new_process_parameters
         job_context[self.RESULTS_KEY] = self.get_results_files_list(script_parameters)
         return job_context
