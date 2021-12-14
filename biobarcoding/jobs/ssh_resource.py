@@ -9,9 +9,6 @@ from .ssh_process_adaptors import SSHProcessAdaptor
 from .. import get_global_configuration_variable
 from ..jobs import JobExecutorAtResource
 
-SSH_OPTIONS = "-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
-RSYNC_OPTIONS = f"-e 'ssh {SSH_OPTIONS}'"
-
 class CustomSSHClient(asyncssh.SSHClient):
 
     def validate_host_public_key(self, host, addr, port, key):
@@ -20,6 +17,8 @@ class CustomSSHClient(asyncssh.SSHClient):
 
 
 class RemoteSSHClient:
+    SSH_OPTIONS = "-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
+    RSYNC_OPTIONS = f"-e 'ssh {SSH_OPTIONS}'"
     """Client to interact with a remote host via SSH & SCP."""
 
     def __init__(self, host, port, username, known_hosts_filepath, remote_workspace, local_workspace, logs_dict):
@@ -35,10 +34,8 @@ class RemoteSSHClient:
         self.sftp = None
         self.conn = None
         self.last_job_remotely = None
-        # TODO
-        #  self.SSH_OPTIONS = "-o StrictHostKeyChecking=no"
 
-    async def connect(self, create_local_workspace):
+    async def connect(self):
         """
         Open connection to remote host.
         @return: RemoteSSHClient connected instance
@@ -81,7 +78,7 @@ class RemoteSSHClient:
         #   {script_file} -> ./{script_file}
         # cmd = (f"ssh {self.SSH_OPTIONS} {self.username}@{self.host} 'cd {self.remote_workspace} && chmod +x {script_file} " +
         #       f"&& (nohup ./{script_file} {script_params} " +        
-        cmd = (f"ssh {SSH_OPTIONS} -p {self.port} {self.username}@{self.host} 'cd {self.remote_workspace} && export PATH=.:$PATH && chmod +x {script_file} &> /dev/null " +
+        cmd = (f"ssh {self.SSH_OPTIONS} -p {self.port} {self.username}@{self.host} 'cd {self.remote_workspace} && export PATH=.:$PATH && chmod +x {script_file} &> /dev/null " +
                f"; (nohup {script_file} {script_params} " +
                f">/{self.remote_workspace}/{os.path.basename(self.logs_dict['submit_stdout'])} " +
                f"</dev/null 2>/{self.remote_workspace}/{os.path.basename(self.logs_dict['submit_stderr'])}" +
@@ -116,8 +113,7 @@ class RemoteSSHClient:
         @return: String defining satus of the pid. "running", "ok" and "" for error.
         """
         if await self.exists_remotely(f"{self.remote_workspace}/{pid}.exit_status"):
-            # TODO self.SSH_OPTIONS ?
-            cmd = f"ssh {SSH_OPTIONS} -p {self.port} {self.username}@{self.host} 'cat {self.remote_workspace}/{pid}.exit_status'"
+            cmd = f"ssh {self.SSH_OPTIONS} -p {self.port} {self.username}@{self.host} 'cat {self.remote_workspace}/{pid}.exit_status'"
             popen_pipe = os.popen(cmd)
             exit_status = popen_pipe.readline().strip()
             if exit_status.strip() == "0":
@@ -159,7 +155,7 @@ class RemoteSSHClient:
         """
         if pid is not None and pid != "":
             if self.last_job_remotely:
-                os.system(f"ssh {SSH_OPTIONS} -p {self.port} {self.username}@{self.host} 'kill -9 {pid}'")
+                os.system(f"ssh {self.SSH_OPTIONS} -p {self.port} {self.username}@{self.host} 'kill -9 {pid}'")
             else:
                 os.system(f"kill -9 {pid}")
         else:
@@ -179,12 +175,11 @@ class RemoteSSHClient:
             create_remote_dir_cmd = f"--rsync-path='mkdir -p {remote_dir} & rsync'"
         else:
             create_remote_dir_cmd = ""
-        # TODO {self.SSH_OPTIONS}
         if self.port != 22:
-            e = f"-e 'ssh {SSH_OPTIONS} -p {self.port}'"
+            e = f"-e 'ssh {self.SSH_OPTIONS} -p {self.port}'"
         else:
             e = ""
-        cmd = (f"(nohup bash -c \"rsync {RSYNC_OPTIONS} {e} {create_remote_dir_cmd} {local_path} " +
+        cmd = (f"(nohup bash -c \"rsync {self.RSYNC_OPTIONS} {e} {create_remote_dir_cmd} {local_path} " +
                f"{self.username}@{self.host}:{remote_path}\" >>{self.logs_dict['upload_stdout']} " +
                f"</dev/null 2>>{self.logs_dict['upload_stderr']} & echo $!; wait $!; echo $? >> " +
                f"{self.local_workspace}/$!.exit_status)")
@@ -205,8 +200,7 @@ class RemoteSSHClient:
         if self.sftp is not None:
             remote_file = os.path.join(self.remote_workspace, remote_file)
             if await self.sftp.isfile(remote_file):
-                # TODO self.SSH_OPTIONS
-                cmd = (f"(nohup scp -P {self.port} {SSH_OPTIONS} {self.username}@{self.host}:{remote_file} {local_file} " +
+                cmd = (f"(nohup scp -P {self.port} {self.SSH_OPTIONS} {self.username}@{self.host}:{remote_file} {local_file} " +
                        f">>{self.logs_dict['download_stdout']} </dev/null 2>>{self.logs_dict['download_stderr']} " +
                        f"& echo $!; wait $!; echo $? >> {self.local_workspace}/$!.exit_status)")
 
@@ -334,11 +328,11 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         else:
             return True
 
-    def connect(self, create_local_workspace=True):
+    def connect(self):
         self.remote_client = RemoteSSHClient(self.host, self.port, self.username,
                                              self.known_hosts_filepath, self.remote_workspace,
                                              self.local_workspace, self.log_filenames_dict)
-        self.loop.run_until_complete(self.remote_client.connect(create_local_workspace))
+        self.loop.run_until_complete(self.remote_client.connect())
         return self.remote_client
 
     def disconnect(self):
@@ -351,7 +345,7 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         self.loop.run_until_complete(self.remote_client.make_directory(self.remote_workspace))
 
     def job_workspace_exists(self):
-        cmd = f"ssh {SSH_OPTIONS} -p {self.port} -G {self.host}" + " | awk 'FNR == 2 {print $2}'"
+        cmd = f"ssh {self.remote_client.SSH_OPTIONS} -p {self.port} -G {self.host}" + " | awk 'FNR == 2 {print $2}'"
         popen_pipe = os.popen(cmd)
         host_ip = popen_pipe.readline().rstrip()
         if host_ip == "127.0.0.1":
@@ -360,7 +354,7 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         return _
 
     def remove_job_workspace(self):
-        cmd = f"ssh {SSH_OPTIONS} -p {self.port} -G {self.host}" + " | awk 'FNR == 2 {print $2}'"
+        cmd = f"ssh {self.remote_client.SSH_OPTIONS} -p {self.port} -G {self.host}" + " | awk 'FNR == 2 {print $2}'"
         popen_pipe = os.popen(cmd)
         host_ip = popen_pipe.readline().rstrip()
         if host_ip == "127.0.0.1":
@@ -411,10 +405,9 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         return self.loop.run_until_complete(self.remote_client.download_file(remote_path, local_path))
 
     def submit(self, process):
-        params = process["inputs"]["parameters"]
+        params = process["inputs"]["adapted_parameters"]
         return self.loop.run_until_complete(
-            # TODO params[SCRIPT_KEY][0]["remote_name"]?
-            self.remote_client.run_client(params[SSHProcessAdaptor.SCRIPT_KEY][0],
+            self.remote_client.run_client(params[SSHProcessAdaptor.SCRIPT_KEY][0]["remote_name"],
                                           params[SSHProcessAdaptor.SCRIPT_PARAMS_KEY]))
 
     def step_status(self, job_context):
@@ -445,8 +438,8 @@ class JobExecutorWithSSH(JobExecutorAtResource):
     def get_upload_files_list(self, job_context):
         # TODO : check if script files appear duplicated in the resulting list
         return list(job_context["process"]["inputs"]["data"]) + \
-               list(job_context["process"]["inputs"]["parameters"][SSHProcessAdaptor.SCRIPT_FILES_KEY]) + \
-               list(job_context["process"]["inputs"]["parameters"].get("scripts", []))
+               list(job_context["process"]["inputs"]["adapted_parameters"][SSHProcessAdaptor.SCRIPT_FILES_KEY]) + \
+               list(job_context["process"]["inputs"]["adapted_parameters"].get("scripts", []))
 
     def get_download_files_list(self, job_context):
         return job_context["results"]

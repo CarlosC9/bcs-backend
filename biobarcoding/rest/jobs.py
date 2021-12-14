@@ -185,6 +185,7 @@ class JobAPI(MethodView):
         # RESOURCE
         d.resource = DottedDict()
         d.resource.name = resource.name
+        d.identity_id = identity_id
         d.resource.jm_type = resource.jm_type.name
         d.resource.jm_location = resource.jm_location
         d.resource.jm_credentials = resource.jm_credentials if "credentials" not in in_dict else in_dict.credentials

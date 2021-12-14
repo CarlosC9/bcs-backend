@@ -104,14 +104,8 @@ class RemoteSlurmClient(RemoteSSHClient):
 class JobExecutorWithSlurm(JobExecutorWithSSH):
 
     def connect(self):
-        self.remote_client = RemoteSlurmClient(self.host, self.username,
+        self.remote_client = RemoteSlurmClient(self.host, self.port, self.username,
                                                self.known_hosts_filepath, self.remote_workspace,
                                                self.local_workspace, self.log_filenames_dict)
         self.loop.run_until_complete(self.remote_client.connect())
         return self.remote_client
-
-    def submit(self, process):
-        params = process["inputs"]["parameters"]
-        print(params)
-        return self.loop.run_until_complete(
-            self.remote_client.run_client(params["scripts"][0]["remote_name"], params["script_params"]))

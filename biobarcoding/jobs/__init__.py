@@ -1,5 +1,6 @@
 import abc
 import os
+import pathlib
 from abc import ABC
 from typing import Dict
 
@@ -68,7 +69,7 @@ class JobExecutorAtResource(ABC):
             identity_job_id)
         if create_local_workspace:
             if not os.path.exists(self.local_workspace):
-                os.mkdir(self.local_workspace, parents=True)
+                pathlib.Path(self.local_workspace).mkdir(parents=True)
 
         self.log_filenames_dict = {}
         for k, v in self.LOG_FILENAMES_DICT.items():
@@ -84,7 +85,7 @@ class JobExecutorAtResource(ABC):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def connect(self, create_local_workspace=True):
+    def connect(self):
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -163,7 +164,7 @@ class JobExecutorAtResourceFactory:
         k = (job_executor_name, resource_param["name"])
         job_id = job_context.get("job_id")
         if k not in self.execs:
-            self.execs[k] = JobExecutorAtResourceFactory._create(job_executor_type,
+            self.execs[k] = JobExecutorAtResourceFactory._create(job_executor_name,
                                                                  resource_param,
                                                                  create_local_workspace=create_local_workspace,
                                                                  job_id=job_id,
@@ -181,11 +182,11 @@ class JobExecutorAtResourceFactory:
             from ..jobs.ssh_resource import JobExecutorWithSSH
             tmp = JobExecutorWithSSH(str(kwargs["job_id"]) + "_" + str(kwargs["identity_id"]), create_local_workspace)
             tmp.set_resource(resource_param)
-            tmp.connect(create_local_workspace)
+            tmp.connect()
             return tmp
-        elif job_executor_type.lower() == "slurm":
+        elif job_executor_name.lower() == "slurm":
             from .slurm_ssh_resource import JobExecutorWithSlurm
-            tmp = JobExecutorWithSlurm(str(kwargs["job_id"]) + "_" + str(kwargs["identity_id"]))
+            tmp = JobExecutorWithSlurm(str(kwargs["job_id"]) + "_" + str(kwargs["identity_id"]), create_local_workspace)
             tmp.set_resource(resource_param)
             tmp.connect()
             return tmp
