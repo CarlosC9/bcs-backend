@@ -4,5 +4,5 @@ begin mrbayes;
    $input_tree_cmd
    lset nst=$nst rates=$rates;
    outgroup $taxons_select;
-   mcmc ngen=$ngen nchains=$nchains samplefreq=$samplefreq filename=$filename burninfrac=$burninfrac;
+   mcmc nruns=1 ngen=$ngen nchains=$nchains samplefreq=$samplefreq filename=$filename burninfrac=$burninfrac;
 end;
