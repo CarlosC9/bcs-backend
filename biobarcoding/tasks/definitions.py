@@ -250,15 +250,7 @@ def clean_failed_results(result_files, local_workspace):
 
 
 def remove_local_workspace(local_workspace, result_files=None):
-    print("remove_local_workspace")
     shutil.rmtree(local_workspace)
-    if os.path.exists(local_workspace):
-        os.rmdir(local_workspace)
-        print("rmdir")
-    if os.path.exists(local_workspace) and os.path.isdir(local_workspace):
-        print("why????")
-    if os.path.exists(local_workspace):
-        print("?????")
 
     # result_filenames = [os.path.basename(f["file"]) for f in result_files]
     # for f in os.listdir(local_workspace):
@@ -429,7 +421,7 @@ def wf1_prepare_workspace(job_context):
                                             job_executor.log_filenames_dict["universal_log"])
         return "error", d2s(jc)
     elif job_executor.job_workspace_exists() or job_executor.job_workspace_exists() is None:
-        print("job workspace created")
+        print("Job workspace created")
         # None when the job is executed in localhost
         write_to_file(job_executor.log_filenames_dict["prepare_stdout"], f"Job {jc.job_id} workspace prepared")
         write_to_universal_log_and_truncate(job_executor.log_filenames_dict["prepare_stdout"],
@@ -975,9 +967,6 @@ def wf1_cleanup_workspace(job_context: str):
     print(f"Cleanup state: {state}")
 
     result_files = jc.results
-    print(job_executor.job_workspace_exists())
-
-    print(local_workspace_exists(job_executor.local_workspace, result_files))
 
     if state:  # ya ha empezado el prepare
         n_attempts = state.n_attempts
@@ -1009,9 +998,7 @@ def wf1_cleanup_workspace(job_context: str):
             return d2s(jc)  # Jump to default task (should be "success")
     else:
         # MAIN !!!
-        print("aqui")
         job_executor.remove_job_workspace()
-        print("aqui2")
         remove_local_workspace(job_executor.local_workspace, result_files)
         jc.state_dict = dict(n_attempts=n_attempts + 1)
         return None, d2s(jc)
