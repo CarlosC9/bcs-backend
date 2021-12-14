@@ -28,6 +28,13 @@
 # mv /home/rnebot/DATOS/geoserver/geoserver/security/filter/restInterceptor /home/rnebot/DATOS/geoserver/geoserver/security/restInterceptor.configs
 
 
+if [ "$(hostname)" == "balder" ] ; then
+  export NGD_BALDER_BASE=/mnt/datos/bcs_projects
+  if [ ! -d "${NGD_BALDER_BASE}/volumes/" ]; then
+    mkdir -p ${NGD_BALDER_BASE}/volumes/
+  fi
+fi
+
 # REDIS
 if [ ! "$(docker ps -q -f name=redis)" ] ; then
   echo Starting REDIS
@@ -37,12 +44,17 @@ fi
 # Initialize EDAM ontology, NCBI taxonomy, ...
 function init_chado {
   echo Waiting for PostgreSQL-Chado
-  pg_isready -d postgres -h localhost -p 5432 -U postgres
+  if [ "$(hostname)" == "balder" ] ; then
+    export CHADO_PORT=7433
+  else
+    export CHADO_PORT=5432
+  fi
+  pg_isready -d postgres -h localhost -p "$CHADO_PORT" -U postgres
   while [ $? -ne 0 ]
   do
     echo PostgreSQL-Chado is not ready yet.
     sleep 3
-    pg_isready -d postgres -h localhost -p 5432 -U postgres
+    pg_isready -d postgres -h localhost -p "$CHADO_PORT" -U postgres
   done
   echo Initializing Chado
   cd $1/docker_init
@@ -54,7 +66,11 @@ if [ "$(whoami)" == "rnebot" ] ; then
   export COOKIES_FILE_PATH="/home/rnebot/Downloads/borrame/bcs-cookies.txt"
 fi
 
-if [ "$(whoami)" == "rnebot" ] ; then
+if [ "$(hostname)" == "balder" ] ; then
+  if [ ! -d "${NGD_BALDER_BASE}/volumes/geoserver" ]; then
+    mkdir "${NGD_BALDER_BASE}/volumes/geoserver"
+  fi
+elif [ "$(whoami)" == "rnebot" ] ; then
   if [ ! -d "/home/rnebot/DATOS/geoserver" ]; then
     mkdir /home/rnebot/DATOS/geoserver
   fi
@@ -86,7 +102,11 @@ fi
 
 if [ ! "$postgres_started" ] ; then
   echo Starting PostgreSQL-Chado
-  if [ "$(whoami)" == "rnebot" ] ; then
+  if [ "$(hostname)" == "balder" ] ; then
+    docker run --name postgres_devel -d -p 7433:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v ${NGD_BALDER_BASE}/volumes/chado_pg/data:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
+    docker run --name postgres_devel_2 -d -p 7432:5432 --rm -e POSTGRES_PASSWORD=postgres -e PGDATA=/var/lib/postgresql/data/ -v ${NGD_BALDER_BASE}/volumes/app_pg/data:/var/lib/postgresql/data postgres:13.0-alpine
+    init_chado "$(dirname $0)"
+  elif [ "$(whoami)" == "rnebot" ] ; then
 #    ssh rnebot@balder docker run --name postgres_devel_rnebot -d -p 8132:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v /home/rnebot/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
     docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v /home/rnebot/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
     init_chado "$(dirname $0)"
@@ -106,7 +126,9 @@ fi
 
 # api key = fakekey; user = admin; password = password
 galaxy_started="yes"
-if [ "$(whoami)" == "rnebot" ] ; then
+if [ "$(hostname)" == "balder" ] ; then
+  galaxy_started=$(docker ps -q -f name="^galaxy_devel$")
+elif [ "$(whoami)" == "rnebot" ] ; then
   galaxy_started=$(ssh rnebot@balder docker ps -q -f name=galaxy_devel_rnebot)
 elif [ "$(whoami)" == "acurbelo" ] ; then
 #  galaxy_started=$(ssh acurbelo@balder docker ps -q -f name=galaxy_devel_acurbelo)
@@ -122,7 +144,9 @@ fi
 
 if [ ! "$galaxy_started" ] ; then
   echo Starting Galaxy
-  if [ "$(whoami)" == "rnebot" ] ; then
+  if [ "$(hostname)" == "balder" ] ; then
+    docker run --name galaxy_devel -d -p 8180:80 -p 8121:21 -p 8122:22 --rm -v ${NGD_BALDER_BASE}/volumes/galaxy_storage/:/export  bgruening/galaxy-stable
+  elif [ "$(whoami)" == "rnebot" ] ; then
     ssh rnebot@balder docker run --name galaxy_devel_rnebot -d -p 8180:80 -p 8121:21 -p 8122:22 --rm -v /home/rnebot/DATOS/galaxy_storage/:/export  bgruening/galaxy-stable
   elif [ "$(whoami)" == "acurbelo" ] ; then
 #    ssh acurbelo@balder docker run --name galaxy_devel_acurbelo -d -p 8280:80 -p 8221:21 -p 8222:22 --rm -v /var/lib/nextgendem/galaxy_storage/:/export  bgruening/galaxy-stable
@@ -138,7 +162,9 @@ fi
 
 # postgis
 postgis_started="yes"
-if [ "$(whoami)" == "rnebot" ] ; then
+if [ "$(hostname)" == "balder" ] ; then
+  postgis_started=$(docker ps -q -f name="^postgis$")
+elif [ "$(whoami)" == "rnebot" ] ; then
   postgis_started=$(docker ps -q -f name=postgis)
 elif [ "$(whoami)" == "acurbelo" ] ; then
   postgis_started=$(docker ps -q -f name=postgis)
@@ -148,9 +174,11 @@ elif [ "$(whoami)" == "daniel" ] ; then
   postgis_started=$(docker ps -q -f name=postgis)
 fi
 
-if [ ! $postgis_started ] ; then
+if [ ! "$postgis_started" ] ; then
   echo Starting Postgis
-  if [ "$(whoami)" == "rnebot" ] ; then
+  if [ "$(hostname)" == "balder" ] ; then
+    docker run -d -v ${NGD_BALDER_BASE}/volumes/geoserver_pg:/var/lib/postgresql -p 7434:5432 --rm -e POSTGRES_DBNAME=ngd_geoserver -e POSTGRES_PASS=postgres -e POSTGRES_USER=postgres -e ALLOW_IP_RANGE=0.0.0.0/0 --name postgis -t kartoza/postgis:13.0
+  elif [ "$(whoami)" == "rnebot" ] ; then
     docker run -d -v /home/rnebot/DATOS/geoserver/pg:/var/lib/postgresql -p 5435:5432 --rm -e POSTGRES_DBNAME=ngd_geoserver -e POSTGRES_PASS=postgres -e POSTGRES_USER=postgres -e ALLOW_IP_RANGE=0.0.0.0/0 --name postgis -t kartoza/postgis:13.0
   elif [ "$(whoami)" == "acurbelo" ] ; then
     docker run -d -v /var/lib/nextgendem/geoserver/pg:/var/lib/postgresql -p 5435:5432 --rm -e POSTGRES_DBNAME=ngd_geoserver -e POSTGRES_PASS=postgres -e POSTGRES_USER=postgres -e ALLOW_IP_RANGE=0.0.0.0/0 --name postgis -t kartoza/postgis:13.0
@@ -164,7 +192,11 @@ if [ ! $postgis_started ] ; then
 fi
 
 
-if [ "$(whoami)" == "rnebot" ] ; then
+if [ "$(hostname)" == "balder" ] ; then
+  if [ ! -d "${NGD_BALDER_BASE}/volumes/geoserver" ]; then
+    mkdir ${NGD_BALDER_BASE}/volumes/geoserver/ && sudo chown 1000 ${NGD_BALDER_BASE}/volumes/geoserver
+  fi
+elif [ "$(whoami)" == "rnebot" ] ; then
   if [ ! -d "/home/rnebot/DATOS/geoserver/geoserver" ]; then
     mkdir /home/rnebot/DATOS/geoserver/geoserver/ && sudo chown 1000 /home/rnebot/DATOS/geoserver/geoserver
   fi
@@ -189,7 +221,9 @@ fi
 
 # Geoserver
 geoserver_started="yes"
-if [ "$(whoami)" == "rnebot" ] ; then
+if [ "$(hostname)" == "balder" ] ; then
+    geoserver_started=$(docker ps -q -f name="^geoserver$")
+elif [ "$(whoami)" == "rnebot" ] ; then
     geoserver_started=$(docker ps -q -f name=geoserver)
 elif [ "$(whoami)" == "acurbelo" ] ; then
     geoserver_started=$(docker ps -q -f name=geoserver)
@@ -201,9 +235,11 @@ elif [ "$(whoami)" == "carlos" ] ; then
     geoserver_started=$(docker ps -q -f name=geoserver)
 fi
 
-if [ ! $geoserver_started ] ; then
+if [ ! "$geoserver_started" ] ; then
   echo Starting Geoserver
-  if [ "$(whoami)" == "rnebot" ] ; then
+  if [ "$(hostname)" == "balder" ] ; then
+    docker run --name geoserver --link postgis:postgis -p 8280:8080 --rm -v ${NGD_BALDER_BASE}/volumes/geoserver/:/opt/geoserver/data_dir -d -e DB_BACKEND=POSTGRES -e HOST=postgis -e POSTGRES_PORT=5432 -e POSTGRES_DB=geoserver -e POSTGRES_USER=postgres -e POSTGRES_PASS=postgres -e USERNAME=postgres -e PASS=postgres -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37 -e GEOSERVER_ADMIN_USER=admin kartoza/geoserver:2.19.0
+  elif [ "$(whoami)" == "rnebot" ] ; then
     docker run --name "geoserver"   --link postgis:postgis  -p 9180:8080 --rm -v /home/rnebot/DATOS/geoserver/geoserver/:/opt/geoserver/data_dir  -d  -e DB_BACKEND=POSTGRES  -e HOST=postgis  -e POSTGRES_PORT=5432  -e POSTGRES_DB=geoserver  -e POSTGRES_USER=postgres  -e POSTGRES_PASS=postgres  -e USERNAME=postgres  -e PASS=postgres  -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37   -e GEOSERVER_ADMIN_USER=admin  kartoza/geoserver:2.19.0
   elif [ "$(whoami)" == "acurbelo" ] ; then
     docker run --name "geoserver"  --link postgis:postgis  -p 9180:8080 --rm -v /var/lib/nextgendem/geoserver/geoserver:/opt/geoserver/data_dir  -d  -e DB_BACKEND=POSTGRES  -e HOST=postgis  -e POSTGRES_PORT=5432  -e POSTGRES_DB=geoserver  -e POSTGRES_USER=postgres  -e POSTGRES_PASS=postgres  -e USERNAME=postgres  -e PASS=postgres  -e GEOSERVER_ADMIN_PASSWORD=ngd_ad37   -e GEOSERVER_ADMIN_USER=admin  kartoza/geoserver:2.19.0
@@ -223,5 +259,37 @@ then
   cd ..
 fi
 
-# Worker AND Beat (only for development; NOT for production -use Supervisor and two separate processes-)
-celery -A biobarcoding.tasks worker --beat --loglevel=info
+# BACKEND IMAGE (Backend+Celery) or just Celery (for local development)
+if [ "$(hostname)" == "balder" ] ; then
+  # --rm
+  balder_started=$(docker ps -q -f name="^ngd_backend$")
+  if [ ! "$balder_started" ] ; then
+    # TODO: rewrite the dirty work
+    echo Starting Backend
+    docker run --name ngd_backend -p 443:443 -p 80:80 --rm \
+        --link postgres_devel_2:app_db --link postgres_devel:chado_db --link postgis:postgis \
+        --link redis:redis --link geoserver:geoserver \
+        -v ${NGD_BALDER_BASE}/private-conf/bcs_balder_dev.conf:/root/.local/share/ngd-backend/ngd_local.conf \
+        -v ${NGD_BALDER_BASE}/private-conf/firebase-key.json:/root/.local/share/ngd-backend/firebase-key.json \
+        -v ${NGD_BALDER_BASE}/private-conf/firebase-key.json:/root/.local/share/bcs-backend/firebase-key.json \
+        -v ${NGD_BALDER_BASE}/private-conf/resources.json:/root/.local/share/ngd-backend/resources.json \
+        -v ${NGD_BALDER_BASE}/private-conf/.ssh/:/root/.ssh/ \
+        -d nextgendem-mac/ngd-bcs-backend:latest
+  fi
+else
+  # Celery
+  if [ "$(whoami)" == "rnebot" ] ; then
+    if [ "$#" -gt 0 ] ; then
+      start_celery="yes"
+    else
+      start_celery="no"
+    fi
+  else
+    start_celery="yes"
+  fi
+
+  if [ "$start_celery" == "yes" ] ; then
+    # Worker AND Beat (only for development; NOT for production -use Supervisor and two separate processes-)
+    celery -A biobarcoding.tasks worker --beat --loglevel=info
+  fi
+fi
