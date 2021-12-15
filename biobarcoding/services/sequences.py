@@ -277,68 +277,61 @@ def import_file(input_file, format=None, **kwargs):
 # EXPORT
 ##
 
-def __force_underscored(str: str):
-    replacable = " ,.-"
-    # replacable = "".join(set(c for c in str if not c.isalnum()))
-    return str.translate({ord(i): "_" for i in replacable})
-
-
-def __seqs_header_parser(seqs, format):     # return dict(uniquename, header)
+def __seqs_header_parser(seqs, format: str):     # return dict(uniquename, header)
     # TODO: seqs header parser
     headers = {}
-    if format in ('organismID', 'organism', 'organism_canon', 'organism_canon_underscored'):
-        orgs = chado_session.query(Feature.uniquename, Organism.organism_id, Organism.genus, Organism.species) \
+    if "organism" in format.lower():    # ('organismID', 'organism', 'organism_canon', 'organism_canon_underscored')
+        orgs = chado_session.query(Feature.uniquename, Organism.organism_id, Organism.name) \
             .join(Organism).filter(Feature.uniquename.in_([x.uniquename for x in seqs])).all()
-        from .species_names import get_canonical_species_names
-        underscored = True if format == 'organism_canon_underscored' else False
-        if format == 'organismID':
-            for seqID, orgID, genus, species in orgs:
-                headers[seqID] = orgID
-        else:
-            for seqID, orgID, genus, species in orgs:
-                headers[seqID] = genus + ' ' + species
-                if format in ('organism_canon', 'organism_canon_underscored'):
-                    headers[seqID] = get_canonical_species_names(db_session,
-                                                                 [headers[seqID]],
-                                                                 underscores=underscored)[0] \
-                                or __force_underscored(headers[seqID]) if underscored else headers[seqID]
+        from biobarcoding.services.organisms import get_canonical
+        for seq_id, org_id, name in orgs:
+            if "id" in format.lower():
+                headers[seq_id] = str(org_id)
+            elif "canon" in format.lower():
+                headers[seq_id] = get_canonical(name=name,
+                                                underscores="underscore" in format.lower())
+            else:
+                headers[seq_id] = name
     return headers
 
 
-def __seqs2file(seqs, format='fasta', output_file=f"/tmp/output_ngd", header_format=None, only_headers='False'):
+def __seqs2file(seqs, format='fasta', output_file=f"/tmp/output_ngd", header_format=None):
     headers = __seqs_header_parser(seqs, header_format) if header_format else {}
-    if eval(str(only_headers)):
-        headers = set(headers.values())
-        with open(output_file, "w") as file:
-            for h in headers:
-                file.write("%s\n" % h)
-    else:
-        with open(output_file, "w") as file:
-            for seq in seqs:
-                if format=='fasta':
-                    file.write(f'>{headers[seq.uniquename] if headers else seq.uniquename}\n{seq.residues}\n')
-                else:
-                    file.write(f'>{headers[seq.uniquename] if headers else seq.uniquename}\n{seq.residues}\n')
-        if format in ('nexus'):
-            from Bio import SeqIO
-            res=[]
-            for s in SeqIO.parse(output_file, 'fasta'):
-                s.id = s.description
-                s.annotations['molecule_type'] = 'DNA'
-                res.append(s)
-            SeqIO.write(res, output_file, format=format)
+    from Bio.SeqRecord import SeqRecord
+    from Bio.Seq import Seq
+    records = []
+    for seq in seqs:
+        # TODO: study molecule_type ?, and append taxonomy and features
+        annotations = {'molecule_type': 'DNA',
+                       'organism': chado_session.query(Organism.name)
+                           .filter(Organism.organism_id == seq.organism_id).one()}
+        records.append(SeqRecord(Seq(seq.residues),
+                                 headers.get(seq.uniquename, seq.uniquename),
+                                 seq.uniquename,
+                                 '' if header_format else seq.name,
+                                 annotations=annotations))
+    from Bio import SeqIO
+    SeqIO.write(records, output_file, format=format)
+    if format == "nexus":
+        # format datatype=dna missing=? gap=- matchchar=.;
+        from Bio.Nexus.Nexus import Nexus
+        aln = Nexus(output_file)
+        aln.datatype = 'dna'
+        aln.missing = '?'
+        aln.gap = '-'
+        aln.matchchar = '.'
+        aln.write_nexus_data(output_file)
     return output_file
 
 
-def export(id=None, format='fasta', **kwargs):
+def export(id=None, format='fasta', values={}, **kwargs):
     content = None
     try:
         query, count = __get_query(id, purpose='share', **kwargs)
         content = __seqs2file(query.all(),
                               format=format,
                               output_file=f'/tmp/output_ngd.{format}',
-                              header_format=kwargs.get('values').get('header'),
-                              only_headers=kwargs.get('values').get('only_headers'))
+                              header_format=values.get('header'))
         issues, status = [Issue(IType.INFO, f'EXPORT sequences: {count} sequences were successfully exported.')], 200
     except Exception as e:
         log_exception(e)

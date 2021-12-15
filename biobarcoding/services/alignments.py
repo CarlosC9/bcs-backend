@@ -8,7 +8,8 @@ from ..db_models.chado import Organism, Feature, AnalysisFeature, Analysis
 from ..db_models.bioinformatics import MultipleSequenceAlignment, data_object_type_id
 
 from ..rest import IType, Issue, auth_filter
-from ..services import get_or_create, log_exception, orm2json, get_bioformat
+from ..services import get_or_create, log_exception, get_bioformat
+from ..common import generate_json
 from ..services.analyses import __get_query as get_ansis_query
 from ..services.sequences import __get_query as get_seqs_query, \
     create as create_seq, \
@@ -57,11 +58,11 @@ def read(id=None, **kwargs):
     try:
         content, count = __get_query(id, **kwargs)
         if id:
-            content = orm2json(content.one())
+            content = generate_json(content.one())
             from sqlalchemy.sql.expression import func, distinct
             info = chado_session.query(func.max(func.length(Feature.residues)),
                                        func.count(AnalysisFeature.analysis_id),
-                                       func.array_agg(distinct(Organism.genus + ' ' + Organism.species))) \
+                                       func.array_agg(distinct(Organism.name))) \
                 .select_from(AnalysisFeature).join(Feature).join(Organism) \
                 .filter(AnalysisFeature.analysis_id == content['analysis_id'])\
                 .group_by(AnalysisFeature.analysis_id)
