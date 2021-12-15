@@ -7,23 +7,21 @@ bcs_docker_local.conf
 build/
 dist/
 dump\.rdb
-biobarcoding/rest/*.conf
 celerybeat*
 jc_tests.py
 /tests/data_test/celery_log.txt
 
+biobarcoding/static_gui/*
+biobarcoding/rest/*.conf
 biobarcoding/services/perl_scripts/load_taxonomy.err
-
 biobarcoding/services/perl_scripts/names.dmp
-
 biobarcoding/services/perl_scripts/nodes.dmp
 biobarcoding/services/perl_scripts/taxdump.tar.gz*
-*.err
 
+*.err
 *.dmp
 
 tests/data_test/training_set.json
-
 tests/data_test/download/
 
 cookies.txt

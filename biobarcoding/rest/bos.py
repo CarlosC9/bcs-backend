@@ -52,43 +52,43 @@ class BioObjAPI(MethodView):
         issues, content, status = self.service.delete(id, **kwargs)
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
-    def _import_files(self, format, value={}):
+    def _import_files(self, format, values={}):
         # TODO: allow combinations ?
-        if 'filesAPI' in value:
-            return self._import_filesAPI(format, value)
+        if 'filesAPI' in values:
+            return self._import_filesAPI(format, values)
         if request.files:
-            return self._import_request_files(format, value)
+            return self._import_request_files(format, values)
         return [], None, 200
 
-    def _import_filesAPI(self, format, value={}):
+    def _import_filesAPI(self, format, values={}):
         issues, content = [], []
-        if value.get('filesAPI'):
-            file = value.get('filesAPI')
+        if values.get('filesAPI'):
+            file = values.get('filesAPI')
             from biobarcoding.db_models import DBSession
             from biobarcoding.db_models.files import FileSystemObject
             try:
                 if not os.path.isabs(file):
                     raise Exception('Invalid path')
-                if not value.get('sourceuri'):
-                    value['sourceuri'] = file
+                if not values.get('sourceuri'):
+                    values['sourceuri'] = file
                 file = DBSession.query(FileSystemObject) \
                     .filter(FileSystemObject.full_name == file).first()
                 from werkzeug.utils import secure_filename
                 file_cp = '/tmp/' + secure_filename(file.full_name)
                 with open(file_cp, 'wb') as f:
                     f.write(file.embedded_content)
-                issues, content, status = self.service.import_file(file_cp, format, **value)
+                issues, content, status = self.service.import_file(file_cp, format, **values)
             except Exception as e:
                 print(e)
                 issues += [Issue(IType.ERROR, f'Could not import the file {file}.', file)]
         return issues, content, 207
 
-    def _import_request_files(self, format, value={}):
+    def _import_request_files(self, format, values={}):
         issues, content = [], []
         for key, file in request.files.items(multi=True):
             try:
                 file_cpy = self._make_file(file)
-                i, c, s = self.service.import_file(file_cpy, format, **value)
+                i, c, s = self.service.import_file(file_cpy, format, **values)
             except Exception as e:
                 print(e)
                 i, c = [Issue(IType.ERROR, f'Could not import the file {file}.', file.filename)], {}

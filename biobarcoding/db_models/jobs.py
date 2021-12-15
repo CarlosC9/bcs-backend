@@ -1,27 +1,26 @@
 """
 
-How to manage file Inputs and Outputs NOT in BCS, but in other places
+How to manage file Inputs and Outputs NOT in the App, but in other places
  - INPUTS: upload previously from somewhere.
  - OUTPUTS: commit into system, download it, just delete it.
 
 """
 
 # ALGORITHMS
-import datetime
 import uuid
 
-from sqlalchemy import Integer, Column, String, Text, ForeignKey, JSON, DateTime
+from sqlalchemy import Integer, Column, String, Text, ForeignKey, JSON, Boolean
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship, backref
 
 from . import ORMBase, GUID
 from .sysadmin import Identity
-from sqlalchemy.dialects.postgresql import JSONB
 
 prefix = "jobs_"
 
 
 class AlgorithmType(ORMBase):
-    """ BLAST, MSA, PhylogeneticTree, GeneticDiversity"""
+    """ BLAST, MSA, PhylogeneticTree, GeneticDiversity, Geoprocessing, Forecasting, ... """
     __tablename__ = f"{prefix}algorithm_types"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -60,31 +59,22 @@ class AlgorithmConfiguration(ORMBase):
     algorithm = relationship(Algorithm)
 
 
-# Not used
-class ProcessBrokerTemplate(ORMBase):
-    """
-    A template used to ensure the process is carried out.
-    Steps of the template adapt to the process being executed.
-    """
-    __tablename__ = f"{prefix}process_broker_templates"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True, default=uuid.uuid4)
-    name = Column(String(80))
-
-
 class Process(ORMBase):
-    """ Repeatable processes executed locally or in a compute resource to process bioinformatic information
+    """ Repeatable processes executed locally or in a compute resource to process
+        scientific / technical information
       Computation
+      - Forecasting
+      - Geoprocesses
       - Multiple alignment
       - BLAST
       - Phylogenetic tree
       - Phylogenetic diversity
       Possibly long operations
+      - Import/export geographic layers
       - Import/export sequences
       - Import/export multiple aligment
       - Import/export phylogenetic tree
-      - Prepare complex visualization
+      - Prepare a complex report or visualization
       Maintainance
       - Database clean-up
       - Batch notifications
@@ -128,50 +118,8 @@ class ProcessAlgorithm(ORMBase):
     algorithm = relationship(Algorithm)
 
 
-# Not used
-class ProcessStep(ORMBase):
-    """ To enumerate the steps in a process """
-    __tablename__ = f"{prefix}process_steps"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True, default=uuid.uuid4)
-    name = Column(String(80))
-    process_id = Column(Integer, ForeignKey(Process.id), nullable=False, primary_key=False)
-    process = relationship(Process, backref=backref("steps", cascade="all, delete-orphan"))
-
-
-# Not used
-class ProcessorArchitecture(ORMBase):
-    """ Processor and architecture """
-    __tablename__ = f"{prefix}processor_architectures"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True, default=uuid.uuid4)
-    name = Column(String(80))
-
-
-# Not used
-class OperatingSystem(ORMBase):
-    """ Operating system code """
-    __tablename__ = f"{prefix}operating_systems"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True, default=uuid.uuid4)
-    name = Column(String(80))
-
-
-# Not used
-class ComputingType(ORMBase):
-    """ Computing types: sequential, MPI, OpenMP, GPU, ... """
-    __tablename__ = f"{prefix}computing_types"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True, default=uuid.uuid4)
-    name = Column(String(80))
-
-
 class JobManagementType(ORMBase):
-    """ Manager types: Galaxy, ssh, EBI web service, ... """
+    """ Manager types: ssh, ssh-slurm, Galaxy, EBI web service, ... """
     __tablename__ = f"{prefix}job_mgmt_types"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
@@ -203,17 +151,12 @@ class ComputeResource(ORMBase):
     id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(80))
-    proc_arch_id = Column(Integer, ForeignKey(ProcessorArchitecture.id), nullable=True, primary_key=False)
-    proc_arch = relationship(ProcessorArchitecture)
-    os_id = Column(Integer, ForeignKey(OperatingSystem.id), nullable=True, primary_key=False)
-    operating_system = relationship(OperatingSystem)
     jm_type_id = Column(Integer, ForeignKey(JobManagementType.id), nullable=False, primary_key=False)
     jm_type = relationship(JobManagementType)
     jm_location = Column(JSON, nullable=False)
     jm_credentials = Column(JSON, nullable=False)
     # E.g.: jm_params = {"max_running_jobs": 4}
     #   if set, a Job is contained until the resource has number of running Jobs lower than this param
-    # ALTER TABLE jobs_compute_resources ADD COLUMN jm_params JSONB;
     jm_params = Column(JSONB, nullable=True)
     agreement = Column(JSON)
     consumption_counters = Column(JSON)
@@ -265,20 +208,33 @@ class Job(ORMBase):
     identity_id = Column(Integer, ForeignKey(Identity.id), nullable=False, primary_key=False)
     identity = relationship(Identity, backref=backref("jobs", cascade="all, delete-orphan"))
     inputs = Column(JSON)
+    # JOB STATUS
+    # * Initially it should be "created" (although the submission is to the initial Celery task, currently "prepare")
+    # * inform users (Celery tasks change it to help tracing)
+    # * If user sets the status to "cancelling", Celery tasks (definitions.py) must end themselves and
+    #   return "cancelled" to jump to that task, that after a final cleanup, would change the status from
+    #   "cancelling" to "cancelled".
+    # * Jobs can be hard-deleted when in certain statuses: cancelled, error. If not, soft-deleted (see "deleted" below)
+    #
+    # TASKS ("wf1" in "definitions.py") -> JOB.STATUS (this table) -> JOB_STATUS table (see tm_job_statuses)
+    # * <from POST> -> created -> created
+    # * prepare -> preparing_workspace -> preparing_workspace
+    # * export -> export -> exporting_to_supported_file_formats
+    # * transfer_data -> transfer_data_to_repository -> transferring_data_to_resource
+    # * submit -> submit -> submitting
+    # * wait_until_execution_starts -> wait_until_execution_starts -> waiting_for_execution
+    # * wait_for_execution_end -> wait_for_execution_end -> executing
+    # * transfer_data_from -> transfer_data_from_resource -> transferring_data_from_resource
+    # * store_result_in_backend -> store_result_in_backend -> importing_into_database
+    # * cleanup -> cleanup -> cleaning_up_workspace
+    # * success -> success -> completed_successfully
+    # * error -> error -> completed_error
+    # * <from PUT status> -> cancelling -> cancelling
+    # * cancel -> cancelled *RENOMBRADO* -> cancelled
+    # * ... -> ... -> paused
     status = Column(String(80))
     log = Column(Text)
     outputs = Column(JSON)
-
-
-# Not used
-class JobStatusLog(ORMBase):
-    __tablename__ = f"{prefix}jobs_status_log"
-
-    id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True, default=uuid.uuid4)
-
-    job_id = Column(Integer, ForeignKey(Job.id), nullable=False, primary_key=False)
-    job = relationship(Job)
-    logged_time = Column(DateTime, default=datetime.datetime.utcnow())
-    logged_status_id = Column(Integer, ForeignKey(JobStatus.id), nullable=False, primary_key=False)
-    logged_status = relationship(JobStatus, backref=backref("statuses", cascade="all, delete-orphan"))
+    # To store (and be able to resume) "task" (in definitions.py) and job_context (needed to follow)
+    execution_state = Column(JSONB)
+    deleted = Column(Boolean, default=False)  # True: soft-deleted

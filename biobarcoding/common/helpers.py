@@ -4,12 +4,13 @@ import logging
 import os
 import os.path
 import pickle
-import sys
 import tempfile
 import urllib
 from urllib.parse import urlparse
 
 import jsonpickle
+import sys
+import yaml
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
@@ -38,11 +39,19 @@ def deserialize_to_object(s):
     return tmp_str
 
 
+def obj_to_json(obj):
+    if getattr(obj, "Schema"):
+        # Use "marshmallow"
+        return getattr(obj, "Schema")().dump(obj)
+    else:
+        return f"Cannot JSON serialize. So, {str(obj)}"
+
+
 def is_integer(n):
     """ https://note.nkmk.me/en/python-check-int-float/ """
     try:
         float(n)
-    except ValueError:
+    except (ValueError, TypeError):
         return False
     else:
         return float(n).is_integer()
@@ -198,3 +207,10 @@ def get_module_logger(mod_name,
     logger.addHandler(handler)
     logger.setLevel(level)
     return logger
+
+
+def read_yaml(file_name):
+    with open(file_name, 'r') as file:
+        contents = file.read()
+    d = yaml.load(contents, Loader=yaml.FullLoader)
+    return d

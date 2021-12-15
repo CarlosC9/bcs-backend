@@ -5,7 +5,7 @@ from .ontologies import get_cvterm_query
 from ..db_models import DBSession as db_session
 from ..db_models import DBSessionChado as chado_session
 from ..db_models.chado import Feature, Organism, StockFeature
-from ..db_models.bioinformatics import Sequence, bio_object_type_id
+from ..db_models.bioinformatics import Sequence, data_object_type_id
 
 from ..rest import Issue, IType, filter_parse, auth_filter
 from . import get_orm_params, get_query
@@ -77,8 +77,8 @@ def create(**kwargs):
         stock = __seq_stock(content, **kwargs)
         # seq to bcs
         bcs_seq = get_or_create(db_session, Sequence,   # specimen_id=bcs_specimen.id
-                                chado_id=content.feature_id,
-                                chado_table='feature',
+                                native_id=content.feature_id,
+                                native_table='feature',
                                 name=content.uniquename)
         issues, status = [Issue(IType.INFO, f'CREATE sequences: The sequence "{kwargs.get("uniquename")}" was created successfully.')], 201
     except Exception as e:
@@ -127,7 +127,7 @@ def update(id, **kwargs):
 ##
 
 def __delete_from_bcs(*ids):
-    query = db_session.query(Sequence).filter(Sequence.chado_id.in_(ids))
+    query = db_session.query(Sequence).filter(Sequence.native_id.in_(ids))
     return query.count()
     # TODO: check why all rows are deleted in bcs without filtering
     # return query.delete(synchronize_session='fetch')
@@ -356,8 +356,8 @@ def __get_query(id=None, purpose='read', **kwargs):
         return query, query.count()
     from biobarcoding.db_models.sysadmin import PermissionType
     purpose_id = db_session.query(PermissionType).filter(PermissionType.name==purpose).one().id
-    seq_clause = db_session.query(Sequence.chado_id) \
-        .filter(auth_filter(Sequence, purpose_id, [bio_object_type_id['sequence']]))
+    seq_clause = db_session.query(Sequence.native_id) \
+        .filter(auth_filter(Sequence, purpose_id, [data_object_type_id['sequence']]))
     seq_clause = [i for i, in seq_clause.all()]
     seq_clause = Feature.feature_id.in_(seq_clause)
     query = chado_session.query(Feature).filter(seq_clause)

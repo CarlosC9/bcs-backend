@@ -1,0 +1,141 @@
+- name: _temperatura_maxima
+  intervals:
+    - left: 0.000000001
+      right: 298.05
+      color: "#33ff33"
+    - left: 298.05
+      right: 302.95
+      color: "#ccff33"
+    - left: 302.95
+      right: 307.86
+      color: "#ffff33"
+    - left: 307.86
+      right: 312.76
+      color: "#ffad33"
+    - left: 312.76
+      right: 400
+      color: "#ff3333"
+
+- name: _temperatura_minima
+  intervals:
+    - left: 0.000000001
+      right: 273.54
+      color: "#ff3333"
+    - left: 273.54
+      right: 278.44
+      color: "#ffad33"
+    - left: 278.44
+      right: 283.35
+      color: "#ffff33"
+    - left: 283.35
+      right: 288.25
+      color: "#ccff33"
+    - left: 288.25
+      right: 400
+      color: "#33ff33"
+
+- name: _precipitacion_anual
+  intervals:
+    - left: 0
+      right: 250
+      color: "#33ff33"
+    - left: 250
+      right: 500
+      color: "#ccff33"
+    - left: 500
+      right: 700
+      color: "#ffff33"
+    - left: 700
+      right: 1000
+      color: "#ffad33"
+    - left: 1000
+      right: 10000
+      color: "#ff3333"
+
+- name: _precipitacion_instantanea
+  intervals:
+    - left: 0
+      right: 25
+      color: "#33ff33"
+    - left: 25
+      right: 30
+      color: "#ccff33"
+    - left: 30
+      right: 45
+      color: "#ffff33"
+    - left: 45
+      right: 60
+      color: "#ffad33"
+    - left: 60
+      right: 1000
+      color: "#ff3333"
+
+- name: _pendiente_deslizamiento
+  intervals:
+    - left: 0
+      right: 10
+      color: "#33ff33"
+    - left: 10
+      right: 20
+      color: "#ccff33"
+    - left: 20
+      right: 30
+      color: "#ffff33"
+    - left: 30
+      right: 40
+      color: "#ffad33"
+    - left: 40
+      right: 90
+      color: "#ff3333"
+
+- name: _pendiente_incendios
+  intervals:
+    - left: 0
+      right: 5
+      color: "#33ff33"
+    - left: 5
+      right: 10
+      color: "#ccff33"
+    - left: 10
+      right: 15
+      color: "#ffff33"
+    - left: 15
+      right: 20
+      color: "#ffad33"
+    - left: 20
+      right: 90
+      color: "#ff3333"
+
+- name: _distancia_combustible
+  intervals:
+    - left: 0
+      right: 2
+      color: "#ff3333"
+    - left: 2
+      right: 10
+      color: "#ffad33"
+    - left: 10
+      right: 30
+      color: "#ffff33"
+    - left: 30
+      right: 50
+      color: "#ccff33"
+    - left: 50
+      right: 10000
+      color: "#33ff33"
+
+- name: __semaforo_impactos
+  type: category
+  intervals:
+    - value: 1
+      color: "#63BE7B"
+    - value: 2
+      color: "#B1D47F"
+    - value: 3
+      color: "#FFEB84"
+    - value: 4
+      color: "#FCAA78"
+    - value: 5
+      color: "#F8696B"
+    - value: 0
+      color: "#333333"

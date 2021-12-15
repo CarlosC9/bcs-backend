@@ -1,3 +1,6 @@
+from ..db_models.core import CaseStudy, CProcess
+from ..db_models.hierarchies import HierarchyNode, Hierarchy
+from ..rest import h_subjects_name, h_sources_name, h_crs_name
 from ..db_models import DBSessionChado as chado_session
 from ..services.ontologies import get_cvterm_query as read_cvterms
 
@@ -122,7 +125,7 @@ def __getAnalyses(type):
     return ids
 
 
-def getFilterSchema(type):
+def getFilterSchema(type, session):
     kwargs = {}
     kwargs['types'] = __getTypes(type)
     kwargs['cvterms'] = __getCvterms(type)
@@ -140,5 +143,131 @@ def getFilterSchema(type):
         kwargs['algorithms'] = [dict(t) for t in {tuple(p.items()) for p in kwargs['algorithms']}]
         if type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
             kwargs['analyses'] = []
-    from biobarcoding.forms.filter_json import getJSONFilterSchema
+    elif type == "geoprocesses_instances":  # Process instances
+        kwargs["status"] = {
+            'key': 'status',
+            'type': 'customSelect',
+            'templateOptions': {
+                'nzMode': 'default',
+                'label': 'Estado de la instancia:',
+                'nzAllowClear': True,
+                'nzShowSearch': True,
+                'value': [],
+                'options': [dict(label=f"{i[0]}", value=f"{i[1]}") for i in
+                            [("Propuesta", "candidate"),
+                             ("Planificada", "scheduled"),
+                             ("Finalizada correctamente", "success"),
+                             ("Finalizada con error", "error"),
+                             ("Cancelada", "cancelled")]]
+            }
+        }
+        case_studies = session.query(CaseStudy).all()
+        kwargs["case_studies_"] = {
+            'key': 'case_studies_',
+            'type': 'customSelect',
+            'templateOptions': {
+                'nzMode': 'multiple',
+                'label': 'Casos de estudio:',
+                'nzAllowClear': True,
+                'nzShowSearch': True,
+                'value': [],
+                'options': [dict(label=f"{i.name}", value=f"{i.id}") for i in case_studies]
+            }
+        }
+        geoprocesses = session.query(CProcess).all()
+        kwargs["for_geoprocesses"] = {
+            'key': 'for_geoprocesses',
+            'type': 'customSelect',
+            'templateOptions': {
+                'nzMode': 'multiple',
+                'label': 'Instancia de geoprocesos:',
+                'nzAllowClear': True,
+                'nzShowSearch': True,
+                'value': [],
+                'options': [dict(label=f"{i.name}", value=f"{i.id}") for i in geoprocesses]
+            }
+        }
+    elif type == "layers":  # Geographic Layers
+        subjects = session.query(HierarchyNode).join(Hierarchy).\
+            filter(Hierarchy.name == h_subjects_name).all()
+        kwargs["subjects"] = {
+            'key': 'subjects',
+            'type': 'customSelect',
+            'templateOptions': {
+                'nzMode': 'multiple',
+                'label': 'Temas:',
+                'nzAllowClear': True,
+                'nzShowSearch': True,
+                'value': [],
+                'options': [dict(label=f"{i.name}", value=f"{i.id}") for i in subjects]
+            }
+        }
+        sources = session.query(HierarchyNode).join(Hierarchy).\
+            filter(Hierarchy.name == h_sources_name).all()
+        kwargs["sources"] = {
+            'key': 'sources',
+            'type': 'customSelect',
+            'templateOptions': {
+                'nzMode': 'default',
+                'label': 'Fuente:',
+                'nzAllowClear': True,
+                'nzShowSearch': True,
+                'value': [],
+                'options': [dict(label=f"{i.name}", value=f"{i.id}") for i in sources]
+            }
+        }
+        crs = session.query(HierarchyNode).join(Hierarchy).\
+            filter(Hierarchy.name == h_crs_name).all()
+        kwargs["crs"] = {
+            'key': 'crs',
+            'type': 'customSelect',
+            'templateOptions': {
+                'nzMode': 'default',
+                'label': 'CRS:',
+                'nzAllowClear': True,
+                'nzShowSearch': True,
+                'value': [],
+                'options': [dict(label=f"{i.name}", value=f"{i.id}") for i in crs]
+            }
+        }
+        case_studies = session.query(CaseStudy).all()
+        kwargs["case_studies_"] = {
+            'key': 'case_studies_',
+            'type': 'customSelect',
+            'templateOptions': {
+                'nzMode': 'multiple',
+                'label': 'Casos de estudio:',
+                'nzAllowClear': True,
+                'nzShowSearch': True,
+                'value': [],
+                'options': [dict(label=f"{i.name}", value=f"{i.id}") for i in case_studies]
+            }
+        }
+        geoprocesses = session.query(CProcess).all()
+        kwargs["used_as_input_of"] = {
+            'key': 'used_as_input_of',
+            'type': 'customSelect',
+            'templateOptions': {
+                'nzMode': 'multiple',
+                'label': 'Usado en geoprocesos:',
+                'nzAllowClear': True,
+                'nzShowSearch': True,
+                'value': [],
+                'options': [dict(label=f"{i.name}", value=f"{i.id}") for i in geoprocesses]
+            }
+        }
+        kwargs["resulting_from"] = {
+            'key': 'resulting_from',
+            'type': 'customSelect',
+            'templateOptions': {
+                'nzMode': 'multiple',
+                'label': 'Resultante de geoprocesos:',
+                'nzAllowClear': True,
+                'nzShowSearch': True,
+                'value': [],
+                'options': [dict(label=f"{i.name}", value=f"{i.id}") for i in geoprocesses]
+            }
+        }
+
+    from ..forms.filter_json import getJSONFilterSchema
     return getJSONFilterSchema(**kwargs)

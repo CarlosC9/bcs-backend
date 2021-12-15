@@ -3,7 +3,7 @@ import time
 
 from .ontologies import get_cvterm_query
 from ..db_models import DBSession as db_session, DBSessionChado as chado_session
-from ..db_models.bioinformatics import PhylogeneticTree, bio_object_type_id
+from ..db_models.bioinformatics import PhylogeneticTree, data_object_type_id
 from ..db_models.chado import Phylotree, Phylonode, Feature
 from ..rest import Issue, IType, filter_parse, auth_filter
 from . import get_query, get_bioformat, get_or_create, get_orm_params
@@ -59,8 +59,8 @@ def create(**kwargs):
         # tree to bcs
         chado_session.flush()   # phylotree_id required
         phylo = get_or_create(db_session, PhylogeneticTree,
-                              chado_id=content.phylotree_id,
-                              chado_table='phylotree',
+                              native_id=content.phylotree_id,
+                              native_table='phylotree',
                               name=content.name)
         issues, status = [Issue(IType.INFO,
                                 f'CREATE phylotrees: The phylotree "{kwargs.get("name")}" created successfully.')], 201
@@ -104,7 +104,7 @@ def update(phylotree_id, **kwargs):
 ##
 
 def __delete_from_bcs(*ids):
-    query = db_session.query(PhylogeneticTree).filter(PhylogeneticTree.chado_id.in_(ids))
+    query = db_session.query(PhylogeneticTree).filter(PhylogeneticTree.native_id.in_(ids))
     return query.count()
     # TODO: check why all rows are deleted in bcs without filtering
     # return query.delete(synchronize_session='fetch')
@@ -241,8 +241,8 @@ def __get_query(phylotree_id=None, purpose='read', **kwargs):
         return query, query.count()
     from biobarcoding.db_models.sysadmin import PermissionType
     purpose_id = db_session.query(PermissionType).filter(PermissionType.name==purpose).one().id
-    phy_clause = db_session.query(PhylogeneticTree.chado_id) \
-        .filter(auth_filter(PhylogeneticTree, purpose_id, [bio_object_type_id['phylogenetic-tree']]))
+    phy_clause = db_session.query(PhylogeneticTree.native_id) \
+        .filter(auth_filter(PhylogeneticTree, purpose_id, [data_object_type_id['phylogenetic-tree']]))
     phy_clause = [i for i, in phy_clause.all()]
     phy_clause = Phylotree.phylotree_id.in_(phy_clause)
     query = chado_session.query(Phylotree).filter(phy_clause)

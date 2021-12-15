@@ -76,7 +76,7 @@ bioconvert==0.4.3
 chado==2.3.4
 pyproj==2.6.1
 chardet>=3.0.0,<4.0.0
-
+canonicaljson==1.5.0
 
 # ############################### CANDIDATE LIBRARIES #################################
 #JsonWeb (overlaps "objdict")

@@ -1,8 +1,9 @@
 import collections
 import json
-from typing import Any, Dict
-import numpy as np
 from pathlib import Path
+from typing import Any, Dict
+
+import numpy as np
 import pandas
 from multidict import MultiDict, CIMultiDict
 
@@ -147,9 +148,8 @@ def _json_serial(obj):
         return int(obj)
     elif isinstance(obj, pandas.DataFrame):
         return obj.to_dict("records")
-    elif getattr(obj, "Schema"):
-        # Use "marshmallow"
-        return getattr(obj, "Schema")().dump(obj)
+    elif hasattr(obj, "Schema"):
+        return getattr(obj, "Schema")().dump(obj)  # "marshmallow"
     raise TypeError(f"Type {type(obj)} not serializable")
 
 

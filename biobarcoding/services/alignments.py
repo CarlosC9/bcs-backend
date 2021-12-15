@@ -5,7 +5,7 @@ from Bio import AlignIO
 from ..db_models import DBSession as db_session
 from ..db_models import DBSessionChado as chado_session
 from ..db_models.chado import Organism, Feature, AnalysisFeature, Analysis
-from ..db_models.bioinformatics import MultipleSequenceAlignment, bio_object_type_id
+from ..db_models.bioinformatics import MultipleSequenceAlignment, data_object_type_id
 
 from ..rest import IType, Issue, auth_filter
 from ..services import get_or_create, log_exception, orm2json, get_bioformat
@@ -22,8 +22,8 @@ from ..services.sequences import __get_query as get_seqs_query, \
 
 def __msa2bcs(msa):
     return get_or_create(db_session, MultipleSequenceAlignment,
-                         chado_id=msa.analysis_id,
-                         chado_table='analysis',
+                         native_id=msa.analysis_id,
+                         native_table='analysis',
                          name=msa.name)
 
 
@@ -90,7 +90,7 @@ def update(id, **kwargs):
 ##
 
 def __delete_from_bcs(*ids):
-    query = db_session.query(MultipleSequenceAlignment).filter(MultipleSequenceAlignment.chado_id.in_(ids))
+    query = db_session.query(MultipleSequenceAlignment).filter(MultipleSequenceAlignment.native_id.in_(ids))
     return query.count()
     # TODO: check why all rows are deleted in bcs without filtering
     # return query.delete(synchronize_session='fetch')
@@ -192,12 +192,12 @@ def import_file(input_file, format=None, **kwargs):
 # EXPORT
 ##
 
-def export(id, format='fasta', value={}, **kwargs):
+def export(id, format='fasta', values={}, **kwargs):
     content = None
     try:
         if format in ('fasta', 'nexus'):
             seqs = get_seqs_query(purpose='share', filter={'analysis_id': {'op': 'eq', 'unary': id}})[0]
-            content = export_sequences(seqs.all(), format=format, header_format=value.get('header'), only_headers=value.get('only_headers'))
+            content = export_sequences(seqs.all(), format=format, header_format=values.get('header'), only_headers=values.get('only_headers'))
             issues, status = [Issue(IType.INFO, f'EXPORT alignments: The alignment was successfully imported.')], 200
         else:
             issues, status = [Issue(IType.ERROR, f'EXPORT alignments: The format {format} could not be exported.')], 404
@@ -214,8 +214,8 @@ def export(id, format='fasta', value={}, **kwargs):
 def __get_query(id=None, purpose='read', **kwargs):
     from biobarcoding.db_models.sysadmin import PermissionType
     purpose_id = db_session.query(PermissionType).filter(PermissionType.name==purpose).one().id
-    aln_clause = db_session.query(MultipleSequenceAlignment.chado_id) \
-        .filter(auth_filter(MultipleSequenceAlignment, purpose_id, [bio_object_type_id['multiple-sequence-alignment']]))
+    aln_clause = db_session.query(MultipleSequenceAlignment.native_id) \
+        .filter(auth_filter(MultipleSequenceAlignment, purpose_id, [data_object_type_id['multiple-sequence-alignment']]))
     aln_clause = [i for i, in aln_clause.all()]
     aln_clause = Analysis.analysis_id.in_(aln_clause)
     query = chado_session.query(Analysis).filter(aln_clause)

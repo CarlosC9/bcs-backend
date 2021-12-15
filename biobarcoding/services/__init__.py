@@ -19,6 +19,8 @@ def conn_chado():
 ##
 # EXECUTIONS
 ##
+from ..rest import filter_parse, order_parse
+
 
 def exec_cmds(*args):
     import subprocess
@@ -168,7 +170,7 @@ def get_or_create(session, model, **params):
             from ..db_models.sysadmin import ACL
             acl = get_or_create(DBSession, ACL,
                                     object_uuid=instance.uuid,
-                                    object_type=instance.bo_type_id)
+                                    object_type=instance.obj_type_id)
             # acldetail
             from ..db_models.sysadmin import ACLDetail
             from flask import g
@@ -199,7 +201,7 @@ def paginator(query, pagination):
     return query
 
 
-def get_query(session, orm, query=None, id=None, aux_filter=None, aux_order=None, **kwargs):
+def get_query(session, orm, query=None, id=None, aux_filter=None, default_filter=None, aux_order=None, **kwargs):
     """
      reserved keywords in kwargs:
        'values': specific values of orm fields to filter
@@ -207,9 +209,8 @@ def get_query(session, orm, query=None, id=None, aux_filter=None, aux_order=None
        'order': advanced ordering clauses (see also order_parse)
        'pagination': pageIndex and pageSize to paginate
        'searchValue': full-text search value (hopefully)
-     otherwise it will be treated as 'value'
+     otherwise it will be treated as 'values'
     """
-    from ..rest import filter_parse, order_parse
     query = query or session.query(orm)
     count = 0
     if id:
@@ -217,15 +218,24 @@ def get_query(session, orm, query=None, id=None, aux_filter=None, aux_order=None
     else:
         if not kwargs.get('values'):
             kwargs['values'] = {}
+        if default_filter:
+            if "filter" in kwargs:
+                kwargs["filter"].append(default_filter)
+            else:
+                kwargs["filter"] = [default_filter]
         for k, v in kwargs.items():
             if not k in ['values', 'filter', 'order', 'pagination', 'searchValue'] and v:
                 kwargs['values'][k] = v
         if kwargs.get('values'):
             query = query.filter_by(**get_orm_params(orm, **kwargs.get('values')))
         if kwargs.get('filter'):
-            query = query.filter(filter_parse(orm, kwargs.get('filter'), aux_filter))
+            query = query.filter(filter_parse(orm, kwargs.get('filter', {}), aux_filter, session))
+        if kwargs.get('searchValue', '') != '':
+            if hasattr(orm, '_ts_vector'):
+                query = query.filter(orm._ts_vector.match(kwargs.get('searchValue')))
         if kwargs.get('order'):
-            query = query.order_by(order_parse(orm, kwargs.get('order'), aux_order))
+            for o in order_parse(orm, kwargs.get('order'), aux_order):
+                query = query.order_by(o)
         count = query.count()
         if kwargs.get('pagination'):
             query = paginator(query, kwargs.get('pagination'))

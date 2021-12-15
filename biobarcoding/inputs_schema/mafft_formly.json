@@ -1,0 +1,100 @@
+[
+  {
+    "key": "MAFFT",
+    "wrappers": ["subprocess-wrapper"],
+    "templateOptions": { "label": "MSA ClustalW" },
+    "fieldGroup": [
+      {
+        "key": "sequence_selector",
+        "type": "sequence-selector",
+        "validators": {
+          "validation": [
+            "sequence-selector"
+          ]
+        },
+        "templateOptions": {
+          "filename": "input",
+          "label": "Sequences Selector",
+          "required": true,
+          "extension": "fasta"
+        }
+      },
+      {
+        "key": "algorithm",
+        "type": "select",
+        "templateOptions": {
+          "label": "Algorithm",
+          "required": true,
+          "options": [
+            {
+              "value": "--6merpair",
+              "label": "6mer Pair"
+            },
+            {
+              "value": "--globalpair",
+              "label": "Global Pair"
+            },
+            {
+              "value": "--localpair",
+              "label": "Local Pair"
+            },
+            {
+              "value": "--genafpair",
+              "label": "Generalized Affine Pair"
+            },
+            {
+              "value": "--fastapair",
+              "label": "FASTA Pair"
+            }
+          ]
+        },
+        "defaultValue": "--6merpair"
+      },
+      {
+        "key": "retree",
+        "type": "input",
+        "templateOptions": {
+          "label": "Repeat Guide Tree",
+          "required": true,
+          "type": "number"
+        },
+        "defaultValue": "2",
+        "hideExpression": "model.algorithm!='--6merpair'"
+      },
+      {
+        "key": "parttree",
+        "type": "select",
+        "templateOptions": {
+          "label": "PartTree Algorithm",
+          "required": true,
+          "options": [
+            {
+              "value": "",
+              "label": "None"
+            },
+            {
+              "value": "--parttree",
+              "label": "PartTree"
+            },
+            {
+              "value": "--dpparttree",
+              "label": "DPPartTree"
+            }
+          ]
+        },
+        "defaultValue": "",
+        "hideExpression": "model.algorithm!='--6merpair'"
+      },
+      {
+        "key": "maxiterate",
+        "type": "input",
+        "templateOptions": {
+          "label": "Maximum Iterations (0: no limit)",
+          "required": true,
+          "type": "number"
+        },
+        "defaultValue": "0"
+      }
+    ]
+  }
+]

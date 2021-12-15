@@ -6,14 +6,10 @@ from flask.views import MethodView
 
 from ..authentication import n_session
 from ..db_models.jobs import Process, ComputeResource, ProcessInComputeResource
-from . import make_simple_rest_crud, ResponseObject
+from . import make_simple_rest_crud, ResponseObject, app_api_base
 
 bp_processes, ProcessesAPI = make_simple_rest_crud(Process, "processes")
 bp_resources, ResourcesAPI = make_simple_rest_crud(ComputeResource, "resources")
-
-bcs_api_base = "/api"  # Base for all RESTful calls
-bcs_gui_base = "/gui"  # Base for the Angular2 GUI
-bcs_external_gui_base = "/gui_external"  # Base for the Angular2 GUI when loaded from URL
 
 
 class ResourcesInProcessAPI(MethodView):
@@ -75,12 +71,12 @@ class ResourcesInProcessAPI(MethodView):
 
 resource_process_view = ResourcesInProcessAPI.as_view('api_processes_resources')
 bp_processes.add_url_rule(
-    f"{bcs_api_base}/processes/<int:pid>/resources/<int:_id>/",
+    f"{app_api_base}/processes/<int:pid>/resources/<int:_id>/",
     view_func=resource_process_view,
     methods=['GET']
 )
 bp_processes.add_url_rule(
-    f"{bcs_api_base}/processes/<int:pid>/resources/",
+    f"{app_api_base}/processes/<int:pid>/resources/",
     view_func=resource_process_view,
     methods=['GET']
 )

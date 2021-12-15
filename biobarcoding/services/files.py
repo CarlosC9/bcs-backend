@@ -1,9 +1,11 @@
+import json
+
 import binascii
 import io
 import urllib
 
 from ..common.helpers import download_file, is_integer
-from ..db_models.files import File, FileSystemObject, Folder
+from ..db_models.files import File, FileSystemObject, Folder, FunctionalObjectInFile
 
 
 def process_folder(session, parts):
@@ -127,3 +129,33 @@ def receive_file_submission(req):
             buffer, content_type = parse_data_url(url)
 
     return content_type, buffer, len(buffer)
+
+
+def put_file_contents(session, fso_path: str, contents: io.BytesIO, content_type: str):
+    """
+    Store file contents (fso_path must be full path -in FilesAPI- and end in ".content")
+
+    :param session:
+    :param fso_path:
+    :param contents:
+    :param content_type:
+    :return: True if the file has been stored correctly
+    """
+    # Translate characters. Split "fso_path" in parts
+    parts, file_name = prepare_path(fso_path)
+
+    # Process Folder (may not exist, create it in that case)
+    accum_name, parent = process_folder(session, parts)
+
+    # Store file contents
+    if file_name and file_name.endswith(".content"):
+        file_name = file_name[:-len(".content")]
+        accum_name += file_name
+        file = get_or_create_file(session, file_name, accum_name, parent)
+        file.content_type = content_type
+        file.embedded_content = contents.getvalue()
+        file.content_size = len(contents.getvalue())
+        session.commit()
+        return True
+    else:
+        return False

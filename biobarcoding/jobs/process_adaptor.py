@@ -19,7 +19,8 @@ class ProcessAdaptorFactory:
             process_adaptor = self._get_galaxy_process_adaptor(process_id)
         elif jm_type == "ssh":
             process_adaptor = self._get_ssh_process_adaptor(process_id)
-
+        elif jm_type == "slurm":
+            process_adaptor = self._get_slurm_process_adaptor(process_id)
         return process_adaptor
 
     def _get_ssh_process_adaptor(self, process_id):
@@ -46,6 +47,9 @@ class ProcessAdaptorFactory:
             from biobarcoding.jobs.ssh_process_adaptors.SSHClustal_PaupParsimony_PdaProcessAdaptor import \
                 SSHClustal_PaupParsimony_PdaProcessAdaptor
             ssh_process_adaptor = SSHClustal_PaupParsimony_PdaProcessAdaptor()
+        elif tm_processes[process_id] == "geoprocess":
+            from ..jobs.ssh_process_adaptors.GeoprocessProcessAdaptor import SSHGeoprocessProcessAdaptor
+            ssh_process_adaptor = SSHGeoprocessProcessAdaptor()
 
         return ssh_process_adaptor
 
@@ -55,3 +59,17 @@ class ProcessAdaptorFactory:
             from biobarcoding.jobs.galaxy_process_adaptors.GalaxyClustalProcessAdaptor import GalaxyClustalAdaptator
             galaxy_process_adaptor = GalaxyClustalAdaptator()
         return galaxy_process_adaptor
+
+    def _get_slurm_process_adaptor(self, process_id):
+        slurm_process_adaptor = None
+        if tm_processes[process_id] == "MAFFT":
+            from biobarcoding.jobs.ssh_process_adaptors.slurm_process_adaptors.SlurmMafftProcessAdaptor import SlurmMAFFTProcessAdaptor
+            slurm_process_adaptor = SlurmMAFFTProcessAdaptor()
+        elif tm_processes[process_id] == "Mr Bayes":
+            from biobarcoding.jobs.ssh_process_adaptors.slurm_process_adaptors.SlurmMrBayesProcessAdaptor import SlurmMrBayesProcessAdaptor
+            slurm_process_adaptor = SlurmMrBayesProcessAdaptor()
+        elif tm_processes[process_id] == "BLAST":
+            from biobarcoding.jobs.ssh_process_adaptors.slurm_process_adaptors.SlurmBlastProcessAdaptor import SlurmBlastProcessAdaptor
+            slurm_process_adaptor = SlurmBlastProcessAdaptor()
+
+        return slurm_process_adaptor

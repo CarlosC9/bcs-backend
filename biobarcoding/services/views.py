@@ -1,4 +1,4 @@
-from biobarcoding.rest import Issue, IType
+from ..rest import Issue, IType
 
 
 def create(**kwargs):

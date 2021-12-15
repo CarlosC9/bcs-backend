@@ -16,7 +16,7 @@ class SSHClustalProcessAdaptor(SSHProcessAdaptor):
     def get_script_files_list(self):
         return []
 
-    def get_script_params_string(self, process_parameters):
+    def parse_script_params(self, process_parameters):
         clustalw_parameters = process_parameters["MSA ClustalW"]
         output_file = self.get_results_files_list(process_parameters)[0].get("remote_name")
         params_str = f"{self.INPUT_FILENAME} {output_file} " + \
@@ -37,12 +37,12 @@ class SSHClustalProcessAdaptor(SSHProcessAdaptor):
                 "file": f"clustal.{clustalw_parameters['outform'].lower()}",
                 "subprocess": "MSA ClustalW",
                 "object_type": {"bos": "alignments"},
-                "content_type": "text/x-fasta",
-                "type": "fasta"
+                "content_type": f"text/x-{clustalw_parameters['outform'].lower()}",
+                "type": clustalw_parameters['outform'].lower()
             },
             {
-                "remote_name": f"input_dataset.dnd",
-                "file": "intermidiate_tree.nhx",
+                "remote_name": f"input_dataset.newick",
+                "file": "intermidiate_tree.newick",
                 "subprocess": "MSA ClustalW",
                 "object_type": {"bos": "phylotrees"},
                 "content_type": "text/x-nhx",

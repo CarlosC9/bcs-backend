@@ -17,8 +17,8 @@ def __check_stock_params(**values):
 
 def __stock2bcs(stock):
     return get_or_create(db_session, Specimen,
-                         # chado_id=stock.stock_id,
-                         # chado_table='stock',
+                         # native_id=stock.stock_id,
+                         # native_table='stock',
                          name=stock.uniquename)
 
 

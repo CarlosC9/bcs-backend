@@ -1,4 +1,4 @@
-from flask import Blueprint, request
+from flask import Blueprint, request, g
 from flask.views import MethodView
 
 from ..authentication import n_session
@@ -16,28 +16,28 @@ class BrowserFilterAPI(MethodView):
 
     @n_session(read_only=True)
     def get(self, datatype, id=None):
-        print(f'GET {request.path}\nGetting filters {id}')
+        # print(f'GET {request.path}\nGetting filters {id}')
         self.kwargs = parse_request_params()
         issues, content, count, status = browser_filters.read(datatype, id, **self.kwargs)
         return ResponseObject(content=content, count=count, issues=issues, status=status).get_response()
 
     @n_session()
     def post(self, datatype):
-        print(f'POST {request.path}\nCreating filters')
+        # print(f'POST {request.path}\nCreating filters')
         self.kwargs = parse_request_params()
         issues, content, status = browser_filters.create(datatype, **self.kwargs.get('values'))
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
     @n_session()
     def put(self, datatype, id):
-        print(f'PUT {request.path}\nUpdating filter {id}')
+        # print(f'PUT {request.path}\nUpdating filter {id}')
         self.kwargs = parse_request_params()
         issues, content, status = browser_filters.update(datatype, id, **self.kwargs.get('values'))
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
     @n_session()
     def delete(self, datatype, id=None):
-        print(f'DELETE {request.path}\nDeleting filters {id}')
+        # print(f'DELETE {request.path}\nDeleting filters {id}')
         self.kwargs = parse_request_params()
         issues, content, status = browser_filters.delete(datatype, id, **self.kwargs)
         return ResponseObject(content=content, issues=issues, status=status).get_response()
@@ -60,10 +60,10 @@ class BrowserFilterFormAPI(MethodView):
     """
     Browser filter forms Resource
     """
-
+    @n_session(read_only=True)
     def get(self, datatype):
         print(f'GET {request.path}\nGetting filter forms {datatype}')
-        issues, content, status = browser_filters.read_form(datatype)
+        issues, content, status = browser_filters.read_form(datatype, g.n_session.db_session)
         return ResponseObject(content=content, issues=issues, status=status).get_response()
 
 
