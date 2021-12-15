@@ -1,15 +1,16 @@
 from ..db_models import DBSession as db_session, DBSessionChado as chado_session
 from ..db_models.chado import Organism
 from ..rest import Issue, IType, filter_parse
-from . import get_query, orm2json
+from ..common import generate_json
+from . import get_query, force_underscored
 
 
 def create(**kwargs):
     content = None
     if not kwargs.get('genus'):
-        kwargs['genus']='Organism'
+        kwargs['genus'] = 'Organism'
     if not kwargs.get('species'):
-        kwargs['species']='Unclassified'
+        kwargs['species'] = 'Unclassified'
     try:
         from biobarcoding.services import get_or_create
         content = get_or_create(chado_session, Organism, **kwargs)
@@ -20,25 +21,25 @@ def create(**kwargs):
     return issues, content, status
 
 
-def __force_underscored(str: str):
-    replacable = " ,.-"
-    # replacable = "".join(set(c for c in str if not c.isalnum()))
-    return str.translate({ord(i): "_" for i in replacable})
+def get_canonical(organism_id=None, name=None, underscores=False, **kwargs):
+    if organism_id and not name:
+        name = chado_session.query(Organism.name)\
+            .filter(Organism.organism_id == organism_id).one()
+    from biobarcoding.services.species_names import get_canonical_species_names
+    return get_canonical_species_names(db_session,
+                                       [name],
+                                       underscores=underscores)[0] \
+           or force_underscored(name) if underscores else name
 
 
 def __append_canonical(*orgs):
-    from biobarcoding.services.species_names import get_canonical_species_names
     res = []
     for org in orgs:
-        new = orm2json(org)
-        new['name'] = org.genus + ' ' + org.species
-        new['canonical_name'] = get_canonical_species_names(db_session,
-                                                     [new['name']])[0] \
-                         or new['name']
-        new['canonical_underscored_name'] = get_canonical_species_names(db_session,
-                                                     [new['name']],
-                                                     underscores=True)[0] \
-                         or __force_underscored(new['name'])
+        import json
+        new = json.loads(generate_json(org))
+        new['name'] = "%s %s" % (new.get('genus'), new.get('species'))
+        new['canonical_name'] = get_canonical(**new)
+        new['canonical_underscored_name'] = get_canonical(**new, underscores=True)
         res.append(new)
     return res
 
@@ -48,10 +49,9 @@ def read(id=None, **kwargs):
     try:
         content, count = __get_query(id, **kwargs)
         if id:
-            content = __append_canonical(content.first())
+            content = __append_canonical(content.one())
         else:
             content = __append_canonical(*content.all())
-        # TODO?: append name, canonical_name, canonical_name_underscored
         issues, status = [Issue(IType.INFO, f'READ organisms: The organisms were successfully read.')], 200
     except Exception as e:
         print(e)
@@ -105,10 +105,11 @@ def __print_gbk(id=None, **kwargs):
 
 
 def __get_query(organism_id=None, **kwargs):
+    query = chado_session.query(Organism)
     if organism_id:
-        query = chado_session.query(Organism).filter(Organism.organism_id == organism_id)
+        query = query.filter(Organism.organism_id == organism_id)
         return query, query.count()
-    return get_query(chado_session, Organism, aux_filter=__aux_own_filter, aux_order=__aux_own_order, **kwargs)
+    return get_query(chado_session, Organism, query=query, aux_filter=__aux_own_filter, aux_order=__aux_own_order, **kwargs)
 
 
 def __aux_own_filter(filter):
