@@ -139,6 +139,11 @@ def import_file(input_file, format=None, **kwargs):
         # Check phylotree file format
         from Bio import Phylo
         tree = Phylo.read(input_file, format)
+        if format == 'nexus':
+            from dendropy import TreeList
+            from io import StringIO
+            trees = TreeList.get_from_path(input_file, schema="nexus")
+            tree = Phylo.read(StringIO(trees[-1].as_string("nexus")), "nexus")
     except Exception as e:
         issues = [Issue(IType.ERROR, f'IMPORT phylotress: The file {input_file}.{format} could not be imported.')]
         return issues, content, 409
@@ -201,15 +206,21 @@ def export(id=None, format='newick', **kwargs):
 
 
 def __tree2file(phylotree_id, format, output_file):
-    result = ''
     format = get_bioformat(output_file, format)
     # TODO: build Bio.Phylo.BaseTree from chado, and Phylo.write(tree, output_file, format)
-    if format == 'newick':
+    if format:
+        # dump to newick
         root = chado_session.query(Phylonode).filter(Phylonode.phylotree_id == phylotree_id,
                                                      Phylonode.parent_phylonode_id == None).one()
         result = __tree2newick(root)
-    with open(output_file, "w") as file:
-        file.write(result)
+        with open("%s.newick" % output_file, "w") as file:
+            file.write(result)
+        # convert from newick to another format
+        if format != "newick":
+            from Bio import Phylo
+            Phylo.convert("%s.newick" % output_file, "newick", output_file, format)
+        else:
+            os.rename("%s.newick" % output_file, output_file)
     return output_file
 
 

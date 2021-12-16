@@ -66,7 +66,14 @@ def unfolded_print(obj, level=2):
 # CONVERSIONS
 ##
 
+def force_underscored(text: str, replace: str = " ,.-") -> str:
+    if not replace:
+        replace = "".join(set(c for c in text if not c.isalnum()))
+    return text.translate({ord(i): "_" for i in replace})
+
+
 def orm2json(row):
+    # TODO: replace for generate_json ?
     # TODO: missing inherited fields
     d = {}
     try:

@@ -95,7 +95,7 @@ WORKDIR /app
 
 ENV BCS_CONFIG_FILE=""
 
-# Chado Perl "Bio" module
+# Chado Perl "Bio" module (IMPORTANT: really slow)
 
 # ? BioPerl Bio::Chado::Schema Bio::GMOD::Config
 RUN cpan force install GO::Parser Bundle::GMOD

@@ -1,68 +1,15 @@
+from sqlalchemy.ext.hybrid import hybrid_property
 from . import ORMBaseChado
-
-
-class Analysis(ORMBaseChado):
-    __tablename__ = "analysis"
-    __table_args__ = {'autoload': True}
-
-    # analysis_id = Column(BigInteger(), primary_key=True, nullable=False)
-    # name = Column(String())
-    # description = Column(Text())
-    # program = Column(String())
-    # programversion = Column(String())
-    # algorithm = Column(String())
-    # sourcename = Column(String())
-    # sourceversion = Column(String())
-    # sourceuri = Column(Text())
-    # timeexecuted = Column(TIMESTAMP())
 
 
 class Organism(ORMBaseChado):
     __tablename__ = "organism"
     __table_args__ = {'autoload': True}
 
-    # organism_id = Column(BigInteger(), primary_key=True, nullable=False)
-    # abbreviation = Column(String())
-    # genus = Column(Text())
-    # species = Column(String())
-    # common_name = Column(String())
-    # infraspecific_name = Column(String())
-    # type_id = Column(BigInteger())
-    # comment = Column(Text())
+    @hybrid_property
+    def name(self):
+        return Organism.genus + ' ' + Organism.species
 
-
-class Feature(ORMBaseChado):
-    __tablename__ = "feature"
-    __table_args__ = {'autoload': True}
-
-    # feature_id = Column(BigInteger(), primary_key=True, nullable=False)
-
-
-class AnalysisFeature(ORMBaseChado):
-    __tablename__ = "analysisfeature"
-    __table_args__ = {'autoload': True}
-
-    # analysisfeature_id = Column(BigInteger(), primary_key=True, nullable=False)
-    # feature_id = Column(BigInteger(), ForeignKey('feature.feature_id'), nullable=False)
-    # analysis_id = Column(BigInteger(), ForeignKey('analysis.analysis_id'), nullable=False)
-    # rawscore = Column(Numeric())
-    # normscore = Column(Numeric())
-    # significance = Column(Numeric())
-    # identity = Column(Numeric())
-
-
-class Db(ORMBaseChado):
-    __tablename__ = "db"
-    __table_args__ = {'autoload': True}
-
-    # db_id = Column(BigInteger(), primary_key=True, nullable=False)
-    # name = Column(String(), nullable=False)
-    # description = Column(String())
-    # urlprefix = Column(String())
-    # url = Column(String())
-
-
-# Remain
 
 class Acquisition(ORMBaseChado):
     __tablename__ = "acquisition"
@@ -79,6 +26,11 @@ class Acquisitionprop(ORMBaseChado):
     __table_args__ = {'autoload': True}
 
 
+class Analysis(ORMBaseChado):
+    __tablename__ = "analysis"
+    __table_args__ = {'autoload': True}
+
+
 class AnalysisCvterm(ORMBaseChado):
     __tablename__ = "analysis_cvterm"
     __table_args__ = {'autoload': True}
@@ -86,6 +38,11 @@ class AnalysisCvterm(ORMBaseChado):
 
 class AnalysisDbxref(ORMBaseChado):
     __tablename__ = "analysis_dbxref"
+    __table_args__ = {'autoload': True}
+
+
+class AnalysisFeature(ORMBaseChado):
+    __tablename__ = "analysisfeature"
     __table_args__ = {'autoload': True}
 
 
@@ -289,6 +246,11 @@ class Cvtermsynonym(ORMBaseChado):
     __table_args__ = {'autoload': True}
 
 
+class Db(ORMBaseChado):
+    __tablename__ = "db"
+    __table_args__ = {'autoload': True}
+
+
 class Dbprop(ORMBaseChado):
     __tablename__ = "dbprop"
     __table_args__ = {'autoload': True}
@@ -366,6 +328,11 @@ class ExpressionPub(ORMBaseChado):
 
 class Expressionprop(ORMBaseChado):
     __tablename__ = "expressionprop"
+    __table_args__ = {'autoload': True}
+
+
+class Feature(ORMBaseChado):
+    __tablename__ = "feature"
     __table_args__ = {'autoload': True}
 
 
