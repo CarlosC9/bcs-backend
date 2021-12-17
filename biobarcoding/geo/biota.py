@@ -38,6 +38,12 @@ def generate_pda_species_file_from_layer(db_sess, layer_id: int, layer_name: str
     if format_ == "species" or format_ == "species_canon":
         species = set()
 
+    def adapt_encoding(s):
+        try:
+            return bytes(s.encode("iso-8859-1")).decode("utf8")
+        except:
+            return s
+
     # Map lower case column names to actual column names
     cols = {c.lower(): c for c in gdf.columns}
     # Check columns
@@ -46,8 +52,7 @@ def generate_pda_species_file_from_layer(db_sess, layer_id: int, layer_name: str
         for t, cell in gdf.groupby(cols["idcelda"]):
             if format_ == "nexus" or format_ == "pda_simple":
                 # Re-encode
-                _ = [bytes(taxon.encode("iso-8859-1")).decode("utf8")
-                     for taxon in filter(None, cell[cols["denomtax"]].values)]
+                _ = [adapt_encoding(taxon) for taxon in filter(None, cell[cols["denomtax"]].values)]
                 # Normalize species names and discard None's (could not normalize species)
                 _ = filter(None, get_canonical_species_names(db_sess, _))
                 # Generate text lines for the cell ("celda")
@@ -81,7 +86,7 @@ def generate_pda_species_file_from_layer(db_sess, layer_id: int, layer_name: str
             line_blocks.extend(filter(None, get_canonical_species_names(db_sess, species)))
         line_blocks = sorted(line_blocks)
 
-    return '\n'.join(line_blocks) + "\n"
+    return '\n'.join(line_blocks) + "\n", "text/plain"
 
 
 # with open("/home/rnebot/Downloads/borrame.txt", "w") as f:
