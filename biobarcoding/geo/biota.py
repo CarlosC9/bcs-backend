@@ -61,7 +61,7 @@ def generate_pda_species_file_from_layer(db_sess, layer_id: int, layer_name: str
                     line_blocks.append('\n'.join(_))
                 else:
                     id_celda = int(cell[cols['idcelda']].values[0])
-                    _ = ' '.join(f"'{sp}'" for sp in _)
+                    _ = ' '.join(f"{sp.replace(' ', '_')}" for sp in _)
                     line_blocks.append(f"    taxset L{layer_id}_C{id_celda} = {_};")
             elif format_ == "species" or format_ == "species_canon":
                 species.update([bytes(taxon.encode("iso-8859-1")).decode("utf8")
