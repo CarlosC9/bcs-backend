@@ -29,8 +29,8 @@ class SSHPaupParsimony_PdaProcessAdaptor(SSHProcessAdaptor):
                }]
 
     def parse_script_params(self, process_parameters):
-        return f"{self.paupParsimonyAdaptor.get_script_params_string(process_parameters)} " + \
-               f"{self.pdaAdaptor.get_script_params_string(process_parameters)}"
+        return f"{self.paupParsimonyAdaptor.parse_script_params(process_parameters)} " + \
+               f"{self.pdaAdaptor.parse_script_params(process_parameters)}"
 
     def get_results_files_list(self, process_parameters):
         return self.paupParsimonyAdaptor.get_results_files_list(process_parameters) + \
