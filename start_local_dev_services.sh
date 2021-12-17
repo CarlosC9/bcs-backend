@@ -266,6 +266,8 @@ if [ "$(hostname)" == "balder" ] ; then
   if [ ! "$balder_started" ] ; then
     echo Starting Backend
     docker run --name ngd_backend -p 80:80 --rm \
+        --add-host balder.itccanarias.org:172.17.0.1 \
+        -e BCS_CONFIG_FILE="/root/.local/share/ngd-backend/ngd_local.conf" \
         --link postgres_devel_2:app_db --link postgres_devel:chado_db --link postgis:postgis \
         --link redis:redis --link geoserver:geoserver \
         -v ${NGD_BALDER_BASE}/private-conf/bcs_balder_dev.conf:/root/.local/share/ngd-backend/ngd_local.conf \
