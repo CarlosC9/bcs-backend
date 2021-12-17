@@ -8,6 +8,21 @@
       "label": "Phylogenetic Diversity Analyzer"
     },
     "fieldGroup": [
+    {
+        "key": "phylotree_selector",
+        "type": "phylotree-selector",
+        "validators": {
+          "validation": [
+            "phylotree-selector"
+          ]
+        },
+        "templateOptions": {
+          "filename": "start_phylotree",
+          "label": "Phylogenetic Tree Selector",
+          "extension": "nexus",
+          "required": true
+        }
+      },
       {
         "key": "geolayer_selector",
         "type": "geolayer-selector",

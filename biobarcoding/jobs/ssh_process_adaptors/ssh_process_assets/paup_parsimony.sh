@@ -1,7 +1,7 @@
 #!/bin/bash
 
-TEMPLATE_FILENAME=paup_parsimony.txt
-INPUTS_FILENAME=ngd_paup_parsimony.txt
+TEMPLATE_FILENAME=paup_parsimony.nexus
+INPUTS_FILENAME=ngd_paup_parsimony.nexus
 
 check_error()
 {
@@ -30,7 +30,7 @@ then
   assumptions=${15}
   python3 paup_parsimony_params.py $TEMPLATE_FILENAME $INPUTS_FILENAME $outRoot $gapMode $addseq $swap $hold "$consensus_tree_type" $le50 $percent $search $n_replicas $method "$enforce_converse" "$taxset_paup" "$sets" "$assumptions"
   check_error $?
-  paup ngd_paup_parsimony.txt
+  paup ngd_paup_parsimony.nexus
   check_error $?
   for f in *.tre; do
     mv -- "$f" "${f%.tre}.nexus"

@@ -12,12 +12,12 @@ check_error()
 
 chmod +x clustalw.sh
 chmod +x paup_parsimony.sh
-
+export PATH=/usr/local/go/bin:$PATH
 if [[ $# -eq 22 ]]
 then
   ./clustalw.sh "$1" "$2" $3 $4 $5 $6 $7
   check_error $?
-  python3 fasta2nexus.py clustal.fasta alignment.txt . -
+  python3 fasta2nexus.py clustal.fasta aln.nexus . -
   check_error $?
   ./paup_parsimony.sh $8 $9 ${10} ${11} ${12} "${13}" ${14} ${15} ${16} ${17} ${18} "${19}" "${20}" "${21}" "${22}"
   check_error $?

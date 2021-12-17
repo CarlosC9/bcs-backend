@@ -5,6 +5,23 @@
     "templateOptions": { "label": "MSA ClustalW" },
     "fieldGroup": [
       {
+        "key": "sequence_selector",
+        "type": "sequence-selector",
+        "validators": {
+          "validation": [
+            "sequence-selector"
+          ]
+        },
+        "templateOptions": {
+          "filename": "input_dataset",
+          "label": "Sequences Selector",
+          "required": true,
+          "extension": "fasta",
+          "queryParams": "?header=\"organism_canon_underscored\"",
+          "changeExpr": "this.changeTaxons($event, field)"
+        }
+      },
+      {
         "key": "dnarna",
         "type": "select",
         "templateOptions": {
@@ -128,21 +145,6 @@
         },
         "defaultValue": "99999",
         "hideExpression": "model.mode!='part'"
-      },
-      {
-        "key": "sequence_selector",
-        "type": "sequence-selector",
-        "validators": {
-          "validation": [
-            "sequence-selector"
-          ]
-        },
-        "templateOptions": {
-          "filename": "input_dataset",
-          "label": "Sequences Selector",
-          "required": true,
-          "extension": "fasta"
-        }
       }
     ]
   },
@@ -155,7 +157,8 @@
       "key": "taxset",
       "type": "taxset-field",
       "templateOptions": {
-          "taxons": ["Cyperus_laevigatus_laevigatus","Phoenix_canariensis","Consolida_regalis_regalis","Aaronsohnia_pubescens_maroccana"]
+          "taxons": [],
+          "required": true
         }
       },
       {
@@ -424,6 +427,16 @@
       "label": "Phylogenetic Diversity Analyzer"
     },
     "fieldGroup": [
+      {
+        "key": "geolayer_selector",
+        "type": "geolayer-selector",
+        "templateOptions": {
+          "filename": "area",
+          "label": "Geolayer Selector",
+          "required": true,
+          "extension": "nexus"
+        }
+      },
       {
         "key": "endem",
         "type": "checkbox",

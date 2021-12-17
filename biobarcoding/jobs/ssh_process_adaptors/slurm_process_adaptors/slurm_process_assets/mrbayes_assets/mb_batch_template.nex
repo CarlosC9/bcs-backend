@@ -1,6 +1,6 @@
 begin mrbayes;
    set autoclose=yes nowarn=yes;
-   execute mafft.nexus;
+   execute aln.nexus;
    $input_tree_cmd
    lset nst=$nst rates=$rates;
    outgroup $taxons_select;

@@ -12,14 +12,14 @@ check_error()
 
 chmod +x paup_parsimony.sh
 chmod +x pda.sh
-
+export PATH=/usr/local/go/bin:$PATH
 if [[ $# -eq 17 ]]
 then
   ./paup_parsimony.sh $1 $2 $3 $4 $5 "$6" $7 $8 $9 ${10} ${11} "${12}" "${13}" "${14}" "${15}"
   check_error $?
-  cp *_consensus.tre consensus.tre
+  cp *_consensus.nexus consensus.nexus
   check_error $?
-  python3 nexus2newick.py consensus.tre consensus.newick
+  python3 nexus2newick.py consensus.nexus consensus.newick
   check_error $?
   ./pda.sh ${16} ${17}
   check_error $?

@@ -16,7 +16,8 @@
           "filename": "query",
           "label": "Query Sequences Selector",
           "required": true,
-          "extension": "fasta"
+          "extension": "fasta",
+          "queryParams": ""
         }
       },
       {

@@ -17,6 +17,7 @@
           "label": "Alignment Selector",
           "extension": "nexus",
           "required": true,
+          "queryParams": "?header=\"organism_canon_underscored\"",
           "changeExpr": "this.changeTaxons($event, field)"
         }
       },

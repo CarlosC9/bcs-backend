@@ -293,16 +293,19 @@ def generate_export_cmd(file_dict: dict, tmp_path: str, job_executor):
     extension: str = file_dict['type']
     object_type: dict = file_dict['object_type']
     selection = file_dict['selection']
+    queryParams = file_dict['queryParams']
     with_filter = False
-    if type(selection) == dict:  # Get with filter
-        selection_json: str = json.dumps(selection)
+    if type(selection) == DottedDict:  # Get with filter
+        selection_json: str = d2s(selection)
         with_filter = True
     url = ""
-    if "bos" in object_type.keys():
-        url = f"{endpoint}{app_api_base}/bos/{object_type['bos']}.{extension}"
+    if "bos" in object_type.keys() and object_type['bos'] == 'sequences':
+        url = f"{endpoint}{app_api_base}/bos/{object_type['bos']}.{extension}{queryParams}"
+    elif "bos" in object_type.keys() and object_type['bos'] in ['alignments', 'phylotrees']:
+        url = f"{endpoint}{app_api_base}/bos/{object_type['bos']}/{selection}.{extension}{queryParams}"
     elif "geo" in object_type.keys():
         if object_type['geo'] == "layers":
-            url = f"{endpoint}{app_api_base}/geo/{object_type['geo']}/{selection}.{extension}"
+            url = f"{endpoint}{app_api_base}/geo/{object_type['geo']}/{selection}.{extension}{queryParams}"
     elif "files" in object_type.keys():
         url = f"{endpoint}{app_api_base}/files/{object_type['files']}.content"
 
