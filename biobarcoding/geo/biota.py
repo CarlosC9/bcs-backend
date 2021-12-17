@@ -48,20 +48,21 @@ def generate_pda_species_file_from_layer(db_sess, layer_id: int, layer_name: str
     cols = {c.lower(): c for c in gdf.columns}
     # Check columns
     if "riqueza" in cols:
+        underscores = format_ == "nexus"  # or format_ == "species_canon"
         # Unprocessed Biota. Read from "DENOMTAX" column
         for t, cell in gdf.groupby(cols["idcelda"]):
             if format_ == "nexus" or format_ == "pda_simple":
                 # Re-encode
                 _ = [adapt_encoding(taxon) for taxon in filter(None, cell[cols["denomtax"]].values)]
                 # Normalize species names and discard None's (could not normalize species)
-                _ = filter(None, get_canonical_species_names(db_sess, _))
+                _ = filter(None, get_canonical_species_names(db_sess, _, underscores))
                 # Generate text lines for the cell ("celda")
                 if format_ == "pda_simple":
                     line_blocks.append(str(len(cell)))
                     line_blocks.append('\n'.join(_))
                 else:
                     id_celda = int(cell[cols['idcelda']].values[0])
-                    _ = ' '.join(f"{sp.replace(' ', '_')}" for sp in _)
+                    _ = ' '.join(f"{sp}" for sp in _)
                     line_blocks.append(f"    taxset L{layer_id}_C{id_celda} = {_};")
             elif format_ == "species" or format_ == "species_canon":
                 species.update([bytes(taxon.encode("iso-8859-1")).decode("utf8")
