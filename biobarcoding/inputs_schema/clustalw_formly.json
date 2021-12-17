@@ -16,7 +16,8 @@
           "filename": "input_dataset",
           "label": "Sequences Selector",
           "required": true,
-          "extension": "fasta"
+          "extension": "fasta",
+          "queryParams": ""
         }
       },
       {

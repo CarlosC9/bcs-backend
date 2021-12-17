@@ -4,7 +4,7 @@ from biobarcoding.jobs.ssh_process_adaptors.slurm_process_adaptors import SlurmP
 
 
 class SlurmMrBayesProcessAdaptor(SlurmProcessAdaptor):
-    INPUT_FILENAME = "input.nexus"
+    INPUT_FILENAME = "aln.nexus"
     OUTPUT_FILENAME_WITHOUT_EXTENSION = "mrbayes"
 
     def get_script_filenames(self):
@@ -27,21 +27,15 @@ class SlurmMrBayesProcessAdaptor(SlurmProcessAdaptor):
                 "file": os.path.join(self.ASSETS_FOLDER, "mrbayes_assets", "mb_template_writer.py"),
                 "subprocess": "Mr Bayes",
                 "type": "python"
-            },
-            {
-               "remote_name": "mafft.nexus",
-               "file": os.path.join(self.ASSETS_FOLDER, "mrbayes_assets", "mafft.nexus"),
-               "subprocess": "Mr Bayes",
-               "type": "nexus"
             }
         ]
 
     def parse_script_params(self, process_parameters):
         mrbayes_parameters = process_parameters["script_parameters"]["Mr Bayes"]
         if mrbayes_parameters['start_phylotree']:
-            mrbayes_parameters['input_tree_cmd'] = "execute start_phylotree.nexus"
+            mrbayes_parameters['input_tree_cmd'] = "\'execute start_phylotree.nexus;\'"
         else:
-            mrbayes_parameters['input_tree_cmd'] = "\"[No_input_tree]\""
+            mrbayes_parameters['input_tree_cmd'] = "\'[No input tree]\'"
         del mrbayes_parameters['start_phylotree']
         mrbayes_parameters['filename'] = self.OUTPUT_FILENAME_WITHOUT_EXTENSION
         hpc_parameters = process_parameters["hpc_parameters"]

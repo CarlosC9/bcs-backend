@@ -6,7 +6,7 @@ from ..ssh_process_adaptors.SSHPaupParsimonyProcessAdaptor import SSHPaupParsimo
 
 
 class SSHClustal_PaupParsimonyProcessAdaptor(SSHProcessAdaptor):
-    INPUT_FILENAME = "paup_assets/alignment.txt"
+    INPUT_FILENAME = "paup_assets/aln.nexus"
 
     def __init__(self):
         self.clustalAdaptor = SSHClustalProcessAdaptor()

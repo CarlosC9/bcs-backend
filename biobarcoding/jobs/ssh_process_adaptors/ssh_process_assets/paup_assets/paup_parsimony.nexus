@@ -1,7 +1,7 @@
 begin paup;
 
-	execute alignment.txt;[don't delete this line]
-	execute sets_and_assumptions.txt;[don't delete this line]
+	execute aln.nexus;[don't delete this line]
+	execute sets_and_assumptions.nexus;[don't delete this line]
 
     $taxset_paup
 

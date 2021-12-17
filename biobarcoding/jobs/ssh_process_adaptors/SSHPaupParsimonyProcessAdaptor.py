@@ -4,7 +4,7 @@ from ..ssh_process_adaptors import SSHProcessAdaptor
 
 
 class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
-    INPUT_FILENAME = "paup_assets/alignment.txt"
+    INPUT_FILENAME = "paup_assets/aln.nexus"
 
     def get_script_filenames(self):
         return [{
@@ -16,14 +16,8 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
     def get_script_files_list(self):
         return [
             {
-                "remote_name": "paup_parsimony.txt",
-                "file": os.path.join(self.ASSETS_FOLDER, "paup_assets", "paup_parsimony.txt"),
-                "subprocess": "PAUP Parsimony",
-                "type": "txt"
-            },
-            {
-                "remote_name": "alignment.txt",
-                "file": os.path.join(self.ASSETS_FOLDER, "paup_assets", "alignment.txt"),
+                "remote_name": "paup_parsimony.nexus",
+                "file": os.path.join(self.ASSETS_FOLDER, "paup_assets", "paup_parsimony.nexus"),
                 "subprocess": "PAUP Parsimony",
                 "type": "txt"
             },
@@ -106,16 +100,16 @@ class SSHPaupParsimonyProcessAdaptor(SSHProcessAdaptor):
                 "type": "txt"
             },
             {
-                "remote_name": f"ngd_paup_parsimony.txt",
-                "file": "ngd_paup_parsimony.txt",
+                "remote_name": f"ngd_paup_parsimony.nexus",
+                "file": "ngd_paup_parsimony.nexus",
                 "subprocess": "PAUP Parsimony",
-                "object_type": {"bos": "phylotrees"},
+                "object_type": {"bos": "paup_script"},
                 "content_type": "text/plain",
                 "type": "txt"
             },
             {
-                "remote_name": f"sets_and_assumptions.txt",
-                "file": "sets_and_assumptions.txt",
+                "remote_name": f"sets_and_assumptions.nexus",
+                "file": "sets_and_assumptions.nexus",
                 "subprocess": "PAUP Parsimony",
                 "object_type": {"bos": "phylotrees"},
                 "content_type": "text/plain",

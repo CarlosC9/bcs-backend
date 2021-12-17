@@ -24,7 +24,7 @@ def delete_method_comment(file_content: str, method: str, search: str):
 
 
 def create_sets_file(sets: str, assumptions: str):
-    with open("sets_and_assumptions.txt", "w") as f:
+    with open("sets_and_assumptions.nexus", "w") as f:
         f.write("#NEXUS\n\n")
         f.write('begin sets' + ';\n')
         f.write(sets.replace("\\\\", "\\"))
@@ -73,5 +73,5 @@ if __name__ == "__main__":
     with open(output_filename, "w") as f:
         f.write(file_content)
 
-    # Create Paup sets and assumptions in sets_and_assumptions.txt file
+    # Create Paup sets and assumptions in sets_and_assumptions.nexus file
     create_sets_file(sets, assumptions)
