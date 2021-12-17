@@ -395,9 +395,8 @@ tm_job_mgmt_types = {
 }
 
 tm_processes = {  # Preloaded processes
-    "64249aae-52c6-4225-bbcf-be29286d00af": "geoprocess",
+    #TODO "64249aae-52c6-4225-bbcf-be29286d00af": "geoprocess",
     "c8df0c20-9cd5-499b-92d4-5fb35b5a369a": "MSA ClustalW",
-    "ec40143f-ae32-4dac-9cfb-caa047e1adb1": "ClustalW-PhyMl",
     "c87f58b6-cb06-4d39-a0b3-72c2705c5ae1": "PAUP Parsimony",
     "3e0240e8-b978-48a2-8fdd-9f31f4264064": "Phylogenetic Diversity Analyzer",
     "903a73a9-5a4e-4cec-b8fa-4fc9bd5ffab5": "MAFFT",

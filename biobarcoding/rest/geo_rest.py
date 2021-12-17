@@ -1,5 +1,6 @@
 import io
 import json
+import math
 import os
 import pathlib
 import tempfile
@@ -785,11 +786,12 @@ class LayersAPI(MethodView):
                 # Numeric column
                 tmp = gdf[c].values
                 try:
-                    min_v = float(min(tmp))
-                    max_v = float(max(tmp))
+                    min_v = float(np.nanmin(tmp))
+                    max_v = float(np.nanmax(tmp))
                     p_type = "numeric"
-                    style_name = f"{layer_name}_{c}"
-                    colormap = "RdYlGn_r"
+                    if not math.isnan(min_v) and not math.isnan(max_v):
+                        style_name = f"{layer_name}_{c}"
+                        colormap = "RdYlGn_r"
                 except:
                     p_type = "string"
                 # TODO Find style: dynamic or static

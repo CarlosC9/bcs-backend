@@ -138,12 +138,13 @@ def import_file(input_file, format=None, **kwargs):
     try:
         # Check phylotree file format
         from Bio import Phylo
-        tree = Phylo.read(input_file, format)
         if format == 'nexus':
             from dendropy import TreeList
             from io import StringIO
             trees = TreeList.get_from_path(input_file, schema="nexus")
             tree = Phylo.read(StringIO(trees[-1].as_string("nexus")), "nexus")
+        else:
+            tree = Phylo.read(input_file, format)
     except Exception as e:
         issues = [Issue(IType.ERROR, f'IMPORT phylotress: The file {input_file}.{format} could not be imported.')]
         return issues, content, 409
