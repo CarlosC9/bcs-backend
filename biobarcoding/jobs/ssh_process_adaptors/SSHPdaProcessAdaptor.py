@@ -13,14 +13,7 @@ class SSHPdaProcessAdaptor(SSHProcessAdaptor):
         }]
 
     def get_script_files_list(self):
-        return [
-            {
-                "remote_name": "consensus.newick",
-                "file": os.path.join(self.ASSETS_FOLDER, "pda_assets", "heuristic_phylogeny.newick"),
-                "subprocess": "Phylogenetic Diversity Analyzer",
-                "type": "newick"
-            }
-        ]
+        return []
 
     def parse_script_params(self, process_parameters):
         pda_parameters = process_parameters["Phylogenetic Diversity Analyzer"]

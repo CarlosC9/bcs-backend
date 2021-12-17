@@ -17,9 +17,9 @@
           ]
         },
         "templateOptions": {
-          "filename": "start_phylotree",
+          "filename": "phylotree",
           "label": "Phylogenetic Tree Selector",
-          "extension": "nexus",
+          "extension": "newick",
           "required": true
         }
       },

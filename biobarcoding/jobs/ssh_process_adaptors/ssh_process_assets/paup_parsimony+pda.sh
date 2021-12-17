@@ -19,7 +19,7 @@ then
   check_error $?
   cp *_consensus.nexus consensus.nexus
   check_error $?
-  python3 nexus2newick.py consensus.nexus consensus.newick
+  python3 nexus2newick.py consensus.nexus phylotree.newick
   check_error $?
   ./pda.sh ${16} ${17}
   check_error $?
