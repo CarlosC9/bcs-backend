@@ -61,7 +61,7 @@
             }
           ]
         },
-        "defaultValue": "clustal"
+        "defaultValue": "fasta"
       },
       {
         "key": "out_seqnos",

@@ -49,7 +49,7 @@
             }
           ]
         },
-        "defaultValue": "--6merpair"
+        "defaultValue": "--globalpair"
       },
       {
         "key": "retree",

@@ -63,7 +63,8 @@
             }
           ]
         },
-        "defaultValue": "fasta"
+        "defaultValue": "fasta",
+        "hideExpression": true
       },
       {
         "key": "out_seqnos",
