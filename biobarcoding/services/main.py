@@ -8,17 +8,17 @@ from ..db_models import ORMBase, DBSession
 def get_orm(entity):
     orm = None
     if entity == 'templates':
-        from ..db_models.sysadmin import AnnotationFormTemplate as orm
+        from ..db_models.sa_annotations import AnnotationFormTemplate as orm
     if entity == 'fields':
-        from ..db_models.sysadmin import AnnotationFormField as orm
+        from ..db_models.sa_annotations import AnnotationFormField as orm
     if entity == 'annotations':
-        from ..db_models.sysadmin import AnnotationItem as orm
+        from ..db_models.sa_annotations import AnnotationItem as orm
     if entity == 'annotation_template':
-        from ..db_models.sysadmin import AnnotationTemplate as orm
+        from ..db_models.sa_annotations import AnnotationTemplate as orm
     if entity == 'annotation_field':
-        from ..db_models.sysadmin import AnnotationField as orm
+        from ..db_models.sa_annotations import AnnotationField as orm
     if entity == 'annotation_text':
-        from ..db_models.sysadmin import AnnotationText as orm
+        from ..db_models.sa_annotations import AnnotationText as orm
     return orm
 
 
