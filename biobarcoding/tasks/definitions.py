@@ -4,19 +4,19 @@ import os
 import re
 import shutil
 import signal
-import stat
 import subprocess
 import traceback
 from functools import partial
 from json import JSONDecodeError
 
+from celery.utils.log import get_task_logger
 from dotted.collection import DottedDict
 
 from .. import get_global_configuration_variable
 from ..common import ROOT
 from ..common.decorators import celery_wf
 from ..jobs import JobExecutorAtResourceFactory
-from ..rest import app_api_base, logger
+from ..rest import app_api_base
 from . import celery_app
 
 """
@@ -41,6 +41,8 @@ To test:
   - curl --cookie-jar app-cookies.txt --cookie app-cookies.txt -XPOST http://localhost:5000/api/jobs/ -H "Content-Type: application/json" -d @"/home/paula/Documentos/app-backend/tests/data_test/new_galaxy_request.json"
 
 """
+
+logger = get_task_logger(__name__)
 
 MAX_ATTEMPTS = 3
 CELERY_LOG = ROOT + "/tests/data_test/celery_log.txt"
@@ -146,7 +148,7 @@ def kill_process(pid):
         try:
             os.kill(int(pid), signal.SIGTERM)
         except Exception as e:
-            print(e)
+            logger.error(e)
             traceback.print_exc()
 
 
@@ -179,7 +181,7 @@ def can_execute_job(job_id):
     try:
         d = json.loads(_)
     except JSONDecodeError as e:
-        print(e)
+        logger.error(e)
         return False
     if d.get("content"):
         _ = d["content"]
@@ -233,7 +235,7 @@ def check_file_is_stored_in_backend(check_url):
     try:
         process_return_dict = json.loads(_)
     except JSONDecodeError as e:
-        print(e)
+        logger.error(e)
         return False
     if process_return_dict.get("content"):
         return process_return_dict["content"].get("size") != 0
@@ -259,7 +261,8 @@ def remove_local_workspace(local_workspace, result_files=None):
 
 
 def local_workspace_exists(local_workspace, result_files=None):
-    return os.path.exists(local_workspace)
+    _ = os.path.exists(local_workspace)
+    return _
     # cleaned = True
     # result_filenames = [os.path.basename(f["file"]) for f in result_files]
     # local_workspace_files = os.listdir(local_workspace)
@@ -295,7 +298,10 @@ def generate_export_cmd(file_dict: dict, tmp_path: str, job_executor):
     selection = file_dict['selection']
     queryParams = file_dict['queryParams']
     with_filter = False
-    if type(selection) == DottedDict:  # Get with filter
+    if type(selection) == dict:  # Get with filter
+        selection_json: str = json.dumps(selection)
+        with_filter = True
+    elif type(selection) == DottedDict:  # Get with filter
         selection_json: str = d2s(selection)
         with_filter = True
     url = ""
@@ -337,11 +343,44 @@ def export(file_dict, job_executor) -> object:
     api_login()  # Logout is executed after successful export
     tmp_path = os.path.join(job_executor.local_workspace, file_dict["remote_name"])
     cmd = generate_export_cmd(file_dict, tmp_path, job_executor)
-    print(cmd)
+    logger.debug(cmd)
     popen_pipe = os.popen(cmd)
     pid = popen_pipe.readline().rstrip()
-    print(f"PID: {pid}")
+    logger.debug(f"PID: {pid}")
     return pid
+
+
+def import_(file_dict, job_executor, jc):
+    endpoint = get_global_configuration_variable("ENDPOINT_URL")
+    cookies_file_path = get_global_configuration_variable("COOKIES_FILE_PATH")
+    local_path = os.path.join(job_executor.local_workspace, file_dict["file"])
+    logger.debug(file_dict)
+    api_login()
+    if "autoimport" in file_dict and file_dict["autoimport"]:
+        file_dict["metadata"]["job_id"] = jc.job_id
+        # instance_id = file_dict["metadata"].get("attributes", {}).get("instance_id")
+        # port_id = file_dict["metadata"].get("attributes", {}).get("port_id")
+        d = file_dict["object_type"]
+        if "geo" in d:
+            metadata = json.dumps(file_dict["metadata"].to_python()).replace('"', '\\"')
+            curl_cmd = f"curl -s --cookie-jar {cookies_file_path} --cookie {cookies_file_path} " \
+                       f"-F \"layer_file=@{local_path};type={file_dict['content_type']}\" " \
+                       f"-F \"metadata={metadata};type=application/json\" " \
+                       f"{endpoint}{app_api_base}/geo/layers/"
+            check_url = f"{endpoint}{app_api_base}/geo/layers/job{jc.job_id}"
+    else:
+        curl_cmd = (f"curl -s --cookie-jar {cookies_file_path} --cookie {cookies_file_path} " +
+                    f"-H \"Content-Type: {file_dict['content_type']}\" -XPUT --data-binary @\"{local_path}\" " +
+                    f"\"{endpoint}{app_api_base}/files/jobs/{str(jc.job_id)}/{file_dict['file']}.content\"")
+        check_url = f"{endpoint}{app_api_base}/files/jobs/{str(jc.job_id)}/{file_dict['file']}"
+    cmd = (f"(nohup bash -c '{curl_cmd} ' >>{job_executor.log_filenames_dict['store_stdout']} " +
+           f"</dev/null 2>>{job_executor.log_filenames_dict['store_stderr']} & echo $!; wait $!; " +
+           f"echo $? >> {job_executor.local_workspace}/$!.exit_status)")
+    logger.debug(cmd)
+    popen_pipe = os.popen(cmd)
+    pid = popen_pipe.readline().rstrip()
+    logger.debug(f"PID: {pid}")
+    return pid, dict(check_url=check_url)
 
 
 def is_file_exported(input_file):
@@ -353,12 +392,12 @@ def is_file_exported(input_file):
             if not re.search(r'\b<!DOCTYPE HTML PUBLIC\b', file_content):
                 return True
             else:
-                print(f"{input_file} is a html file")
+                logger.warning(f"{input_file} is a html file")
                 return False
         except:
             return True  # If the search cannot be performed, it is a binary file, OK
     else:
-        print(f"{input_file} does not exists")
+        logger.warning(f"{input_file} does not exists")
         return False
 
 
@@ -370,7 +409,123 @@ def d2s(d: DottedDict) -> str:
     return json.dumps(d.to_python())
 
 
-@celery_app.task(name="prepare")
+def transfer_task(task_name,
+                  logs_prefix,
+                  jc,
+                  job_executor,
+                  action_function,
+                  check_action_function,
+                  after_action_function,
+                  files_function,
+                  log_msg):
+    """
+    Valid for the four
+    :param task_name:
+    :param job_context:
+    :param job_executor:
+    :param action_function:
+    :param log_msg:
+    :return:
+    """
+    if not change_status_or_cancel_if_requested(jc,
+                                                task_name,
+                                                partial(kill_process, jc.get("pid"))):
+        return "cancel", d2s(jc)
+
+    state = jc.get("state_dict")
+
+    if state:  # transfer already started
+        i = state.idx
+        n_attempts = state.n_attempts
+    else:
+        write_to_file(job_executor.log_filenames_dict[f"{logs_prefix}_stdout"],
+                      "#" * 20 + log_msg + "#" * 20)
+        open(job_executor.log_filenames_dict[f"{logs_prefix}_stderr"], "x")
+        i = 0
+        n_attempts = 0
+        jc.pid = None
+        jc.state_dict = dict(idx=i, n_attempts=n_attempts, state=task_name)
+
+    # Files to process
+    files = files_function(jc, job_executor)
+    file_dict = files[i] if i < len(files) else dict(file="", remote_name="", type="")
+    logger.debug(file_dict)
+
+    if not job_executor.check():
+        error_str = "Connection to the server has been lost"
+        logger.error(error_str)
+        write_to_file(job_executor.log_filenames_dict[f"{logs_prefix}_stderr"], error_str)
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict[f"{logs_prefix}_stdout"],
+                                            job_executor.log_filenames_dict[f"{logs_prefix}_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
+        jc.error = error_str
+        return "error", d2s(jc)
+    elif i < len(files) and n_attempts >= MAX_ATTEMPTS:
+        # error_str = f"Transfer of file {os.path.basename(file_dict['file'])} to resource failed."
+        error_str = f"'{task_name}' error: File {i + 1} {file_dict['remote_name']}"
+        write_to_file(job_executor.log_filenames_dict[f"{logs_prefix}_stderr"], error_str)
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict[f"{logs_prefix}_stdout"],
+                                            job_executor.log_filenames_dict[f"{logs_prefix}_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
+        jc.error = error_str
+        return "error", d2s(jc)
+    elif i == len(files):  # Task finished
+        logger.debug(f"{task_name} finished")
+        write_to_file(job_executor.log_filenames_dict[f"{logs_prefix}_stdout"],
+                      f"{task_name} finished successfully")
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict[f"{logs_prefix}_stdout"],
+                                            job_executor.log_filenames_dict[f"{logs_prefix}_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
+        del jc.state_dict
+        # TODO Only last task (store results in backend)
+        # log_file = os.path.basename(job_executor.log_filenames_dict["universal_log"])
+        # jc.results.append(dict(remote_name="", file=log_file, content_type="text/plain", type="log"))
+        return d2s(jc)
+    elif job_executor.step_status(jc) == "running":  # TASK is being executed
+        logger.debug(f"{task_name} executing")
+        return 1, d2s(jc)
+    elif job_executor.step_status(jc) == "":  # ERROR job_executor.step_status(jc) == "ok" for "store_result_in_backend"
+        logger.debug(f"{task_name} error: File {i + 1}")
+        jc.pid = None
+        return None, d2s(jc)
+    elif check_action_function(jc, job_executor):
+        logger.debug(f"File {file_dict['remote_name']} {task_name}ed -> Moving to next. Attempt: {n_attempts}")
+        write_to_file(job_executor.log_filenames_dict[f"{logs_prefix}_stdout"],
+                      f"File {file_dict['remote_name']} {logs_prefix}ed -> Moving to next. Attempt: {n_attempts + 1}")
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict[f"{logs_prefix}_stdout"],
+                                            job_executor.log_filenames_dict[f"{logs_prefix}_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
+
+        if after_action_function:
+            after_action_function(jc, job_executor, file_dict)
+
+        jc.pid = None
+        jc.state_dict = dict(idx=i + 1, n_attempts=0, state=task_name)
+        # TODO api_logout()
+        return None, d2s(jc)
+    else:  # TRANSFER file i
+        logger.debug(f"Begin {task_name} {i + 1}: {file_dict['remote_name']}. Attempt: {n_attempts + 1}")
+        write_to_file(job_executor.log_filenames_dict[f"{logs_prefix}_stdout"],
+                      f"Begin {task_name} {i + 1}: {file_dict['remote_name']}. Attempt: {n_attempts + 1}")
+        write_to_universal_log_and_truncate(job_executor.log_filenames_dict[f"{logs_prefix}_stdout"],
+                                            job_executor.log_filenames_dict[f"{logs_prefix}_stderr"],
+                                            job_executor.log_filenames_dict["universal_log"])
+
+        pid, _ = action_function(file_dict, job_executor, jc)  # MAIN!!!
+
+        jc.pid = pid
+        jc.state_dict = dict(idx=i, n_attempts=n_attempts + 1, state=task_name)
+        jc.state_dict.update(_)
+        return None, d2s(jc)
+
+
+# ----------------------------------------------------------------------------------------------------------------------
+# THE TASKS
+# ----------------------------------------------------------------------------------------------------------------------
+ack_late_idempotent_tasks = True
+
+
+@celery_app.task(name="prepare", ack_late=ack_late_idempotent_tasks)
 @celery_wf(celery_app, wf1, "prepare")
 def wf1_prepare_workspace(job_context):
     """
@@ -424,7 +579,7 @@ def wf1_prepare_workspace(job_context):
                                             job_executor.log_filenames_dict["universal_log"])
         return "error", d2s(jc)
     elif job_executor.job_workspace_exists() or job_executor.job_workspace_exists() is None:
-        print("Job workspace created")
+        logger.info("Job workspace created")
         # None when the job is executed in localhost
         write_to_file(job_executor.log_filenames_dict["prepare_stdout"], f"Job {jc.job_id} workspace prepared")
         write_to_universal_log_and_truncate(job_executor.log_filenames_dict["prepare_stdout"],
@@ -441,7 +596,7 @@ def wf1_prepare_workspace(job_context):
         return None, d2s(jc)
 
 
-@celery_app.task(name="export")
+@celery_app.task(name="export", ack_late=ack_late_idempotent_tasks)
 @celery_wf(celery_app, wf1, "export")
 def wf1_export_to_supported_file_formats(job_context: str):
     """
@@ -453,81 +608,25 @@ def wf1_export_to_supported_file_formats(job_context: str):
     jc = s2d(job_context)
     job_executor = JobExecutorAtResourceFactory().get(jc)
 
-    if not change_status_or_cancel_if_requested(jc,
-                                                "export",
-                                                partial(kill_process, jc.get("pid"))):
-        return "cancel", job_context
-
-    state = jc.get("state_dict")
-
-    print(f"Export state: {state}")
-
-    if state:  # ya ha empezado la transferencia
-        i = state.idx
-        n_attempts = state.n_attempts
-    else:
-        write_to_file(job_executor.log_filenames_dict["export_stdout"],
-                      "#" * 20 + " EXPORT TO SUPPORTED FILE FORMATS STEP " + "#" * 20)
-        open(job_executor.log_filenames_dict["export_stderr"], "x")
-        i = 0
-        n_attempts = 0
-        jc.pid = None
-        jc.state_dict = dict(idx=i, n_attempts=n_attempts, state="export")
-
-    # Files to export
-    files = jc.process.inputs.data
-    file_dict = files[i] if i < len(files) else dict(file="", remote_name="", type="")
-    print(file_dict)
-
-    if i < len(files) and n_attempts >= MAX_ATTEMPTS:
-        error_str = f"Export error: File {i + 1} {file_dict['remote_name']}"
-        write_to_file(job_executor.log_filenames_dict["export_stderr"], error_str)
-        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["export_stdout"],
-                                            job_executor.log_filenames_dict["export_stderr"],
-                                            job_executor.log_filenames_dict["universal_log"])
-        jc.error = error_str
-        return "error", d2s(jc)
-    if i == len(files):  # Export finished
-        print("Export finished")
-        write_to_file(job_executor.log_filenames_dict["export_stdout"], "Export finished successfully")
-        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["export_stdout"],
-                                            job_executor.log_filenames_dict["export_stderr"],
-                                            job_executor.log_filenames_dict["universal_log"])
-        del jc.state_dict
-        return d2s(jc)
-    elif job_executor.step_status(jc) == "running":  # Export is being executed
-        print("Export executing")
-        return 1, job_context
-    elif job_executor.step_status(jc) == "":
-        jc.pid = None
-        return None, d2s(jc)
-    elif is_file_exported(os.path.join(job_executor.local_workspace, file_dict["remote_name"])):
-        print(f"File {file_dict['remote_name']} transferred -> Moving to next")
-        write_to_file(job_executor.log_filenames_dict["export_stdout"],
-                      f"File {file_dict['remote_name']} exported -> Moving to next")
-        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["export_stdout"],
-                                            job_executor.log_filenames_dict["export_stderr"],
-                                            job_executor.log_filenames_dict["universal_log"])
-        jc.process.inputs.data[i]['file'] = os.path.join(job_executor.local_workspace, file_dict["remote_name"])
+    def after_export(jc, job_executor, file_dict):
+        i = jc.state_dict.idx
+        jc.process.inputs.data[i]['file'] = os.path.join(job_executor.local_workspace, file_dict["remote_name"]) # TODO: check if this is correct
         del jc.process.inputs.data[i]['selection']
-        jc.pid = None
-        jc.state_dict = dict(idx=i + 1, n_attempts=0, state="export")
-        api_logout()
-        return None, d2s(jc)
-    else:  # Export file i
-        print(f"Begin export {i + 1}: {file_dict['remote_name']}. Attempt: {n_attempts + 1}")
-        write_to_file(job_executor.log_filenames_dict["export_stdout"],
-                      f"Begin export {i + 1}: {file_dict['remote_name']}. Attempt: {n_attempts + 1}")
-        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["export_stdout"],
-                                            job_executor.log_filenames_dict["export_stderr"],
-                                            job_executor.log_filenames_dict["universal_log"])
-        pid = export(file_dict, job_executor)  # MAIN!!!
-        jc.pid = pid
-        jc.state_dict = dict(idx=i, n_attempts=n_attempts + 1, state="export")
-        return None, d2s(jc)
+
+    ret_tuple = transfer_task(task_name="export",
+                              logs_prefix="export",
+                              jc=jc,
+                              job_executor=job_executor,
+                              action_function=lambda file_dict, je, jc: (export(file_dict, je), {}),
+                              check_action_function=lambda jc, je: is_file_exported(os.path.join(je.local_workspace, jc.process.inputs.data[jc.state_dict.idx]["remote_name"])),
+                              after_action_function=after_export,
+                              files_function=lambda job_context, job_executor: job_context.process.inputs.data,
+                              log_msg=" EXPORT TO SUPPORTED FILE FORMATS STEP ")
+    logger.debug(f"RET: {ret_tuple}")
+    return ret_tuple
 
 
-@celery_app.task(name="transfer_data")
+@celery_app.task(name="transfer_data", ack_late=ack_late_idempotent_tasks)
 @celery_wf(celery_app, wf1, "transfer_data")
 def wf1_transfer_data_to_resource(job_context: str) -> object:
     """
@@ -538,87 +637,31 @@ def wf1_transfer_data_to_resource(job_context: str) -> object:
     jc = s2d(job_context)
     job_executor = JobExecutorAtResourceFactory().get(jc)
 
-    if not change_status_or_cancel_if_requested(jc,
-                                                "transfer_data_to_resource",
-                                                partial(kill_process, jc.get("pid"))):
-        return "cancel", job_context
+    def check_file_exists(jc, job_executor):
+        _ = jc.state_dict.state
+        jc.state_dict.state = "upload"
+        res = job_executor.exists(jc)
+        jc.state_dict.state = _
+        return res
 
-    state = jc.get("state_dict")
-    print(f"Transfer state: {state}")
-    if state:  # ya ha empezado la transferencia
-        i = state.idx
-        n_attempts = state.n_attempts
-    else:
-        write_to_file(job_executor.log_filenames_dict["upload_stdout"],
-                      "#" * 20 + " TRANSFER DATA TO SOURCE STEP " + "#" * 20)
-        open(job_executor.log_filenames_dict["upload_stderr"], "x")
-        i = 0
-        n_attempts = 0
-        jc.pid = None
-        jc.state_dict = dict(idx=i, n_attempts=n_attempts, state="upload")
+    def get_files_to_upload(jc, job_executor):
+        _ = [i for i in job_executor.get_upload_files_list(jc)
+             if not isinstance(i, str) or (isinstance(i, str) and not i.startswith("geoprocess"))]
+        return _
 
-    # Files to transfer
-    files = job_executor.get_upload_files_list(jc)
-    file_dict = files[i] if i < len(files) else {"file": "", "remote_name": "", "type": ""}
-
-    if not job_executor.check():
-        error_str = "Connection to the server has been lost"
-        print(error_str)
-        write_to_file(job_executor.log_filenames_dict["upload_stderr"], error_str)
-        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["upload_stdout"],
-                                            job_executor.log_filenames_dict["upload_stderr"],
-                                            job_executor.log_filenames_dict["universal_log"])
-        jc.error = error_str
-        return "error", d2s(jc)
-    elif i < len(files) and n_attempts >= MAX_ATTEMPTS:
-        error_str = f"Transfer of file {os.path.basename(file_dict['file'])} to resource failed."
-        write_to_file(job_executor.log_filenames_dict["upload_stderr"], error_str)
-        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["upload_stdout"],
-                                            job_executor.log_filenames_dict["upload_stderr"],
-                                            job_executor.log_filenames_dict["universal_log"])
-        print(error_str)
-        jc.error = error_str
-        return "error", d2s(jc)
-    elif i == len(files):  # Transfer finished
-        print("Transfer finished")
-        write_to_file(job_executor.log_filenames_dict["upload_stdout"],
-                      "Upload finished successfully")
-        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["upload_stdout"],
-                                            job_executor.log_filenames_dict["upload_stderr"],
-                                            job_executor.log_filenames_dict["universal_log"])
-        del jc.state_dict
-        return d2s(jc)
-    elif job_executor.step_status(jc) == "running":  # Transfer is being executed
-        print("Transfer executing")
-        return 1, job_context
-    elif job_executor.step_status(jc) == "":  # Transfer error
-        print(f"Transfer error: File {i + 1}")
-        jc.pid = None
-        return None, d2s(jc)
-    elif job_executor.exists(jc):  # File i has been transferred successfully
-        print(f"File {file_dict['file']} transferred -> Moving to next. Attempt: {n_attempts}")
-        write_to_file(job_executor.log_filenames_dict["upload_stdout"],
-                      (f"File {os.path.basename(file_dict['file'])} transferred -> "
-                       f"Moving to next. Attempt: {n_attempts + 1}"))
-        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["upload_stdout"],
-                                            job_executor.log_filenames_dict["upload_stderr"],
-                                            job_executor.log_filenames_dict["universal_log"])
-        i += 1
-        jc.pid = None
-        jc.state_dict = dict(idx=i, n_attempts=0, state="upload")
-        return None, d2s(jc)
-    else:  # Transfer file i
-        print(f"Begin transfer {i + 1}: {file_dict['file']}")
-        write_to_file(job_executor.log_filenames_dict["upload_stdout"],
-                      f"Begin transfer {i + 1}: {file_dict['file']}")
-        pid = job_executor.upload_file(jc)  # MAIN !!!
-        jc.pid = pid
-        jc.state_dict = dict(idx=i, n_attempts=n_attempts + 1, state="upload")
-        print(jc.state_dict)
-        return None, d2s(jc)
+    ret_tuple = transfer_task(task_name="transfer_data_to_resource",
+                              logs_prefix="upload",
+                              jc=jc,
+                              job_executor=job_executor,
+                              action_function=lambda file_dict, je, jc: (je.upload_file(jc), {}),
+                              check_action_function=check_file_exists,
+                              after_action_function=None,
+                              files_function=get_files_to_upload,
+                              log_msg=" TRANSFER DATA TO SOURCE STEP ")
+    return ret_tuple
 
 
-@celery_app.task(name="submit")
+@celery_app.task(name="submit", ack_late=False)  # ack_late=False - NOT IDEMPOTENT
 @celery_wf(celery_app, wf1, "submit")
 def wf1_submit(job_context: str):
     """
@@ -646,7 +689,7 @@ def wf1_submit(job_context: str):
     return d2s(jc)
 
 
-@celery_app.task(name="wait_until_execution_starts")
+@celery_app.task(name="wait_until_execution_starts", ack_late=ack_late_idempotent_tasks)
 @celery_wf(celery_app, wf1, "wait_until_execution_starts")
 def wf1_wait_until_execution_starts(job_context: str):
     """
@@ -669,7 +712,7 @@ def wf1_wait_until_execution_starts(job_context: str):
         write_to_universal_log_and_truncate(job_executor.log_filenames_dict["submit_stdout"],
                                             job_executor.log_filenames_dict["submit_stderr"],
                                             job_executor.log_filenames_dict["universal_log"])
-        print(error_str)
+        logger.error(error_str)
         jc.error = error_str
         return "error", d2s(jc)
     status = job_executor.step_status(jc)
@@ -682,7 +725,7 @@ def wf1_wait_until_execution_starts(job_context: str):
             error_str = f"The process failed to start with status: {status}."
         else:
             error_str = "The process failed to start."
-        print(error_str)
+        logger.error(error_str)
         write_to_file(job_executor.log_filenames_dict["submit_stderr"], json.dumps(error_str))
         write_to_universal_log_and_truncate(job_executor.log_filenames_dict["submit_stdout"],
                                             job_executor.log_filenames_dict["submit_stderr"],
@@ -695,7 +738,7 @@ def wf1_wait_until_execution_starts(job_context: str):
         return 3, job_context
 
 
-@celery_app.task(name="wait_for_execution_end")
+@celery_app.task(name="wait_for_execution_end", ack_late=ack_late_idempotent_tasks)
 @celery_wf(celery_app, wf1, "wait_for_execution_end")
 def wf1_wait_for_execution_end(job_context: str):
     """
@@ -718,7 +761,7 @@ def wf1_wait_for_execution_end(job_context: str):
     write_to_file(CELERY_LOG, f"wait_for_execution_end: status: {status}")
     if not job_executor.check():
         error_str = "Connection to the server has been lost"
-        print(error_str)
+        logger.error(error_str)
         write_to_file(job_executor.log_filenames_dict["submit_stderr"], error_str)
         write_to_universal_log_and_truncate(job_executor.log_filenames_dict["submit_stdout"],
                                             job_executor.log_filenames_dict["submit_stderr"],
@@ -749,7 +792,7 @@ def wf1_wait_for_execution_end(job_context: str):
         return 3, job_context
 
 
-@celery_app.task(name="transfer_data_from")
+@celery_app.task(name="transfer_data_from", ack_late=ack_late_idempotent_tasks)
 @celery_wf(celery_app, wf1, "transfer_data_from")
 def wf1_transfer_data_from_resource(job_context: str):
     """
@@ -758,198 +801,45 @@ def wf1_transfer_data_from_resource(job_context: str):
     :return:
     """
     jc = s2d(job_context)
-
     job_executor = JobExecutorAtResourceFactory().get(jc)
-    if not change_status_or_cancel_if_requested(jc,
-                                                "transfer_data_from_resource",
-                                                partial(kill_process, jc.get("pid"))):
-        return "cancel", job_context
 
-    state = jc.get("state_dict")
-    print(f"Transfer state: {state}")
-    if state:  # ya ha empezado la transferencia
-        i = state.idx
-        n_attempts = state.n_attempts
-    else:
-        write_to_file(job_executor.log_filenames_dict["download_stdout"],
-                      "#" * 20 + " TRANSFER DATA FROM RESOURCE STEP " + "#" * 20)
-        open(job_executor.log_filenames_dict["download_stderr"], "x")
-        i = 0
-        n_attempts = 0
-        jc.pid = None
-        jc.state_dict = dict(idx=i, n_attempts=n_attempts, state="download")
+    def check_file_exists(jc, job_executor):
+        _ = jc.state_dict.state
+        jc.state_dict.state = "download"
+        res = job_executor.exists(jc)
+        jc.state_dict.state = _
+        return res
 
-    # Files to transfer
-    files = job_executor.get_download_files_list(jc)
-    file_dict = files[i] if i < len(files) else {"file": "", "remote_name": "", "type": ""}
-
-    if not job_executor.check():
-        error_str = "Connection to the server has been lost"
-        print(error_str)
-        write_to_file(job_executor.log_filenames_dict["download_stderr"], error_str)
-        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["download_stdout"],
-                                            job_executor.log_filenames_dict["download_stderr"],
-                                            job_executor.log_filenames_dict["universal_log"])
-        jc.error = error_str
-        return "error", d2s(jc)
-    elif i < len(files) and n_attempts >= MAX_ATTEMPTS:
-        error_str = f"Transfer from resource error: File {file_dict['file']}"
-        write_to_file(job_executor.log_filenames_dict["download_stderr"], error_str)
-        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["download_stdout"],
-                                            job_executor.log_filenames_dict["download_stderr"],
-                                            job_executor.log_filenames_dict["universal_log"])
-        print(error_str)
-        jc.error = error_str
-        return "error", d2s(jc)
-    if i == len(files):  # Transfer finished
-        print("Transfer finished")
-        write_to_file(job_executor.log_filenames_dict["download_stdout"], "Download finished successfully")
-        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["download_stdout"],
-                                            job_executor.log_filenames_dict["download_stderr"],
-                                            job_executor.log_filenames_dict["universal_log"])
-        del jc.state_dict
-        return d2s(jc)
-    elif job_executor.step_status(jc) == "running":  # Transfer is being executed
-        print("Transfer executing")
-        return 1, job_context
-    elif job_executor.step_status(jc) == "":
-        jc.pid = None
-        return None, d2s(jc)
-    elif job_executor.exists(jc):  # File i has been transferred successfully
-        print(f"File {file_dict['file']} transferred -> Moving to next")
-        write_to_file(job_executor.log_filenames_dict["download_stdout"],
-                      f"File {file_dict['file']} transferred -> Moving to next. Attempts: {n_attempts}")
-        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["download_stdout"],
-                                            job_executor.log_filenames_dict["download_stderr"],
-                                            job_executor.log_filenames_dict["universal_log"])
-        jc.pid = None
-        jc.state_dict = dict(idx=i + 1, n_attempts=0, state="download")
-        return None, d2s(jc)
-    else:  # Transfer file i
-        print(f"Begin transfer {i + 1}: {file_dict['file']}. Attempt: {n_attempts + 1}")
-        write_to_file(job_executor.log_filenames_dict["download_stdout"],
-                      f"Begin transfer {i + 1}: {file_dict['file']}. Attempt: {n_attempts + 1}")
-        pid = job_executor.download_file(jc)  # MAIN !!!
-        jc.pid = pid
-        jc.state_dict = dict(idx=i, n_attempts=n_attempts + 1, state="download")
-        return None, d2s(jc)
+    ret_tuple = transfer_task(task_name="transfer_data_from_resource",
+                              logs_prefix="download",
+                              jc=jc,
+                              job_executor=job_executor,
+                              action_function=lambda file_dict, je, jc: (je.download_file(jc), {}),
+                              check_action_function=check_file_exists,
+                              after_action_function=None,
+                              files_function=lambda jc, job_executor: job_executor.get_download_files_list(jc),
+                              log_msg=" TRANSFER DATA FROM RESOURCE STEP ")
+    return ret_tuple
 
 
-@celery_app.task(name="store_result_in_backend")
+@celery_app.task(name="store_result_in_backend", ack_late=ack_late_idempotent_tasks)
 @celery_wf(celery_app, wf1, "store_result_in_backend")
 def wf1_store_result_in_backend(job_context: str):
     jc = s2d(job_context)
     job_executor = JobExecutorAtResourceFactory().get(jc)
-
-    # TODO If "cancelling", remove files already uploaded to the backend
-    #      Or if that is not possible, consider the cancellation not possible ("cancel cancellation"),
-    #      and force a switch to "success".
-    if not change_status_or_cancel_if_requested(jc,
-                                                "store_result_in_backend",
-                                                partial(kill_process, jc.get("pid"))):
-        return "cancel", job_context
-
-    state = jc.get("state_dict")
-
-    print(f"Store result in backend state: {state}")
-    if state:  # ya ha empezado la transferencia
-        i = state.idx
-        n_attempts = state.n_attempts
-    else:
-        write_to_file(job_executor.log_filenames_dict["store_stdout"],
-                      "#" * 20 + " STORE RESULT IN BACKEND STEP " + "#" * 20)
-        open(job_executor.log_filenames_dict["store_stderr"], "x")
-        i = 0
-        n_attempts = 0
-        jc.pid = None
-        jc.state_dict = dict(idx=i, n_attempts=n_attempts, state="store", check_url=None)
-
-    # Files to transfer
-    files = job_executor.get_download_files_list(jc)
-    file_dict = files[i] if i < len(files) else {"file": "", "remote_name": "", "type": ""}
-    status = job_executor.step_status(jc)
-    if i < len(files) and n_attempts >= MAX_ATTEMPTS:
-        error_str = f"Store result in backend error: File {file_dict['file']}"
-        write_to_file(job_executor.log_filenames_dict["store_stderr"], error_str)
-        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["store_stdout"],
-                                            job_executor.log_filenames_dict["store_stderr"],
-                                            job_executor.log_filenames_dict["universal_log"])
-        print(error_str)
-        jc.error = error_str
-        return "error", d2s(jc)
-    elif i == len(files):  # Transfer finished
-        log_file = os.path.basename(job_executor.log_filenames_dict["universal_log"])
-        if files[-1]["file"] != log_file:
-            write_to_file(job_executor.log_filenames_dict["store_stdout"],
-                          "Store result in backend finished successfully")
-            write_to_universal_log_and_truncate(job_executor.log_filenames_dict["store_stdout"],
-                                                job_executor.log_filenames_dict["store_stderr"],
-                                                job_executor.log_filenames_dict["universal_log"])
-            jc.results.append(dict(remote_name="", file=log_file, content_type="text/plain", type="log"))
-            return None, d2s(jc)
-
-        print("Store result in backend finished")
-        del jc.state_dict
-        return d2s(jc)
-    elif status == "running":  # Transfer is being executed
-        print("Store result in backend executing")
-        return 1, job_context
-    elif status == "" or status == "ok":
-        jc.pid = None
-        return None, d2s(jc)
-    elif "check_url" in jc.state_dict and check_file_is_stored_in_backend(jc.state_dict["check_url"]):  # File i has been transferred successfully
-        print(f"File {file_dict['file']} stored -> Moving to next")
-        write_to_file(job_executor.log_filenames_dict["store_stdout"],
-                      f"File {file_dict['file']} stored -> Moving to next. Attempts: {n_attempts}")
-        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["store_stdout"],
-                                            job_executor.log_filenames_dict["store_stderr"],
-                                            job_executor.log_filenames_dict["universal_log"])
-        jc.pid = None
-        jc.state_dict = dict(idx=i + 1, n_attempts=0, state="store")
-        api_logout()
-        return None, d2s(jc)
-    else:  # Store file i
-        print(f"Beginning to store result in backend of file {file_dict['file']}. Attempt: {n_attempts + 1}")
-        print(file_dict)
-        write_to_file(job_executor.log_filenames_dict["store_stdout"],
-                      f"Beginning to store result in backend of file {file_dict['file']}. Attempt: {n_attempts + 1}")
-        endpoint = get_global_configuration_variable("ENDPOINT_URL")
-        cookies_file_path = get_global_configuration_variable("COOKIES_FILE_PATH")
-        filename = f'{file_dict["file"].split(".")[0]}.{file_dict["type"]}'
-        local_path = os.path.join(job_executor.local_workspace, filename)
-        print(file_dict)
-        # MAIN !!!
-        api_login()
-        if "autoimport" in file_dict and file_dict["autoimport"]:
-            file_dict["metadata"]["job_id"] = jc.job_id
-            # instance_id = file_dict["metadata"].get("attributes", {}).get("instance_id")
-            # port_id = file_dict["metadata"].get("attributes", {}).get("port_id")
-            d = file_dict["object_type"]
-            if "geo" in d:
-                metadata = json.dumps(file_dict["metadata"].to_python()).replace('"', '\\"')
-                curl_cmd = f"curl -s --cookie-jar {cookies_file_path} --cookie {cookies_file_path} " \
-                           f"-F \"layer_file=@{local_path};type={file_dict['content_type']}\" " \
-                           f"-F \"metadata={metadata};type=application/json\" " \
-                           f"{endpoint}{app_api_base}/geo/layers/"
-                check_url = f"{endpoint}{app_api_base}/geo/layers/job{jc.job_id}"
-        else:
-            curl_cmd = (f"curl -s --cookie-jar {cookies_file_path} --cookie {cookies_file_path} " +
-                        f"-H \"Content-Type: {file_dict['content_type']}\" -XPUT --data-binary @\"{local_path}\" " +
-                        f"\"{endpoint}{app_api_base}/files/jobs/{str(jc.job_id)}/{file_dict['file']}.content\"")
-            check_url = f"{endpoint}{app_api_base}/files/jobs/{str(jc.job_id)}/{file_dict['file']}"
-        cmd = (f"(nohup bash -c '{curl_cmd} ' >>{job_executor.log_filenames_dict['store_stdout']} " +
-               f"</dev/null 2>>{job_executor.log_filenames_dict['store_stderr']} & echo $!; wait $!; " +
-               f"echo $? >> {job_executor.local_workspace}/$!.exit_status)")
-        print(cmd)
-        popen_pipe = os.popen(cmd)
-        pid = popen_pipe.readline().rstrip()
-        print(f"PID: {pid}")
-        jc.pid = pid
-        jc.state_dict = dict(idx=i, n_attempts=n_attempts + 1, state="store", check_url=check_url)
-        return None, d2s(jc)
+    ret_tuple = transfer_task(task_name="store_result_in_backend",
+                              logs_prefix="store",
+                              jc=jc,
+                              job_executor=job_executor,
+                              action_function=lambda file_dict, je, jc: import_(file_dict, je, jc),
+                              check_action_function=lambda jc, je: "check_url" in jc.state_dict and check_file_is_stored_in_backend(jc.state_dict["check_url"]),
+                              after_action_function=None,
+                              files_function=lambda jc, job_executor: job_executor.get_download_files_list(jc),
+                              log_msg=" STORE RESULT IN BACKEND STEP ")
+    return ret_tuple
 
 
-@celery_app.task(name="cleanup")
+@celery_app.task(name="cleanup", ack_late=ack_late_idempotent_tasks)
 @celery_wf(celery_app, wf1, "cleanup")
 def wf1_cleanup_workspace(job_context: str):
     """
@@ -958,6 +848,7 @@ def wf1_cleanup_workspace(job_context: str):
     :param job_context:
     :return:
     """
+    logger.debug("cleanup 1 ----------")
     jc = s2d(job_context)
     job_executor = JobExecutorAtResourceFactory().get(jc, create_local_workspace=False)
 
@@ -967,8 +858,7 @@ def wf1_cleanup_workspace(job_context: str):
 
     state = jc.get("state_dict")
 
-    print(f"Cleanup state: {state}")
-
+    logger.debug(f"Cleanup state: {state}")
     result_files = jc.results
 
     if state:  # ya ha empezado el prepare
@@ -981,7 +871,7 @@ def wf1_cleanup_workspace(job_context: str):
     if not job_executor.check():
         error_str = "Connection to the server has been lost"
         write_to_file(job_executor.log_filenames_dict["cleanup_stderr"], error_str)
-        print(error_str)
+        logger.error(error_str)
         jc.error = error_str
         return "error", d2s(jc)
     elif n_attempts >= MAX_ATTEMPTS:
@@ -989,7 +879,7 @@ def wf1_cleanup_workspace(job_context: str):
                     f"Maybe it could be due to some disk space or credentials issue."
         jc.error = error_str
         # write_to_file(job_executor.log_filenames_dict["cleanup_stderr"], error_str)
-        print(error_str)
+        logger.error(error_str)
         return "error", d2s(jc)
     elif ((not job_executor.job_workspace_exists()) and
           (not local_workspace_exists(job_executor.local_workspace, result_files))):
@@ -1001,13 +891,19 @@ def wf1_cleanup_workspace(job_context: str):
             return d2s(jc)  # Jump to default task (should be "success")
     else:
         # MAIN !!!
-        job_executor.remove_job_workspace()
-        remove_local_workspace(job_executor.local_workspace, result_files)
+        try:
+            job_executor.remove_job_workspace()
+        except:
+            traceback.print_exc()
+        try:
+            remove_local_workspace(job_executor.local_workspace, result_files)
+        except:
+            traceback.print_exc()
         jc.state_dict = dict(n_attempts=n_attempts + 1)
         return None, d2s(jc)
 
 
-@celery_app.task(name="success")
+@celery_app.task(name="success", ack_late=ack_late_idempotent_tasks)
 @celery_wf(celery_app, wf1, "success")
 def wf1_completed_succesfully(job_context: str):
     """
@@ -1024,7 +920,7 @@ def wf1_completed_succesfully(job_context: str):
     return d2s(jc)
 
 
-@celery_app.task(name="error")
+@celery_app.task(name="error", ack_late=ack_late_idempotent_tasks)
 @celery_wf(celery_app, wf1, "error")
 def wf1_completed_error(job_context: str):
     """
@@ -1050,7 +946,7 @@ def wf1_completed_error(job_context: str):
     return "wf1_store_result_in_backend", d2s(jc)
 
 
-@celery_app.task(name="cancel")
+@celery_app.task(name="cancel", ack_late=ack_late_idempotent_tasks)
 @celery_wf(celery_app, wf1, "cancel")
 def wf1_cancelled(job_context: str):
     """

@@ -26,6 +26,7 @@ from ..common.pg_helpers import create_pg_database_engine, load_table, load_many
     load_computing_resources, load_processes_in_computing_resources, load_process_input_schema, load_table_extended
 from ..db_models import DBSession, DBSessionChado, ORMBaseChado, DBSessionGeo
 from ..db_models.bioinformatics import *
+from ..db_models.core import update_functional_object_tsvector
 from ..db_models.geographics import *
 from ..db_models.hierarchies import HierarchyType, Hierarchy, HierarchyNode
 from ..db_models.jobs import *
@@ -773,6 +774,7 @@ def initialize_database(flask_app):
 
         # Load base tables
         initialize_database_data()
+        update_functional_object_tsvector(DBSession())
     else:
         print("No database connection defined (DB_CONNECTION_STRING), exiting now!")
         sys.exit(1)

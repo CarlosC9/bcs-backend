@@ -12,7 +12,7 @@ from marshmallow_sqlalchemy import ModelConverter as BaseModelConverter
 from shapely.geometry import shape
 from shapely.geometry.multipolygon import MultiPolygon
 from sqlalchemy import event, TypeDecorator, CHAR, Column, Integer, String
-from sqlalchemy.dialects.postgresql import UUID, TSVECTOR
+from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker, class_mapper, ColumnProperty, RelationshipProperty, mapper
 from sqlalchemy_continuum import make_versioned
@@ -62,10 +62,6 @@ class GUID(TypeDecorator):
             return value
         else:
             return uuid.UUID(value)
-
-
-class TSVector(TypeDecorator):
-    impl = TSVECTOR
 
 
 class BaseMixin(object):

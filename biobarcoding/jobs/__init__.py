@@ -69,7 +69,7 @@ class JobExecutorAtResource(ABC):
             identity_job_id)
         if create_local_workspace:
             if not os.path.exists(self.local_workspace):
-                pathlib.Path(self.local_workspace).mkdir(parents=True)
+                pathlib.Path(self.local_workspace).mkdir(parents=True, exist_ok=True)
 
         self.log_filenames_dict = {}
         for k, v in self.LOG_FILENAMES_DICT.items():
