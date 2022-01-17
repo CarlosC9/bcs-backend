@@ -424,7 +424,7 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         return status
 
     def write_remote_logs(self, state_dict):
-        if state_dict["state"] == "submit" and state_dict.get("substep") == "wait_for_execution_end":
+        if state_dict["state"] == "submit":
             self.loop.run_until_complete(self.remote_client.write_submit_logs())
 
     def cancel_job(self, native_id):
