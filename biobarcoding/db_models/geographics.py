@@ -2,10 +2,10 @@
 import uuid
 
 from geoalchemy2 import Geometry
-from sqlalchemy import Column, Integer, String, BigInteger, ForeignKey, JSON, Boolean, Index, Computed
+from sqlalchemy import Column, Integer, String, BigInteger, ForeignKey, JSON, Boolean, Index
 from sqlalchemy.dialects.postgresql import JSONB
 
-from . import ORMBase, ORMBaseGeo, GUID, TSVector
+from . import ORMBase, ORMBaseGeo, GUID
 from .core import Dataset, data_object_type_id
 
 prefix = "geo_"
@@ -43,11 +43,6 @@ class GeographicLayer(Dataset):
     in_postgis = Column(Boolean, default=False)
     is_deleted = Column(Boolean, default=False)
     layer_type = Column(String(80))  # CHOICES?
-
-    # _ts_vector = Column(TSVector(),
-    #                     Computed("to_tsvector(name)", persisted=True)
-    #                     )
-    # __table_args__ = (Index('ix_layers___ts_vector__', _ts_vector, postgresql_using='gin'),)
 
 
 Index("index_GeographicLayer_on_Properties_gin",

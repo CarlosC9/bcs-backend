@@ -228,8 +228,8 @@ class celery_wf(object):
     * return None (or no "return" statement) -> Next task using the same input parameter.
       The next task is defined as "": "<next task name" in the workflow definition
     * return <ret> -> Go to next task passing <ret> as input
-    * return None, <ret> -> Repeat the task passing <ret> as parameter
     * return <int:countdown>, <ret> -> Repeat the task, waiting <countdown> seconds and passing <ret> as parameter
+    * return None, <ret> -> Repeat the task as soon as possible (no countdown), passing <ret> as parameter
     * return "<outcome in the workflow definition", <ret> -> Go to task matching the <outcome label> passing <ret> as input
 
     See "definitions.py" for examples of use.

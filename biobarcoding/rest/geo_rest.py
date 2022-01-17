@@ -782,6 +782,8 @@ class LayersAPI(MethodView):
                     if set(uniq).issubset(impact_levels_semaphore) or len(uniq) < 6:
                         colormap = "__semaforo_impactos"
                         style_name = f"{layer_name}_{c}"
+                else:
+                    p_type = "string"
             elif gdf.dtypes[i] in (np.float, np.float32, np.float64):
                 # Numeric column
                 tmp = gdf[c].values

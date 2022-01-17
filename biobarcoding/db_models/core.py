@@ -1,13 +1,17 @@
 import datetime
+import re
 import uuid
 
-from sqlalchemy import Column, Integer, ForeignKey, String, BigInteger, Boolean, DateTime, UniqueConstraint
+from sqlalchemy import Column, Integer, ForeignKey, String, BigInteger, Boolean, DateTime, UniqueConstraint, event, \
+    func, Index, or_, and_
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship, backref
+from sqlalchemy_utils import TSVectorType
 
 from . import ORMBase, GUID, ObjectType
 from .jobs import Job
 from .. import app_acronym
+from ..common import generate_json
 
 prefix = f"{app_acronym}_"
 
@@ -35,14 +39,79 @@ class FunctionalObject(ORMBase):
     name = Column(String(300))
     attributes = Column(JSONB)  # Tags, and other categories, used to classify the object
 
+    ts_vector = Column(TSVectorType())
+    ts_vector_update_time = Column(DateTime, default=datetime.datetime.utcnow())
+    entity_update_time = Column(DateTime, default=datetime.datetime.utcnow())
+
     __table_args__ = (
         UniqueConstraint(native_table, native_id, name=__tablename__ + '_c1'),
+        Index('ix_fobj__ts_vector__', ts_vector, postgresql_using='gin'),
     )
 
     __mapper_args__ = {
         'polymorphic_identity': 'functional_obj',
         'polymorphic_on': obj_type_id
     }
+
+
+def set_functional_object_tsvector(entity):
+    """
+    Prepare and set the tsvector for the entity
+
+    :param entity:
+    :return:
+    """
+    # Name
+    if entity.name:
+        lst_parts = re.split(r"\s|(?<!\d)[,.](?!\d)", entity.name)
+    else:
+        lst_parts = []
+    # ID
+    lst_parts.append(str(entity.id))
+    # Attributes
+    if entity.attributes is not None:
+        lst_parts.append(generate_json(entity.attributes))
+    if isinstance(entity, Dataset):
+        # Creation time
+        lst_parts.append(str(entity.creation_time))
+        if entity.structure is not None:
+            lst_parts.append(generate_json(entity.structure))
+        if entity.provenance is not None:
+            lst_parts.append(generate_json(entity.provenance))
+        from ..db_models.geographics import GeographicLayer
+        if isinstance(entity, GeographicLayer):
+            if entity.properties is not None:
+                lst_parts.append(generate_json(entity.properties))
+            if entity.layer_type is not None:
+                lst_parts.append(str(entity.layer_type))
+
+    entity.ts_vector = func.to_tsvector(' '.join([i for i in lst_parts if i is not None]))  # !!
+    entity.ts_vector_update_time = datetime.datetime.utcnow()
+
+
+def after_create_or_update(mapper, connection, target):
+    if target.entity_update_time is None or \
+            (target.entity_update_time is not None and
+             (target.ts_vector_update_time is None or
+              target.ts_vector_update_time > target.entity_update_time)):
+        set_functional_object_tsvector(target)
+
+
+event.listen(FunctionalObject, 'before_insert', after_create_or_update, propagate=True)
+event.listen(FunctionalObject, 'before_update', after_create_or_update, propagate=True)
+
+
+# Refresh all!!
+def update_functional_object_tsvector(session):
+    qry = session.query(FunctionalObject).\
+        filter(or_(FunctionalObject.entity_update_time == None,
+                   and_(FunctionalObject.entity_update_time != None,
+                        or_(FunctionalObject.ts_vector_update_time == None,
+                            FunctionalObject.ts_vector_update_time < FunctionalObject.entity_update_time)))).all()
+    for entity in qry:
+        entity.entity_update_time = datetime.datetime.utcnow()
+        set_functional_object_tsvector(entity)
+    session.commit()
 
 
 class CaseStudy(FunctionalObject):

@@ -238,8 +238,8 @@ def get_query(session, orm, query=None, id=None, aux_filter=None, default_filter
         if kwargs.get('filter'):
             query = query.filter(filter_parse(orm, kwargs.get('filter', {}), aux_filter, session))
         if kwargs.get('searchValue', '') != '':
-            if hasattr(orm, '_ts_vector'):
-                query = query.filter(orm._ts_vector.match(kwargs.get('searchValue')))
+            if hasattr(orm, "ts_vector"):
+                query = query.filter(orm.ts_vector.match(kwargs.get('searchValue')))
         if kwargs.get('order'):
             for o in order_parse(orm, kwargs.get('order'), aux_order):
                 query = query.order_by(o)

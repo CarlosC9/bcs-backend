@@ -24,4 +24,4 @@ biobarcoding/services/perl_scripts/taxdump.tar.gz*
 tests/data_test/training_set.json
 tests/data_test/download/
 
-cookies.txt
+*cookies.txt
