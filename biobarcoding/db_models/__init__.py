@@ -180,8 +180,8 @@ def setup_schema(Base, session):
 
                 class Meta(object):
                     include_fk = True
-                    if hasattr(class_, "_ts_vector"):
-                        exclude = ("_ts_vector",)
+                    if hasattr(class_, "ts_vector"):
+                        exclude = ("ts_vector",)
                     model = class_
                     sqla_session = session
                     generate_polymorphic_schemas = True

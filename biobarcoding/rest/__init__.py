@@ -143,8 +143,8 @@ def get_default_configuration_dict():
         # GEO (GEOSPATIAL DATA)
         GEOSERVER_USER="admin",
         GEOSERVER_PASSWORD=f"{app_acronym}_ad37",
-        GEOSERVER_HOST="geoserver",
-        GEOSERVER_PORT="8080",
+        GEOSERVER_HOST="localhost",
+        GEOSERVER_PORT="9180",
         # GEOSERVER address from App-Backend, used by the GeoserverProxy
         GEOSERVER_URL="localhost:9180",
         # PostGIS address from App-Backend
