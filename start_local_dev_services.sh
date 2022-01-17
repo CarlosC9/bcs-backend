@@ -172,6 +172,8 @@ elif [ "$(whoami)" == "paula" ] ; then
   postgis_started=$(docker ps -q -f name=postgis)
 elif [ "$(whoami)" == "daniel" ] ; then
   postgis_started=$(docker ps -q -f name=postgis)
+elif [ "$(whoami)" == "carlos" ] ; then
+  postgis_started=$(docker ps -q -f name=postgis)
 fi
 
 if [ ! "$postgis_started" ] ; then
