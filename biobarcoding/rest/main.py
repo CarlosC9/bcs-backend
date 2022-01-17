@@ -33,7 +33,6 @@ from . import logger, log_level, load_configuration_file, construct_session_pers
 from biobarcoding import app_acronym
 from ..services.geoprocesses import update_geoprocesses
 from .auth import bp_auth, bp_api_key
-from .bos import bp_bos
 from .browser_filters import bp_bfilters
 from .files import bp_files
 from .geo_rest import bp_geo
@@ -44,7 +43,7 @@ from .hierarchies import bp_hierarchies, bp_hierarchy_nodes
 from .identities_and_company import bp_identities, bp_sys_functions, bp_roles, bp_identities_roles, \
     bp_groups, bp_organizations, bp_acl, bp_identities_authenticators, bp_identity_store
 from .jobs import bp_jobs
-from .metadata import bp_metadata
+from .bio import bp_bio
 from .annotation_forms import bp_annotations
 from .processes import bp_processes, bp_resources
 from .proxy import bp_proxy
@@ -176,8 +175,7 @@ def create_app(debug, start_socket=True, cfg_dict=None):
                bp_geoprocesses_ports,
                bp_geoprocess_instances,
                bp_geoprocess_port_types,
-               bp_bos,
-			   bp_metadata,
+			   bp_bio,
 			   bp_tasks,
                bp_identity_store,
                bp_viewz,
