@@ -49,7 +49,7 @@ CELERY_LOG = ROOT + "/tests/data_test/celery_log.txt"
 wf1 = {
     "prepare": {
         "": "export",
-        "error": "error",
+        "manage_error": "manage_error",
         "cancel": "cleanup"
     },
     "export": {
@@ -66,26 +66,32 @@ wf1 = {
     },
     "wait_until_execution_starts": {
         "": "wait_for_execution_end",
-        "error": "error",
+        "manage_error": "manage_error",
         "cancel": "cleanup"
     },
     "wait_for_execution_end": {
         "": "transfer_data_from",
-        "error": "error",
+        "manage_error": "manage_error",
         "cancel": "cleanup"
     },
     "transfer_data_from": {
         "": "store_result_in_backend",
+        "manage_error": "manage_error",
         "cancel": "cancel"
     },
     "store_result_in_backend": {
         "": "cleanup",
+        "manage_error": "error",
         "cancel": "cancel"
     },
     "cleanup": {
         "": "success",
+        "error": "error",
         "cancel": "cancel"
     },
+    "manage_error": {
+        "": "store_result_in_backend",
+    }
     # "success"
     # "error"
     # "cancelled"
@@ -459,7 +465,7 @@ def transfer_task(task_name,
                                             job_executor.log_filenames_dict[f"{logs_prefix}_stderr"],
                                             job_executor.log_filenames_dict["universal_log"])
         jc.error = error_str
-        return "error", d2s(jc)
+        return "manage_error", d2s(jc)
     elif i < len(files) and n_attempts >= MAX_ATTEMPTS:
         # error_str = f"Transfer of file {os.path.basename(file_dict['file'])} to resource failed."
         error_str = f"'{task_name}' error: File {i + 1} {file_dict['remote_name']}"
@@ -468,7 +474,7 @@ def transfer_task(task_name,
                                             job_executor.log_filenames_dict[f"{logs_prefix}_stderr"],
                                             job_executor.log_filenames_dict["universal_log"])
         jc.error = error_str
-        return "error", d2s(jc)
+        return "manage_error", d2s(jc)
     elif i == len(files):  # Task finished
         logger.debug(f"{task_name} finished")
         write_to_file(job_executor.log_filenames_dict[f"{logs_prefix}_stdout"],
@@ -477,7 +483,6 @@ def transfer_task(task_name,
                                             job_executor.log_filenames_dict[f"{logs_prefix}_stderr"],
                                             job_executor.log_filenames_dict["universal_log"])
         del jc.state_dict
-        # TODO Only last task (store results in backend)
         # log_file = os.path.basename(job_executor.log_filenames_dict["universal_log"])
         # jc.results.append(dict(remote_name="", file=log_file, content_type="text/plain", type="log"))
         return d2s(jc)
@@ -501,7 +506,6 @@ def transfer_task(task_name,
 
         jc.pid = None
         jc.state_dict = dict(idx=i + 1, n_attempts=0, state=task_name)
-        # TODO api_logout()
         return None, d2s(jc)
     else:  # TRANSFER file i
         logger.debug(f"Begin {task_name} {i + 1}: {file_dict['remote_name']}. Attempt: {n_attempts + 1}")
@@ -540,7 +544,7 @@ def wf1_prepare_workspace(job_context):
     if jc.status == "created":
         res = can_execute_job(jc.job_id)
         if res == "job_does_not_exist":
-            return "error", d2s(jc)
+            return "manage_error", d2s(jc)
         elif not res:
             return 5, job_context
 
@@ -558,7 +562,6 @@ def wf1_prepare_workspace(job_context):
         n_attempts = 0
         write_to_file(job_executor.log_filenames_dict["prepare_stdout"],
                       "#" * 25 + " PREPARE WORKSPACE STEP " + "#" * 25)
-        # TODO Why this open? Exclusive creation but then it is not closed
         open(job_executor.log_filenames_dict["prepare_stderr"], "x")
         jc.state_dict = dict(n_attempts=n_attempts, state="prepare")
 
@@ -569,7 +572,7 @@ def wf1_prepare_workspace(job_context):
         write_to_universal_log_and_truncate(job_executor.log_filenames_dict["prepare_stdout"],
                                             job_executor.log_filenames_dict["prepare_stderr"],
                                             job_executor.log_filenames_dict["universal_log"])
-        return "error", d2s(jc)
+        return "manage_error", d2s(jc)
     elif n_attempts >= MAX_ATTEMPTS:  # Maximum number of
         jc.error = f"It was impossible to prepare the working directory of Job {jc.job_id}." + \
                    f"Maybe it could be due to some disk space or credentials issue."
@@ -577,7 +580,7 @@ def wf1_prepare_workspace(job_context):
         write_to_universal_log_and_truncate(job_executor.log_filenames_dict["prepare_stdout"],
                                             job_executor.log_filenames_dict["prepare_stderr"],
                                             job_executor.log_filenames_dict["universal_log"])
-        return "error", d2s(jc)
+        return "manage_error", d2s(jc)
     elif job_executor.job_workspace_exists() or job_executor.job_workspace_exists() is None:
         logger.info("Job workspace created")
         # None when the job is executed in localhost
@@ -610,7 +613,7 @@ def wf1_export_to_supported_file_formats(job_context: str):
 
     def after_export(jc, job_executor, file_dict):
         i = jc.state_dict.idx
-        jc.process.inputs.data[i]['file'] = os.path.join(job_executor.local_workspace, file_dict["remote_name"]) # TODO: check if this is correct
+        jc.process.inputs.data[i]['file'] = os.path.join(job_executor.local_workspace, file_dict["remote_name"])
         del jc.process.inputs.data[i]['selection']
 
     ret_tuple = transfer_task(task_name="export",
@@ -678,8 +681,8 @@ def wf1_submit(job_context: str):
         return "cancel", job_context
 
     write_to_file(job_executor.log_filenames_dict["submit_stdout"], "#" * 25 + " SUBMIT STEP " + "#" * 25)
-    open(job_executor.log_filenames_dict["submit_stderr"], "x")
-
+    with open(job_executor.log_filenames_dict["submit_stderr"], "x"):
+        pass
     jc.pid = job_executor.submit(jc["process"])  # MAIN !!!
 
     jc.state_dict = dict(state="submit", substep="submit")
@@ -714,11 +717,9 @@ def wf1_wait_until_execution_starts(job_context: str):
                                             job_executor.log_filenames_dict["universal_log"])
         logger.error(error_str)
         jc.error = error_str
-        return "error", d2s(jc)
+        return "manage_error", d2s(jc)
     status = job_executor.step_status(jc)
     write_to_file(CELERY_LOG, f"wait_until_execution_starts: status: {status}")
-    # TODO: el step_status debería de sacar outputs uniformes. Se podría escribir ese
-    # status en el log en el job_executor?
     if isinstance(status, dict) or status == "":
         if status != "":
             jc.process.error = status
@@ -731,7 +732,7 @@ def wf1_wait_until_execution_starts(job_context: str):
                                             job_executor.log_filenames_dict["submit_stderr"],
                                             job_executor.log_filenames_dict["universal_log"])
         jc.error = error_str
-        return 'error', d2s(jc)
+        return 'manage_error', d2s(jc)
     elif status == 'running' or status == 'ok':
         return job_context
     else:
@@ -767,7 +768,7 @@ def wf1_wait_for_execution_end(job_context: str):
                                             job_executor.log_filenames_dict["submit_stderr"],
                                             job_executor.log_filenames_dict["universal_log"])
         jc.error = error_str
-        return "error", d2s(jc)
+        return "manage_error", d2s(jc)
     elif isinstance(status, dict):
         jc.process.error = status
         write_to_file(job_executor.log_filenames_dict["submit_stderr"], json.dumps(status))
@@ -781,7 +782,6 @@ def wf1_wait_for_execution_end(job_context: str):
                                             job_executor.log_filenames_dict["universal_log"])
         return d2s(jc)
     elif status == "":
-        # TODO job_executor.write_submit_logs()
         write_to_file(job_executor.log_filenames_dict["submit_stdout"],
                       "Job execution finished in error.")
         write_to_universal_log_and_truncate(job_executor.log_filenames_dict["submit_stdout"],
@@ -827,6 +827,18 @@ def wf1_transfer_data_from_resource(job_context: str):
 def wf1_store_result_in_backend(job_context: str):
     jc = s2d(job_context)
     job_executor = JobExecutorAtResourceFactory().get(jc)
+    if "state_dict" not in jc.keys(): #first time entering store_result_in_backend
+        log_file = [{
+            "remote_name": f"jobs.stdout.log",
+            "file": f"jobs.stdout.log",
+            "subprocess": "log",
+            "object_type": {"txt": "log"},
+            "content_type": f"text/plain",
+            "type": "log"
+        }]
+        #Add log file only once
+        jc.results += log_file
+
     ret_tuple = transfer_task(task_name="store_result_in_backend",
                               logs_prefix="store",
                               jc=jc,
@@ -885,7 +897,9 @@ def wf1_cleanup_workspace(job_context: str):
           (not local_workspace_exists(job_executor.local_workspace, result_files))):
         del jc.state_dict
         write_to_file(CELERY_LOG, f"cleanup:")
-        if cancelling:
+        if jc.get("cleanup_error"):
+            return "error", d2s(jc)
+        elif cancelling:
             return "cancel", d2s(jc)  # Jump to "cancel" task
         else:
             return d2s(jc)  # Jump to default task (should be "success")
@@ -920,6 +934,28 @@ def wf1_completed_succesfully(job_context: str):
     return d2s(jc)
 
 
+@celery_app.task(name="manage_error", ack_late=ack_late_idempotent_tasks)
+@celery_wf(celery_app, wf1, "manage_error")
+def wf1_manage_error(job_context: str):
+    """
+    clean failed results and change to store status
+
+    :param job_context:
+    :return:
+    """
+    jc = s2d(job_context)
+    refresh_status(jc, "manage_error")
+    call_app_entity_status_callback(jc, "manage_error")
+
+    job_executor = JobExecutorAtResourceFactory().get(jc)
+    #jc.results = clean_failed_results(jc.results, job_executor.local_workspace)
+    jc.results = []
+    jc.cleanup_error = True
+    del jc.state_dict  # needed to store to work
+
+    return d2s(jc)
+
+
 @celery_app.task(name="error", ack_late=ack_late_idempotent_tasks)
 @celery_wf(celery_app, wf1, "error")
 def wf1_completed_error(job_context: str):
@@ -932,18 +968,9 @@ def wf1_completed_error(job_context: str):
     jc = s2d(job_context)
     refresh_status(jc, "error")
     call_app_entity_status_callback(jc, "error")
+    write_to_file(CELERY_LOG, "error")
 
-    # TODO write_to_file(CELERY_LOG, f"error: {tmp['error']}")
-    previous_state = jc.state_dict.state
-    if previous_state == "store" or previous_state == "cleanup":
-        return job_context
-
-    job_executor = JobExecutorAtResourceFactory().get(jc)
-    jc.results = clean_failed_results(jc.results, job_executor.local_workspace)
-    del jc.state_dict  # needed to store to work
-
-    # TODO ??????????
-    return "wf1_store_result_in_backend", d2s(jc)
+    return d2s(jc)
 
 
 @celery_app.task(name="cancel", ack_late=ack_late_idempotent_tasks)
