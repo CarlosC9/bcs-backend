@@ -41,13 +41,13 @@ class FormItemAuxService(SimpleAuxService):
                 object_types = object_type
             else:
                 object_types = [object_type]
-            values['object_type_id'] = DBSession.query(ObjectType.object_type_id) \
+            values['object_type_id'] = DBSession.query(ObjectType.id) \
                 .filter(ObjectType.name.in_(object_types)).all()
             # kwargs['object_type_id'] = [i for i, in kwargs['object_type_id']]
 
         return values
 
-    def after_create(self, new_object, object_type=[], **kwargs):
+    def after_create(self, new_object, **kwargs):
         values = self.prepare_external_values(**kwargs)
         if values.get('object_type_id'):
             if isinstance(values['object_type_id'], (tuple, list, set)):
@@ -72,7 +72,7 @@ class FormItemAuxService(SimpleAuxService):
         clauses = []
 
         if filter.get('object_type') and not filter.get('object_type_id'):
-            filter['object_type_id'] = DBSession.query(ObjectType.object_type_id) \
+            filter['object_type_id'] = DBSession.query(ObjectType.id) \
                 .filter(ObjectType.name.in_(filter.get('object_type'))).all()
             filter['object_type_id'] = {'op':'in', 'unary': [i for i, in filter['object_type_id']]}
 

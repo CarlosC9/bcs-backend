@@ -23,9 +23,8 @@ class AnnotationFormItem(ORMBase):
 class AnnotationFormItemObjectType(ORMBase):
     __tablename__ = f"{prefix}form_item_object_type"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    form_item_id = Column(Integer, ForeignKey(AnnotationFormItem.id), nullable=False)
-    object_type_id = Column(Integer, ForeignKey(ObjectType.id), nullable=False)
+    form_item_id = Column(Integer, ForeignKey(AnnotationFormItem.id), primary_key=True)
+    object_type_id = Column(Integer, ForeignKey(ObjectType.id), primary_key=True)
     form_item = relationship(AnnotationFormItem, backref=backref("object_types", cascade="all, delete-orphan"))
     object_type = relationship(ObjectType, backref=backref("annotation_form_items", cascade="all, delete-orphan"))
 
@@ -82,9 +81,8 @@ class AnnotationFormTemplate(AnnotationFormItem):
 class AnnotationFormTemplateField(ORMBase):
     __tablename__ = f"{prefix}form_template_field"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    form_field_id = Column(Integer, ForeignKey(AnnotationFormField.id), nullable=False)
-    form_template_id = Column(Integer, ForeignKey(AnnotationFormTemplate.id), nullable=False)
+    form_field_id = Column(Integer, ForeignKey(AnnotationFormField.id), primary_key=True)
+    form_template_id = Column(Integer, ForeignKey(AnnotationFormTemplate.id), primary_key=True)
     form_field = relationship(AnnotationFormField, backref=backref("annotation_form_templates", cascade="all, delete-orphan"))
     form_template = relationship(AnnotationFormTemplate, backref=backref("annotation_form_fields", cascade="all, delete-orphan"))
     name = Column(String(80))
@@ -118,9 +116,8 @@ class AnnotationItem(ORMBase):
 class AnnotationItemFunctionalObject(ORMBase):
     __tablename__ = f"{prefix}item_functional_object"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
-    annotation_id = Column(Integer, ForeignKey(AnnotationItem.id), nullable=False)
-    functional_object_uuid = Column(GUID, ForeignKey(FunctionalObject.uuid, ondelete="CASCADE"), nullable=False)
+    annotation_id = Column(Integer, ForeignKey(AnnotationItem.id), primary_key=True)
+    functional_object_uuid = Column(GUID, ForeignKey(FunctionalObject.uuid, ondelete="CASCADE"), primary_key=True)
     annotation = relationship(AnnotationItem, backref=backref("functional_objects", cascade="all, delete-orphan"))
     functional_object = relationship(FunctionalObject, backref=backref("annotation_items", cascade="all, delete-orphan"))
     rank = Column(Integer, Sequence('annotation_rank_seq'), nullable=False)
