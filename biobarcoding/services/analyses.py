@@ -1,6 +1,6 @@
-from . import get_or_create, get_query, get_orm_params
+from . import get_query, get_orm_params
 from ..db_models import DBSessionChado as chado_session
-from ..db_models.chado import Analysis, AnalysisCvterm
+from ..db_models.chado import Analysis
 from ..rest import Issue, IType, filter_parse
 
 
@@ -81,7 +81,7 @@ def delete(id=None, **kwargs):
     content = None
     try:
         query, count = __get_query(id, **kwargs)
-        # from biobarcoding.services.sequences import delete as delete_sequences
+        # from .sequences import delete as delete_sequences
         # _ids = [msa.analysis_id for msa in query.all()]
         # delete_sequences(filter={'analysis_id':{'op':'in','analysis_id':_ids}})
         # __delete_from_bcs(_ids)
@@ -113,41 +113,40 @@ def __aux_ansis_filter(filter):
     clause = []
 
     if filter.get('job_id'):
-        from biobarcoding.db_models.chado import Analysis
         _ids = chado_session.query(Analysis.analysis_id) \
             .filter(filter_parse(Analysis, {'sourcename': filter.get('job_id'),
                                             'sourceversion': {'op': 'eq', 'unary': 'job'}}))
         clause.append(Analysis.analysis_id.in_(_ids))
 
     if filter.get('feature_id'):
-        from biobarcoding.db_models.chado import AnalysisFeature
+        from ..db_models.chado import AnalysisFeature
         _ids = chado_session.query(AnalysisFeature.analysis_id) \
             .filter(filter_parse(AnalysisFeature, {'feature_id': filter.get('feature_id')}))
         clause.append(Analysis.analysis_id.in_(_ids))
 
     if filter.get('organism_id'):
-        from biobarcoding.db_models.chado import Feature
+        from ..db_models.chado import Feature
         _ids = chado_session.query(Feature.feature_id) \
             .filter(filter_parse(Feature, {'organism_id': filter.get('organism_id')}))
-        from biobarcoding.db_models.chado import AnalysisFeature
+        from ..db_models.chado import AnalysisFeature
         _ids = chado_session.query(AnalysisFeature.analysis_id) \
             .filter(AnalysisFeature.feature_id.in_(_ids))
         clause.append(Analysis.analysis_id.in_(_ids))
 
     if 'phylotree_id' in filter:
-        from biobarcoding.db_models.chado import Phylotree
+        from ..db_models.chado import Phylotree
         _ids = chado_session.query(Phylotree.analysis_id) \
             .filter(filter_parse(Phylotree, [{'phylotree_id': filter.get('phylotree_id')}]))
         clause.append(Analysis.analysis_id.in_(_ids))
 
     if "cvterm_id" in filter:
-        from biobarcoding.db_models.chado import AnalysisCvterm
+        from ..db_models.chado import AnalysisCvterm
         _ids = chado_session.query(AnalysisCvterm.analysis_id) \
             .filter(filter_parse(AnalysisCvterm, [{'cvterm_id': filter.get('cvterm_id')}]))
         clause.append(Analysis.analysis_id.in_(_ids))
 
     if "prop_cvterm_id" in filter:
-        from biobarcoding.db_models.chado import Analysisprop
+        from ..db_models.chado import Analysisprop
         _ids = chado_session.query(Analysisprop.analysis_id) \
             .filter(filter_parse(Analysisprop, [{'type_id': filter.get('prop_cvterm_id')}]))
         clause.append(Analysis.analysis_id.in_(_ids))
