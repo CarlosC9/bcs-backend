@@ -94,15 +94,15 @@ class JobExecutorAtResource(ABC):
 
     # JOB EXECUTION
     @abc.abstractmethod
-    def create_job_workspace(self, name):
+    def create_job_workspace(self):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def job_workspace_exists(self, job_id):
+    def job_workspace_exists(self):
         raise NotImplementedError
 
     @abc.abstractmethod
-    def remove_job_workspace(self, name):  # After Job is completed (or if Job was not started)
+    def remove_job_workspace(self):  # After Job is completed (or if Job was not started)
         raise NotImplementedError
 
     @abc.abstractmethod
@@ -187,6 +187,12 @@ class JobExecutorAtResourceFactory:
         elif job_executor_name.lower() == "slurm":
             from .slurm_ssh_resource import JobExecutorWithSlurm
             tmp = JobExecutorWithSlurm(str(kwargs["job_id"]) + "_" + str(kwargs["identity_id"]), create_local_workspace)
+            tmp.set_resource(resource_param)
+            tmp.connect()
+            return tmp
+        elif job_executor_name.lower() == "cipres":
+            from .cipres_resource import JobExecutorWithCipres
+            tmp = JobExecutorWithCipres(str(kwargs["job_id"]) + "_" + str(kwargs["identity_id"]), create_local_workspace)
             tmp.set_resource(resource_param)
             tmp.connect()
             return tmp

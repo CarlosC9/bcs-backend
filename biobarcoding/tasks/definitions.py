@@ -677,7 +677,7 @@ def wf1_submit(job_context: str):
 
     if not change_status_or_cancel_if_requested(jc,
                                                 "submit",
-                                                partial(job_executor.cancel_job, jc.get("pid"))):
+                                                None):
         return "cancel", job_context
 
     write_to_file(job_executor.log_filenames_dict["submit_stdout"], "#" * 25 + " SUBMIT STEP " + "#" * 25)

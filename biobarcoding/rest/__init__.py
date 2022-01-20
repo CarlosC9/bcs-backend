@@ -393,6 +393,7 @@ tm_job_mgmt_types = {
     "0292821a-dd33-450a-bdd8-813b2b95c456": "ssh",
     "02f44e54-f139-4ea0-a1bf-fe27054c0d6c": "slurm",
     "fc1fb247-6b76-420c-9c48-f69f154cbe1d": "ebi",
+    "7ece7ead-4de9-436f-a12d-86350129e444": "cipres",
 }
 
 tm_processes = {  # Preloaded processes
@@ -594,9 +595,7 @@ tm_code_list_sources = [
     (h_sources_name, "55e9958c-2f73-47c4-afa6-37bf23c683f9", "EUROSTAT"),
 ]
 
-#
-# a31b2a73-d2b2-4d50-a64c-8d6d86559a02
-# 7ece7ead-4de9-436f-a12d-86350129e444
+
 # 071a22e8-1d90-4900-936a-0466880480d4
 # faec0128-c0e3-4c2c-bbb2-bd852430eed3
 # b4f90851-250e-425f-9a94-b677b593c842
