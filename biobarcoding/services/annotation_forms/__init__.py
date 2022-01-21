@@ -13,7 +13,6 @@ from ...db_models.sa_annotations import AnnotationFormItemObjectType
 class FormItemAuxService(SimpleAuxService):
 
     def prepare_values(self, cv=None, cvterm=None, db=None, dbxref=None, **values):
-
         if cv and cvterm and not values.get('cvterm_id'):
             values['cvterm_id'] = DBSessionChado.query(Cvterm).join(Cv) \
                 .filter(Cv.name == cv, Cvterm.name == cvterm).one().cvterm_id
@@ -35,7 +34,6 @@ class FormItemAuxService(SimpleAuxService):
         return get_orm_params(self.orm, **values)
 
     def prepare_external_values(self, object_type=[], **values):
-
         if object_type and not values.get('object_type_id'):
             if isinstance(object_type, (tuple, list, set)):
                 object_types = object_type
@@ -44,20 +42,18 @@ class FormItemAuxService(SimpleAuxService):
             values['object_type_id'] = DBSession.query(ObjectType.id) \
                 .filter(ObjectType.name.in_(object_types)).all()
             # kwargs['object_type_id'] = [i for i, in kwargs['object_type_id']]
-
         return values
 
-    def after_create(self, new_object, **kwargs):
-        values = self.prepare_external_values(**kwargs)
+    def after_create(self, new_object, **values):
         if values.get('object_type_id'):
             if isinstance(values['object_type_id'], (tuple, list, set)):
                 ids = values.get('object_type_id')
             else:
                 ids = [values.get('object_type_id')]
             for i in ids:
-                get_or_create(DBSession, AnnotationFormItemObjectType,
+                get_or_create(self.db, AnnotationFormItemObjectType,
                               form_item_id=new_object.id, object_type_id=i)
-        return None
+        return values
 
     def read(self, **kwargs):
         content, count = self.get_query(**kwargs)
@@ -68,6 +64,21 @@ class FormItemAuxService(SimpleAuxService):
             content = content.all()
         return content, count
 
+    def after_update(self, new_object, **values):
+        if values.get('object_type_id'):
+            if isinstance(values['object_type_id'], (tuple, list, set)):
+                ids = values.get('object_type_id')
+            else:
+                ids = [values.get('object_type_id')]
+            rl = self.db.query(AnnotationFormItemObjectType)\
+                .filter(AnnotationFormItemObjectType.form_item_id == new_object.id)
+            rl.filter(AnnotationFormItemObjectType.object_type_id.notin_(ids)) \
+                .delete(synchronize_session='fetch')
+            for i in ids:
+                get_or_create(self.db, AnnotationFormItemObjectType,
+                              form_item_id=new_object.id, object_type_id=i)
+        return values
+
     def aux_filter(self, filter):
         clauses = []
 
@@ -77,7 +88,7 @@ class FormItemAuxService(SimpleAuxService):
             filter['object_type_id'] = {'op':'in', 'unary': [i for i, in filter['object_type_id']]}
 
         if filter.get('object_type_id'):
-            _ids = DBSession.query(AnnotationFormItemObjectType.form_item_id) \
+            _ids = self.db.query(AnnotationFormItemObjectType.form_item_id) \
                 .filter(filter_parse(AnnotationFormItemObjectType, {'object_type_id': filter.get('object_type_id')}))
             clauses.append(self.orm.id.in_(_ids.subquery()))
 

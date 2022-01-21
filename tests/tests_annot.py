@@ -24,11 +24,12 @@ class TemplatesAPITest(unittest.TestCase):
         "dbxref_id": "",
         "db": "SO",
         "dbxref": "0000110",
-        "object_type": ["sequence", "multiple-sequence-alignment"],
+        "object_type": '["sequence", "multiple-sequence-alignment"]',
     }
 
     put_req = {
         "description": "modified",
+        "object_type": "sequence",
     }
 
     def test_create_template(self):
@@ -78,7 +79,7 @@ class FieldsAPITest(unittest.TestCase):
         "dbxref_id": "",
         "db": "SO",
         "dbxref": "0000001",
-        "object_type": ["sequences", "multiple-sequence-alignments"],
+        "object_type": '["sequence", "multiple-sequence-alignment"]',
         "type": "tag",
         "range": "",
         "view_type": "select",
@@ -87,7 +88,9 @@ class FieldsAPITest(unittest.TestCase):
     }
 
     put_req = {
+        "template": 'null',
         "description": "modified",
+        "object_type": "sequence",
     }
 
     def test_create_field(self):
@@ -132,7 +135,7 @@ class AnnotationsAPITest(unittest.TestCase):
 
     post_req_template = {
         # "attributes": {"tags": ["test", "testing"]},
-        "object_uuid": "99856669-d9d9-45f6-beba-24e0a64a669e",
+        "object_uuid": "0bae8453-fdd5-42fa-9f89-6a1af2771183",
         "name": "new_annotation_template",
         "type": "template",
         "template": TemplatesAPITest.post_req.get('name'),
@@ -141,7 +144,7 @@ class AnnotationsAPITest(unittest.TestCase):
 
     post_req_field = {
         # "attributes": {"tags": ["test", "testing"]},
-        "object_uuid": "99856669-d9d9-45f6-beba-24e0a64a669e",
+        "object_uuid": "0bae8453-fdd5-42fa-9f89-6a1af2771183",
         "name": "new_annotation_field",
         "type": "field",
         "field": FieldsAPITest.post_req.get('name'),
@@ -150,7 +153,7 @@ class AnnotationsAPITest(unittest.TestCase):
 
     post_req_text = {
         # "attributes": {"tags": ["test", "testing"]},
-        "object_uuid": "99856669-d9d9-45f6-beba-24e0a64a669e",
+        "object_uuid": "0bae8453-fdd5-42fa-9f89-6a1af2771183",
         "name": "new_annotation_text",
         "type": "text",
         "value": "maturase k",
@@ -158,6 +161,7 @@ class AnnotationsAPITest(unittest.TestCase):
 
     put_req = {
         "value": "modified",
+        "object_uuid": '["0bae8453-fdd5-42fa-9f89-6a1af2771183","4a2b5bb0-452c-452e-b5c3-a00b7a644351"]'
     }
 
     def test_create_annotation(self):

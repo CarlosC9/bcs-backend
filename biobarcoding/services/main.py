@@ -144,12 +144,16 @@ class SimpleAuxService:
         self.db = DBSession
 
     # filter and deduce values (mostly ids) for creation or update
-    def prepare_values(self, **kwargs) -> dict:
-        return get_orm_params(self.orm, **kwargs)
+    def prepare_values(self, **values) -> dict:
+        return get_orm_params(self.orm, **values)
 
-    # check the validity of the values against the constraints to create or update
-    def check_values(self, **kwargs) -> dict:
-        return kwargs
+    # filter and deduce values (mostly ids) for creation or update
+    def prepare_external_values(self, **values) -> dict:
+        return values
+
+    # # check the validity of the values against the constraints to create or update
+    # def check_values(self, **values) -> dict:
+    #     return values
 
     # deal with the creation
     def create(self, **kwargs):
@@ -163,12 +167,13 @@ class SimpleAuxService:
             print(type(e))
             print(str(e.__dict__['orig']))
             raise e
-        self.after_create(content, **kwargs)
+        foreign_values = self.prepare_external_values(**kwargs)
+        self.after_create(content, **foreign_values)
         return content, 1
 
     # any additional creation if any
     def after_create(self, new_object, **kwargs):
-        return None
+        return new_object
 
     # read like get_query, but telling if it asks only for one or more. It can use get_query
     # @return: result, total_count
@@ -226,18 +231,19 @@ class SimpleAuxService:
     # deal with the update
     def update(self, values={}, **kwargs):
         content, count = self.get_query(**kwargs)
-        values = self.prepare_values(**values)
+        changes = self.prepare_values(**values)
+        foreign_changes = self.prepare_external_values(**values)
         # self.content = self.content.update(AuxService.prepare_values(**values))
         content = content.all()
         for row in content:
-            for k, v in values.items():
+            for k, v in changes.items():
                 setattr(row, k, v)
-        self.after_update(content, values=values, **kwargs)
+            self.after_update(row, **foreign_changes)
         return content, count
 
     # any additional update if any
-    def after_update(self, new_object, values={}, **kwargs):
-        return None
+    def after_update(self, new_object, **values):
+        return new_object
 
     # deal with the delete
     def delete(self, **kwargs):
@@ -251,7 +257,7 @@ class SimpleAuxService:
 
     # any additional delete if any
     def after_delete(self, new_object, **kwargs):
-        return None
+        return new_object
 
     # verify that a given file is the data it pretend to be
     def check_file(self, file, format) -> bool:

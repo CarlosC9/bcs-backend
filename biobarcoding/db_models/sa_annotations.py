@@ -117,15 +117,15 @@ class AnnotationItemFunctionalObject(ORMBase):
     __tablename__ = f"{prefix}item_functional_object"
 
     annotation_id = Column(Integer, ForeignKey(AnnotationItem.id), primary_key=True)
-    functional_object_uuid = Column(GUID, ForeignKey(FunctionalObject.uuid, ondelete="CASCADE"), primary_key=True)
-    annotation = relationship(AnnotationItem, backref=backref("functional_objects", cascade="all, delete-orphan"))
-    functional_object = relationship(FunctionalObject, backref=backref("annotation_items", cascade="all, delete-orphan"))
+    object_uuid = Column(GUID, ForeignKey(FunctionalObject.uuid, ondelete="CASCADE"), primary_key=True)
+    annotation = relationship(AnnotationItem, backref=backref("objects", cascade="all, delete-orphan"))
+    object = relationship(FunctionalObject, backref=backref("annotation_items", cascade="all, delete-orphan"))
     rank = Column(Integer, Sequence('annotation_rank_seq'), nullable=False)
     # rank = Column(Integer, nullable=False, default=select([func.max(1, func.max(rank))]))
 
     __table_args__ = (
-        UniqueConstraint(annotation_id, functional_object_uuid, name=__tablename__ + '_c1'),
-        UniqueConstraint(functional_object_uuid, rank, name=__tablename__ + '_c2'),
+        UniqueConstraint(annotation_id, object_uuid, name=__tablename__ + '_c1'),
+        UniqueConstraint(object_uuid, rank, name=__tablename__ + '_c2'),
     )
 
 
@@ -135,7 +135,7 @@ class AnnotationText(AnnotationItem):
         'polymorphic_identity': 'text',
     }
     id = Column(BigInteger, ForeignKey(AnnotationItem.id, ondelete="CASCADE"), primary_key=True)
-    value = Column(String(512))
+    value = Column(String(16000000))
 
 
 class AnnotationTemplate(AnnotationItem):
