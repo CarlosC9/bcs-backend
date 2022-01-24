@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, UniqueConstraint, Boolean, Integer, BigInteger, String, Sequence
+from sqlalchemy import Column, ForeignKey, UniqueConstraint, Boolean, Integer, BigInteger, String, Sequence, Text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship, backref
 
@@ -135,7 +135,7 @@ class AnnotationText(AnnotationItem):
         'polymorphic_identity': 'text',
     }
     id = Column(BigInteger, ForeignKey(AnnotationItem.id, ondelete="CASCADE"), primary_key=True)
-    value = Column(String(16000000))
+    value = Column(Text)
 
 
 class AnnotationTemplate(AnnotationItem):

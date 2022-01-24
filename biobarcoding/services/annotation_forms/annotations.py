@@ -1,4 +1,8 @@
+from .. import get_or_create
 from ..main import SimpleAuxService, get_orm
+from ...db_models import DBSession
+from ...db_models.core import FunctionalObject
+from ...db_models.sa_annotations import AnnotationItemFunctionalObject
 
 
 ##
@@ -36,3 +40,40 @@ class AuxService(SimpleAuxService):
             self.orm = get_orm(f'annotation_{values.get("type")}')
 
         return super(AuxService, self).prepare_values(**values)
+
+    def prepare_external_values(self, object_id=[], **values):
+        if object_id and not values.get('object_uuid'):
+            if isinstance(object_id, (tuple, list, set)):
+                ids = object_id
+            else:
+                ids = [object_id]
+            values['object_uuid'] = DBSession.query(FunctionalObject.uuid) \
+                .filter(FunctionalObject.id.in_(ids)).all()
+            # kwargs['object_uuid'] = [i for i, in kwargs['object_uuid']]
+        return values
+
+    def after_create(self, new_object, **values):
+        if values.get('object_uuid'):
+            if isinstance(values['object_uuid'], (tuple, list, set)):
+                ids = values.get('object_uuid')
+            else:
+                ids = [values.get('object_uuid')]
+            for i in ids:
+                get_or_create(self.db, AnnotationItemFunctionalObject,
+                              annotation_id=new_object.id, object_uuid=i)
+        return values
+
+    def after_update(self, new_object, **values):
+        if values.get('object_uuid'):
+            if isinstance(values['object_uuid'], (tuple, list, set)):
+                ids = values.get('object_uuid')
+            else:
+                ids = [values.get('object_uuid')]
+            rl = self.db.query(AnnotationItemFunctionalObject)\
+                .filter(AnnotationItemFunctionalObject.annotation_id == new_object.id)
+            rl.filter(AnnotationItemFunctionalObject.object_uuid.notin_(ids)) \
+                .delete(synchronize_session='fetch')
+            for i in ids:
+                get_or_create(self.db, AnnotationItemFunctionalObject,
+                              annotation_id=new_object.id, object_uuid=i)
+        return values
