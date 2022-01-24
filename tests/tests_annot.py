@@ -132,10 +132,11 @@ class FieldsAPITest(unittest.TestCase):
 class AnnotationsAPITest(unittest.TestCase):
 
     url = "http://localhost:5000/api/annotations/"
+    object_uuids = ["0bae8453-fdd5-42fa-9f89-6a1af2771183", "4a2b5bb0-452c-452e-b5c3-a00b7a644351"]
 
     post_req_template = {
         # "attributes": {"tags": ["test", "testing"]},
-        "object_uuid": "0bae8453-fdd5-42fa-9f89-6a1af2771183",
+        # "object_uuid": object_uuids[0],
         "name": "new_annotation_template",
         "type": "template",
         "template": TemplatesAPITest.post_req.get('name'),
@@ -144,7 +145,7 @@ class AnnotationsAPITest(unittest.TestCase):
 
     post_req_field = {
         # "attributes": {"tags": ["test", "testing"]},
-        "object_uuid": "0bae8453-fdd5-42fa-9f89-6a1af2771183",
+        # "object_uuid": object_uuids[0],
         "name": "new_annotation_field",
         "type": "field",
         "field": FieldsAPITest.post_req.get('name'),
@@ -153,7 +154,7 @@ class AnnotationsAPITest(unittest.TestCase):
 
     post_req_text = {
         # "attributes": {"tags": ["test", "testing"]},
-        "object_uuid": "0bae8453-fdd5-42fa-9f89-6a1af2771183",
+        # "object_uuid": object_uuids[0],
         "name": "new_annotation_text",
         "type": "text",
         "value": "maturase k",
@@ -161,18 +162,27 @@ class AnnotationsAPITest(unittest.TestCase):
 
     put_req = {
         "value": "modified",
-        "object_uuid": '["0bae8453-fdd5-42fa-9f89-6a1af2771183","4a2b5bb0-452c-452e-b5c3-a00b7a644351"]'
+        "object_uuid": str(object_uuids),
     }
 
-    def test_create_annotation(self):
+    def test_create_annotations_by_uuid(self):
 
-        for payload in (self.post_req_template, self.post_req_field, self.post_req_text):
-            response = session.post(self.url, data=payload)
-            print(response.text)
+        data = [self.post_req_template, self.post_req_field, self.post_req_text]
+        response = session.post(self.url + self.object_uuids[0], data=str(data))
+        print(response.text)
 
-            self.assertEqual(response.status_code, 201)
-
+        self.assertEqual(response.status_code, 201)
         return None
+
+    # def test_create_annotation(self):
+    #
+    #     for payload in (self.post_req_template, self.post_req_field, self.post_req_text):
+    #         response = session.post(self.url, data=payload)
+    #         print(response.text)
+    #
+    #         self.assertEqual(response.status_code, 201)
+    #
+    #     return None
 
     def test_get_annotation_by_id(self):
         response = session.get(f"{self.url}{self.post_req_text.get('object_uuid')}")
