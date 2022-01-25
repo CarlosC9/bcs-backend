@@ -1,14 +1,68 @@
 import os
-from shutil import rmtree
 import requests
 from python_cipres import client as cipres
-
+from datetime import datetime
 from .ssh_process_adaptors import SSHProcessAdaptor
-from .. import get_global_configuration_variable
 from ..jobs import JobExecutorAtResource
+
+######## OVERRIDE CIPRES METHOD FOR GETTING THE STAGE OF THE MESSAGES #######
+
+class MyJobStatus(cipres.JobStatus):
+
+    def __init__(self, client, jobUrl=None, xml=None):
+        super(MyJobStatus, self).__init__(client, jobUrl, xml)
+        # Override note: self.myJobStage better than self.jobStage
+        self.myJobStage = None
+
+    def __parseJobStatus__(self, xml):
+        if xml.find("commandline") is not None:
+            self.commandline = xml.find("commandline").text
+        if xml.find("selfUri") is not None:
+            self.jobUrl = xml.find("selfUri").find("url").text
+        if xml.find("jobHandle") is not None:
+            self.jobHandle = xml.find("jobHandle").text
+        if xml.find("jobStage") is not None:
+            self.jobStage = xml.find("jobStage").text
+        if xml.find("terminalStage") is not None:
+            self.terminalStage = (xml.find("terminalStage").text == "true")
+        if xml.find("failed") is not None:
+            self.failed = (xml.find("failed").text == "true")
+        if xml.find("resultsUri") is not None:
+            self.resultsUrl = xml.find("resultsUri").find("url").text
+        if xml.find("workingDirUri") is not None:
+            self.workingDirUrl = xml.find("workingDirUri").find("url").text
+        if xml.find("dateSubmitted") is not None:
+            self.dateSubmitted = xml.find("dateSubmitted").text
+        if xml.find("messages") is not None:
+            # Override note: adding final stage in message to self.myJobStage
+            last_date = None
+            for m in xml.find("messages"):
+                date = datetime.strptime(m.find("timestamp").rsplit("-", 1)[0], "%Y-%m-%dT%H:%M:%S")
+                if last_date is None or date > last_date:
+                    last_date = date
+                    self.myJobStage = m.find("stage")
+                self.messages.append("%s: %s" % (m.find("timestamp").text, m.find("text").text))
+        if xml.find("metadata") is not None:
+            for e in xml.find("metadata").findall("entry"):
+                self.metadata[e.find("key").text] = e.find("value").text
+
+
+# Override cipres.JobStatus to have self.myJobStatus
+cipres.JobStatus = MyJobStatus
+
+####### END OF OVERRIDE #######
 
 
 class JobExecutorWithCipres(JobExecutorAtResource):
+
+    JOB_STATES_DICT = {
+        'QUEUE': "wait_until_start",
+        'COMMANDRENDERING': "wait_until_start",
+        'INPUTSTAGING': "wait_until_start",
+        'SUBMITTED': "running",
+        'LOAD_RESULTS': "running",
+        'COMPLETED': "ok"
+    }
 
     def __init__(self, identity_job_id, create_local_workspace=True):
         super().__init__(identity_job_id, create_local_workspace)
@@ -66,10 +120,27 @@ class JobExecutorWithCipres(JobExecutorAtResource):
             job_status.delete()
 
     def exists(self, job_context):
-        return True
+        i = job_context["state_dict"]["idx"]
+        if job_context["state_dict"]["state"] == "upload":
+            filename = self.get_upload_files_list(job_context)[i].get("remote_name")
+        else:
+            filename = self.get_download_files_list(job_context)[i].get("remote_name")
+        path = os.path.join(self.local_workspace, filename)
+        return os.path.exists(path)
 
     def upload_file(self, job_context):
-        pass
+        '''The upload actually is a copy of the script files to the local workspace'''
+        i = job_context["state_dict"]["idx"]
+        path = self.get_upload_files_list(job_context)[i].get("file")
+        target_path = os.path.join(self.local_workspace, self.get_upload_files_list(job_context)[i].get("remote_name"))
+        cmd = (f"(nohup bash -c \"cp {path} {target_path}\" >>{self.log_filenames_dict['upload_stdout']} " +
+               f"</dev/null 2>>{self.log_filenames_dict['upload_stderr']} & echo $!; wait $!; echo $? >> " +
+               f"{self.local_workspace}/$!.exit_status)")
+        print(cmd)
+        popen_pipe = os.popen(cmd)
+        pid = popen_pipe.readline().rstrip()
+        print(f"PID: {pid}")
+        return pid
 
     def download_file(self, job_context):
         i = job_context["state_dict"]["idx"]
@@ -93,39 +164,50 @@ class JobExecutorWithCipres(JobExecutorAtResource):
         return pid
 
     def submit(self, process):
-        params = process["inputs"]["vParams"]
-        input_files = process["inputs"]["inputParams"]
-        metadata = {}
-        try:
-            job_status = self.cipres_client.submitJob(params, input_files, metadata, validateOnly=True)  # TODO
-            with open(os.path.join(self.local_workspace, "job_handle.txt"), "w") as f:
-                f.write(job_status.jobHandle)
-            print(f"JobHandle {job_status.jobHandle}")
-            return job_status.jobHandle
-        except Exception as e:
-            print(e)
-            return ""  # error
+        params = process["inputs"]["adapted_parameters"]
+        script_file = params[SSHProcessAdaptor.SCRIPT_KEY][0]["remote_name"],
+        script_params = params[SSHProcessAdaptor.SCRIPT_PARAMS_KEY]
+        cmd = (
+                f"cd {self.local_workspace} && chmod +x {script_file} &> /dev/null " +
+                f"; (nohup {script_file} {self.base_url} {self.username} {self.password} {self.appID} {self.app_name} {script_params} " +
+                f">/{self.local_workspace}/{os.path.basename(self.logs_dict['submit_stdout'])} " +
+                f"</dev/null 2>/{self.local_workspace}/{os.path.basename(self.logs_dict['submit_stderr'])}" +
+                f"& echo $!; wait $!; echo $? >> {self.local_workspace}/$!.exit_status)")
+
+        print(repr(cmd))
+        popen_pipe = os.popen(cmd)
+        pid = popen_pipe.readline().rstrip()
+        self.last_job_remotely = True
+        print(f"PID: {pid}")
+        return pid
 
     def step_status(self, job_context):
         state = job_context["state_dict"]["state"]
-        if state in ["prepare", "transfer_data"]:
+        if state in ["prepare"]:
             status = "ok"
         else:
-            pid = job_context.get("pid")  # pid is jobHandle in case previous_state = submit
+            pid = job_context.get("pid")
             if pid is None:
                 status = "none"
             elif pid == "":
                 status = ""  # error
             elif state == "submit":
-                job_status = self.cipres_client.getjobStatus(pid)
-                if job_status.isError:
-                    status = ""
-                elif job_status.isDone:
-                    status = "ok"
-                else:
-                    status = "running"
-                if status == "ok" or status == "":
-                    self.write_remote_logs(job_context["state_dict"], job_status)
+                status = self.local_job_status(pid)
+                if status == "ok":
+                    if os.path.exists(os.path.join(self.local_workspace, "job_handle.txt")):
+                        with open(os.path.join(self.local_workspace, "job_handle.txt", "r")) as f:
+                            job_handle = f.read()
+                        job_status = self.cipres_client.getjobStatus(job_handle)
+                        if job_status.isError:
+                            status = ""
+                        elif job_status.isDone:
+                            status = "ok"
+                        else:
+                            status = self.JOB_STATES_DICT[job_status.myJobStage]
+                        if status == "ok" or status == "":
+                            self.write_remote_logs(job_context["state_dict"], job_status)
+                    else:
+                        status = ""
             else:
                 status = self.local_job_status(pid)
 
@@ -138,11 +220,11 @@ class JobExecutorWithCipres(JobExecutorAtResource):
         s = "Job=%s" % job_status.jobHandle
         if job_status.terminalStage:
             if job_status.failed:
-                s += ", failed at stage %s" % job_status.jobStage
+                s += ", failed at stage %s" % job_status.myJobStage
             else:
                 s += ", finished, results are at %s" % job_status.resultsUrl
         else:
-            s += ", not finished, stage=%s" % job_status.jobStage
+            s += ", not finished, stage=%s" % job_status.myJobStage
         s += "\n MESSAGES \n"
         for m in job_status.messages:
             s += "\t%s\n" % m
@@ -157,7 +239,7 @@ class JobExecutorWithCipres(JobExecutorAtResource):
 
     def write_remote_logs(self, state_dict, job_status):
         if state_dict["state"] == "submit":
-            logs = self.get_cipres_logs(job_status)
+            logs = "\n" + self.get_cipres_logs(job_status)
             if job_status.isDone:
                 with open(self.log_filenames_dict['submit_stdout'], "a") as file:
                     file.write(logs)
@@ -166,12 +248,16 @@ class JobExecutorWithCipres(JobExecutorAtResource):
                     file.write(logs)
 
     def cancel_job(self, native_id):
-        #native_id is the job handle in CIPRES
-        job_status = self.cipres_client.getjobStatus(native_id)
-        job_status.delete()
+        os.kill(native_id)
+        if os.path.exists(os.path.join(self.local_workspace, "job_handle.txt")):
+            with open(os.path.join(self.local_workspace, "job_handle.txt", "r")) as f:
+                job_handle = f.read()
+            job_status = self.cipres_client.getjobStatus(job_handle)
+            job_status.delete()
 
     def get_upload_files_list(self, job_context):
-        return []
+        return list(job_context["process"]["inputs"]["adapted_parameters"][SSHProcessAdaptor.SCRIPT_FILES_KEY]) + \
+               list(job_context["process"]["inputs"]["adapted_parameters"].get("scripts", []))
 
     def get_download_files_list(self, job_context):
         return job_context["results"]
