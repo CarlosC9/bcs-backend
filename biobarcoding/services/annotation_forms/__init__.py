@@ -83,13 +83,13 @@ class FormItemAuxService(SimpleAuxService):
         clauses = []
 
         if filter.get('object_type') and not filter.get('object_type_id'):
-            filter['object_type_id'] = DBSession.query(ObjectType.id) \
-                .filter(ObjectType.name.in_(filter.get('object_type'))).all()
-            filter['object_type_id'] = {'op':'in', 'unary': [i for i, in filter['object_type_id']]}
+            _aux = DBSession.query(ObjectType.id).filter(
+                filter_parse(ObjectType, {'name': filter.get('object_type')}))
+            filter['object_type_id'] = {'op': 'in', 'unary': _aux}
 
         if filter.get('object_type_id'):
-            _ids = self.db.query(AnnotationFormItemObjectType.form_item_id) \
-                .filter(filter_parse(AnnotationFormItemObjectType, {'object_type_id': filter.get('object_type_id')}))
-            clauses.append(self.orm.id.in_(_ids.subquery()))
+            _aux = self.db.query(AnnotationFormItemObjectType.form_item_id).filter(
+                filter_parse(AnnotationFormItemObjectType, {'object_type_id': filter.get('object_type_id')}))
+            clauses.append(self.orm.id.in_(_aux.subquery()))
 
         return clauses

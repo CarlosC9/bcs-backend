@@ -1113,6 +1113,12 @@ def filter_parse(orm, filter, aux_filter=None, session=None):
 
     def get_condition(orm, field, condition):
         obj = getattr(orm, field)
+
+        if not isinstance(condition, dict):
+            if isinstance(condition, (list, tuple)):
+                return obj.in_(condition)
+            return obj == condition
+
         op = condition["op"]
         value, left, right = condition.get("unary"), condition.get("left"), condition.get("right")
         if op == "out":
