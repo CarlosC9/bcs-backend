@@ -736,6 +736,7 @@ def wf1_wait_until_execution_starts(job_context: str):
     elif status == 'running' or status == 'ok':
         return job_context
     else:
+        # waiting until start of the job
         return 3, job_context
 
 
