@@ -10,13 +10,13 @@ class RemoteSlurmClient(RemoteSSHClient):
         'BOOT_FAIL': "",# "" means error
         'CANCELLED': "",
         'COMPLETED': "ok",
-        'CONFIGURING': "running",
+        'CONFIGURING': "wait_until_start",
         'COMPLETING': "running",
         'DEADLINE': "",
         'FAILED': "",
         'NODE_FAIL': "",
         'OUT_OF_MEMORY': "",
-        'PENDING': "running",
+        'PENDING': "wait_until_start",
         'PREEMPTED': "running",#TODO ?
         'RUNNING': "running",
         'RESV_DEL_HOLD': "running",#TODO ?
@@ -71,13 +71,13 @@ class RemoteSlurmClient(RemoteSSHClient):
         print(f"PID: {pid}")
         return pid
 
-    async def remote_command_status(self, pid):
+    async def remote_command_status(self, native_job_id):
         """
         Get Job status
         @param pid: Job ID of the process to check status
         @return: String defining satus of the pid. "running", "ok" and "" for error.
         """
-        cmd = f"ssh {self.SSH_OPTIONS} {self.username}@{self.host} 'sacct -n -X --jobs={pid} --format=state'"
+        cmd = f"ssh {self.SSH_OPTIONS} {self.username}@{self.host} 'sacct -n -X --jobs={native_job_id} --format=state'"
         popen_pipe = os.popen(cmd)
         job_state = popen_pipe.readline().strip()
         if job_state != '':
