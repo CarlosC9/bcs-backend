@@ -165,6 +165,8 @@ class AnnotationsAPITest(unittest.TestCase):
         "object_uuid": str(object_uuids),
     }
 
+    put_req_batch = str([post_req_text])
+
     def test_create_annotations_by_uuid(self):
 
         data = [self.post_req_template, self.post_req_field, self.post_req_text]
@@ -199,7 +201,14 @@ class AnnotationsAPITest(unittest.TestCase):
         return None
 
     def test_modify_annotation(self):
-        response = session.put(f"{self.url}{self.post_req_text.get('object_uuid')}", data=self.put_req)
+        response = session.put(f"{self.url}1", data=self.put_req)
+        print(response.text)
+
+        self.assertEqual(response.status_code, 200)
+        return None
+
+    def test_modify_annotation_by_batch(self):
+        response = session.put(f"{self.url}{self.object_uuids[1]}", data=self.put_req_batch)
         print(response.text)
 
         self.assertEqual(response.status_code, 200)

@@ -52,6 +52,20 @@ class AuxService(SimpleAuxService):
             # kwargs['object_uuid'] = [i for i, in kwargs['object_uuid']]
         return values
 
+    def create(self, object_uuid=None, **kwargs):
+        values = kwargs.get('values')
+        if isinstance(values, (list, tuple)):
+            content, count = [], 0
+            for v in values:
+                v['object_uuid'] = v.get('object_uuid', object_uuid)
+                c, cc = super(AuxService, self).create(**v)
+                content.append(c)
+                count += cc
+            return content, count
+        else:
+            values['object_uuid'] = values.get('object_uuid', object_uuid)
+            return super(AuxService, self).create(**values)
+
     def after_create(self, new_object, **values):
         if values.get('object_uuid'):
             if isinstance(values['object_uuid'], (tuple, list, set)):
@@ -62,6 +76,35 @@ class AuxService(SimpleAuxService):
                 get_or_create(self.db, AnnotationItemFunctionalObject,
                               annotation_id=new_object.id, object_uuid=i)
         return values
+
+    def update(self, id=None, object_uuid=None, values={}, **kwargs):
+        if id and not isinstance(values, (list, tuple)):
+            return super(AuxService, self).update(id=id, values=values, **kwargs)
+        elif object_uuid and isinstance(values, (list, tuple)):
+            # DELETE anything missing
+            self.db.query(AnnotationItemFunctionalObject)\
+                .filter(AnnotationItemFunctionalObject.object_uuid == object_uuid) \
+                .filter(AnnotationItemFunctionalObject.annotation_id
+                        .notin_([row.get('id') for row in values if row.get('id')])) \
+                .delete(synchronize_session='fetch')
+            # UPDATE anything with id
+            # CREATE anything without id
+            content, count = [], 0
+            for v in values:
+                id = v.get('id')
+                if id:
+                    c, cc = super(AuxService, self).update(id=id, values=v, **kwargs)
+                    self.after_create(c, object_uuid=object_uuid)
+                    content.append(c)
+                    count += cc
+                else:
+                    v['object_uuid'] = v.get('object_uuid', object_uuid)
+                    c, cc = super(AuxService, self).create(**v)
+                    content.append(c)
+                    count += cc
+            return content, count
+        else:
+            raise Exception('UPDATE: Bad request for update annotations.')
 
     def after_update(self, new_object, **values):
         if values.get('object_uuid'):
@@ -77,3 +120,14 @@ class AuxService(SimpleAuxService):
                 get_or_create(self.db, AnnotationItemFunctionalObject,
                               annotation_id=new_object.id, object_uuid=i)
         return values
+
+    def aux_filter(self, filter):
+        clauses = []
+
+        if filter.get('object_uuid'):
+            from biobarcoding.rest import filter_parse
+            _aux = self.db.query(AnnotationItemFunctionalObject.annotation_id).filter(
+                filter_parse(AnnotationItemFunctionalObject, {'object_uuid': filter.get('object_uuid')}))
+            clauses.append(self.orm.id.in_(_aux.subquery()))
+
+        return clauses

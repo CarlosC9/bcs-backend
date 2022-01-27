@@ -203,6 +203,7 @@ class SimpleAuxService:
         count = 0
         if id:
             query = query.filter(self.orm.id == id)
+            count = 1
         else:
             if not kwargs.get('values'):
                 kwargs['values'] = {}
@@ -211,6 +212,7 @@ class SimpleAuxService:
                     kwargs['values'][k] = v
             if kwargs.get('values'):
                 query = query.filter_by(**self.prepare_values(**kwargs.get('values')))
+                # query = query.filter(filter_parse(self.orm, kwargs.get('values'), self.aux_filter))
             if kwargs.get('filter'):
                 query = query.filter(filter_parse(self.orm, kwargs.get('filter'), self.aux_filter))
             if kwargs.get('order'):
@@ -232,12 +234,16 @@ class SimpleAuxService:
     def update(self, values={}, **kwargs):
         content, count = self.get_query(**kwargs)
         changes = self.prepare_values(**values)
+        changes.update(values)
         foreign_changes = self.prepare_external_values(**values)
         # self.content = self.content.update(AuxService.prepare_values(**values))
         content = content.all()
         for row in content:
             for k, v in changes.items():
-                setattr(row, k, v)
+                try:
+                    setattr(row, k, v)
+                except Exception as e:
+                    log_exception(f'"{k}" does not exist in "{row}"')
             self.after_update(row, **foreign_changes)
         return content, count
 
