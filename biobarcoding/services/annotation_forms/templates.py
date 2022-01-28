@@ -15,8 +15,8 @@ class AuxService(FormItemAuxService):
         super(AuxService, self).__init__()
         self.orm = get_orm('templates')
 
-    def prepare_external_values(self, field=[], **values):
-        if field and not values.get('field_id'):
+    def prepare_external_values(self, field=None, **values):
+        if field is not None and not values.get('field_id'):
             if isinstance(field, (tuple, list, set)):
                 filter = AnnotationFormField.name.in_(field)
             else:
@@ -39,7 +39,7 @@ class AuxService(FormItemAuxService):
 
     def after_update(self, new_object, **values):
         super(AuxService, self).after_update(new_object, **values)
-        if values.get('field_id'):
+        if values.get('field_id') is not None:
             if isinstance(values['field_id'], (tuple, list, set)):
                 ids = values.get('field_id')
             else:

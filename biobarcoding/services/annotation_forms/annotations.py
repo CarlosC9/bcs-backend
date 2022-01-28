@@ -21,6 +21,8 @@ class AuxService(SimpleAuxService):
 
     def prepare_values(self, template=None, field=None, **values):
 
+        form_template = values.pop('form_template', None)
+        template = form_template if not template and isinstance(form_template, str) else template
         if template:
             if not field and not values.get("type"):
                 values["type"] = 'template'
@@ -28,6 +30,9 @@ class AuxService(SimpleAuxService):
                 from ...db_models.sa_annotations import AnnotationFormTemplate
                 values['form_template'] = self.db.query(AnnotationFormTemplate)\
                     .filter(AnnotationFormTemplate.name == template).one()
+
+        form_field = values.pop('form_field', None)
+        field = form_field if not field and isinstance(form_field, str) else field
         if field:
             if not template and not values.get("type"):
                 values["type"] = 'field'
@@ -41,8 +46,8 @@ class AuxService(SimpleAuxService):
 
         return super(AuxService, self).prepare_values(**values)
 
-    def prepare_external_values(self, object_id=[], **values):
-        if object_id and not values.get('object_uuid'):
+    def prepare_external_values(self, object_id=None, **values):
+        if object_id is not None and not values.get('object_uuid'):
             if isinstance(object_id, (tuple, list, set)):
                 ids = object_id
             else:
