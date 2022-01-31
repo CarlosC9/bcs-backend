@@ -88,6 +88,7 @@ class AnnotationFormTemplateField(ORMBase):
     name = Column(String(80))
     rank = Column(Integer, Sequence('annotation_form_rank_seq'), nullable=False)
     # rank = Column(Integer, nullable=False, default=select([func.max(1, func.max(rank))]))
+    required = Column(Boolean, default=False)
 
     __table_args__ = (
         UniqueConstraint(form_template_id, rank, name=__tablename__ + '_c1'),

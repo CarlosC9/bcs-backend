@@ -99,7 +99,7 @@ class AuxService(SimpleAuxService):
                 id = v.get('id')
                 if id:
                     c, cc = super(AuxService, self).update(id=id, values=v, **kwargs)
-                    self.after_create(c, object_uuid=object_uuid)
+                    self.after_create(c[0], object_uuid=object_uuid)
                     content.append(c)
                     count += cc
                 else:
