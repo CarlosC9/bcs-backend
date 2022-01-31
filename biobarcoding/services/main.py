@@ -203,7 +203,7 @@ class SimpleAuxService:
         count = 0
         if id:
             query = query.filter(self.orm.id == id)
-            count = 1
+            count = query.count()
         else:
             if not kwargs.get('values'):
                 kwargs['values'] = {}
@@ -232,8 +232,8 @@ class SimpleAuxService:
 
     # deal with the update
     def update(self, values={}, **kwargs):
-        content, count = self.get_query(**kwargs)
         changes = self.prepare_values(**values)
+        content, count = self.get_query(**kwargs)
         changes.update(values)
         foreign_changes = self.prepare_external_values(**values)
         # self.content = self.content.update(AuxService.prepare_values(**values))
