@@ -2,7 +2,8 @@ import os
 import requests
 from python_cipres import client as cipres
 from datetime import datetime
-from .ssh_process_adaptors import SSHProcessAdaptor
+
+from .cipres_process_adaptors import CipresProcessAdaptor
 from ..jobs import JobExecutorAtResource
 
 ######## OVERRIDE CIPRES METHOD FOR GETTING THE STAGE OF THE MESSAGES #######
@@ -165,8 +166,8 @@ class JobExecutorWithCipres(JobExecutorAtResource):
 
     def submit(self, process):
         params = process["inputs"]["adapted_parameters"]
-        script_file = params[SSHProcessAdaptor.SCRIPT_KEY][0]["remote_name"],
-        script_params = params[SSHProcessAdaptor.SCRIPT_PARAMS_KEY]
+        script_file = params[CipresProcessAdaptor.SCRIPT_KEY][0]["remote_name"],
+        script_params = params[CipresProcessAdaptor.SCRIPT_PARAMS_KEY]
         cmd = (
                 f"cd {self.local_workspace} && chmod +x {script_file} &> /dev/null " +
                 f"; (nohup {script_file} {self.base_url} {self.username} {self.password} {self.appID} {self.app_name} {script_params} " +
@@ -256,7 +257,7 @@ class JobExecutorWithCipres(JobExecutorAtResource):
             job_status.delete()
 
     def get_upload_files_list(self, job_context):
-        return list(job_context["process"]["inputs"]["adapted_parameters"][SSHProcessAdaptor.SCRIPT_FILES_KEY]) + \
+        return list(job_context["process"]["inputs"]["adapted_parameters"][CipresProcessAdaptor.SCRIPT_FILES_KEY]) + \
                list(job_context["process"]["inputs"]["adapted_parameters"].get("scripts", []))
 
     def get_download_files_list(self, job_context):
