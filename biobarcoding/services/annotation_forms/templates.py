@@ -21,7 +21,7 @@ class AuxService(FormItemAuxService):
                 filter = AnnotationFormField.name.in_(field)
             else:
                 filter = AnnotationFormField.name == field
-            values['field_id'] = self.db.query(AnnotationFormField.id)\
+            values['field_id'] = self.db.query(AnnotationFormField.id) \
                 .filter(filter).all()
         return super(AuxService, self).prepare_external_values(**values)
 
@@ -44,7 +44,7 @@ class AuxService(FormItemAuxService):
                 ids = values.get('field_id')
             else:
                 ids = [values.get('field_id')]
-            rl = self.db.query(AnnotationFormTemplateField)\
+            rl = self.db.query(AnnotationFormTemplateField) \
                 .filter(AnnotationFormTemplateField.form_template_id == new_object.id)
             rl.filter(AnnotationFormTemplateField.form_field_id.notin_(ids)) \
                 .delete(synchronize_session='fetch')

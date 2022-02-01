@@ -28,7 +28,7 @@ class AuxService(SimpleAuxService):
                 values["type"] = 'template'
             if not values.get('form_template') and not values.get('form_template_id'):
                 from ...db_models.sa_annotations import AnnotationFormTemplate
-                values['form_template'] = self.db.query(AnnotationFormTemplate)\
+                values['form_template'] = self.db.query(AnnotationFormTemplate) \
                     .filter(AnnotationFormTemplate.name == template).one()
 
         form_field = values.pop('form_field', None)
@@ -38,7 +38,7 @@ class AuxService(SimpleAuxService):
                 values["type"] = 'field'
             if not values.get('form_field') and not values.get('form_field_id'):
                 from ...db_models.sa_annotations import AnnotationFormField
-                values['form_field'] = self.db.query(AnnotationFormField)\
+                values['form_field'] = self.db.query(AnnotationFormField) \
                     .filter(AnnotationFormField.name == field).one()
 
         if values.get("type") in ('template', 'field', 'text'):
@@ -78,8 +78,10 @@ class AuxService(SimpleAuxService):
             else:
                 ids = [values.get('object_uuid')]
             for i in ids:
-                get_or_create(self.db, AnnotationItemFunctionalObject,
-                              annotation_id=new_object.id, object_uuid=i)
+                rl = get_or_create(self.db, AnnotationItemFunctionalObject,
+                                   annotation_id=new_object.id, object_uuid=i)
+                if isinstance(values.get('rank'), int):
+                    rl.rank = values.get('rank')
         return values
 
     def update(self, id=None, object_uuid=None, values={}, **kwargs):
@@ -87,20 +89,20 @@ class AuxService(SimpleAuxService):
             return super(AuxService, self).update(id=id, values=values, **kwargs)
         elif object_uuid and isinstance(values, (list, tuple)):
             # DELETE anything missing
-            self.db.query(AnnotationItemFunctionalObject)\
+            self.db.query(AnnotationItemFunctionalObject) \
                 .filter(AnnotationItemFunctionalObject.object_uuid == object_uuid) \
-                .filter(AnnotationItemFunctionalObject.annotation_id
-                        .notin_([row.get('id') for row in values if row.get('id')])) \
                 .delete(synchronize_session='fetch')
             # UPDATE anything with id
             # CREATE anything without id
-            content, count = [], 0
+            content, count, i = [], 0, 0
             for v in values:
                 id = v.get('id')
+                i+=1
                 if id:
                     c, cc = super(AuxService, self).update(id=id, values=v, **kwargs)
-                    if len(c) > 0:
-                        self.after_create(c[0], object_uuid=object_uuid)
+                    if len(c) != 1:
+                        raise Exception(f'UPDATE: Could not be updated the annotation {id}')
+                    self.after_create(c[0], object_uuid=object_uuid, rank=v.get('rank', i))
                     content.append(c)
                     count += cc
                 else:
@@ -118,7 +120,7 @@ class AuxService(SimpleAuxService):
                 ids = values.get('object_uuid')
             else:
                 ids = [values.get('object_uuid')]
-            rl = self.db.query(AnnotationItemFunctionalObject)\
+            rl = self.db.query(AnnotationItemFunctionalObject) \
                 .filter(AnnotationItemFunctionalObject.annotation_id == new_object.id)
             rl.filter(AnnotationItemFunctionalObject.object_uuid.notin_(ids)) \
                 .delete(synchronize_session='fetch')
@@ -127,11 +129,11 @@ class AuxService(SimpleAuxService):
                               annotation_id=new_object.id, object_uuid=i)
         return values
 
-    def get_query(self, query=None, id=None, object_uuid=None, **kwargs):
+    def get_query(self, query=None, object_uuid=None, **kwargs):
         query = query or self.db.query(self.orm)
         if object_uuid:
-            from biobarcoding.rest import filter_parse
-            query = query.filter(filter_parse(self.orm, {'object_uuid': object_uuid}, self.aux_filter))
+            query = query.join(AnnotationItemFunctionalObject).filter(
+                AnnotationItemFunctionalObject.object_uuid == object_uuid).order_by(AnnotationItemFunctionalObject.rank)
         return super(AuxService, self).get_query(query, **kwargs)
 
     def aux_filter(self, filter):

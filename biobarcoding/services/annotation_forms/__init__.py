@@ -23,12 +23,12 @@ class FormItemAuxService(SimpleAuxService):
 
         if values.get('cvterm_id') and not values.get('dbxref_id'):
             values['dbxref_id'] = DBSessionChado.query(Cvterm) \
-                .filter(Cvterm.cvterm_id == values.get('cvterm_id'))\
+                .filter(Cvterm.cvterm_id == values.get('cvterm_id')) \
                 .first().dbxref_id
 
         if values.get('dbxref_id') and not values.get('cvterm_id'):
             values['cvterm_id'] = DBSessionChado.query(Cvterm) \
-                .filter(Cvterm.dbxref_id == values.get('dbxref_id'))\
+                .filter(Cvterm.dbxref_id == values.get('dbxref_id')) \
                 .first().cvterm_id
 
         return get_orm_params(self.orm, **values)
@@ -70,7 +70,7 @@ class FormItemAuxService(SimpleAuxService):
                 ids = values.get('object_type_id')
             else:
                 ids = [values.get('object_type_id')]
-            rl = self.db.query(AnnotationFormItemObjectType)\
+            rl = self.db.query(AnnotationFormItemObjectType) \
                 .filter(AnnotationFormItemObjectType.form_item_id == new_object.id)
             rl.filter(AnnotationFormItemObjectType.object_type_id.notin_(ids)) \
                 .delete(synchronize_session='fetch')
