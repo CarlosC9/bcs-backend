@@ -127,6 +127,13 @@ class AuxService(SimpleAuxService):
                               annotation_id=new_object.id, object_uuid=i)
         return values
 
+    def get_query(self, query=None, id=None, object_uuid=None, **kwargs):
+        query = query or self.db.query(self.orm)
+        if object_uuid:
+            from biobarcoding.rest import filter_parse
+            query = query.filter(filter_parse(self.orm, {'object_uuid': object_uuid}, self.aux_filter))
+        return super(AuxService, self).get_query(query, **kwargs)
+
     def aux_filter(self, filter):
         clauses = []
 
