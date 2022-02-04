@@ -7,11 +7,19 @@ from ..db_models import ORMBase, DBSession
 
 def get_orm(entity):
     orm = None
-    if entity == 'templates':
+    if entity in ('template', 'templates'):
         from ..db_models.sa_annotations import AnnotationFormTemplate as orm
-    if entity == 'fields':
+    if entity == 'template_bibtex':
+        from ..db_models.sa_annotations import AnnotationFormTemplateBibTeX as orm
+    if entity in ('field', 'fields'):
         from ..db_models.sa_annotations import AnnotationFormField as orm
-    if entity == 'annotations':
+    if entity == 'tag':
+        from ..db_models.sa_annotations import AnnotationFormTag as orm
+    if entity == 'attribute':
+        from ..db_models.sa_annotations import AnnotationFormAttribute as orm
+    if entity == 'relationship':
+        from ..db_models.sa_annotations import AnnotationFormRelationship as orm
+    if entity == ('annotation', 'annotations'):
         from ..db_models.sa_annotations import AnnotationItem as orm
     if entity == 'annotation_template':
         from ..db_models.sa_annotations import AnnotationTemplate as orm
@@ -165,7 +173,7 @@ class SimpleAuxService:
             self.db.flush()
         except SQLAlchemyError as e:    # IntegrityError: already exists
             print(type(e))
-            print(str(e.__dict__['orig']))
+            print(str(e.__dict__.get('orig', f'Exception "{e}" (unknown orig)')))
             raise e
         foreign_values = self.prepare_external_values(**kwargs)
         self.after_create(content, **foreign_values)
@@ -180,10 +188,14 @@ class SimpleAuxService:
     def read(self, **kwargs):
         content, count = self.get_query(**kwargs)
         if kwargs.get('id'):
-            content = content.first()
+            content = self.attach_data(content.first())
         else:
-            content = content.all()
+            content = self.attach_data(*content.all())
         return content, count
+
+    # any additional read if any
+    def attach_data(self, *args):
+        return args
 
     # provide a sqlalchemy query (might be paged) and the total_count
     # @return: Query, total_count

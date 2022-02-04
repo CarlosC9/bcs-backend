@@ -1,5 +1,5 @@
-from .. import get_orm_params, get_or_create
-from ..main import SimpleAuxService
+from .. import get_or_create
+from ..main import SimpleAuxService, get_orm
 from ...rest import filter_parse
 from ...db_models import DBSession, DBSessionChado, ObjectType
 from ...db_models.chado import Cv, Cvterm, Db, Dbxref
@@ -31,7 +31,10 @@ class FormItemAuxService(SimpleAuxService):
                 .filter(Cvterm.dbxref_id == values.get('dbxref_id')) \
                 .first().cvterm_id
 
-        return get_orm_params(self.orm, **values)
+        if values.get("type") in ('template', 'template_bibtex', 'field', 'tag', 'attribute', 'relationship'):
+            self.orm = get_orm(f'{values.get("type")}')
+
+        return super(FormItemAuxService, self).prepare_values(**values)
 
     def prepare_external_values(self, object_type=[], **values):
         if object_type and not values.get('object_type_id'):

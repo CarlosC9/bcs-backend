@@ -104,6 +104,10 @@ def create_app(debug, start_socket=True, cfg_dict=None):
         # Insert EDAM Ontology in chado
         initialize_chado_edam(app)
 
+        # Insert BibTeX annotation forms
+        from biobarcoding.forms import initialize_bibtex_forms
+        initialize_bibtex_forms()
+
         # PostGIS Database
         initialize_postgis(app)
 
