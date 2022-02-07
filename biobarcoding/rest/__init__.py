@@ -1136,6 +1136,15 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
 
 def chew_data(param):
     try:
+        param = param.decode()
+    except Exception as e:
+        pass
+    try:
+        import ast
+        param = ast.literal_eval(param)
+    except Exception as e:
+        pass
+    try:
         param = unquote(param)
     except Exception as e:
         pass
@@ -1148,9 +1157,15 @@ def chew_data(param):
 
 def decode_request_params(data):
     res = {}
-    params = chew_data(data)
-    for key in params:
-        res[key] = chew_data(params[key])
+    params = chew_data(data) or []
+    if isinstance(params, (list, tuple)):
+        for obj in params:
+            for key in obj:
+                obj[key] = chew_data(obj[key])
+        return params
+    else:
+        for key in params:
+            res[key] = chew_data(params[key])
     return res
 
 
@@ -1172,7 +1187,13 @@ def parse_request_params(data=None):
             except Exception as e:
                 continue
             kwargs[key] = i if i else kwargs[key]
-        kwargs['values'].update(input)
+        if input:
+            if type(kwargs.get('values')) != type(input):
+                kwargs['values'] = input
+            elif isinstance(input, dict):
+                kwargs['values'].update(input)
+            elif isinstance(input, (list,tuple)):
+                kwargs['values'] += input
     print(f'CLEAN_DATA: {kwargs}')
     return kwargs
 
@@ -1289,6 +1310,12 @@ def filter_parse(orm, filter, aux_filter=None, session=None):
 
     def get_condition(orm, field, condition):
         obj = getattr(orm, field)
+
+        if not isinstance(condition, dict):
+            if isinstance(condition, (list, tuple)):
+                return obj.in_(condition)
+            return obj == condition
+
         op = condition["op"]
         value, left, right = condition.get("unary"), condition.get("left"), condition.get("right")
         if op == "out":
