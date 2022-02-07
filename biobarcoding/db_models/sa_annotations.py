@@ -4,11 +4,11 @@ from sqlalchemy.orm import relationship, backref
 
 from . import ORMBase, GUID, ObjectType
 from .core import FunctionalObject
-
-# ANNOTATION FORM
+from .files import File
 
 prefix = "sa_annotation_"
 
+# ANNOTATION FORM
 
 class AnnotationFormItem(ORMBase):
     __tablename__ = f"{prefix}form_item"
@@ -134,7 +134,6 @@ class AnnotationFormTemplateFieldOptional(AnnotationFormTemplateField):
     form_template = relationship(AnnotationFormTemplate,
                                  backref=backref("optional_fields", cascade="all, delete-orphan"))
 
-
 # ANNOTATION INSTANCE
 
 class AnnotationItem(ORMBase):
@@ -143,10 +142,9 @@ class AnnotationItem(ORMBase):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     type = Column(String(80), nullable=False)    # text, form, field
     name = Column(String(80), nullable=False)
+    file_id = Column(BigInteger, ForeignKey(File.id))
+    file = relationship(File)
 
-    # __table_args__ = (
-    #     UniqueConstraint(object_uuid, name, name=__tablename__ + '_c1'),
-    # )
     __mapper_args__ = {
         'polymorphic_identity': 'annotation_item',
         'polymorphic_on': type

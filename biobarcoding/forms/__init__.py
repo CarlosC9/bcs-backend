@@ -170,13 +170,14 @@ def initialize_bibtex_forms():
 	from ..services.annotation_forms.fields import AuxService
 	service = AuxService()
 	fields = dict()
-	try:
-		for i in bibtex_fields:
+	for i in bibtex_fields:
+		try:
 			c = service.create(**i)[0]
 			fields[c.name] = c
-		service.db.commit()
-	except Exception as e:
-		print('Something went wrong when creating the BibTeX fields. They may already exist.')
+			service.db.commit()
+		except Exception as e:
+			service.db.rollback()
+			print(f'Something went wrong when creating the {i.get("name")} BibTeX field. It may already exist.')
 
 	# Entry types / Templates
 
@@ -352,11 +353,12 @@ def initialize_bibtex_forms():
 	]
 	from ..services.annotation_forms.templates import AuxService
 	service = AuxService()
-	try:
-		for i in bibtex_entities:
+	for i in bibtex_entities:
+		try:
 			i['required_fields'] = [fields.get(name, name) for name in i.get('required_fields', [])]
 			i['optional_fields'] = [fields.get(name, name) for name in i.get('optional_fields', [])]
 			service.create(**i)
-		service.db.commit()
-	except Exception as e:
-		print('Something went wrong when creating the BibTeX templates. They may already exist.')
+			service.db.commit()
+		except Exception as e:
+			service.db.rollback()
+			print(f'Something went wrong when creating the {i.get("name")} BibTeX template. It may already exist.')
