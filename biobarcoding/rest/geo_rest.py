@@ -1100,6 +1100,10 @@ class LayersAPI(MethodView):
                         df[c].cat.categories = df[c].cat.categories.astype("int64")
                     except:
                         pass
+                else:
+                    if "" in uniq:
+                        df[c] = df[c].cat.rename_categories({'': '-'})
+
             elif df.dtypes[i] == np.dtype("O"):
                 # Numeric?
                 try:
