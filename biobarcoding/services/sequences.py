@@ -1,7 +1,9 @@
+import json
 import os.path
 import re
 
 from .ontologies import get_cvterm_query
+from ..common import generate_json
 from ..db_models import DBSession as db_session
 from ..db_models import DBSessionChado as chado_session
 from ..db_models.chado import Feature, Organism, StockFeature
@@ -96,7 +98,10 @@ def read(id=None, **kwargs):
     try:
         content, count = __get_query(id, **kwargs)
         if id:
-            content = content.first()
+            content = json.loads(generate_json(content.one()))
+            content['uuid'] = str(db_session.query(Sequence)
+                                  .filter(Sequence.native_table == 'feature',
+                                          Sequence.native_id == id).one().uuid)
         else:
             content = content.all()
         issues, status = [Issue(IType.INFO, 'READ sequences: The sequences were successfully read')], 200

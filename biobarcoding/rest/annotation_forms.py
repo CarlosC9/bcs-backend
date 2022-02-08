@@ -83,9 +83,7 @@ class AnnotationItemAPI(MethodView):
     def post(self, object_uuid=None):
         print(f'POST {request.path}\nCreating annotation')
         self.kwargs = parse_request_params()
-        values = self.kwargs.get('values')
-        values['object_uuid'] = values.get('object_uuid') or object_uuid
-        issues, content, count, status = getCRUDIE('annotations').create(**values)
+        issues, content, count, status = getCRUDIE('annotations').create(object_uuid=object_uuid, **self.kwargs)
         return ResponseObject(content=content, count=count, issues=issues, status=status).get_response()
 
     @n_session()

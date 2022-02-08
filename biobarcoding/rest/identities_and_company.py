@@ -100,7 +100,7 @@ class ObjectTypeAPI(MethodView):
 
     @n_session(read_only=True)
     def get(self, id=None, uuid=None):
-        print(f'GET {request.path}\nGetting ACL {id}')
+        print(f'GET {request.path}\nGetting Object Types {id}')
         kwargs = parse_request_params()
         issues, content, count, status = read_obj_types(id_=id, uuid=uuid, **kwargs)
         return ResponseObject(content=content, count=count, issues=issues, status=status).get_response()

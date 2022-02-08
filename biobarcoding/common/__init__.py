@@ -2,6 +2,7 @@ import collections
 import json
 from pathlib import Path
 from typing import Any, Dict
+import uuid
 
 import numpy as np
 import pandas
@@ -148,6 +149,8 @@ def _json_serial(obj):
         return int(obj)
     elif isinstance(obj, pandas.DataFrame):
         return obj.to_dict("records")
+    elif isinstance(obj, uuid.UUID):
+        return str(obj)
     elif hasattr(obj, "Schema"):
         return getattr(obj, "Schema")().dump(obj)  # "marshmallow"
     raise TypeError(f"Type {type(obj)} not serializable")
