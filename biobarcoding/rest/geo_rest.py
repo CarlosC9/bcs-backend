@@ -25,6 +25,7 @@ from sqlalchemy import Integer, and_
 
 from .. import get_global_configuration_variable, app_acronym
 from ..authentication import n_session
+from ..common import generate_json
 from ..common.decorators import Memoize
 from ..common.helpers import read_yaml
 from ..db_models.core import data_object_type_id, Dataset, PortInProcessInstance, CProcessInstance, CProcess, \
@@ -697,9 +698,15 @@ class LayersAPI(MethodView):
                 # Modify "wms_url" for local layers
                 tmp = urlparse(request.base_url)
                 base_url = f"{tmp.scheme}://{tmp.netloc}"
-                for l in layer:
-                    if l.wms_url.endswith(f"{app_proxy_base}/geoserver/wms"):
-                        l.wms_url = f"{base_url}{app_proxy_base}/geoserver/wms"
+                # Rewritten to avoid modification of geographic layers that would generate ORM events
+                enh_content = []
+                for inst in layer:
+                    _ = json.loads(generate_json(inst))
+                    if _.get("wms_url", "").endswith(f"{app_proxy_base}/geoserver/wms"):
+                        _["wms_url"] = f"{base_url}{app_proxy_base}/geoserver/wms"
+                    enh_content.append(_)
+                layer = enh_content
+
         # elif _filter and key_col:  # Temporary layer
         #     # TODO Ensure Temporary layer is also registered as BCS GeographicLayer
         #     tmp_view = f'tmpview_{g.n_session.identity.id}'
