@@ -65,6 +65,26 @@ class Identity(Authorizable):
     deactivation_time = Column(DateTime)
 
 
+class IdentityStoreEntry(ORMBase):
+    """
+    Used to store per identity information chunks (JSON), by key
+    Key can be whatever, from general GUI configuration, to GUI-views state, to other configurable aspects
+
+    """
+    __tablename__ = f"{prefix}identity_store_entries"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    identity_id = Column(Integer, ForeignKey(Identity.id), nullable=False)
+    identity = relationship(Identity)
+
+    key = Column(String(255), nullable=False)
+    value = Column(JSONB)
+
+    __table_args__ = (
+        UniqueConstraint(identity_id, key, name=__tablename__ + '_identity_key'),
+    )
+
+
 class IdentityAuthenticator(ORMBase):
     """ Recognized identity authenticator """
     __tablename__ = f"{prefix}identities_authenticators"

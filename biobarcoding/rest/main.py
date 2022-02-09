@@ -41,7 +41,7 @@ from .geoprocesses_and_case_studies import bp_case_studies, bp_geoprocesses, bp_
 from .gui_static import bp_gui
 from .hierarchies import bp_hierarchies, bp_hierarchy_nodes
 from .identities_and_company import bp_identities, bp_sys_functions, bp_roles, bp_identities_roles, \
-    bp_groups, bp_organizations, bp_acl, bp_identities_authenticators
+    bp_groups, bp_organizations, bp_acl, bp_identities_authenticators, bp_identity_store
 from .jobs import bp_jobs
 from .metadata import bp_metadata
 from .annotation_forms import bp_annotations
@@ -178,6 +178,7 @@ def create_app(debug, start_socket=True, cfg_dict=None):
                bp_bos,
 			   bp_metadata,
 			   bp_tasks,
+               bp_identity_store,
 			   ]:
         app.register_blueprint(bp)
 
