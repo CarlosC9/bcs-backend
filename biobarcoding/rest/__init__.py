@@ -1587,16 +1587,6 @@ def initialize_chado_edam(flask_app):
                                             comment=db_relationship_comment
                                             )
 
-                    # DELETE CVTERMS THAT ARE IN THE CHADO XML AND ALSO IN THE DATABASE
-                    conn.execute(text("delete from cvterm where name = 'comment'and cv_id = 6 and is_obsolete = 0"))
-                    conn.execute(
-                        text("delete from cvterm where name = 'has_function'and cv_id = 4 and is_obsolete = 0"))
-                    conn.execute(text("delete from cvterm where name = 'has_input'and cv_id = 4 and is_obsolete = 0"))
-                    conn.execute(text("delete from cvterm where name = 'has_output'and cv_id = 4 and is_obsolete = 0"))
-                    conn.execute(text("delete from cvterm where name = 'is_a'and cv_id = 4 and is_obsolete = 0"))
-                    conn.execute(
-                        text("delete from cvterm where name = 'is_anonymous'and cv_id = 6 and is_obsolete = 0"))
-
                     db_relationship.create(bind=conn)
 
                 except Exception as e:
@@ -1616,18 +1606,18 @@ def initialize_chado_edam(flask_app):
 
                     subprocess.run(command)
                     # We commit 2 times because we need a commit on the last block to execute this one
-                    with biobarcoding.chado_engine.connect() as conn:
-                        # FILL THE db_relationship TABLE
-                        edam_id = conn.execute(text("select db_id from db where name=\'EDAM\'")).fetchone()[0]
-                        db_ids = conn.execute(text("select db_id from db where db_id > " + str(edam_id))).fetchall()
-                        type_id = conn.execute(text(
-                            "select cvterm_id from cvterm join cv on cvterm.cv_id = cv.cv_id where cvterm.name = \'part_of\' "
-                            "and cv.name = \'relationship\'")).fetchone()[0]
 
-                        for db_id in db_ids:
-                            conn.execute(text("INSERT INTO db_relationship (type_id,subject_id,object_id)" +
-                                              "VALUES(" + str(type_id) + "," + str(db_id[0]) + "," + str(
-                                edam_id) + ")"))
+                    # FILL THE db_relationship TABLE
+                    edam_id = conn.execute(text("select db_id from db where name=\'EDAM\'")).fetchone()[0]
+                    db_ids = conn.execute(text("select db_id from db where db_id > " + str(edam_id))).fetchall()
+                    type_id = conn.execute(text(
+                        "select cvterm_id from cvterm join cv on cvterm.cv_id = cv.cv_id where cvterm.name = \'part_of\' "
+                        "and cv.name = \'relationship\'")).fetchone()[0]
+
+                    for db_id in db_ids:
+                        conn.execute(text("INSERT INTO db_relationship (type_id,subject_id,object_id)" +
+                                          "VALUES(" + str(type_id) + "," + str(db_id[0]) + "," + str(
+                            edam_id) + ")"))
                 else:
                     print("EDAM was already inserted")
 
