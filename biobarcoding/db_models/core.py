@@ -23,7 +23,9 @@ data_object_type_id = {
     "process": 100,
     "geoprocess": 101,
     "geoprocess_instance": 102,
-    "case_study": 103
+    "case_study": 103,
+    "view": 104,
+    "dashboard": 105,
 }
 
 
@@ -112,6 +114,18 @@ def update_functional_object_tsvector(session):
         entity.entity_update_time = datetime.datetime.utcnow()
         set_functional_object_tsvector(entity)
     session.commit()
+
+
+class NullObject(FunctionalObject):
+    """
+    Represent nullified objects (for now an object that is not wanted anymore)
+
+    """
+    __tablename__ = f"{prefix}null_objs"
+    __mapper_args__ = {
+        'polymorphic_identity': 1000001,
+    }
+    id = Column(BigInteger, ForeignKey(FunctionalObject.id), nullable=True)
 
 
 class CaseStudy(FunctionalObject):

@@ -315,9 +315,12 @@ tm_object_types = [  # ObjectType
     (data_object_type_id["geoprocess"], "ed678c7d-d4dd-4ddc-b811-a66c030ae574", "geoprocess"),  # CProcess
     (data_object_type_id["geoprocess_instance"], "f0bcbe79-89dc-42fb-b7a8-a103d361f27e", "geoprocess_instance"),
     (data_object_type_id["case_study"], "5f4c1666-e509-436b-8844-082ebe88b2b9", "case_study"),
+    (data_object_type_id["view"], "4cc3b304-afb4-445b-a9da-6c5ec99aafc8", "view"),
+    (data_object_type_id["dashboard"], "633a7f00-4019-4302-9067-611bea1fc934", "dashboard"),
     (1000, "ad83dcb0-e479-4a44-acf5-387b9731e8da", "sys-functions"),
     (1001, "aa97ddad-8937-4590-afc9-dc00c5601f2a", "compute-resource"),
-    (1002, "a4b4a7d2-732f-4db9-9a32-c57c00881eb7", "process")  # Algorithms
+    (1002, "a4b4a7d2-732f-4db9-9a32-c57c00881eb7", "process"),  # Algorithms
+    (1000001, "b5371878-582a-4758-9c7c-9e536c477992", "none")  # Nulled items
 ]
 
 tm_permissions_fields = ["uuid", "name", "rank"]
