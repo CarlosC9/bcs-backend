@@ -645,6 +645,7 @@ class LayersAPI(MethodView):
 
             return clauses
 
+        # ---------------------------------------------------------------------
         self.issues = []
         layer = None
         count = 1

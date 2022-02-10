@@ -1172,7 +1172,7 @@ def decode_request_params(data):
     return res
 
 
-def parse_request_params(data=None):
+def parse_request_params(data=None, default_kwargs=None):
     kwargs = {'filter': [], 'order': [], 'pagination': {}, 'values': {}, 'searchValue': ''}
     if not data and request:
         if request.json:
@@ -1197,6 +1197,13 @@ def parse_request_params(data=None):
                 kwargs['values'].update(input)
             elif isinstance(input, (list,tuple)):
                 kwargs['values'] += input
+    if isinstance(default_kwargs, dict):
+        for k, v in default_kwargs.items():
+            if k in kwargs:
+                v = kwargs[k]
+                if v is None or (isinstance(v, list) and len(v) == 0) or (isinstance(v, str) and v == ''):
+                    kwargs[k] = default_kwargs[k]
+
     print(f'CLEAN_DATA: {kwargs}')
     return kwargs
 
@@ -1404,7 +1411,7 @@ def get_content(session, clazz, issues, id_=None, aux_filter=None, query=None):
     try:
         if id_ is None:
             # List of all
-            kwargs = parse_request_params()
+            kwargs = parse_request_params(default_kwargs=dict(order=[dict(field="name", order="ascend")]))
             from ..services import get_query
             query2, count = get_query(session, clazz, query, aux_filter=aux_filter, **kwargs)
             content = query2.all()
