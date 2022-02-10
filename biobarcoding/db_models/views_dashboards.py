@@ -30,13 +30,13 @@ class Dashboard(FunctionalObject):
     data = Column(JSONB)
 
 
-class DashboardView(FunctionalObject):
+class DashboardView(ORMBase):
     __tablename__ = f"{prefix}dashboard_views"
     id = Column(Integer, primary_key=True, autoincrement=True)
     dashboard_id = Column(BigInteger, ForeignKey(Dashboard.id), primary_key=True)
     view_id = Column(BigInteger, ForeignKey(View.id), primary_key=True)
-    dashboard = relationship(Dashboard, backref=backref("views", cascade="all, delete-orphan"))
-    view = relationship(View, backref=backref("dashboards", cascade="all, delete-orphan"))
+    dashboard = relationship(Dashboard, foreign_keys=[dashboard_id], backref=backref("views", cascade="all, delete-orphan"))
+    view = relationship(View, foreign_keys=[view_id], backref=backref("dashboards", cascade="all, delete-orphan"))
     view_in_dashboard = Column(JSONB)
 
 
