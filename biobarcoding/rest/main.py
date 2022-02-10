@@ -9,6 +9,7 @@ from flask_socketio import SocketIO
 
 # Workaround for relative imports in a "__main__"
 # From: https://stackoverflow.com/a/28154841
+from biobarcoding.rest.views_dashboards import bp_viewz, bp_dashboards, bp_dashboard_items
 
 if __name__ == '__main__' and (__package__ is None or __package__ == ""):
     file = Path(__file__).resolve()
@@ -179,6 +180,9 @@ def create_app(debug, start_socket=True, cfg_dict=None):
 			   bp_metadata,
 			   bp_tasks,
                bp_identity_store,
+               bp_viewz,
+               bp_dashboards,
+               bp_dashboard_items,
 			   ]:
         app.register_blueprint(bp)
 
