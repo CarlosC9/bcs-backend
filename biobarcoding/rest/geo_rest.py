@@ -369,6 +369,17 @@ def export_geolayer(db_sess, layer_id: int, layer_name: str, format_: str) -> Tu
             gdf = gpd.read_postgis(f"{layer_name}", postgis_engine, geom_col="geom")
     else:
         gdf = pd.read_sql(f"select * from {layer_name}", postgis_engine)
+        # REMOVE GEOM column if it exists
+        found = False
+        for col in ["geom", "geometry"]+gdf.columns.to_list():
+            if col in gdf.columns:
+                try:
+                    _ = _df_to_geodf(gdf, geom_col=col)
+                    found = True
+                    del gdf[col]
+                    break
+                except:
+                    pass
 
     # Write to temporary directory
     with tempfile.TemporaryDirectory() as tmpdirname:
@@ -409,6 +420,43 @@ def export_geolayer(db_sess, layer_id: int, layer_name: str, format_: str) -> Tu
     return buf.getvalue(), content_type
 
 
+def _df_to_geodf(df, geom_col="geom", crs=None):
+    """ COPIED FROM MODULE geopandas.io.sql """
+    import shapely
+    from geopandas import GeoDataFrame
+
+    if geom_col not in df:
+        raise ValueError("Query missing geometry column '{}'".format(geom_col))
+
+    geoms = df[geom_col].dropna()
+
+    if not geoms.empty:
+        load_geom_bytes = shapely.wkb.loads
+        """Load from Python 3 binary."""
+
+        def load_geom_buffer(x):
+            """Load from Python 2 binary."""
+            return shapely.wkb.loads(str(x))
+
+        def load_geom_text(x):
+            """Load from binary encoded as text."""
+            return shapely.wkb.loads(str(x), hex=True)
+
+        if isinstance(geoms.iat[0], bytes):
+            load_geom = load_geom_bytes
+        else:
+            load_geom = load_geom_text
+
+        df[geom_col] = geoms = geoms.apply(load_geom)
+        if crs is None:
+            srid = shapely.geos.lgeos.GEOSGetSRID(geoms.iat[0]._geom)
+            # if no defined SRID in geodatabase, returns SRID of 0
+            if srid != 0:
+                crs = "epsg:{}".format(srid)
+
+    return GeoDataFrame(df, crs=crs, geometry=geom_col)
+
+
 class LayersAPI(MethodView):
     """
     GET:    the list of layers info from Geographiclayer table on bcs
@@ -445,8 +493,8 @@ class LayersAPI(MethodView):
         supported_formats = {"gpkg": ("Geopackage", export_geolayer),
                              "shp": ("Shapefile (zipped)", export_geolayer),
                              "geojson": ("GeoJSON", export_geolayer),
-                             "csv": ("CSV (only layers without Geometry column)", export_geolayer),
-                             "xlsx": ("XLSX (only layers without Geometry column)", export_geolayer),
+                             "csv": ("CSV (layers with Geometry column have it removed)", export_geolayer),
+                             "xlsx": ("XLSX (layers with Geometry column have it removed)", export_geolayer)}
                              "nexus": ("Nexus for PDA", generate_pda_species_file_from_layer),
                              "pda_simple": ("PDA simple", generate_pda_species_file_from_layer),
                              "species": ("List of species", generate_pda_species_file_from_layer),
@@ -651,9 +699,10 @@ class LayersAPI(MethodView):
         count = 1
         key_col = request.args.get("key_col")
         db_sess = g.n_session.db_session
-        if _id:  # A layer
-            if _id.startswith("job"):
+        if _id:  # One layer or Job (return layer associated to job)
+            if _id.startswith("job"):  # LayerS associated with a job
                 job_id = _id[len("job"):]
+                # TODO Return more than one layer if there are more than one
                 layer = db_sess.query(GeographicLayer). \
                     filter(GeographicLayer.attributes["job_id"].astext.cast(Integer) == int(job_id)).first()
                 if layer:
@@ -662,7 +711,7 @@ class LayersAPI(MethodView):
                     self.status = 400
             else:
                 self.issues, layer, count, self.status = get_content(db_sess, GeographicLayer, self.issues, _id)
-            if layer and layer.is_deleted:
+            if layer and layer.is_deleted:  # Soft deleted
                 layer = None
                 _, self.status = self.issues.append(Issue(IType.INFO, f'no data available')), 200
             else:
