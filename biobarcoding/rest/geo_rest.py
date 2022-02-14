@@ -494,7 +494,7 @@ class LayersAPI(MethodView):
                              "shp": ("Shapefile (zipped)", export_geolayer),
                              "geojson": ("GeoJSON", export_geolayer),
                              "csv": ("CSV (layers with Geometry column have it removed)", export_geolayer),
-                             "xlsx": ("XLSX (layers with Geometry column have it removed)", export_geolayer)}
+                             "xlsx": ("XLSX (layers with Geometry column have it removed)", export_geolayer),
                              "nexus": ("Nexus for PDA", generate_pda_species_file_from_layer),
                              "pda_simple": ("PDA simple", generate_pda_species_file_from_layer),
                              "species": ("List of species", generate_pda_species_file_from_layer),
