@@ -9,6 +9,7 @@ from .ssh_process_adaptors import SSHProcessAdaptor
 from .. import get_global_configuration_variable
 from ..jobs import JobExecutorAtResource
 
+
 class CustomSSHClient(asyncssh.SSHClient):
 
     def validate_host_public_key(self, host, addr, port, key):
@@ -72,12 +73,6 @@ class RemoteSSHClient:
         @param script_params: Parameters of the script
         @return: pid: PID of the executed script process
         """
-        # TODO Changes: 
-        #   self.SSH_OPTIONS
-        #   export PATH=.:$PATH (not used)
-        #   {script_file} -> ./{script_file}
-        # cmd = (f"ssh {self.SSH_OPTIONS} {self.username}@{self.host} 'cd {self.remote_workspace} && chmod +x {script_file} " +
-        #       f"&& (nohup ./{script_file} {script_params} " +        
         cmd = (f"ssh {self.SSH_OPTIONS} -p {self.port} {self.username}@{self.host} 'cd {self.remote_workspace} && export PATH=.:$PATH && chmod +x {script_file} &> /dev/null " +
                f"; (nohup {script_file} {script_params} " +
                f">/{self.remote_workspace}/{os.path.basename(self.logs_dict['submit_stdout'])} " +
@@ -429,7 +424,7 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         return status
 
     def write_remote_logs(self, state_dict):
-        if state_dict["state"] == "submit" and state_dict.get("substep") == "wait_for_execution_end":
+        if state_dict["state"] == "submit":
             self.loop.run_until_complete(self.remote_client.write_submit_logs())
 
     def cancel_job(self, native_id):

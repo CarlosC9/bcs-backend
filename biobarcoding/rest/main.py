@@ -9,6 +9,7 @@ from flask_socketio import SocketIO
 
 # Workaround for relative imports in a "__main__"
 # From: https://stackoverflow.com/a/28154841
+from biobarcoding.rest.views_dashboards import bp_viewz, bp_dashboards, bp_dashboard_items
 
 if __name__ == '__main__' and (__package__ is None or __package__ == ""):
     file = Path(__file__).resolve()
@@ -41,7 +42,7 @@ from .geoprocesses_and_case_studies import bp_case_studies, bp_geoprocesses, bp_
 from .gui_static import bp_gui
 from .hierarchies import bp_hierarchies, bp_hierarchy_nodes
 from .identities_and_company import bp_identities, bp_sys_functions, bp_roles, bp_identities_roles, \
-    bp_groups, bp_organizations, bp_acl, bp_identities_authenticators
+    bp_groups, bp_organizations, bp_acl, bp_identities_authenticators, bp_identity_store
 from .jobs import bp_jobs
 from .metadata import bp_metadata
 from .annotation_forms import bp_annotations
@@ -50,6 +51,7 @@ from .proxy import bp_proxy
 from .tasks import bp_tasks
 from .views import bp_views
 from ..tasks import initialize_celery
+
 
 # Flask and configuration file
 socket_service_socketio = None
@@ -148,26 +150,26 @@ def create_app(debug, start_socket=True, cfg_dict=None):
     # RESTful endpoints
     for bp in [
                bp_auth,
-			   bp_files,
-			   bp_jobs,
-			   bp_gui,
+               bp_files,
+               bp_jobs,
+               bp_gui,
                bp_hierarchies,
                bp_hierarchy_nodes,
                bp_identities,
                bp_identities_authenticators,
-			   bp_sys_functions,
-			   bp_roles,
-			   bp_identities_roles,
-			   bp_groups,
-			   bp_organizations,
-			   bp_acl,
-			   bp_processes,
-			   bp_resources,
-			   bp_annotations,
-			   bp_bfilters,
-			   bp_geo,
-			   bp_views,
-			   bp_proxy,
+               bp_sys_functions,
+               bp_roles,
+               bp_identities_roles,
+               bp_groups,
+               bp_organizations,
+               bp_acl,
+               bp_processes,
+               bp_resources,
+               bp_annotations,
+               bp_bfilters,
+               bp_geo,
+               bp_views,
+               bp_proxy,
                bp_case_studies,
                bp_case_studies_fos,
                bp_geoprocesses,
@@ -177,6 +179,10 @@ def create_app(debug, start_socket=True, cfg_dict=None):
                bp_bos,
 			   bp_metadata,
 			   bp_tasks,
+               bp_identity_store,
+               bp_viewz,
+               bp_dashboards,
+               bp_dashboard_items,
 			   ]:
         app.register_blueprint(bp)
 

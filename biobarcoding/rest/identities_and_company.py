@@ -1,8 +1,10 @@
+from sqlalchemy import and_
+
 from ..db_models.sysadmin import Identity, SystemFunction, Group, Role, Organization, RoleIdentity, \
-    IdentityAuthenticator
+    IdentityAuthenticator, IdentityStoreEntry
 from . import make_simple_rest_crud, parse_request_params, tm_default_users
 
-from flask import Blueprint, request
+from flask import Blueprint, request, g
 from flask.views import MethodView
 from ..authentication import n_session
 from ..rest import app_api_base, ResponseObject
@@ -127,3 +129,94 @@ bp_acl.add_url_rule(
     view_func=obj_type_view,
     methods=['GET']
 )
+
+
+class IdentityStoreAPI(MethodView):
+    """
+    Endpoint to enable storing per identity key-values, where values are stored as JSON
+
+    LOGIN (entries assume the current user):
+    export API_BASE_URL=http://localhost:5000/api
+    curl --cookie-jar app-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user"
+    PUT:
+    curl --cookie app-cookies.txt -i -XPUT "http://localhost:5000/api/identity_store/status" -H "Content-Type: application/json" -d '{"status": "scheduled"}'
+    GET (all keys):
+    curl --cookie app-cookies.txt "http://localhost:5000/api/identity_store/"
+    GET (key "status"):
+    curl --cookie app-cookies.txt "http://localhost:5000/api/identity_store/status"
+
+    """
+    @n_session(read_only=True, authr=None)
+    def get(self, key=None):  # List or Read
+        db = g.n_session.db_session
+        ident = g.n_session.identity
+        valid_identity = ident is not None  # and ident != anonymous_identity
+        r = ResponseObject()
+        if not valid_identity:
+            r.status = 401
+            r.issues.append('Not identified, login first')
+        else:
+            if key is None:
+                # List of all
+                kwargs = parse_request_params()
+                from ..services import get_query
+                # Filter always by identity (override possible "filter", not "order" or others)
+                kwargs.update(dict(filter=[dict(identity_id={'op': 'eq', 'unary': ident.id})]))
+                query, count = get_query(db, IdentityStoreEntry, **kwargs)
+                r.count = count
+                r.content = [e.key for e in query.all()]
+                # r.content = {e.key: e.value for e in query.all()}
+            else:
+                # Detail
+                _ = db.query(IdentityStoreEntry).\
+                    filter(and_(IdentityStoreEntry.identity == ident, IdentityStoreEntry.key == key)).first()
+                if _ is None:
+                    r.status = 404
+                    r.issues.append(Issue(IType.ERROR, f'Key {key} not found'))
+                else:
+                    r.content = _.value
+                    r.count = 1
+
+        return r.get_response()
+
+    @n_session()
+    def put(self, key):  # Update (total or partial)
+        db = g.n_session.db_session
+        ident = g.n_session.identity
+        valid_identity = ident is not None  # and ident != anonymous_identity
+        r = ResponseObject()
+        if not valid_identity:
+            r.status = 401
+            r.issues.append('Not identified, login first')
+        else:
+            s = db.query(IdentityStoreEntry).\
+                filter(and_(IdentityStoreEntry.identity == ident, IdentityStoreEntry.key == key)).first()
+            if s is None:
+                s = IdentityStoreEntry()
+                db.add(s)
+                s.identity = ident
+                s.key = key
+            s.value = request.json
+            r.content = s
+        return r.get_response()
+
+    @n_session()
+    def delete(self, key):  # Delete
+        db = g.n_session.db_session
+        ident = g.n_session.identity
+        valid_identity = ident is not None  # and ident != anonymous_identity
+        r = ResponseObject()
+        if not valid_identity:
+            r.status = 401
+            r.issues.append('Not identified, login first')
+        else:
+            s = db.query(IdentityStoreEntry).\
+                filter(and_(IdentityStoreEntry.identity == ident, IdentityStoreEntry.key == key)).first()
+            db.delete(s)
+        return r.get_response()
+
+
+bp_identity_store = Blueprint(f'bp_identity_store', __name__)
+view_func = IdentityStoreAPI.as_view("identity_store")
+bp_identity_store.add_url_rule(f"{app_api_base}/identity_store/<string:key>", view_func=view_func, methods=['GET', 'PUT', 'DELETE'])
+bp_identity_store.add_url_rule(f"{app_api_base}/identity_store/", defaults=dict(key=None), view_func=view_func, methods=['GET'])

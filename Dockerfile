@@ -82,6 +82,7 @@ RUN apt-get update && \
     libv-perl \
     bioperl \
     cpanminus \
+#    chado-utils\
 	&& apt-get clean
 
 # COMMON

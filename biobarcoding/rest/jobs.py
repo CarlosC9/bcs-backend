@@ -36,7 +36,7 @@ def get_job_executability(job, session):
                                               "store_result_in_backend",
                                               "cleanup"]])
         # First, find the count of running jobs in the resource
-        sql_count = f"select count(*) as cnt from jobs_jobs j where j.resource_id = {job.resource_id} and status in ({states})"
+        sql_count = f"select count(*) as cnt from jobs_jobs j where j.resource_id = {job.resource_id} and status in ({states}) and not deleted"
         close_connection = session.transaction is None
         conn = session.connection()
         sql_result = conn.execute(sql_count)
@@ -46,7 +46,7 @@ def get_job_executability(job, session):
             # Check if the job has priority (job id)
             s = f"SELECT count(*) as CNT " \
                 f"FROM " \
-                f"(select id from jobs_jobs j where j.resource_id = {job.resource_id} and status = 'created' " \
+                f"(select id from jobs_jobs j where j.resource_id = {job.resource_id} and status = 'created' and not deleted" \
                 f" order by id limit {max_running_jobs - cont}) as a " \
                 f"WHERE id = {job.id}"
             sql_result = conn.execute(s)

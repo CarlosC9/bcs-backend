@@ -199,7 +199,7 @@ class SimpleAuxService:
            'order': advanced ordering clauses (see also order_parse)
            'pagination': pageIndex and pageSize to paginate
            'searchValue': full-text search value (hopefully)
-         otherwise it will be treated as 'value'
+         otherwise it will be treated as 'values'
         """
         from ..rest import filter_parse, order_parse
         from ..services import paginator
