@@ -2,6 +2,9 @@
 
 def initialize_bibtex_forms():
 
+	from ..db_models import DBSession, ObjectType
+	object_type_id = [i.id for i in DBSession.query(ObjectType).all()]
+
 	# Field types
 	bibtex_fields = [
 		{
@@ -172,7 +175,7 @@ def initialize_bibtex_forms():
 	fields = dict()
 	for i in bibtex_fields:
 		try:
-			c = service.create(**i)[0]
+			c = service.create(**i, object_type_id=object_type_id)[0]
 			fields[c.name] = c
 			service.db.commit()
 		except Exception as e:
@@ -187,177 +190,175 @@ def initialize_bibtex_forms():
 				'article',
 			'description':
 				"An article from a journal or magazine.",
-			'required_fields':
+			'required_field':
 				['author', 'title', 'journal', 'year', 'volume'],
-			'optional_fields':
+			'field':
 				['number', 'pages', 'month', 'doi', 'note', 'key'],
-			'type':
-				'template_bibtex',
+			'standard':
+				'bibtex',
 		},
 		{
 			'name':
 				'book',
 			'description':
 				"A book with an explicit publisher.",
-			'required_fields':
+			'required_field':
 				['author', 'editor', 'title', 'publisher', 'year'],
-			'optional_fields':
+			'field':
 				['volume', 'number', 'series', 'address', 'edition', 'month', 'note', 'key'],
-			'type':
-				'template_bibtex',
+			'standard':
+				'bibtex',
 		},
 		{
 			'name':
 				'booklet',
 			'description':
 				"A work that is printed and bound, but without a named publisher or sponsoring institution.",
-			'required_fields':
+			'required_field':
 				['title'],
-			'optional_fields':
+			'field':
 				['author', 'howpublished', 'address', 'month', 'year', 'note', 'key'],
-			'type':
-				'template_bibtex',
+			'standard':
+				'bibtex',
 		},
 		{
 			'name':
 				'conference',
 			'description':
 				"The same as inproceedings, included for Scribe compatibility.",
-			'required_fields':
+			'required_field':
 				['author', 'title', 'booktitle', 'year'],
-			'optional_fields':
+			'field':
 				['editor', 'volume', 'number', 'series', 'pages', 'address', 'month', 'organization', 'publisher', 'note', 'key'],
-			'type':
-				'template_bibtex',
+			'standard':
+				'bibtex',
 		},
 		{
 			'name':
 				'inbook',
 			'description':
 				"A part of a book, usually untitled. May be a chapter (or section, etc.) and/or a range of pages.",
-			'required_fields':
+			'required_field':
 				['author', 'editor', 'title', 'chapter', 'pages', 'publisher', 'year'],
-			'optional_fields':
+			'field':
 				['volume', 'number', 'series', 'type', 'address', 'edition', 'month', 'note', 'key'],
-			'type':
-				'template_bibtex',
+			'standard':
+				'bibtex',
 		},
 		{
 			'name':
 				'incollection',
 			'description':
 				"A part of a book having its own title.",
-			'required_fields':
+			'required_field':
 				['author', 'title', 'booktitle', 'publisher', 'year'],
-			'optional_fields':
+			'field':
 				['editor', 'volume', 'number', 'series', 'type', 'chapter', 'pages', 'address', 'edition', 'month', 'note', 'key'],
-			'type':
-				'template_bibtex',
+			'standard':
+				'bibtex',
 		},
 		{
 			'name':
 				'inproceedings',
 			'description':
 				"An article in a conference proceedings.",
-			'required_fields':
+			'required_field':
 				['author', 'title', 'booktitle', 'year'],
-			'optional_fields':
+			'field':
 				['editor', 'volume', 'number', 'series', 'pages', 'address', 'month', 'organization', 'publisher', 'note', 'key'],
-			'type':
-				'template_bibtex',
+			'standard':
+				'bibtex',
 		},
 		{
 			'name':
 				'manual',
 			'description':
 				"Technical documentation.",
-			'required_fields':
+			'required_field':
 				['title'],
-			'optional_fields':
+			'field':
 				['author', 'organization', 'address', 'edition', 'month', 'year', 'note', 'key'],
-			'type':
-				'template_bibtex',
+			'standard':
+				'bibtex',
 		},
 		{
 			'name':
 				'mastersthesis',
 			'description':
 				"A master's thesis.",
-			'required_fields':
+			'required_field':
 				['author', 'title', 'school', 'year'],
-			'optional_fields':
+			'field':
 				['type', 'address', 'month', 'note', 'key'],
-			'type':
-				'template_bibtex',
+			'standard':
+				'bibtex',
 		},
 		{
 			'name':
 				'misc',
 			'description':
 				"For use when nothing else fits.",
-			'required_fields':
+			'required_field':
 				[],
-			'optional_fields':
+			'field':
 				['author', 'title', 'howpublished', 'month', 'year', 'note', 'key'],
-			'type':
-				'template_bibtex',
+			'standard':
+				'bibtex',
 		},
 		{
 			'name':
 				'phdthesis',
 			'description':
 				"A Ph.D. thesis.",
-			'required_fields':
+			'required_field':
 				['author', 'title', 'school', 'year'],
-			'optional_fields':
+			'field':
 				['type', 'address', 'month', 'note', 'key'],
-			'type':
-				'template_bibtex',
+			'standard':
+				'bibtex',
 		},
 		{
 			'name':
 				'proceedings',
 			'description':
 				"The proceedings of a conference.",
-			'required_fields':
+			'required_field':
 				['title', 'year'],
-			'optional_fields':
+			'field':
 				['editor', 'volume', 'number', 'series', 'address', 'month', 'publisher', 'organization', 'note', 'key'],
-			'type':
-				'template_bibtex',
+			'standard':
+				'bibtex',
 		},
 		{
 			'name':
 				'techreport',
 			'description':
 				"A report published by a school or other institution, usually numbered within a series.",
-			'required_fields':
+			'required_field':
 				['author', 'title', 'institution', 'year'],
-			'optional_fields':
+			'field':
 				['type', 'number', 'address', 'month', 'note', 'key'],
-			'type':
-				'template_bibtex',
+			'standard':
+				'bibtex',
 		},
 		{
 			'name':
 				'unpublished',
 			'description':
 				"A document having an author and title, but not formally published.",
-			'required_fields':
+			'required_field':
 				['author', 'title', 'note'],
-			'optional_fields':
+			'field':
 				['month', 'year', 'key'],
-			'type':
-				'template_bibtex',
+			'standard':
+				'bibtex',
 		},
 	]
 	from ..services.annotation_forms.templates import AuxService
 	service = AuxService()
 	for i in bibtex_entities:
 		try:
-			i['required_fields'] = [fields.get(name, name) for name in i.get('required_fields', [])]
-			i['optional_fields'] = [fields.get(name, name) for name in i.get('optional_fields', [])]
-			service.create(**i)
+			service.create(**i, object_type_id=object_type_id)
 			service.db.commit()
 		except Exception as e:
 			service.db.rollback()

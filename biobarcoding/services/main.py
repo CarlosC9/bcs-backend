@@ -9,17 +9,9 @@ def get_orm(entity):
     orm = None
     if entity in ('template', 'templates'):
         from ..db_models.sa_annotations import AnnotationFormTemplate as orm
-    if entity == 'template_bibtex':
-        from ..db_models.sa_annotations import AnnotationFormTemplateBibTeX as orm
     if entity in ('field', 'fields'):
         from ..db_models.sa_annotations import AnnotationFormField as orm
-    if entity == 'tag':
-        from ..db_models.sa_annotations import AnnotationFormTag as orm
-    if entity == 'attribute':
-        from ..db_models.sa_annotations import AnnotationFormAttribute as orm
-    if entity == 'relationship':
-        from ..db_models.sa_annotations import AnnotationFormRelationship as orm
-    if entity == ('annotation', 'annotations'):
+    if entity in ('annotation', 'annotations'):
         from ..db_models.sa_annotations import AnnotationItem as orm
     if entity == 'annotation_template':
         from ..db_models.sa_annotations import AnnotationTemplate as orm

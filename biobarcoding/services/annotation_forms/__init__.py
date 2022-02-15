@@ -31,8 +31,8 @@ class FormItemAuxService(SimpleAuxService):
                 .filter(Cvterm.dbxref_id == values.get('dbxref_id')) \
                 .first().cvterm_id
 
-        if values.get("type") in ('template', 'template_bibtex', 'field', 'tag', 'attribute', 'relationship'):
-            self.orm = get_orm(f'{values.get("type")}')
+        if values.get("type"):
+            self.orm = get_orm(f'{values.get("type")}') or self.orm
 
         return super(FormItemAuxService, self).prepare_values(**values)
 
@@ -61,6 +61,7 @@ class FormItemAuxService(SimpleAuxService):
     def read(self, **kwargs):
         content, count = self.get_query(**kwargs)
         if kwargs.get('id') or kwargs.get('cvterm_id') or kwargs.get('dbxref_id') \
+                or (kwargs.get('cv') and kwargs.get('cvterm')) \
                 or (kwargs.get('db') and kwargs.get('dbxref')):
             content = content.first()
         else:
