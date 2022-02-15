@@ -50,7 +50,7 @@ class AnnotationFormField(AnnotationFormItem):
     }
     id = Column(BigInteger, ForeignKey(AnnotationFormItem.id, ondelete="CASCADE"), primary_key=True)
     range = Column(JSONB)
-    view_type = Column(String(32))  # check, radio, date, etc.
+    view_type = Column(String(32), default='annotation-text')  # check, radio, date, etc.
 
 
 class AnnotationFormTemplate(AnnotationFormItem):
@@ -67,9 +67,9 @@ class AnnotationFormTemplateField(ORMBase):
     form_template_id = Column(Integer, ForeignKey(AnnotationFormTemplate.id), primary_key=True)
     form_field_id = Column(Integer, ForeignKey(AnnotationFormField.id), primary_key=True)
     form_template = relationship(AnnotationFormTemplate,    # foreign_keys=[form_template_id],
-                                 backref=backref("fields", cascade="all, delete-orphan"))
+                                 backref=backref("annotation_form_fields", cascade="all, delete-orphan"))
     form_field = relationship(AnnotationFormField,  # foreign_keys=[form_field_id],
-                              backref=backref("templates", cascade="all, delete-orphan"))
+                              backref=backref("annotation_form_templates", cascade="all, delete-orphan"))
     name = Column(String(80))
     rank = Column(Integer, Sequence('annotation_form_rank_seq'), primary_key=True)
     # rank = Column(Integer, nullable=False, default=select([func.max(1, func.max(rank))]))
