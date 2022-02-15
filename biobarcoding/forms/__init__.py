@@ -2,6 +2,9 @@
 
 def initialize_bibtex_forms():
 
+	from ..db_models import DBSession, ObjectType
+	object_type_id = [i.id for i in DBSession.query(ObjectType).all()]
+
 	# Field types
 	bibtex_fields = [
 		{
@@ -172,7 +175,7 @@ def initialize_bibtex_forms():
 	fields = dict()
 	for i in bibtex_fields:
 		try:
-			c = service.create(**i)[0]
+			c = service.create(**i, object_type_id=object_type_id)[0]
 			fields[c.name] = c
 			service.db.commit()
 		except Exception as e:
@@ -353,8 +356,6 @@ def initialize_bibtex_forms():
 	]
 	from ..services.annotation_forms.templates import AuxService
 	service = AuxService()
-	from ..db_models import DBSession, ObjectType
-	object_type_id = [i.id for i in DBSession.query(ObjectType).all()]
 	for i in bibtex_entities:
 		try:
 			service.create(**i, object_type_id=object_type_id)
