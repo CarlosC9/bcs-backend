@@ -356,15 +356,24 @@ tm_default_groups = {
 
 tm_default_roles = {
     "c79b4ff7-9576-45f6-a439-551ac23c563b": "sys-admin",
-    "6e7ff87f-056b-46b0-b636-c7c0eb48cabe": "owner",
-    "0cb4ea40-26a6-4960-9c17-dd3012a53e0f": "basic-user",
+    "4cc73d65-f491-4199-a52d-fc05dd45c923": "research",
+    "a9f05332-ddd6-4d93-9cec-b48ef7190633": "molecular-admin",
+    "ebb39daa-98d7-4cee-9596-d2ffef70f960": "geo-admin",
+    "a6e1d17f-f2a3-428a-b24c-6e7b7d71fff4": "acl-admin",
+    "fedc08dc-1233-4998-9d7c-2cc305fac2a1": "compute-resources-admin",
+    "038f28e3-8374-4bf1-b1aa-0d63c5920294": "metadata-admin",
     "feb13f20-4223-4602-a195-a3ea14615982": "guest",
-    "94f3d8ab-7f20-426d-a881-0c19badd2a3d": "data-curator",
-    "6e6b4cce-74f0-44f7-ae82-a799ade98739": "data-importer",
-    "356e2030-28f5-49d5-a788-db553a889736": "data-updater",
-    "abb2cfe7-7990-4d84-b119-0834cc9937b5": "input-layers-admin",
-    "4b9e74b3-b0cc-4861-80ae-8390cd54cfab": "geoprocess-instances-admin",
-    "a2aef599-a34d-4290-bde5-14899b70eff1": "bioinformatic-job-executor"
+    "0156074d-acdd-43aa-8949-c7fce254ce32": "molecular-guest",
+    "999d05a1-4a16-4d11-a536-b92120288a86": "geo-guest",
+    "6e7ff87f-056b-46b0-b636-c7c0eb48cabe": "owner",
+    "a2aef599-a34d-4290-bde5-14899b70eff1": "bioinformatic-job-executor",
+    "fcc6c1e8-8c0c-46b0-9ed5-9185a427c64b": "read-molecular-api",
+    "8c5a5a19-815d-46e2-8ef9-21e964fb387d": "write-molecular-api",
+    "1fa175e8-28c2-4f59-a0b9-f07649ab924b": "read-geo-api",
+    "ec1a58b9-5f99-454c-a3fb-85b38dd70ccc": "write-geo-api",
+    "1b7d18ab-59e9-4a47-a8ef-7aab0534dfa8": "jobs-api",
+    "e8244111-04dc-4697-a8f5-3468c0fbdfe5": "read-files-api",
+    "9a5e8265-38c8-4607-bff2-85f5bebe6d3a": "write-files-api",
 }
 
 tm_authenticators = {  # Authenticator
