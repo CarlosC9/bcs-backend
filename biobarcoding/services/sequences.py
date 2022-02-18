@@ -6,7 +6,7 @@ from .ontologies import get_cvterm_query
 from ..common import generate_json
 from ..db_models import DBSession as db_session
 from ..db_models import DBSessionChado as chado_session
-from ..db_models.chado import Feature, Organism, StockFeature
+from ..db_models.chado import Feature, Organism, StockFeature, AnalysisFeature
 from ..db_models.bioinformatics import Sequence, data_object_type_id
 
 from ..rest import Issue, IType, filter_parse, auth_filter
@@ -76,6 +76,10 @@ def create(**kwargs):
     try:
         values = __check_seq_values(**kwargs)
         content = get_or_create(chado_session, Feature, **values)
+        # TODO: must be properly developed
+        if kwargs.get('analysis_id'):
+            relationship = get_or_create(chado_session, AnalysisFeature,
+                                         analysis_id=kwargs.get('analysis_id'), feature_id=content.feature_id)
         stock = __seq_stock(content, **kwargs)
         # seq to bcs
         bcs_seq = get_or_create(db_session, Sequence,   # specimen_id=bcs_specimen.id
