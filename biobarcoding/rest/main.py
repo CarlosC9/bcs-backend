@@ -199,7 +199,7 @@ def create_app(debug, start_socket=True, cfg_dict=None):
 # FLASK_ENV=development FLASK_APP=biobarcoding.rest.main flask run
 logger.debug("BACKEND is STARTING !!!")
 
-start_socket = False
+start_socket = True
 biobarcoding.flask_app = create_app(True, start_socket=start_socket)
 
 @biobarcoding.flask_app.route("/")
