@@ -34,7 +34,8 @@ def get_job_executability(job, session):
                                               "wait_for_execution_end",
                                               "transfer_data_from_resource",
                                               "store_result_in_backend",
-                                              "cleanup"]])
+                                              "cleanup",
+                                              "manage_error"]])
         # First, find the count of running jobs in the resource
         sql_count = f"select count(*) as cnt from jobs_jobs j where j.resource_id = {job.resource_id} and status in ({states}) and not deleted"
         close_connection = session.transaction is None
