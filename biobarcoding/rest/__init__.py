@@ -1050,19 +1050,31 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
         def get(self, _id=None):  # List or Read
             db = g.n_session.db_session
             r = ResponseObject()
-            if _id is None:
-                # List of all
-                kwargs = parse_request_params()
-                from ..services import get_query
-                query, count = get_query(db, entity, aux_filter=aux_filter, default_filter=default_filter, **kwargs)
-                # TODO Detail of fields
-                r.count = count
-                r.content = query.all()
-            else:
-                # Detail
-                # TODO Detail of fields
-                r.content = db.query(entity).filter(entity.id == int(_id)).first()
-                r.count = 1
+
+            if alt_getters and "get" in alt_getters:
+                entities = alt_getters["get"](db, _id)
+                if isinstance(entities, list):
+                    r.content = entities
+                    r.count = len(entities) if entities else 0
+                elif isinstance(entities, entity):
+                    r.content = entities
+                    r.count = 1
+            # The getter can return None to indicate to proceed with the default behavior, below
+            # Of course, if no alt_getter was specified, also proceed with the default behavior
+            if r.content is None:
+                if _id is None:
+                    # List of all
+                    kwargs = parse_request_params()
+                    from ..services import get_query
+                    query, count = get_query(db, entity, aux_filter=aux_filter, default_filter=default_filter, **kwargs)
+                    # TODO Detail of fields
+                    r.count = count
+                    r.content = query.all()
+                else:
+                    # Detail
+                    # TODO Detail of fields
+                    r.content = db.query(entity).filter(entity.id == int(_id)).first()
+                    r.count = 1
 
             return r.get_response()
 
