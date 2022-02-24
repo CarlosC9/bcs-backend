@@ -748,7 +748,7 @@ class LayersAPI(MethodView):
                 # Modify "wms_url" for local layers
                 tmp = urlparse(request.base_url)
                 # WORKAROUND - tmp.scheme is always "http" in spite the request being https. So assume "https"
-                if tmp.netloc not in ("localhost", "127.0.0.1", "0.0.0.0"):
+                if not tmp.netloc.lower().startswith(("localhost", "172.17.0.1", "127.0.0.1", "0.0.0.0")):
                     scheme = "https"
                 else:
                     scheme = tmp.scheme
