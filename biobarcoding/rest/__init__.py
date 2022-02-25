@@ -16,6 +16,7 @@ from flask import Response, Blueprint, g, request
 from flask.views import MethodView
 import sqlalchemy
 from sqlalchemy import orm, and_, or_
+from sqlalchemy.orm import Query
 from sqlalchemy.pool import StaticPool
 from bioblend import galaxy
 
@@ -317,10 +318,10 @@ tm_object_types = [  # ObjectType
     (data_object_type_id["case_study"], "5f4c1666-e509-436b-8844-082ebe88b2b9", "case_study"),
     (data_object_type_id["view"], "4cc3b304-afb4-445b-a9da-6c5ec99aafc8", "view"),
     (data_object_type_id["dashboard"], "633a7f00-4019-4302-9067-611bea1fc934", "dashboard"),
-    (1000, "ad83dcb0-e479-4a44-acf5-387b9731e8da", "sys-functions"),
-    (1001, "aa97ddad-8937-4590-afc9-dc00c5601f2a", "compute-resource"),
-    (1002, "a4b4a7d2-732f-4db9-9a32-c57c00881eb7", "process"),  # Algorithms
-    (1000001, "b5371878-582a-4758-9c7c-9e536c477992", "none")  # Nulled items
+    (data_object_type_id["sys-functions"], "ad83dcb0-e479-4a44-acf5-387b9731e8da", "sys-functions"),
+    (data_object_type_id["compute-resource"], "aa97ddad-8937-4590-afc9-dc00c5601f2a", "compute-resource"),
+    (data_object_type_id["algorithms"], "a4b4a7d2-732f-4db9-9a32-c57c00881eb7", "process"),  # Algorithms
+    (data_object_type_id["none"], "b5371878-582a-4758-9c7c-9e536c477992", "none")  # Nulled items
 ]
 
 tm_permissions_fields = ["uuid", "name", "rank"]
@@ -1254,16 +1255,16 @@ def related_perm_ids(permission_id: int):
 def auth_filter(orm, permission_types_ids, object_types_ids,
                 identity_id=None,
                 object_uuids=None, time=None,
-                permission_flag=False, authorizable_flag=False):
+                permission_flag=False, authorizable_flag=False) -> Query:
     """
     * orm: base (with uuid) to build the filter
     * identity_ids: who is requesting
-    * permission_types_ids: what is requesting
-    * object_types_ids: where is requesting
-    * object_uuid: about what is requesting
+    * permission_types_ids: what kind of permission is requested
+    * object_types_ids: which object types are being requested
+    * object_uuid: reduce the search to a specific list of objects
     * time: when is requesting
-    * permission_flag: extra info required
-    * authorizable_flag: extra info required
+    * permission_flag: True to return the permission in the query
+    * authorizable_flag: True to return the specific authorizable
 
     CollectionDetail (cd) <> Collection (c) > ACL <> ACLDetail (ad)
 
@@ -1284,36 +1285,51 @@ def auth_filter(orm, permission_types_ids, object_types_ids,
     @return: <orm_clause_filter> || object_uuids[, permissions][, authorizables]
     """
     from flask import current_app
-    if current_app.config["ACL_ENABLED"] != 'True':
+    if current_app.config["ACL_ENABLED"] != 'True':  # Disable ACL control
         return True
 
+    identity_id = g.n_session.identity.id if identity_id is None else identity_id
+    sys_admin_id = DBSession.query(Role.id).filter(Role.name == 'sys-admin').first()[0]
+    if isinstance(identity_id, int):
+        authorizables = related_authr_ids(identity_id)
+        is_sys_admin = sys_admin_id in authorizables
+    else:
+        is_sys_admin = sys_admin_id in identity_id
+
+    if is_sys_admin:
+        return True
+
+    # ACL Detail entry in valid date range
     from datetime import datetime
     time = time if time else datetime.now()
     filter_clause = [
         or_(time >= ACLDetail.validity_start, ACLDetail.validity_start == None),
         or_(time <= ACLDetail.validity_end, ACLDetail.validity_end == None)
     ]
+
+    # ACL applies to object types (if specified)
     filter_clause.append(ACL.object_type.in_(object_types_ids)) if object_types_ids else None
+    # ACL applies to specific objects (if specified)
     filter_clause.append(ACL.object_uuid.in_(object_uuids)) if object_uuids else None
     try:
-        # By identity or authorizables associated with the identity
+        # By identity or authorizables (role, group, organization) associated with the identity
         if isinstance(identity_id, int):
-            filter_clause.append(ACLDetail.authorizable_id.in_(related_authr_ids(identity_id)))
+            filter_clause.append(ACLDetail.authorizable_id.in_(authorizables))
         elif isinstance(identity_id, (tuple, list, set)):
             filter_clause.append(ACLDetail.authorizable_id.in_(identity_id))
-        else:
-            filter_clause.append(ACLDetail.authorizable_id.in_(related_authr_ids(g.n_session.identity.id)))
         # By permission or superior permissions
         if isinstance(permission_types_ids, int):
             filter_clause.append(ACLDetail.permission_id.in_(related_perm_ids(permission_types_ids)))
         elif isinstance(permission_types_ids, (tuple, list, set)):
             filter_clause.append(ACLDetail.permission_id.in_(permission_types_ids))
 
+        # Object in authorized collection
         collected = DBSession.query(CollectionDetail.object_uuid) \
             .join(Collection) \
-            .join(ACL, Collection.uuid==ACL.object_uuid) \
+            .join(ACL, Collection.uuid == ACL.object_uuid) \
             .join(ACLDetail) \
             .filter(*filter_clause)
+        # Direct object
         uncollected = DBSession.query(ACL.object_uuid).join(ACLDetail).filter(*filter_clause)
 
         final_query = collected.union(uncollected)
@@ -1321,9 +1337,14 @@ def auth_filter(orm, permission_types_ids, object_types_ids,
             entities = []
             entities += [ACLDetail.permission] if permission_flag else []
             entities += [ACLDetail.authorizable] if authorizable_flag else []
-            return final_query.with_entities(entities)
+            q = final_query.with_entities(entities)
         else:
-            return orm.uuid.in_(final_query)
+            q = orm.uuid.in_(final_query)
+
+        # OWNER has unlimited permissions (no need to check ACL)
+        if isinstance(identity_id, int):
+            q = or_(q, orm.owner_id == identity_id)
+        return q
     except Exception as e:
         print(e)
         return None

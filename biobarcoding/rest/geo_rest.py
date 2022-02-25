@@ -727,7 +727,8 @@ class LayersAPI(MethodView):
             # ACL Filter
             purpose_id = db_sess.query(PermissionType).filter(PermissionType.name == "read").one().id
             ids_clause = db_sess.query(GeographicLayer.id). \
-                filter(auth_filter(GeographicLayer, purpose_id, [data_object_type_id['geolayer']])).subquery()
+                filter(auth_filter(GeographicLayer, purpose_id, [data_object_type_id['geolayer']],
+                                   identity_id=g.n_session.identity.id)).subquery()
             query = db_sess.query(GeographicLayer).filter(GeographicLayer.id.in_(ids_clause))
             # Modify request.values to filter by "is_deleted" attribute of GeographicLayer
             _ = dict(request.values)

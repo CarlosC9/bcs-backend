@@ -57,7 +57,7 @@ def read_acls(id_=None, uuid=None, **kwargs):
             except:
                 qparams['object_uuid'] = DBSession.query(FunctionalObject) \
                     .filter(FunctionalObject.native_id == id__,
-                            FunctionalObject.obj_type_id == kwargs.get('object_type')).one().uuid
+                            FunctionalObject.obj_type_id == qparams.get('object_type')).one().uuid
 
         content, count = get_query(DBSession, ACL, id=id_, uuid=uuid, **kwargs)
 
