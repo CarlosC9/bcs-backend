@@ -93,6 +93,9 @@ class ResponseObject:
     # HTTP response status code
     status = attrib(default=200)  # type: int
 
+    def __init__(self):
+        self.issues = []
+
     def get_response(self) -> Response:
         """
         status == 200. ctype not JSON -> content, ctype, 200
