@@ -1,14 +1,40 @@
+from sqlalchemy.exc import SQLAlchemyError
+from urllib.error import URLError
+from ..db_models import DBSession, ObjectType
+from ..services.annotation_forms.templates import AuxService as templatesAuxService
+from ..services.annotation_forms.fields import AuxService as fieldsAuxService
 
+
+def __create_by_service(service, **kwargs):
+	try:
+		c = service.create(**kwargs)[0]
+		service.db.commit()
+		return c
+	except SQLAlchemyError as e:
+		service.db.rollback()
+		print(f'Something went wrong when creating the {kwargs.get("name")}. It may already exist.')
+	return None
+
+
+template_service = templatesAuxService()
+field_service = fieldsAuxService()
+object_type_id = [i.id for i in DBSession.query(ObjectType).all()]
+
+
+##
+# BibTex
+##
 
 def initialize_bibtex_forms():
 
-	from ..db_models import DBSession, ObjectType
-	object_type_id = [i.id for i in DBSession.query(ObjectType).all()]
+	# TODO: create cv and cvterms
 
-	# Field types
+	print(' > Creating BibTex fields')
 	bibtex_fields = [
 		{
 			'name':
+				'address',
+			'cvterm':
 				'address',
 			'description':
 				"Publisher's address (usually just the city, but can be the full address for lesser-known publishers)",
@@ -16,11 +42,15 @@ def initialize_bibtex_forms():
 		{
 			'name':
 				'annote',
+			'cvterm':
+				'annote',
 			'description':
 				"An annotation for annotated bibliography styles (not typical)",
 		},
 		{
 			'name':
+				'author',
+			'cvterm':
 				'author',
 			'description':
 				"The name(s) of the author(s) (in the case of more than one author, separated by and)",
@@ -28,11 +58,15 @@ def initialize_bibtex_forms():
 		{
 			'name':
 				'booktitle',
+			'cvterm':
+				'booktitle',
 			'description':
 				"The title of the book, if only part of it is being cited",
 		},
 		{
 			'name':
+				'Email',
+			'cvterm':
 				'Email',
 			'description':
 				"The email of the author(s)",
@@ -40,11 +74,15 @@ def initialize_bibtex_forms():
 		{
 			'name':
 				'chapter',
+			'cvterm':
+				'chapter',
 			'description':
 				"The chapter number",
 		},
 		{
 			'name':
+				'crossref',
+			'cvterm':
 				'crossref',
 			'description':
 				"The key of the cross-referenced entry",
@@ -52,11 +90,15 @@ def initialize_bibtex_forms():
 		{
 			'name':
 				'doi',
+			'cvterm':
+				'doi',
 			'description':
 				"digital object identifier",
 		},
 		{
 			'name':
+				'edition',
+			'cvterm':
 				'edition',
 			'description':
 				"The edition of a book, long form (such as \"First\" or \"Second\")",
@@ -64,11 +106,15 @@ def initialize_bibtex_forms():
 		{
 			'name':
 				'editor',
+			'cvterm':
+				'editor',
 			'description':
 				"The name(s) of the editor(s)",
 		},
 		{
 			'name':
+				'howpublished',
+			'cvterm':
 				'howpublished',
 			'description':
 				"How it was published, if the publishing method is nonstandard",
@@ -76,17 +122,23 @@ def initialize_bibtex_forms():
 		{
 			'name':
 				'institution',
+			'cvterm':
+				'institution',
 			'description':
 				"The institution that was involved in the publishing, but not necessarily the publisher",
 		},
 		{
 			'name':
 				'journal',
+			'cvterm':
+				'journal',
 			'description':
 				"The journal or magazine the work was published in",
 		},
 		{
 			'name':
+				'key',
+			'cvterm':
 				'key',
 			'description':
 				"A hidden field used for specifying or overriding the alphabetical order of entries "
@@ -96,17 +148,23 @@ def initialize_bibtex_forms():
 		{
 			'name':
 				'month',
+			'cvterm':
+				'month',
 			'description':
 				"The month of publication (or, if unpublished, the month of creation)",
 		},
 		{
 			'name':
 				'note',
+			'cvterm':
+				'note',
 			'description':
 				"Miscellaneous extra information",
 		},
 		{
 			'name':
+				'number',
+			'cvterm':
 				'number',
 			'description':
 				"The \"(issue) number\" of a journal, magazine, or tech-report, if applicable. "
@@ -115,11 +173,15 @@ def initialize_bibtex_forms():
 		{
 			'name':
 				'organization',
+			'cvterm':
+				'organization',
 			'description':
 				"The conference sponsor",
 		},
 		{
 			'name':
+				'pages',
+			'cvterm':
 				'pages',
 			'description':
 				"Page numbers, separated either by commas or double-hyphens.",
@@ -127,17 +189,23 @@ def initialize_bibtex_forms():
 		{
 			'name':
 				'publisher',
+			'cvterm':
+				'publisher',
 			'description':
 				"The publisher's name",
 		},
 		{
 			'name':
 				'school',
+			'cvterm':
+				'school',
 			'description':
 				"The school where the thesis was written",
 		},
 		{
 			'name':
+				'series',
+			'cvterm':
 				'series',
 			'description':
 				"The series of books the book was published in "
@@ -146,11 +214,15 @@ def initialize_bibtex_forms():
 		{
 			'name':
 				'title',
+			'cvterm':
+				'title',
 			'description':
 				"The title of the work",
 		},
 		{
 			'name':
+				'type',
+			'cvterm':
 				'type',
 			'description':
 				"The field overriding the default type of publication "
@@ -160,33 +232,29 @@ def initialize_bibtex_forms():
 		{
 			'name':
 				'volume',
+			'cvterm':
+				'volume',
 			'description':
 				"The volume of a journal or multi-volume book",
 		},
 		{
 			'name':
 				'year',
+			'cvterm':
+				'year',
 			'description':
 				"The year of publication (or, if unpublished, the year of creation)",
 		},
 	]
-	from ..services.annotation_forms.fields import AuxService
-	service = AuxService()
-	fields = dict()
 	for i in bibtex_fields:
-		try:
-			c = service.create(**i, object_type_id=object_type_id)[0]
-			fields[c.name] = c
-			service.db.commit()
-		except Exception as e:
-			service.db.rollback()
-			print(f'Something went wrong when creating the {i.get("name")} BibTeX field. It may already exist.')
+		__create_by_service(field_service, **i, cv='bibtex', standard='BibTex', object_type_id=object_type_id)
 
-	# Entry types / Templates
-
+	print(' > Creating BibTex templates')
 	bibtex_entities = [
 		{
 			'name':
+				'article',
+			'cvterm':
 				'article',
 			'description':
 				"An article from a journal or magazine.",
@@ -194,11 +262,11 @@ def initialize_bibtex_forms():
 				['author', 'title', 'journal', 'year', 'volume'],
 			'field':
 				['number', 'pages', 'month', 'doi', 'note', 'key'],
-			'standard':
-				'bibtex',
 		},
 		{
 			'name':
+				'book',
+			'cvterm':
 				'book',
 			'description':
 				"A book with an explicit publisher.",
@@ -206,11 +274,11 @@ def initialize_bibtex_forms():
 				['author', 'editor', 'title', 'publisher', 'year'],
 			'field':
 				['volume', 'number', 'series', 'address', 'edition', 'month', 'note', 'key'],
-			'standard':
-				'bibtex',
 		},
 		{
 			'name':
+				'booklet',
+			'cvterm':
 				'booklet',
 			'description':
 				"A work that is printed and bound, but without a named publisher or sponsoring institution.",
@@ -218,11 +286,11 @@ def initialize_bibtex_forms():
 				['title'],
 			'field':
 				['author', 'howpublished', 'address', 'month', 'year', 'note', 'key'],
-			'standard':
-				'bibtex',
 		},
 		{
 			'name':
+				'conference',
+			'cvterm':
 				'conference',
 			'description':
 				"The same as inproceedings, included for Scribe compatibility.",
@@ -230,11 +298,11 @@ def initialize_bibtex_forms():
 				['author', 'title', 'booktitle', 'year'],
 			'field':
 				['editor', 'volume', 'number', 'series', 'pages', 'address', 'month', 'organization', 'publisher', 'note', 'key'],
-			'standard':
-				'bibtex',
 		},
 		{
 			'name':
+				'inbook',
+			'cvterm':
 				'inbook',
 			'description':
 				"A part of a book, usually untitled. May be a chapter (or section, etc.) and/or a range of pages.",
@@ -242,11 +310,11 @@ def initialize_bibtex_forms():
 				['author', 'editor', 'title', 'chapter', 'pages', 'publisher', 'year'],
 			'field':
 				['volume', 'number', 'series', 'type', 'address', 'edition', 'month', 'note', 'key'],
-			'standard':
-				'bibtex',
 		},
 		{
 			'name':
+				'incollection',
+			'cvterm':
 				'incollection',
 			'description':
 				"A part of a book having its own title.",
@@ -254,11 +322,11 @@ def initialize_bibtex_forms():
 				['author', 'title', 'booktitle', 'publisher', 'year'],
 			'field':
 				['editor', 'volume', 'number', 'series', 'type', 'chapter', 'pages', 'address', 'edition', 'month', 'note', 'key'],
-			'standard':
-				'bibtex',
 		},
 		{
 			'name':
+				'inproceedings',
+			'cvterm':
 				'inproceedings',
 			'description':
 				"An article in a conference proceedings.",
@@ -266,11 +334,11 @@ def initialize_bibtex_forms():
 				['author', 'title', 'booktitle', 'year'],
 			'field':
 				['editor', 'volume', 'number', 'series', 'pages', 'address', 'month', 'organization', 'publisher', 'note', 'key'],
-			'standard':
-				'bibtex',
 		},
 		{
 			'name':
+				'manual',
+			'cvterm':
 				'manual',
 			'description':
 				"Technical documentation.",
@@ -278,11 +346,11 @@ def initialize_bibtex_forms():
 				['title'],
 			'field':
 				['author', 'organization', 'address', 'edition', 'month', 'year', 'note', 'key'],
-			'standard':
-				'bibtex',
 		},
 		{
 			'name':
+				'mastersthesis',
+			'cvterm':
 				'mastersthesis',
 			'description':
 				"A master's thesis.",
@@ -290,11 +358,11 @@ def initialize_bibtex_forms():
 				['author', 'title', 'school', 'year'],
 			'field':
 				['type', 'address', 'month', 'note', 'key'],
-			'standard':
-				'bibtex',
 		},
 		{
 			'name':
+				'misc',
+			'cvterm':
 				'misc',
 			'description':
 				"For use when nothing else fits.",
@@ -302,11 +370,11 @@ def initialize_bibtex_forms():
 				[],
 			'field':
 				['author', 'title', 'howpublished', 'month', 'year', 'note', 'key'],
-			'standard':
-				'bibtex',
 		},
 		{
 			'name':
+				'phdthesis',
+			'cvterm':
 				'phdthesis',
 			'description':
 				"A Ph.D. thesis.",
@@ -314,11 +382,11 @@ def initialize_bibtex_forms():
 				['author', 'title', 'school', 'year'],
 			'field':
 				['type', 'address', 'month', 'note', 'key'],
-			'standard':
-				'bibtex',
 		},
 		{
 			'name':
+				'proceedings',
+			'cvterm':
 				'proceedings',
 			'description':
 				"The proceedings of a conference.",
@@ -326,11 +394,11 @@ def initialize_bibtex_forms():
 				['title', 'year'],
 			'field':
 				['editor', 'volume', 'number', 'series', 'address', 'month', 'publisher', 'organization', 'note', 'key'],
-			'standard':
-				'bibtex',
 		},
 		{
 			'name':
+				'techreport',
+			'cvterm':
 				'techreport',
 			'description':
 				"A report published by a school or other institution, usually numbered within a series.",
@@ -338,11 +406,11 @@ def initialize_bibtex_forms():
 				['author', 'title', 'institution', 'year'],
 			'field':
 				['type', 'number', 'address', 'month', 'note', 'key'],
-			'standard':
-				'bibtex',
 		},
 		{
 			'name':
+				'unpublished',
+			'cvterm':
 				'unpublished',
 			'description':
 				"A document having an author and title, but not formally published.",
@@ -350,451 +418,148 @@ def initialize_bibtex_forms():
 				['author', 'title', 'note'],
 			'field':
 				['month', 'year', 'key'],
-			'standard':
-				'bibtex',
 		},
 	]
-	from ..services.annotation_forms.templates import AuxService
-	service = AuxService()
 	for i in bibtex_entities:
-		try:
-			service.create(**i, object_type_id=object_type_id)
-			service.db.commit()
-		except Exception as e:
-			service.db.rollback()
-			print(f'Something went wrong when creating the {i.get("name")} BibTeX template. It may already exist.')
+		__create_by_service(template_service, **i, cv='bibtex', standard='BibTex', object_type_id=object_type_id)
+
+
+##
+# Simple Darwin Core
+##
+
+def __dwc_term2annotation(**kwargs):
+	# TODO: 'term_modified', 'term_deprecated', 'replaces_term', 'replaces1_term'
+	ann = {
+		'cv': kwargs.get('database'),		# (p.e. 'terms')
+		'db': kwargs.get('vann_preferredNamespacePrefix'),		# (p.e. 'dwc')
+		'standard': 'Darwin Core',		# kwargs.get('standard'),		# (p.e. 'http://www.tdwg.org/standards/450')
+		'cvterm': kwargs.get('term_localName'),		# (p.e. 'acceptedNameUsage')
+		'url': kwargs.get('vann_preferredNamespaceUri', '') + kwargs.get('term_localName', ''),
+			# (p.e. 'http://rs.tdwg.org/dwc/terms/acceptedScientificName')
+		'name': kwargs.get('label'),		# (p.e. 'Accepted Name Usage')
+		'rdf_type': kwargs.get('rdf_type'),		# (p.e. 'http://www.w3.org/1999/02/22-rdf-syntax-ns#Property')
+		'description': kwargs.get('rdfs_comment'),		# (p.e. )
+		'definition': kwargs.get('dcterms_description'),		# (p.e. )
+	}
+	if kwargs.get('tdwgutility_organizedInClass'):
+		ann['template'] = kwargs.get('tdwgutility_organizedInClass').rsplit('/', 1)[-1]
+	ann['object_type_id'] = object_type_id
+	return ann
 
 
 def initialize_dwc_forms():
-	tdwg_githubBaseUri = 'https://raw.githubusercontent.com/tdwg/rs.tdwg.org/master/'
-	'files-to-generate-from-dwc-term_versions_csv.txt'
-	''
-	dwc_githubBaseUri = 'https://raw.githubusercontent.com/tdwg/dwc/master/'
-	simple_dwc_list = 'dist/simple_dwc_vertical.csv'
-	terms_history = 'vocabulary/term_versions.csv'
-
-
-def initialize_tdwg_forms():
+	# EDITED:
 	# Script to build Markdown pages that provide term metadata for complex vocabularies
 	# Steve Baskauf 2020-08-12 CC0
-	# This script merges static Markdown header and footer documents with term information tables (in Markdown) generated from data in the rs.tdwg.org repo from the TDWG Github site
+	# This script merges static Markdown header and footer documents with term information tables (in Markdown)
+	# generated from data in the rs.tdwg.org repo from the TDWG Github site
 
-	import re
-	import requests   # best library to manage HTTP transactions
-	import csv        # library to read/write/parse CSV files
-	import json       # library to convert JSON to Python data structures
 	import pandas as pd
-
-	# -----------------
-	# Configuration section
-	# -----------------
-
-	# !!!! NOTE !!!!
-	# There is not currently an example of a complex vocabulary that has the column headers
-	# used in the sample files. In order to test this script, it uses the Audubon Core files,
-	# which have headers that differ from the samples. So throughout the code, there are
-	# pairs of lines where the default header names are commented out and the Audubon Core
-	# headers are not. To build a page using the sample files, you will need to reverse the
-	# commenting of these pairs.
 
 	# This is the base URL for raw files from the branch of the repo that has been pushed to GitHub
 	githubBaseUri = 'https://raw.githubusercontent.com/tdwg/rs.tdwg.org/master/'
 
-	headerFileName = 'termlist-header.md'
-	footerFileName = 'termlist-footer.md'
-	outFileName = '../docs/list/index.md'
-
 	# This is a Python list of the database names of the term lists to be included in the document.
-	termLists = ['terms', 'iri', 'dc-for-dwc', 'dcterms-for-dwc']
-	#termLists = ['pathway']
+	terms_dbb = ['terms', 'iri', 'dc-for-dwc', 'dcterms-for-dwc']
+				# + ['audubon', 'curatorial', 'dwc-obsolete', 'dwcore', 'dwctype', 'geospatial', 'utility']
 
-	# NOTE! There may be problems unless every term list is of the same vocabulary type since the number of columns will differ
-	# However, there probably aren't any circumstances where mixed types will be used to generate the same page.
-	vocab_type = 1 # 1 is simple vocabulary, 2 is simple controlled vocabulary, 3 is c.v. with broader hierarchy
+	print('\n > Retrieving namespaces from GitHub')
+	n, namespaces = set(), []
 
-	# Terms in large vocabularies like Darwin and Audubon Cores may be organized into categories using tdwgutility_organizedInClass
-	# If so, those categories can be used to group terms in the generated term list document.
-	organized_in_categories = True
+	try:
+		frame = pd.read_csv(githubBaseUri + 'term-lists/term-lists.csv', na_filter=False)
+	except Exception as e:
+		print('\n > ERROR: The DwC data could not be retrieved')
+		return None
 
-	# If organized in categories, the display_order list must contain the IRIs that are values of tdwgutility_organizedInClass
-	# If not organized into categories, the value is irrelevant. There just needs to be one item in the list.
-	display_order = ['', 'http://purl.org/dc/elements/1.1/', 'http://purl.org/dc/terms/', 'http://rs.tdwg.org/dwc/terms/Occurrence', 'http://rs.tdwg.org/dwc/terms/Organism', 'http://rs.tdwg.org/dwc/terms/MaterialSample', 'http://rs.tdwg.org/dwc/terms/Event', 'http://purl.org/dc/terms/Location', 'http://rs.tdwg.org/dwc/terms/GeologicalContext', 'http://rs.tdwg.org/dwc/terms/Identification', 'http://rs.tdwg.org/dwc/terms/Taxon', 'http://rs.tdwg.org/dwc/terms/MeasurementOrFact', 'http://rs.tdwg.org/dwc/terms/ResourceRelationship', 'http://rs.tdwg.org/dwc/terms/attributes/UseWithIRI']
-	display_label = ['Record level', 'Dublin Core legacy namespace', 'Dublin Core terms namespace', 'Occurrence', 'Organism', 'Material Sample', 'Event', 'Location', 'Geological Context', 'Identification', 'Taxon', 'Measurement or Fact', 'Resource Relationship', 'IRI-value terms']
-	display_comments = ['','','','','','','','','','','','','','']
-	display_id = ['record_level', 'dc', 'dcterms', 'occurrence', 'organism', 'material_sample', 'event', 'location', 'geological_context', 'identification', 'taxon', 'measurement_or_fact', 'resource_relationship', 'use_with_iri']
+	for db in terms_dbb:
+		for index, row in frame.iterrows():
+			if row.get('database') == db:
+				namespaces.append(row)
+				break
+			elif row.get('database') not in terms_dbb:
+				n.add(row.get('database'))
+	print(f'NOT INCLUDED: {len(n)}\n', sorted(n))
+	print(f'INCLUDED: {len(namespaces)}\n', [i.get('database') for i in namespaces])
 
-	#display_order = ['']
-	#display_label = ['Vocabulary'] # these are the section labels for the categories in the page
-	#display_comments = [''] # these are the comments about the category to be appended following the section labels
-	#display_id = ['Vocabulary'] # these are the fragment identifiers for the associated sections for the categories
-
-	# ---------------
-	# Function definitions
-	# ---------------
-
-	# replace URL with link
-	#
-	def createLinks(text):
-		def repl(match):
-			if match.group(1)[-1] == '.':
-				return '<a href="' + match.group(1)[:-1] + '">' + match.group(1)[:-1] + '</a>.'
-			return '<a href="' + match.group(1) + '">' + match.group(1) + '</a>'
-
-		pattern = '(https?://[^\s,;\)"]*)'
-		result = re.sub(pattern, repl, text)
-		return result
-
-	# ---------------------------------------
-
-	# ---------------
-	# Retrieve term list metadata from GitHub
-	# ---------------
-
-	print('Retrieving term list metadata from GitHub')
-	term_lists_info = []
-
-	frame = pd.read_csv(githubBaseUri + 'term-lists/term-lists.csv', na_filter=False)
-	for termList in termLists:
-		term_list_dict = {'list_iri': termList}
-		term_list_dict = {'database': termList}
-		for index,row in frame.iterrows():
-			if row['database'] == termList:
-				term_list_dict['pref_ns_prefix'] = row['vann_preferredNamespacePrefix']
-				term_list_dict['pref_ns_uri'] = row['vann_preferredNamespaceUri']
-				term_list_dict['list_iri'] = row['list']
-		term_lists_info.append(term_list_dict)
-	print(term_lists_info)
-	print()
-
-	# ---------------------------------------
-
-	# ---------------
-	# Create metadata table and populate using data from namespace databases in GitHub
-	# ---------------
+	print('\n > Retrieving metadata of terms from all selected namespaces from GitHub')
 
 	# Create column list
-	column_list = ['pref_ns_prefix', 'pref_ns_uri', 'term_localName', 'label', 'rdfs_comment', 'dcterms_description', 'examples', 'term_modified', 'term_deprecated', 'rdf_type', 'replaces_term', 'replaces1_term']
-	#column_list = ['pref_ns_prefix', 'pref_ns_uri', 'term_localName', 'label', 'definition', 'usage', 'notes', 'term_modified', 'term_deprecated', 'type']
-	if vocab_type == 2:
-		column_list += ['controlled_value_string']
-	elif vocab_type == 3:
-		column_list += ['controlled_value_string', 'skos_broader']
-	if organized_in_categories:
-		column_list.append('tdwgutility_organizedInClass')
-	column_list.append('version_iri')
+	column_list = [
+		'vann_preferredNamespacePrefix', 'vann_preferredNamespaceUri', 'term_localName', 'label', 'rdfs_comment',
+		'dcterms_description', 'examples', 'term_modified', 'term_deprecated', 'rdf_type', 'replaces_term',
+		'replaces1_term', 'controlled_value_string', 'tdwgutility_organizedInClass']
+	# + ['version_iri']
 
-	print('Retrieving metadata about terms from all namespaces from GitHub')
 	# Create list of lists metadata table
-	table_list = []
-	for term_list in term_lists_info:
-		# retrieve versions metadata for term list
-		versions_url = githubBaseUri + term_list['database'] + '-versions/' + term_list['database'] + '-versions.csv'
-		versions_df = pd.read_csv(versions_url, na_filter=False)
-
-		# retrieve current term metadata for term list
-		data_url = githubBaseUri + term_list['database'] + '/' + term_list['database'] + '.csv'
-		frame = pd.read_csv(data_url, na_filter=False)
-		for index,row in frame.iterrows():
-			row_list = [term_list['pref_ns_prefix'], term_list['pref_ns_uri'], row['term_localName'], row['label'], row['rdfs_comment'], row['dcterms_description'], row['examples'], row['term_modified'], row['term_deprecated'], row['rdf_type'], row['replaces_term'], row['replaces1_term']]
-			#row_list = [term_list['pref_ns_prefix'], term_list['pref_ns_uri'], row['term_localName'], row['label'], row['definition'], row['usage'], row['notes'], row['term_modified'], row['term_deprecated'], row['type']]
-			if vocab_type == 2:
-				row_list += [row['controlled_value_string']]
-			elif vocab_type == 3:
-				if row['skos_broader'] =='':
-					row_list += [row['controlled_value_string'], '']
-				else:
-					row_list += [row['controlled_value_string'], term_list['pref_ns_prefix'] + ':' + row['skos_broader']]
-			if organized_in_categories:
-				row_list.append(row['tdwgutility_organizedInClass'])
-
-			# Borrowed terms really don't have implemented versions. They may be lacking values for version_status.
-			# In their case, their version IRI will be omitted.
-			found = False
-			for vindex, vrow in versions_df.iterrows():
-				if vrow['term_localName']==row['term_localName'] and vrow['version_status']=='recommended':
-					found = True
-					version_iri = vrow['version']
-					# NOTE: the current hack for non-TDWG terms without a version is to append # to the end of the term IRI
-					if version_iri[len(version_iri)-1] == '#':
-						version_iri = ''
-			if not found:
-				version_iri = ''
-			row_list.append(version_iri)
-
-			table_list.append(row_list)
+	term_lists = []
+	for namespace in namespaces:
+		# TODO: create cv / db ?
+		try:
+			# retrieve current term metadata for term list
+			data_url = githubBaseUri + namespace.get('database', '') + '/' + namespace.get('database', '') + '.csv'
+			frame = pd.read_csv(data_url, na_filter=False)
+		except URLError as e:
+			print(namespace.get('database'), 'could not be found')
+			continue
+		for index, row in frame.iterrows():
+			term_list = [
+				namespace['vann_preferredNamespacePrefix'], namespace['vann_preferredNamespaceUri'],
+				row['term_localName'], row['label'], row['rdfs_comment'],
+				row['dcterms_description'], row['examples'], row['term_modified'], row['term_deprecated'],
+				row['rdf_type'], row['replaces_term'], row['replaces1_term'],
+				row.get('controlled_value_string'), row['tdwgutility_organizedInClass']]
+			# TODO: create cvterm ?
+			term_lists.append(term_list)
+	print(f'INCLUDED TERMS: {len(term_lists)}')
 
 	# Turn list of lists into dataframe
-	terms_df = pd.DataFrame(table_list, columns = column_list)
-
-	terms_sorted_by_label = terms_df.sort_values(by='label')
-	#terms_sorted_by_localname = terms_df.sort_values(by='term_localName')
+	terms_df = pd.DataFrame(term_lists, columns=column_list)
 
 	# This makes sort case insensitive
 	terms_sorted_by_localname = terms_df.iloc[terms_df.term_localName.str.lower().argsort()]
-	#terms_sorted_by_localname
-	print('done retrieving')
-	print()
 
-	# ---------------------------------------
-	## Run the following cell to generate an index sorted alphabetically by lowercase term local name. Omit this index if the terms have opaque local names.
+	# # To organize in categories, the display_order list must contain the IRIs that are values of tdwgutility_organizedInClass
+	# # display_order = ['', 'http://purl.org/dc/elements/1.1/', 'http://purl.org/dc/terms/', 'http://rs.tdwg.org/dwc/terms/attributes/UseWithIRI']
+	# # display_label = ['Record level', 'Dublin Core legacy namespace', 'Dublin Core terms namespace', 'IRI-value terms']
+	# display_order = []
+	# display_label = []
 
-	# ---------------
-	# generate the index of terms grouped by category and sorted alphabetically by lowercase term local name
-	# ---------------
+	print('\n > Creating Darwin Core templates')
 
-	print('Generating term index by CURIE')
-	text = '### 3.1 Index By Term Name\n\n'
-	text += '(See also [3.2 Index By Label](#32-index-by-label))\n\n'
+	print('**Classes**')
+	groups = set(terms_df['tdwgutility_organizedInClass'])
+	for g in sorted(groups):
+		uri = g.rsplit('/', 1)
+		df_tmp = terms_df[terms_df['term_localName'] == uri[-1]]
+		if len(df_tmp) == 1:
+			row = df_tmp.head(1).to_dict(orient='records')[0]
+			print('creating template', row.get('label'))
+			__create_by_service(template_service, **__dwc_term2annotation(**row))
+			# display_order.append(g)
+			# display_label.append(uri[-1])
 
-	text += '**Classes**\n'
-	text += '\n'
-	for row_index,row in terms_sorted_by_localname.iterrows():
-		if row['rdf_type'] == 'http://www.w3.org/2000/01/rdf-schema#Class':
-			curie = row['pref_ns_prefix'] + ":" + row['term_localName']
-			curie_anchor = curie.replace(':','_')
-			text += '[' + curie + '](#' + curie_anchor + ') |\n'
-	text = text[:len(text)-2] # remove final trailing vertical bar and newline
-	text += '\n\n' # put back removed newline
+	print('\n > Creating Darwin Core fields')
 
-	for category in range(0,len(display_order)):
-		text += '**' + display_label[category] + '**\n'
-		text += '\n'
-		if organized_in_categories:
-			filtered_table = terms_sorted_by_localname[terms_sorted_by_localname['tdwgutility_organizedInClass']==display_order[category]]
-			filtered_table.reset_index(drop=True, inplace=True)
-		else:
-			filtered_table = terms_sorted_by_localname
+	for row_index, row in terms_sorted_by_localname.iterrows():
+			print('creating field', row.get('label'))
+			__create_by_service(field_service, **__dwc_term2annotation(**row))
 
-		for row_index,row in filtered_table.iterrows():
-			if row['rdf_type'] != 'http://www.w3.org/2000/01/rdf-schema#Class':
-				curie = row['pref_ns_prefix'] + ":" + row['term_localName']
-				curie_anchor = curie.replace(':','_')
-				text += '[' + curie + '](#' + curie_anchor + ') |\n'
-		text = text[:len(text)-2] # remove final trailing vertical bar and newline
-		text += '\n\n' # put back removed newline
-
-	index_by_name = text
-
-	#print(index_by_name)
-	print()
-
-	# ---------------------------------------
-	## Run the following cell to generate an index by term label
-
-	# ---------------
-	# generate the index of terms by label
-	# ---------------
-
-	print('Generating term index by label')
-	text = '\n\n'
-
-	# Comment out the following two lines if there is no index by local names
-	text = '### 3.2 Index By Label\n\n'
-	text += '(See also [3.1 Index By Term Name](#31-index-by-term-name))\n\n'
-
-	text += '**Classes**\n'
-	text += '\n'
-	for row_index,row in terms_sorted_by_label.iterrows():
-		if row['rdf_type'] == 'http://www.w3.org/2000/01/rdf-schema#Class':
-			curie_anchor = row['pref_ns_prefix'] + "_" + row['term_localName']
-			text += '[' + row['label'] + '](#' + curie_anchor + ') |\n'
-	text = text[:len(text)-2] # remove final trailing vertical bar and newline
-	text += '\n\n' # put back removed newline
-
-	for category in range(0,len(display_order)):
-		if organized_in_categories:
-			text += '**' + display_label[category] + '**\n'
-			text += '\n'
-			filtered_table = terms_sorted_by_label[terms_sorted_by_label['tdwgutility_organizedInClass']==display_order[category]]
-			filtered_table.reset_index(drop=True, inplace=True)
-		else:
-			filtered_table = terms_sorted_by_label
-
-		for row_index,row in filtered_table.iterrows():
-			if row_index == 0 or (row_index != 0 and row['label'] != filtered_table.iloc[row_index - 1].loc['label']): # this is a hack to prevent duplicate labels
-				if row['rdf_type'] != 'http://www.w3.org/2000/01/rdf-schema#Class':
-					curie_anchor = row['pref_ns_prefix'] + "_" + row['term_localName']
-					text += '[' + row['label'] + '](#' + curie_anchor + ') |\n'
-		text = text[:len(text)-2] # remove final trailing vertical bar and newline
-		text += '\n\n' # put back removed newline
-
-	index_by_label = text
-	print()
-
-	#print(index_by_label)
-
-	# ---------------------------------------
-
-	decisions_df = pd.read_csv('https://raw.githubusercontent.com/tdwg/rs.tdwg.org/master/decisions/decisions-links.csv', na_filter=False)
-
-	# ---------------
-	# generate a table for each term, with terms grouped by category
-	# ---------------
-
-	print('Generating terms table')
-	# generate the Markdown for the terms table
-	text = '## 4 Vocabulary\n'
-	if True:
-		filtered_table = terms_sorted_by_localname
-
-	#for category in range(0,len(display_order)):
-	#    if organized_in_categories:
-	#        text += '### 4.' + str(category + 1) + ' ' + display_label[category] + '\n'
-	#        text += '\n'
-	#        text += display_comments[category] # insert the comments for the category, if any.
-	#        filtered_table = terms_sorted_by_localname[terms_sorted_by_localname['tdwgutility_organizedInClass']==display_order[category]]
-	#        filtered_table.reset_index(drop=True, inplace=True)
-	#    else:
-	#        filtered_table = terms_sorted_by_localname
-
-		for row_index,row in filtered_table.iterrows():
-			text += '<table>\n'
-			curie = row['pref_ns_prefix'] + ":" + row['term_localName']
-			curieAnchor = curie.replace(':','_')
-			text += '\t<thead>\n'
-			text += '\t\t<tr>\n'
-			text += '\t\t\t<th colspan="2"><a id="' + curieAnchor + '"></a>Term Name  ' + curie + '</th>\n'
-			text += '\t\t</tr>\n'
-			text += '\t</thead>\n'
-			text += '\t<tbody>\n'
-			text += '\t\t<tr>\n'
-			text += '\t\t\t<td>Term IRI</td>\n'
-			uri = row['pref_ns_uri'] + row['term_localName']
-			text += '\t\t\t<td><a href="' + uri + '">' + uri + '</a></td>\n'
-			text += '\t\t</tr>\n'
-			text += '\t\t<tr>\n'
-			text += '\t\t\t<td>Modified</td>\n'
-			text += '\t\t\t<td>' + row['term_modified'] + '</td>\n'
-			text += '\t\t</tr>\n'
-
-			if row['version_iri'] != '':
-				text += '\t\t<tr>\n'
-				text += '\t\t\t<td>Term version IRI</td>\n'
-				text += '\t\t\t<td><a href="' + row['version_iri'] + '">' + row['version_iri'] + '</a></td>\n'
-				text += '\t\t</tr>\n'
-
-			text += '\t\t<tr>\n'
-			text += '\t\t\t<td>Label</td>\n'
-			text += '\t\t\t<td>' + row['label'] + '</td>\n'
-			text += '\t\t</tr>\n'
-
-			if row['term_deprecated'] != '':
-				text += '\t\t<tr>\n'
-				text += '\t\t\t<td></td>\n'
-				text += '\t\t\t<td><strong>This term is deprecated and should no longer be used.</strong></td>\n'
-				text += '\t\t</tr>\n'
-
-				for dep_index,dep_row in filtered_table.iterrows():
-					if dep_row['replaces_term'] == uri:
-						text += '\t\t<tr>\n'
-						text += '\t\t\t<td>Is replaced by</td>\n'
-						text += '\t\t\t<td><a href="#' + dep_row['pref_ns_prefix'] + "_" + dep_row['term_localName'] + '">' + dep_row['pref_ns_uri'] + dep_row['term_localName'] + '</a></td>\n'
-						text += '\t\t</tr>\n'
-					if dep_row['replaces1_term'] == uri:
-						text += '\t\t<tr>\n'
-						text += '\t\t\t<td>Is replaced by</td>\n'
-						text += '\t\t\t<td><a href="#' + dep_row['pref_ns_prefix'] + "_" + dep_row['term_localName'] + '">' + dep_row['pref_ns_uri'] + dep_row['term_localName'] + '</a></td>\n'
-						text += '\t\t</tr>\n'
-
-			text += '\t\t<tr>\n'
-			text += '\t\t\t<td>Definition</td>\n'
-			text += '\t\t\t<td>' + row['rdfs_comment'] + '</td>\n'
-			#text += '\t\t\t<td>' + row['definition'] + '</td>\n'
-			text += '\t\t</tr>\n'
-
-			if row['dcterms_description'] != '':
-			#if row['notes'] != '':
-				text += '\t\t<tr>\n'
-				text += '\t\t\t<td>Notes</td>\n'
-				text += '\t\t\t<td>' + createLinks(row['dcterms_description']) + '</td>\n'
-				#text += '\t\t\t<td>' + createLinks(row['notes']) + '</td>\n'
-				text += '\t\t</tr>\n'
-
-			if row['examples'] != '':
-			#if row['usage'] != '':
-				text += '\t\t<tr>\n'
-				text += '\t\t\t<td>Examples</td>\n'
-				text += '\t\t\t<td>' + createLinks(row['examples']) + '</td>\n'
-				#text += '\t\t\t<td>' + createLinks(row['usage']) + '</td>\n'
-				text += '\t\t</tr>\n'
-
-			if vocab_type == 2 or vocab_type ==3: # controlled vocabulary
-				text += '\t\t<tr>\n'
-				text += '\t\t\t<td>Controlled value</td>\n'
-				text += '\t\t\t<td>' + row['controlled_value_string'] + '</td>\n'
-				text += '\t\t</tr>\n'
-
-			if vocab_type == 3 and row['skos_broader'] != '': # controlled vocabulary with skos:broader relationships
-				text += '\t\t<tr>\n'
-				text += '\t\t\t<td>Has broader concept</td>\n'
-				curieAnchor = row['skos_broader'].replace(':','_')
-				text += '\t\t\t<td><a href="#' + curieAnchor + '">' + row['skos_broader'] + '</a></td>\n'
-				text += '\t\t</tr>\n'
-
-			text += '\t\t<tr>\n'
-			text += '\t\t\t<td>Type</td>\n'
-			if row['rdf_type'] == 'http://www.w3.org/1999/02/22-rdf-syntax-ns#Property':
-			#if row['type'] == 'http://www.w3.org/1999/02/22-rdf-syntax-ns#Property':
-				text += '\t\t\t<td>Property</td>\n'
-			elif row['rdf_type'] == 'http://www.w3.org/2000/01/rdf-schema#Class':
-			#elif row['type'] == 'http://www.w3.org/2000/01/rdf-schema#Class':
-				text += '\t\t\t<td>Class</td>\n'
-			elif row['rdf_type'] == 'http://www.w3.org/2004/02/skos/core#Concept':
-			#elif row['type'] == 'http://www.w3.org/2004/02/skos/core#Concept':
-				text += '\t\t\t<td>Concept</td>\n'
-			else:
-				text += '\t\t\t<td>' + row['rdf_type'] + '</td>\n' # this should rarely happen
-				#text += '\t\t\t<td>' + row['type'] + '</td>\n' # this should rarely happen
-			text += '\t\t</tr>\n'
-
-			# Look up decisions related to this term
-			for drow_index,drow in decisions_df.iterrows():
-				if drow['linked_affected_resource'] == uri:
-					text += '\t\t<tr>\n'
-					text += '\t\t\t<td>Executive Committee decision</td>\n'
-					text += '\t\t\t<td><a href="http://rs.tdwg.org/decisions/' + drow['decision_localName'] + '">http://rs.tdwg.org/decisions/' + drow['decision_localName'] + '</a></td>\n'
-					text += '\t\t</tr>\n'
-
-			text += '\t</tbody>\n'
-			text += '</table>\n'
-			text += '\n'
-		text += '\n'
-	term_table = text
-	print('done generating')
-	print()
-
-	#print(term_table)
-
-	# ---------------------------------------
-	## Modify to display the indices that you want
-
-	# ---------------
-	# Merge term table with header and footer Markdown, then save file
-	# ---------------
-
-	print('Merging term table with header and footer and saving file')
-	#text = index_by_label + term_table
-	text = index_by_name + index_by_label + term_table
-
-	# ---------------------------------------
-
-	# read in header and footer, merge with terms table, and output
-
-	headerObject = open(headerFileName, 'rt', encoding='utf-8')
-	header = headerObject.read()
-	headerObject.close()
-
-	footerObject = open(footerFileName, 'rt', encoding='utf-8')
-	footer = footerObject.read()
-	footerObject.close()
-
-	output = header + text + footer
-	outputObject = open(outFileName, 'wt', encoding='utf-8')
-	outputObject.write(output)
-	outputObject.close()
-
-	print('done')
+	# for category in range(0, len(display_order)):
+	# 	print('**' + display_label[category] + '**')
+	# 	filtered_table = terms_sorted_by_localname[terms_sorted_by_localname['tdwgutility_organizedInClass'] == display_order[category]]
+	# 	filtered_table.reset_index(drop=True, inplace=True)
+	#
+	# 	for row_index, row in filtered_table.iterrows():
+	# 		if row['rdf_type'] != 'http://www.w3.org/2000/01/rdf-schema#Class':
+	# 			curie = row['vann_preferredNamespacePrefix'] + ":" + row['term_localName']
+	# 			curie_anchor = curie.replace(':', '_')
+	# 			uri = row['vann_preferredNamespaceUri'] + row['term_localName']
+	# 			print('[' + curie + '](#' + curie_anchor + ')')
+	# 		else:
+	# 			print()
 
 
 if __name__ == '__main__':
-	initialize_tdwg_forms()
+	initialize_dwc_forms()

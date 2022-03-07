@@ -108,7 +108,15 @@ def create_app(debug, start_socket=True, cfg_dict=None):
 
         # Insert BibTeX annotation forms
         from biobarcoding.forms import initialize_bibtex_forms
+        print("Initializing BibTex annotation forms")
         initialize_bibtex_forms()
+        print("Initializing BibTex annotation forms - DONE")
+
+        # Insert BibTeX annotation forms
+        from biobarcoding.forms import initialize_dwc_forms
+        print("Initializing Darwin Core annotation forms")
+        initialize_dwc_forms()
+        print("Initializing Darwin Core annotation forms - DONE")
 
         # PostGIS Database
         initialize_postgis(app)
