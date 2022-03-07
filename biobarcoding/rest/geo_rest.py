@@ -727,7 +727,8 @@ class LayersAPI(MethodView):
             # ACL Filter
             purpose_id = db_sess.query(PermissionType).filter(PermissionType.name == "read").one().id
             ids_clause = db_sess.query(GeographicLayer.id). \
-                filter(auth_filter(GeographicLayer, purpose_id, [data_object_type_id['geolayer']])).subquery()
+                filter(auth_filter(GeographicLayer, purpose_id, [data_object_type_id['geolayer']],
+                                   identity_id=g.n_session.identity.id)).subquery()
             query = db_sess.query(GeographicLayer).filter(GeographicLayer.id.in_(ids_clause))
             # Modify request.values to filter by "is_deleted" attribute of GeographicLayer
             _ = dict(request.values)
@@ -747,7 +748,12 @@ class LayersAPI(MethodView):
             if layer:
                 # Modify "wms_url" for local layers
                 tmp = urlparse(request.base_url)
-                base_url = f"{tmp.scheme}://{tmp.netloc}"
+                # WORKAROUND - tmp.scheme is always "http" in spite the request being https. So assume "https"
+                if not tmp.netloc.lower().startswith(("localhost", "172.17.0.1", "127.0.0.1", "0.0.0.0")):
+                    scheme = "https"
+                else:
+                    scheme = tmp.scheme
+                base_url = f"{scheme}://{tmp.netloc}"
                 # Rewritten to avoid modification of geographic layers that would generate ORM events
                 enh_content = []
                 for inst in layer:
@@ -817,7 +823,7 @@ class LayersAPI(MethodView):
             if sum(gdf[c].notna()) == 0:
                 _.append(dict(name=c, type="empty"))
                 continue
-
+            print(f"Analyzing column {c}")
             min_v = None
             max_v = None
             categories = None
@@ -1096,7 +1102,7 @@ class LayersAPI(MethodView):
             else:
                 geographic_layer.in_postgis = False
                 db.flush()
-            if geographic_layer.in_postgis == False and geographic_layer.published == False:
+            if geographic_layer.in_postgis is False and geographic_layer.published is False:
                 db.delete(geographic_layer)
         return ResponseObject(content=None, issues=self.issues, status=self.status).get_response()
 
@@ -1144,6 +1150,11 @@ class LayersAPI(MethodView):
             uniq = df[c].unique()
             # Check if column "c" can be converted to "category" or to "number"
             if df.dtypes[i] in (np.int64, np.float64, np.dtype("O")) and uniq.size <= 10:
+                if df.dtypes[i] == np.dtype("O"):
+                    t = "-"
+                else:
+                    t = 0
+                df.loc[df[c].isna(), c] = t
                 df[c] = df[c].astype('category')
                 if isinstance(df[c].cat.categories, Float64Index):
                     try:
@@ -1475,27 +1486,31 @@ def put_property_style(id_, property_):
     property_dict = None
     if layer:
         for p in layer.properties:
-            if p["name"] == property_ and p["type"] == "numeric":
+            if p["name"] == property_ and p["type"] in ("numeric", "category"):
                 property_dict = p
                 break
     # Check if the specified style exists
     if layer and property_dict and palette in get_styles():
-        style_name = f"layer_{id_}_{property_}"
-        system_layer = True
-        wkspc = workspace_names[0] if system_layer else workspace_names[1]
-        geom_type = layer.attributes.get("geom_type", "Polygon") if layer.attributes else "Polygon"
-        create_and_publish_style(geoserver_session,
-                                 wkspc=wkspc,
-                                 layer_name=layer.geoserver_name,
-                                 attribute=property_,
-                                 min_value=property_dict.get("min"),
-                                 max_value=property_dict.get("max"),
-                                 number_of_classes=req.get("bins", 7),
-                                 categories=property_dict.get("categories"),
-                                 style_name=style_name,
-                                 color_ramp=palette,
-                                 overwrite=True,
-                                 geom_type=geom_type)
+        if p["type"] == "numeric" and not get_styles()[palette] or p["type"] == "category" and get_styles()[palette]:
+            issues.append(Issue(IType.ERROR, f"The palette {palette} is not compatible with the property type {p['type']}"))
+            status = 400
+        else:
+            style_name = f"layer_{id_}_{property_}"
+            system_layer = True
+            wkspc = workspace_names[0] if system_layer else workspace_names[1]
+            geom_type = layer.attributes.get("geom_type", "Polygon") if layer.attributes else "Polygon"
+            create_and_publish_style(geoserver_session,
+                                     wkspc=wkspc,
+                                     layer_name=layer.geoserver_name,
+                                     attribute=property_,
+                                     min_value=property_dict.get("min"),
+                                     max_value=property_dict.get("max"),
+                                     number_of_classes=req.get("bins", 7),
+                                     categories=property_dict.get("categories"),
+                                     style_name=style_name,
+                                     color_ramp=palette,
+                                     overwrite=True,
+                                     geom_type=geom_type)
     else:
         if not layer:
             issues.append(Issue(IType.ERROR, f"Layer {id_} does not exist"))

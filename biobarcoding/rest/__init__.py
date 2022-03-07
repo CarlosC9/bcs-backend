@@ -16,6 +16,7 @@ from flask import Response, Blueprint, g, request
 from flask.views import MethodView
 import sqlalchemy
 from sqlalchemy import orm, and_, or_
+from sqlalchemy.orm import Query
 from sqlalchemy.pool import StaticPool
 from bioblend import galaxy
 
@@ -91,6 +92,9 @@ class ResponseObject:
     content_type = attrib(default="text/json")  # type: str
     # HTTP response status code
     status = attrib(default=200)  # type: int
+
+    def __init__(self):
+        self.issues = []
 
     def get_response(self) -> Response:
         """
@@ -317,10 +321,10 @@ tm_object_types = [  # ObjectType
     (data_object_type_id["case_study"], "5f4c1666-e509-436b-8844-082ebe88b2b9", "case_study"),
     (data_object_type_id["view"], "4cc3b304-afb4-445b-a9da-6c5ec99aafc8", "view"),
     (data_object_type_id["dashboard"], "633a7f00-4019-4302-9067-611bea1fc934", "dashboard"),
-    (1000, "ad83dcb0-e479-4a44-acf5-387b9731e8da", "sys-functions"),
-    (1001, "aa97ddad-8937-4590-afc9-dc00c5601f2a", "compute-resource"),
-    (1002, "a4b4a7d2-732f-4db9-9a32-c57c00881eb7", "process"),  # Algorithms
-    (1000001, "b5371878-582a-4758-9c7c-9e536c477992", "none")  # Nulled items
+    (data_object_type_id["sys-functions"], "ad83dcb0-e479-4a44-acf5-387b9731e8da", "sys-functions"),
+    (data_object_type_id["compute-resource"], "aa97ddad-8937-4590-afc9-dc00c5601f2a", "compute-resource"),
+    (data_object_type_id["algorithms"], "a4b4a7d2-732f-4db9-9a32-c57c00881eb7", "process"),  # Algorithms
+    (data_object_type_id["none"], "b5371878-582a-4758-9c7c-9e536c477992", "none")  # Nulled items
 ]
 
 tm_permissions_fields = ["uuid", "name", "rank"]
@@ -356,15 +360,24 @@ tm_default_groups = {
 
 tm_default_roles = {
     "c79b4ff7-9576-45f6-a439-551ac23c563b": "sys-admin",
-    "6e7ff87f-056b-46b0-b636-c7c0eb48cabe": "owner",
-    "0cb4ea40-26a6-4960-9c17-dd3012a53e0f": "basic-user",
+    "4cc73d65-f491-4199-a52d-fc05dd45c923": "research",
+    "a9f05332-ddd6-4d93-9cec-b48ef7190633": "molecular-admin",
+    "ebb39daa-98d7-4cee-9596-d2ffef70f960": "geo-admin",
+    "a6e1d17f-f2a3-428a-b24c-6e7b7d71fff4": "acl-admin",
+    "fedc08dc-1233-4998-9d7c-2cc305fac2a1": "compute-resources-admin",
+    "038f28e3-8374-4bf1-b1aa-0d63c5920294": "metadata-admin",
     "feb13f20-4223-4602-a195-a3ea14615982": "guest",
-    "94f3d8ab-7f20-426d-a881-0c19badd2a3d": "data-curator",
-    "6e6b4cce-74f0-44f7-ae82-a799ade98739": "data-importer",
-    "356e2030-28f5-49d5-a788-db553a889736": "data-updater",
-    "abb2cfe7-7990-4d84-b119-0834cc9937b5": "input-layers-admin",
-    "4b9e74b3-b0cc-4861-80ae-8390cd54cfab": "geoprocess-instances-admin",
-    "a2aef599-a34d-4290-bde5-14899b70eff1": "bioinformatic-job-executor"
+    "0156074d-acdd-43aa-8949-c7fce254ce32": "molecular-guest",
+    "999d05a1-4a16-4d11-a536-b92120288a86": "geo-guest",
+    "6e7ff87f-056b-46b0-b636-c7c0eb48cabe": "owner",
+    "a2aef599-a34d-4290-bde5-14899b70eff1": "bioinformatic-job-executor",
+    "fcc6c1e8-8c0c-46b0-9ed5-9185a427c64b": "read-molecular-api",
+    "8c5a5a19-815d-46e2-8ef9-21e964fb387d": "write-molecular-api",
+    "1fa175e8-28c2-4f59-a0b9-f07649ab924b": "read-geo-api",
+    "ec1a58b9-5f99-454c-a3fb-85b38dd70ccc": "write-geo-api",
+    "1b7d18ab-59e9-4a47-a8ef-7aab0534dfa8": "jobs-api",
+    "e8244111-04dc-4697-a8f5-3468c0fbdfe5": "read-files-api",
+    "9a5e8265-38c8-4607-bff2-85f5bebe6d3a": "write-files-api",
 }
 
 tm_authenticators = {  # Authenticator
@@ -1041,19 +1054,31 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
         def get(self, _id=None):  # List or Read
             db = g.n_session.db_session
             r = ResponseObject()
-            if _id is None:
-                # List of all
-                kwargs = parse_request_params()
-                from ..services import get_query
-                query, count = get_query(db, entity, aux_filter=aux_filter, default_filter=default_filter, **kwargs)
-                # TODO Detail of fields
-                r.count = count
-                r.content = query.all()
-            else:
-                # Detail
-                # TODO Detail of fields
-                r.content = db.query(entity).filter(entity.id == int(_id)).first()
-                r.count = 1
+
+            if alt_getters and "get" in alt_getters:
+                entities = alt_getters["get"](db, _id)
+                if isinstance(entities, list):
+                    r.content = entities
+                    r.count = len(entities) if entities else 0
+                elif isinstance(entities, entity):
+                    r.content = entities
+                    r.count = 1
+            # The getter can return None to indicate to proceed with the default behavior, below
+            # Of course, if no alt_getter was specified, also proceed with the default behavior
+            if r.content is None:
+                if _id is None:
+                    # List of all
+                    kwargs = parse_request_params()
+                    from ..services import get_query
+                    query, count = get_query(db, entity, aux_filter=aux_filter, default_filter=default_filter, **kwargs)
+                    # TODO Detail of fields
+                    r.count = count
+                    r.content = query.all()
+                else:
+                    # Detail
+                    # TODO Detail of fields
+                    r.content = db.query(entity).filter(entity.id == int(_id)).first()
+                    r.count = 1
 
             return r.get_response()
 
@@ -1233,16 +1258,16 @@ def related_perm_ids(permission_id: int):
 def auth_filter(orm, permission_types_ids, object_types_ids,
                 identity_id=None,
                 object_uuids=None, time=None,
-                permission_flag=False, authorizable_flag=False):
+                permission_flag=False, authorizable_flag=False) -> Query:
     """
     * orm: base (with uuid) to build the filter
     * identity_ids: who is requesting
-    * permission_types_ids: what is requesting
-    * object_types_ids: where is requesting
-    * object_uuid: about what is requesting
+    * permission_types_ids: what kind of permission is requested
+    * object_types_ids: which object types are being requested
+    * object_uuid: reduce the search to a specific list of objects
     * time: when is requesting
-    * permission_flag: extra info required
-    * authorizable_flag: extra info required
+    * permission_flag: True to return the permission in the query
+    * authorizable_flag: True to return the specific authorizable
 
     CollectionDetail (cd) <> Collection (c) > ACL <> ACLDetail (ad)
 
@@ -1263,36 +1288,51 @@ def auth_filter(orm, permission_types_ids, object_types_ids,
     @return: <orm_clause_filter> || object_uuids[, permissions][, authorizables]
     """
     from flask import current_app
-    if current_app.config["ACL_ENABLED"] != 'True':
+    if current_app.config["ACL_ENABLED"] != 'True':  # Disable ACL control
         return True
 
+    identity_id = g.n_session.identity.id if identity_id is None else identity_id
+    sys_admin_id = DBSession.query(Role.id).filter(Role.name == 'sys-admin').first()[0]
+    if isinstance(identity_id, int):
+        authorizables = related_authr_ids(identity_id)
+        is_sys_admin = sys_admin_id in authorizables
+    else:
+        is_sys_admin = sys_admin_id in identity_id
+
+    if is_sys_admin:
+        return True
+
+    # ACL Detail entry in valid date range
     from datetime import datetime
     time = time if time else datetime.now()
     filter_clause = [
         or_(time >= ACLDetail.validity_start, ACLDetail.validity_start == None),
         or_(time <= ACLDetail.validity_end, ACLDetail.validity_end == None)
     ]
+
+    # ACL applies to object types (if specified)
     filter_clause.append(ACL.object_type.in_(object_types_ids)) if object_types_ids else None
+    # ACL applies to specific objects (if specified)
     filter_clause.append(ACL.object_uuid.in_(object_uuids)) if object_uuids else None
     try:
-        # By identity or authorizables associated with the identity
+        # By identity or authorizables (role, group, organization) associated with the identity
         if isinstance(identity_id, int):
-            filter_clause.append(ACLDetail.authorizable_id.in_(related_authr_ids(identity_id)))
+            filter_clause.append(ACLDetail.authorizable_id.in_(authorizables))
         elif isinstance(identity_id, (tuple, list, set)):
             filter_clause.append(ACLDetail.authorizable_id.in_(identity_id))
-        else:
-            filter_clause.append(ACLDetail.authorizable_id.in_(related_authr_ids(g.n_session.identity.id)))
         # By permission or superior permissions
         if isinstance(permission_types_ids, int):
             filter_clause.append(ACLDetail.permission_id.in_(related_perm_ids(permission_types_ids)))
         elif isinstance(permission_types_ids, (tuple, list, set)):
             filter_clause.append(ACLDetail.permission_id.in_(permission_types_ids))
 
+        # Object in authorized collection
         collected = DBSession.query(CollectionDetail.object_uuid) \
             .join(Collection) \
-            .join(ACL, Collection.uuid==ACL.object_uuid) \
+            .join(ACL, Collection.uuid == ACL.object_uuid) \
             .join(ACLDetail) \
             .filter(*filter_clause)
+        # Direct object
         uncollected = DBSession.query(ACL.object_uuid).join(ACLDetail).filter(*filter_clause)
 
         final_query = collected.union(uncollected)
@@ -1300,9 +1340,14 @@ def auth_filter(orm, permission_types_ids, object_types_ids,
             entities = []
             entities += [ACLDetail.permission] if permission_flag else []
             entities += [ACLDetail.authorizable] if authorizable_flag else []
-            return final_query.with_entities(entities)
+            q = final_query.with_entities(entities)
         else:
-            return orm.uuid.in_(final_query)
+            q = orm.uuid.in_(final_query)
+
+        # OWNER has unlimited permissions (no need to check ACL)
+        if isinstance(identity_id, int):
+            q = or_(q, orm.owner_id == identity_id)
+        return q
     except Exception as e:
         print(e)
         return None

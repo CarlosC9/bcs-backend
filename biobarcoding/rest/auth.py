@@ -1,16 +1,20 @@
+import secrets
+import uuid
 from datetime import datetime
 
 from firebase_admin import auth
 from flask import Blueprint, abort, request, make_response, jsonify, session as flask_session, g
 from flask.views import MethodView
 from sqlalchemy import and_, or_
+from werkzeug.security import generate_password_hash
 
 from ..authentication import serialize_session, AppSession, deserialize_session, obtain_idauth_from_request, n_session
-from . import app_api_base, ResponseObject, logger
+from . import app_api_base, ResponseObject, logger, Issue, IType, register_api
 from ..authorization import string_to_ast, authr_expression, ast_evaluator
 from ..common.helpers import obj_to_json
 from ..db_models import ObjectType
-from ..db_models.sysadmin import SystemFunction, ACLExpression, ACL
+from ..db_models.sysadmin import SystemFunction, ACLExpression, ACL, Identity, Authenticator, IdentityAuthenticator, \
+    Role
 
 bp_auth = Blueprint('bp_auth', __name__)
 
@@ -35,6 +39,171 @@ def token_verification():
         'message': 'valid token'
     }
     return make_response(jsonify(response_object)), 200
+
+
+bp_api_key = Blueprint('api_key', __name__)
+
+
+class ApiKeyAPI(MethodView):
+    """
+    To manage API keys of users
+
+    LOGIN (entries assume the current user):
+    export API_BASE_URL=http://localhost:5000/api
+    curl --cookie-jar app-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user"
+
+    LIST USERS WITH API KEYS:
+    curl --cookie app-cookies.txt "$API_BASE_URL/api_keys/"
+    GET API KEYS FOR A USER:
+    curl --cookie app-cookies.txt "$API_BASE_URL/api_keys/<identity_id>"
+    GET API KEYS FOR CURRENT USER:
+    curl --cookie app-cookies.txt "$API_BASE_URL/api_keys/0"
+
+    CREATE API KEY for CURRENT USER:
+    curl --cookie app-cookies.txt -X POST "$API_BASE_URL/api_keys/" -H "Content-Type: application/json" -d '{"roles": ["read-molecular-api"]}'
+    TODO - CREATE API Key with a period of validity
+    DELETE API KEY for CURRENT USER:
+    * First GET API KEYS for CURRENT USER, take note of key_idx field of the Key to delete
+    curl --cookie app-cookies.txt -X DELETE "$API_BASE_URL/api_keys/<key_idx>"
+
+    EXAMPLE
+    LOGIN with API KEY:
+    curl --cookie-jar app-cookies.txt -X PUT "$API_BASE_URL/authn?user=test_user" -H "X-API-Key: 8217b03ac2f34cfabd1388d28d420387"
+
+    """
+    @n_session()
+    def get(self, identity_id=None):
+        """
+        Obtain the list of API keys of a user, or the users having API key authentication enabled
+
+        :param identity_id:
+        :return:
+        """
+        session = g.n_session.db_session
+        authenticator = session.query(Authenticator).filter(Authenticator.name == "local-api-key").first()
+        r = ResponseObject()
+        if identity_id is not None:
+            if identity_id == 0:  # Current user
+                identity_id = g.n_session.identity.id
+            # Obtain the list of API keys of a user
+            identity = session.query(Identity).filter(Identity.id == identity_id).first()
+            if not identity:
+                r.issues.append(Issue(IType.ERROR, f"Identity {identity_id} not found"))
+            else:
+                # Read list of API Keys from the relation with "API Key Authenticator", do not show the hash (does not make sense)
+                identity_authenticator = session.query(IdentityAuthenticator).\
+                    filter(and_(IdentityAuthenticator.identity_id == identity_id,
+                                IdentityAuthenticator.authenticator_id == authenticator.id)).first()
+                if not identity_authenticator:
+                    r.issues.append(Issue(IType.WARNING, f"Identity {identity_id} does not have API Key authentication enabled"))
+                else:
+                    r.content = [dict(roles=d['roles'], key_idx=d["key_idx"],
+                                      valid_from=d["valid_from"], valid_until=d['valid_until'])
+                                 for d in identity_authenticator.authenticator_info]
+        else:
+            # List all identities with API keys
+            identities = session.query(IdentityAuthenticator).\
+                filter(IdentityAuthenticator.authenticator_id == authenticator.id).all()
+            r.content = identities
+        return r.get_response()
+
+    @n_session()
+    def post(self):
+        """
+        Add an API key for the current user
+
+        :return:
+        """
+        session = g.n_session.db_session
+        authenticator = session.query(Authenticator).filter(Authenticator.name == "local-api-key").first()
+        r = ResponseObject()
+        t = request.json  # roles, valid_from, valid_until
+        # Check that the specified roles exist at the moment of creation
+        if 'roles' not in t:
+            r.issues.append(Issue(IType.ERROR, "'roles' are not specified"))
+            r.status = 400
+        else:
+            roles = session.query(Role).filter(Role.name.in_(t['roles'])).all()
+            if len(roles) != len(t['roles']):
+                # Find which roles do not exist and show them
+                lst = []
+                _ = [role.name for role in roles]
+                for role in t["roles"]:
+                    if role not in _:
+                        lst.append(role)
+                r.issues.append(Issue(IType.ERROR, f"Roles: {', '.join(lst)} do not exist"))
+                r.status = 400
+            else:
+                if 'valid_from' not in t:
+                    t['valid_from'] = datetime.now().isoformat()
+                if 'valid_until' not in t:
+                    t['valid_until'] = None
+
+                identity_id = g.n_session.identity.id
+                identity_authenticator = session.query(IdentityAuthenticator).\
+                    filter(and_(IdentityAuthenticator.identity_id == identity_id,
+                                IdentityAuthenticator.authenticator_id == authenticator.id)).first()
+                if not identity_authenticator:
+                    identity_authenticator = IdentityAuthenticator()
+                    identity_authenticator.identity_id = identity_id
+                    identity_authenticator.authenticator_id = authenticator.id
+                    identity_authenticator.authenticator_info = []
+                    session.add(identity_authenticator)
+                # Generate key_idx (to address keys pertaining to an identity)
+                used_idxs = set([d['key_idx'] for d in identity_authenticator.authenticator_info])
+                key_idx = 1
+                while key_idx in used_idxs:
+                    key_idx += 1
+                # Generate API Key
+                k = uuid.uuid4().hex
+                r.content = dict(api_key=k)
+                # Store hash
+                h = generate_password_hash(k)
+                d = dict(key_idx=key_idx, hash=h, roles=t['roles'],
+                         valid_from=t['valid_from'], valid_until=t['valid_until'])
+                identity_authenticator.authenticator_info.append(d)
+                r.content.update(d)
+        return r.get_response()
+
+    @n_session()
+    def delete(self, key_idx):
+        """
+        Delete one of the API key's of the current user
+
+        :param key_idx:
+        :return:
+        """
+        session = g.n_session.db_session
+        authenticator = session.query(Authenticator).filter(Authenticator.name == "local-api-key").first()
+        r = ResponseObject()
+        identity_id = g.n_session.identity.id
+        identity_authenticator = session.query(IdentityAuthenticator).\
+            filter(and_(IdentityAuthenticator.identity_id == identity_id,
+                        IdentityAuthenticator.authenticator_id == authenticator.id)).first()
+        if not identity_authenticator:
+            r.issues.append(Issue(IType.ERROR, "No API keys found"))
+            r.status = 404
+        else:
+            tmp = len(identity_authenticator.authenticator_info)
+            identity_authenticator.authenticator_info = \
+                [d for d in identity_authenticator.authenticator_info if d['key_idx'] != key_idx]
+            if len(identity_authenticator.authenticator_info) == tmp:
+                r.issues.append(Issue(IType.ERROR, f"API key with index {key_idx} not found"))
+                r.status = 404
+            else:
+                r.status = 204
+                if len(identity_authenticator.authenticator_info) == 0:
+                    session.delete(identity_authenticator)
+
+        return r.get_response()
+
+
+url = f"{app_api_base}/api_keys/"
+view_func = ApiKeyAPI.as_view("api_key")
+bp_api_key.add_url_rule(url, defaults=dict(identity_id=None), view_func=view_func, methods=['GET'])
+bp_api_key.add_url_rule(url, view_func=view_func, methods=['POST'])
+bp_api_key.add_url_rule(f'{url}<int:identity_id>', view_func=view_func, methods=['GET'])
+bp_api_key.add_url_rule(f'{url}<int:key_idx>', view_func=view_func, methods=['DELETE'])
 
 
 class AuthnAPI(MethodView):
@@ -85,7 +254,7 @@ class AuthnAPI(MethodView):
     def put(self):
         """ Login """
         # If identity does not exist, create one, and a relation with the authentication method
-        id_auth = obtain_idauth_from_request()  # MAIN !!
+        id_auth, roles = obtain_idauth_from_request()  # MAIN !!
         # If the identity is Active, continue;
         # If not, return an error
         if id_auth:
@@ -95,6 +264,7 @@ class AuthnAPI(MethodView):
                 sess = AppSession()
                 sess.identity_id = id_auth.identity.id
                 sess.identity_name = id_auth.identity.name
+                sess.roles = roles
                 flask_session["session"] = serialize_session(sess)
                 # Attach identity to the current session
                 response_object = {

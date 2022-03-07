@@ -8,7 +8,7 @@ import traceback
 from dataclasses import dataclass
 from datetime import datetime
 from functools import wraps
-from typing import Dict
+from typing import Dict, Tuple, List
 
 import blosc
 import firebase_admin
@@ -16,6 +16,7 @@ from firebase_admin import credentials, auth
 from flask import request, abort, Response, session as flask_session, g
 from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
+from werkzeug.security import check_password_hash
 
 from ..authorization import ast_evaluator, authr_expression, string_to_ast
 from ..common import generate_json
@@ -76,6 +77,7 @@ class AppSession:
     login_time: str = ""
     token_type: str = None
     token: str = None
+    roles = None  # Roles requested through API Key authentication
     # Not persisted
     identity: Identity = None
     db_session: Session = None
@@ -87,10 +89,10 @@ EXEMPT_METHODS = {'OPTIONS'}
 NO_SESS_RESPONSE = build_json_response({"error": "No active session. Please, open one first ('PUT /api/authn')"}, 400)
 
 
-def obtain_idauth_from_request() -> str:
+def obtain_idauth_from_request() -> Tuple[IdentityAuthenticator, List[str]]:
     from ..rest import logger
 
-    def prepare_identity(tok_dict: Dict) -> IdentityAuthenticator:
+    def prepare_identity(tok_dict: Dict) -> Tuple[IdentityAuthenticator, List[str]]:
         def initialize_identity_roles():
             from ..rest import tm_default_users
 
@@ -119,26 +121,49 @@ def obtain_idauth_from_request() -> str:
 
         # Get Authenticator, Name and e-mail (e-mail is used as identifier in "Identity")
         identity = None
+        authenticator = None
+        ident_auth = None
         name = None
         email = None
-        authenticator = None
+        roles = None  # Not specified (not empty)
         session = DBSession()
         if "auth_method" in tok_dict:
             if tok_dict["auth_method"] == "local-api-key":
                 authenticator = session.query(Authenticator).filter(Authenticator.name == "local-api-key").first()
-                s = f'SELECT identity_id FROM {IdentityAuthenticator.__tablename__} ' \
-                    f'WHERE authenticator_id={authenticator.id} AND ' \
-                    f'authenticator_info @> \'{{"key": "{tok_dict["key"]}"}}\''
-                close_connection = session.transaction is None
-                conn = session.connection()
-                result = conn.execute(s)
-                identity_id = result.first()[0]
-                if close_connection:
-                    conn.close()
-                # If there is some result, get identity_id and e-mail
-                identity = session.query(Identity).get(identity_id)
-                email = identity.email
-                name = identity.name
+                identity = session.query(Identity).filter(Identity.name == tok_dict["user"]).first()
+                if identity:
+                    ident_auth = session.query(IdentityAuthenticator).\
+                        filter(and_(IdentityAuthenticator.identity_id == identity.id,
+                                    IdentityAuthenticator.authenticator_id == authenticator.id)).first()
+                    if ident_auth:
+                        found = False
+                        for d in ident_auth.authenticator_info:
+                            if check_password_hash(d["hash"], tok_dict["api_key"]):
+                                found = True
+                                # Check if dates are valid
+                                if "valid_from" in d:
+                                    if d["valid_from"] is not None:
+                                        d["valid_from"] = datetime.fromisoformat(d["valid_from"])
+                                else:
+                                    d["valid_from"] = None
+                                if "valid_until" in d:
+                                    if d["valid_until"] is not None:
+                                        d["valid_until"] = datetime.fromisoformat(d["valid_until"])
+                                else:
+                                    d["valid_until"] = None
+                                if (d["valid_from"] is None or (d["valid_from"] is not None and d["valid_from"] <= datetime.now())) and (d["valid_until"] is None or (d["valid_until"] is not None and d["valid_until"] >= datetime.now())):
+                                    roles = d["roles"]
+                                    # TODO - Intersect with current roles of Identity
+                                    email = identity.email
+                                    name = identity.name
+                                else:
+                                    logger.warning("Specified API key is not in the range of valid dates")
+                                break
+                    if roles is None:
+                        logger.warning("Specified API key is not valid")
+                    else:
+                        identity = None
+
             elif tok_dict["auth_method"] == "local":
                 authenticator = session.query(Authenticator).filter(Authenticator.name == "local").first()
                 name = tok_dict["user"]
@@ -170,8 +195,9 @@ def obtain_idauth_from_request() -> str:
             session.add(identity)
 
         # Find or create IdentityAuthenticator
-        ident_auth = session.query(IdentityAuthenticator).filter(
-            and_(IdentityAuthenticator.identity == identity, IdentityAuthenticator.authenticator == authenticator)).first()
+        if not ident_auth:
+            ident_auth = session.query(IdentityAuthenticator).filter(
+                and_(IdentityAuthenticator.identity == identity, IdentityAuthenticator.authenticator == authenticator)).first()
         if not ident_auth and authenticator.name == "firebase":  # Create (others must exist previously)
             ident_auth = IdentityAuthenticator()
             ident_auth.email = email
@@ -189,7 +215,7 @@ def obtain_idauth_from_request() -> str:
 
         session.commit()
 
-        return ident_auth
+        return ident_auth, roles
 
     # ------------------------------------------------------------------------------------------------------------------
     # Get the token from the request
@@ -203,7 +229,8 @@ def obtain_idauth_from_request() -> str:
             traceback.print_exc()
             abort(401, 'The session token is not valid or has expired')
     elif 'X-API-Key' in request.headers:  # "API-KEY" authentication
-        tok = dict(api_key=request.headers["X-API-Key"], auth_method="local-api-key")
+        user = request.args.get("user")
+        tok = dict(api_key=request.headers["X-API-Key"], auth_method="local-api-key", user=user)
     elif "user" in request.args:  # "local" authentication
         user = request.args.get("user")
         tok = dict(user=user, auth_method="local")

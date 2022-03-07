@@ -1,8 +1,7 @@
 import datetime
 import uuid
 
-from sqlalchemy import Column, ForeignKey, UniqueConstraint, Boolean, Integer, BigInteger, String, DateTime, Text, \
-    JSON, Sequence, Index
+from sqlalchemy import Column, ForeignKey, UniqueConstraint, Boolean, Integer, String, DateTime, Text, JSON, Index
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship, backref
 

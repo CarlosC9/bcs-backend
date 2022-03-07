@@ -23,10 +23,35 @@ def custom_identities_filter(filter, session=None):
     return [Identity.uuid.notin_([i for i in tm_default_users.keys()])]
 
 
-bp_identities, IdentitiesAPI = make_simple_rest_crud(Identity, "identities", aux_filter=custom_identities_filter, default_filter={'-': {}})
+def get_current_identity(session, identity_id):
+    if identity_id is not None:
+        if int(identity_id) == 0:
+            identity_id = g.n_session.identity.id
+            return session.query(Identity).filter(Identity.id == identity_id).first()
+
+
+bp_identities, IdentitiesAPI = make_simple_rest_crud(Identity, "identities", alt_getters=dict(get=get_current_identity),
+                                                     aux_filter=custom_identities_filter, default_filter={'-': {}})
 bp_identities_authenticators, IdentitiesAuthenticatorAPI = make_simple_rest_crud(IdentityAuthenticator, "identities_authenticators")
 bp_roles, RolesAPI = make_simple_rest_crud(Role, "roles")
-bp_identities_roles, IdentitiesRolesAPI = make_simple_rest_crud(RoleIdentity, "identities_roles")
+
+
+def get_identity_roles(session, identity_id):
+    """
+    Load roles for a given (or not) identity
+
+    :param session:
+    :param identity_id:
+    :return:
+    """
+    if identity_id is not None:
+        if int(identity_id) == 0:
+            identity_id = g.n_session.identity.id
+        return session.query(Role).join(RoleIdentity).filter(RoleIdentity.identity_id == identity_id).all()
+
+
+bp_identities_roles, IdentitiesRolesAPI = make_simple_rest_crud(RoleIdentity, "identities_roles",
+                                                                alt_getters=dict(get=get_identity_roles))
 bp_groups, GroupsAPI = make_simple_rest_crud(Group, "groups")
 bp_organizations, OrganizationsAPI = make_simple_rest_crud(Organization, "organizations")
 # bp_acl, aclAPI = make_simple_rest_crud(ACL, "acls")

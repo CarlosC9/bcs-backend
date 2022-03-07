@@ -217,7 +217,11 @@ def __tree2file(phylotree_id, format, output_file):
         with open("%s.newick" % output_file, "w") as file:
             file.write(result)
         # convert from newick to another format
-        if format != "newick":
+        if format in ["nexus", "nexml"] :
+            from dendropy import Tree
+            tree = Tree.get(path="%s.newick" % output_file, schema="newick")
+            tree.write(path=output_file, schema=format)
+        elif format != "newick":
             from Bio import Phylo
             Phylo.convert("%s.newick" % output_file, "newick", output_file, format)
         else:
@@ -229,16 +233,16 @@ def __tree2newick(node, is_root=True):
     result = ''
     children = chado_session.query(Phylonode).filter(Phylonode.parent_phylonode_id == node.phylonode_id)
     if children.count() > 0:
-        result += '(' if is_root else '\n('
+        result += '(' if is_root else '('
         i = 1
         for n in children.all():
             result += __tree2newick(n, False)
             result += ',' if i < children.count() else ')'
             i += 1
-    if node.label or node.distance:
+    if not is_root and node.label or node.distance:
         label = node.label if node.label else ''
         distance = node.distance if node.distance else '0.00000'
-        result += f'\n{label}:{distance}'
+        result += f'{label}:{distance}'
     result += ';' if is_root else ''
     return result
 

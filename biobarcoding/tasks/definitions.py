@@ -947,8 +947,8 @@ def wf1_manage_error(job_context: str):
     refresh_status(jc, "manage_error")
     call_app_entity_status_callback(jc, "manage_error")
 
-    job_executor = JobExecutorAtResourceFactory().get(jc)
-    #jc.results = clean_failed_results(jc.results, job_executor.local_workspace)
+    # job_executor = JobExecutorAtResourceFactory().get(jc)
+    # jc.results = clean_failed_results(jc.results, job_executor.local_workspace)
     jc.results = []
     jc.cleanup_error = True
     del jc.state_dict  # needed to store to work

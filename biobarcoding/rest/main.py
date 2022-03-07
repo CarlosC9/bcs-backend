@@ -32,7 +32,7 @@ from . import logger, log_level, load_configuration_file, construct_session_pers
     initialize_chado_edam, initialize_database_chado, initialize_galaxy
 from biobarcoding import app_acronym
 from ..services.geoprocesses import update_geoprocesses
-from .auth import bp_auth
+from .auth import bp_auth, bp_api_key
 from .bos import bp_bos
 from .browser_filters import bp_bfilters
 from .files import bp_files
@@ -191,6 +191,7 @@ def create_app(debug, start_socket=True, cfg_dict=None):
                bp_viewz,
                bp_dashboards,
                bp_dashboard_items,
+               bp_api_key,
 			   ]:
         app.register_blueprint(bp)
 
@@ -206,7 +207,7 @@ def create_app(debug, start_socket=True, cfg_dict=None):
 # FLASK_ENV=development FLASK_APP=biobarcoding.rest.main flask run
 logger.debug("BACKEND is STARTING !!!")
 
-start_socket = False
+start_socket = True
 biobarcoding.flask_app = create_app(True, start_socket=start_socket)
 
 @biobarcoding.flask_app.route("/")
