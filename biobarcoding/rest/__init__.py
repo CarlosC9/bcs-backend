@@ -83,18 +83,13 @@ class Issue:
         return f'(type="{self.itype.name}", message="{self.message}", location="{self.location}")'
 
 
-@attrs
 class ResponseObject:
-    content = attrib(default=None)  # type: object
-    count = attrib(default=0)  # type: int
-    issues = attrib(default=[])  # type: List[Issue]
-    # Mimetype.
-    content_type = attrib(default="text/json")  # type: str
-    # HTTP response status code
-    status = attrib(default=200)  # type: int
-
-    def __init__(self):
-        self.issues = []
+    def __init__(self, content=None, count=0, issues=None, content_type="text/json", status=200):
+        self.content = content
+        self.count = count
+        self.issues = [] if issues is None else issues
+        self.content_type = content_type
+        self.status = status
 
     def get_response(self) -> Response:
         """
