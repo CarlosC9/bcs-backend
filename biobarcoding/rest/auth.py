@@ -161,7 +161,9 @@ class ApiKeyAPI(MethodView):
                 h = generate_password_hash(k)
                 d = dict(key_idx=key_idx, hash=h, roles=t['roles'],
                          valid_from=t['valid_from'], valid_until=t['valid_until'])
-                identity_authenticator.authenticator_info.append(d)
+                lst = identity_authenticator.authenticator_info.copy()
+                lst.append(d)
+                identity_authenticator.authenticator_info = lst
                 r.content.update(d)
         return r.get_response()
 
