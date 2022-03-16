@@ -7,28 +7,74 @@ from ..db_models import ORMBase, DBSession
 
 def get_orm(entity):
     orm = None
-    if entity in ('template', 'templates'):
+    # BOS
+    # TODO: add discriminant-matrices, blasts, supermatrices, collections
+    if entity == 'sequences':
+        from ..db_models.chado import Feature as orm
+    elif entity == 'alignments':
+        from ..db_models.chado import Analysis as orm
+    elif entity == 'phylotrees':
+        from ..db_models.chado import Phylotree as orm
+    # BOS METADATA
+    # TODO: add publications, topics, sources, crs (reports?)
+    elif entity == 'individuals':
+        from ..db_models.chado import Stock as orm
+    elif entity == 'analyses':
+        from ..db_models.chado import Analysis as orm
+    elif entity == 'taxonomies':
+        from ..db_models.chado import Phylotree as orm
+    elif entity == 'organisms':
+        from ..db_models.chado import Organism as orm
+    elif entity == 'ontologies':
+        from ..db_models.chado import Cv as orm
+    elif entity == 'cvterms':
+        from ..db_models.chado import Cvterms as orm
+    # ANNOTATIONS TOOLS
+    elif entity in ('template', 'templates'):
         from ..db_models.sa_annotations import AnnotationFormTemplate as orm
-    if entity in ('field', 'fields'):
+    elif entity in ('field', 'fields'):
         from ..db_models.sa_annotations import AnnotationFormField as orm
-    if entity in ('annotation', 'annotations'):
+    elif entity in ('annotation', 'annotations'):
         from ..db_models.sa_annotations import AnnotationItem as orm
-    if entity == 'annotation_template':
+    elif entity == 'annotation_template':
         from ..db_models.sa_annotations import AnnotationTemplate as orm
-    if entity == 'annotation_field':
+    elif entity == 'annotation_field':
         from ..db_models.sa_annotations import AnnotationField as orm
-    if entity == 'annotation_text':
+    elif entity == 'annotation_text':
         from ..db_models.sa_annotations import AnnotationText as orm
     return orm
 
 
 def get_service(entity):
     AuxService = None
-    if entity == 'templates':
+    # BOS
+    # TODO: add discriminant-matrices, blasts, supermatrices, collections
+    if entity == 'sequences':
+        from .bio.bos.sequences import AuxService
+    elif entity == 'alignments':
+        from .bio.bos.alignments import AuxService
+    elif entity == 'phylotrees':
+        from .bio.bos.phylotrees import AuxService
+    # BOS METADATA
+    # TODO: add publications, topics, sources, crs (reports?)
+    elif entity == 'individuals':
+        from .bio.meta.individuals import AuxService
+    elif entity == 'analyses':
+        from .bio.meta.analyses import AuxService
+    elif entity == 'taxonomies':
+        from .bio.meta.taxonomies import AuxService
+    elif entity == 'organisms':
+        from .bio.meta.organisms import AuxService
+    elif entity == 'ontologies':
+        from .bio.meta.ontologies import AuxService
+    elif entity == 'cvterms':
+        from .bio.meta.ontologies import CvtermsAuxService as AuxService
+    # ANNOTATIONS TOOLS
+    elif entity == 'templates':
         from .annotation_forms.templates import AuxService
-    if entity == 'fields':
+    elif entity == 'fields':
         from .annotation_forms.fields import AuxService
-    if entity == 'annotations':
+    elif entity == 'annotations':
         from .annotation_forms.annotations import AuxService
     return AuxService()
 

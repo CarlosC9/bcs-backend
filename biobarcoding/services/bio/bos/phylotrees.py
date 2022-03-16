@@ -1,12 +1,12 @@
 import os.path
 import time
 
-from .ontologies import get_cvterm_query
-from ..db_models import DBSession as db_session, DBSessionChado as chado_session
-from ..db_models.bioinformatics import PhylogeneticTree, data_object_type_id
-from ..db_models.chado import Phylotree, Phylonode, Feature
-from ..rest import Issue, IType, filter_parse, auth_filter
-from . import get_query, get_bioformat, get_or_create, get_orm_params
+from ..meta.ontologies import get_cvterm_query
+from ....db_models import DBSession as db_session, DBSessionChado as chado_session
+from ....db_models.bioinformatics import PhylogeneticTree, data_object_type_id
+from ....db_models.chado import Phylotree, Phylonode, Feature
+from ....rest import Issue, IType, filter_parse, auth_filter
+from ... import get_query, get_bioformat, get_or_create, get_orm_params
 
 
 ##
@@ -15,7 +15,7 @@ from . import get_query, get_bioformat, get_or_create, get_orm_params
 
 def __check_phylo_values(**values):
     if not values.get('dbxref_id'):
-        from biobarcoding.db_models.chado import Db, Dbxref
+        from ....db_models.chado import Db, Dbxref
         values['dbxref_id'] = get_or_create(chado_session, Dbxref,
                                             db_id=chado_session.query(Db).filter(Db.name == 'null').one().db_id,
                                             accession=f'phylotree:{values.get("name")}',
@@ -35,7 +35,7 @@ def __check_phylo_values(**values):
     # Analysis row could exist for jobs, so get or create
     ansis_trigger = ('job_id', 'program', 'programversion', 'sourcename')
     if not values.get('analysis_id') and any(key in values.keys() for key in ansis_trigger):
-        from .analyses import __get_query as get_ansis_query, create as create_ansis
+        from ..meta.analyses import __get_query as get_ansis_query, create as create_ansis
         try:
             unique_keys = ['job_id'] if values.get('job_id') else ('program', 'programversion', 'sourcename')
             content, count = get_ansis_query(**{k:values[k] for k in unique_keys if k in values})
@@ -255,7 +255,7 @@ def __get_query(phylotree_id=None, purpose='read', **kwargs):
     if phylotree_id:
         query = chado_session.query(Phylotree).filter(Phylotree.phylotree_id == phylotree_id)
         return query, query.count()
-    from biobarcoding.db_models.sysadmin import PermissionType
+    from ....db_models.sysadmin import PermissionType
     purpose_id = db_session.query(PermissionType).filter(PermissionType.name==purpose).one().id
     phy_clause = db_session.query(PhylogeneticTree.native_id) \
         .filter(auth_filter(PhylogeneticTree, purpose_id, [data_object_type_id['phylogenetic-tree']]))
@@ -274,7 +274,7 @@ def __aux_own_filter(filter):
         clause.append(Phylotree.phylotree_id.in_(_ids))
 
     if 'organism_id' in filter:
-        from biobarcoding.db_models.chado import Feature
+        from ....db_models.chado import Feature
         _ids = chado_session.query(Feature.feature_id) \
             .filter(filter_parse(Feature, [{'organism_id': filter.get('organism_id')}]))
         _ids = chado_session.query(Phylonode.phylotree_id) \
@@ -282,12 +282,12 @@ def __aux_own_filter(filter):
         clause.append(Phylotree.phylotree_id.in_(_ids))
 
     if "prop_cvterm_id" in filter:
-        from biobarcoding.db_models.chado import Phylotreeprop
+        from ....db_models.chado import Phylotreeprop
         _ids = chado_session.query(Phylotreeprop.phylotree_id) \
             .filter(filter_parse(Phylotreeprop, [{'type_id': filter.get('prop_cvterm_id')}]))
         clause.append(Phylotree.phylotree_id.in_(_ids))
 
-    from biobarcoding.db_models.chado import Analysis
+    from ....db_models.chado import Analysis
     if "program" in filter:
         _ids = chado_session.query(Analysis.analysis_id) \
             .filter(filter_parse(Analysis, [{'program': filter.get('program')}]))

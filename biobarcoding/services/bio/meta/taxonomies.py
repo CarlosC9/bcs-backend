@@ -1,7 +1,7 @@
-from ..db_models import DBSessionChado as chado_session
-from ..db_models.chado import Phylotree
-from ..rest import Issue, IType, filter_parse
-from . import get_query
+from ....db_models import DBSessionChado as chado_session
+from ....db_models.chado import Phylotree
+from ....rest import Issue, IType, filter_parse
+from ... import get_query
 
 
 def create(**kwargs):
@@ -50,7 +50,7 @@ def import_file(input_file, format='obo', **kwargs):
         named = f' -n {kwargs.get("name")} ' if kwargs.get("name") else ''
         import os
         dir_path = os.path.dirname(os.path.realpath(__file__))
-        from biobarcoding.services import exec_cmds
+        from ... import exec_cmds
         content, err = exec_cmds(f'''(cd {dir_path}/perl_scripts/ &&
             perl ./load_ncbi_taxonomy.pl\
                 -H {cfg["CHADO_HOST"]}\
@@ -85,7 +85,7 @@ def __get_query(phylotree_id=None, **kwargs):
     if phylotree_id:
         query = chado_session.query(Phylotree).filter(Phylotree.phylotree_id == phylotree_id)
         return query, query.count()
-    from biobarcoding.db_models.chado import Dbxref
+    from ....db_models.chado import Dbxref
     dbxref_id = chado_session.query(Dbxref.dbxref_id).filter(Dbxref.accession == 'taxonomy').first()
     return get_query(chado_session, Phylotree, **kwargs, dbxref_id=dbxref_id,
                      aux_filter=__aux_own_filter, aux_order=__aux_own_order)
@@ -94,7 +94,7 @@ def __get_query(phylotree_id=None, **kwargs):
 def __aux_own_filter(filter):
     clause = []
     # if 'analysis_id' in filter:
-    #     from biobarcoding.db_models.chado import AnalysisFeature
+    #     from ....db_models.chado import AnalysisFeature
     #     _ids = chado_session.query(AnalysisFeature.feature_id)\
     #             .filter(
     #                 filter_parse(AnalysisFeature, [{'analysis_id': filter.get('analysis_id')}]))

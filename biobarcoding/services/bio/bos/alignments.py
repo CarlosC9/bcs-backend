@@ -3,16 +3,16 @@ import os.path
 
 from Bio import AlignIO
 
-from ..db_models import DBSession as db_session
-from ..db_models import DBSessionChado as chado_session
-from ..db_models.chado import Organism, Feature, AnalysisFeature, Analysis
-from ..db_models.bioinformatics import MultipleSequenceAlignment, data_object_type_id
+from ....db_models import DBSession as db_session
+from ....db_models import DBSessionChado as chado_session
+from ....db_models.chado import Organism, Feature, AnalysisFeature, Analysis
+from ....db_models.bioinformatics import MultipleSequenceAlignment, data_object_type_id
 
-from ..rest import IType, Issue, auth_filter
-from ..services import get_or_create, log_exception, get_bioformat
-from ..common import generate_json
-from ..services.analyses import __get_query as get_ansis_query
-from ..services.sequences import __get_query as get_seqs_query, \
+from ....rest import IType, Issue, auth_filter
+from ... import get_or_create, log_exception, get_bioformat
+from ....common import generate_json
+from ..meta.analyses import __get_query as get_ansis_query
+from sequences import __get_query as get_seqs_query, \
     create as create_seq, \
     delete as delete_sequences, \
     __seqs2file as export_sequences
@@ -35,7 +35,7 @@ def create(**kwargs):
         if not kwargs.get('program'):
             kwargs['program'] = 'Multiple sequence alignment'
         # create as analysis
-        from .analyses import create as create_ansis
+        from ..meta.analyses import create as create_ansis
         issues, content, status = create_ansis(**kwargs)
         chado_session.flush()   # analysis_id required
         msa_bcs = __msa2bcs(content)
@@ -83,7 +83,7 @@ def read(id=None, **kwargs):
 ##
 
 def update(id, **kwargs):
-    from .analyses import update as update_ansis
+    from ..meta.analyses import update as update_ansis
     return update_ansis(id, **kwargs)
 
 
@@ -128,7 +128,7 @@ def __seq_org_id(name):
 def __bind2src(feature, srcname):
     try:
         src = get_seqs_query(purpose='annotate', uniquename=srcname)[0].one()
-        from ..db_models.chado import Featureloc
+        from ....db_models.chado import Featureloc
         relationship = get_or_create(chado_session, Featureloc, feature_id=feature.feature_id, srcfeature_id=src.feature_id)
     except Exception as e:
         relationship = None
@@ -214,7 +214,7 @@ def export(id, format='fasta', values={}, **kwargs):
 ##
 
 def __get_query(id=None, purpose='read', **kwargs):
-    from biobarcoding.db_models.sysadmin import PermissionType
+    from ....db_models.sysadmin import PermissionType
     purpose_id = db_session.query(PermissionType).filter(PermissionType.name==purpose).one().id
     aln_clause = db_session.query(MultipleSequenceAlignment.native_id) \
         .filter(auth_filter(MultipleSequenceAlignment, purpose_id, [data_object_type_id['multiple-sequence-alignment']]))

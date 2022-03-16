@@ -1,9 +1,9 @@
 from flask import request, send_file
 from flask.views import MethodView
 
-from biobarcoding.authentication import n_session
-from biobarcoding.rest import parse_request_params, ResponseObject
-from biobarcoding.services.main import getCRUDIE
+from . import parse_request_params, ResponseObject, Issue, IType
+from ..authentication import n_session
+from ..services.main import getCRUDIE
 
 
 class CrudieAPI(MethodView):

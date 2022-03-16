@@ -2,16 +2,15 @@ import json
 import os.path
 import re
 
-from .ontologies import get_cvterm_query
-from ..common import generate_json
-from ..db_models import DBSession as db_session
-from ..db_models import DBSessionChado as chado_session
-from ..db_models.chado import Feature, Organism, StockFeature, AnalysisFeature
-from ..db_models.bioinformatics import Sequence, data_object_type_id
+from ..meta.ontologies import get_cvterm_query
+from ....common import generate_json
+from ....db_models import DBSession as db_session
+from ....db_models import DBSessionChado as chado_session
+from ....db_models.chado import Feature, Organism, StockFeature, AnalysisFeature
+from ....db_models.bioinformatics import Sequence, data_object_type_id
 
-from ..rest import Issue, IType, filter_parse, auth_filter
-from . import get_orm_params, get_query
-from ..services import log_exception, get_bioformat, get_or_create
+from ....rest import Issue, IType, filter_parse, auth_filter
+from ... import log_exception, get_bioformat, get_or_create, get_orm_params, get_query
 
 
 ##
@@ -55,7 +54,7 @@ def __check_seq_values(**values):
 
 def __seq_stock(seq, **values):
     if not values.get('stock_id') and values.get('stock'):
-        from .individuals import __get_query as get_stock_query, create as create_stock
+        from ..meta.individuals import __get_query as get_stock_query, create as create_stock
         try:
             stock = get_stock_query(values.get('stock_id'), uniquename=values.get('stock'))[0].one()
         except Exception as e:
@@ -270,7 +269,7 @@ def import_file(input_file, format=None, **kwargs):
     issues, content, count, status = [], None, 0, 200
     format = get_bioformat(input_file, format)
     try:
-        from ..services import seqs_parser
+        from ... import seqs_parser
         for s in seqs_parser(input_file, format):
             iss = __bio2chado(s, format, **kwargs)
             issues += [ Issue(i.itype, i.message, os.path.basename(input_file)) for i in iss ]
@@ -292,7 +291,7 @@ def __seqs_header_parser(seqs, format: str):     # return dict(uniquename, heade
     if "organism" in format.lower():    # ('organismID', 'organism', 'organism_canon', 'organism_canon_underscored')
         orgs = chado_session.query(Feature.uniquename, Organism.organism_id, Organism.name) \
             .join(Organism).filter(Feature.uniquename.in_([x.uniquename for x in seqs])).all()
-        from biobarcoding.services.organisms import get_canonical
+        from ..meta.organisms import get_canonical
         for seq_id, org_id, name in orgs:
             if "id" in format.lower():
                 headers[seq_id] = str(org_id)
@@ -356,7 +355,7 @@ def __get_query(id=None, purpose='read', **kwargs):
     if id:
         query = chado_session.query(Feature).filter(Feature.feature_id == id)
         return query, query.count()
-    from biobarcoding.db_models.sysadmin import PermissionType
+    from ....db_models.sysadmin import PermissionType
     purpose_id = db_session.query(PermissionType).filter(PermissionType.name==purpose).one().id
     seq_clause = db_session.query(Sequence.native_id) \
         .filter(auth_filter(Sequence, purpose_id, [data_object_type_id['sequence']]))
@@ -370,46 +369,46 @@ def __aux_own_filter(filter):
     clause=[]
 
     if 'analysis_id' in filter:
-        from ..db_models.chado import AnalysisFeature
+        from ....db_models.chado import AnalysisFeature
         _ids = chado_session.query(AnalysisFeature.feature_id)\
             .filter(filter_parse(AnalysisFeature, [{'analysis_id': filter.get('analysis_id')}]))
         clause.append(Feature.feature_id.in_(_ids))
 
     if 'phylotree_id' in filter:
-        from ..db_models.chado import Phylonode
+        from ....db_models.chado import Phylonode
         _ids = chado_session.query(Phylonode.feature_id)\
             .filter(filter_parse(Phylonode, [{'phylotree_id': filter.get('phylotree_id')}]))
         clause.append(Feature.feature_id.in_(_ids))
 
     if "prop_cvterm_id" in filter:
-        from ..db_models.chado import Featureprop
+        from ....db_models.chado import Featureprop
         _ids = chado_session.query(Featureprop.feature_id)\
             .filter(filter_parse(Featureprop, [{'type_id': filter.get('prop_cvterm_id')}]))
         clause.append(Feature.feature_id.in_(_ids))
 
     if "program" in filter:
-        from ..db_models.chado import Analysis
+        from ....db_models.chado import Analysis
         _ids = chado_session.query(Analysis.analysis_id) \
             .filter(filter_parse(Analysis, [{'program': filter.get('program')}]))
-        from ..db_models.chado import AnalysisFeature
+        from ....db_models.chado import AnalysisFeature
         _ids = chado_session.query(AnalysisFeature.feature_id) \
             .filter(AnalysisFeature.analysis_id.in_(_ids))
         clause.append(Feature.feature_id.in_(_ids))
 
     if "programversion" in filter:
-        from ..db_models.chado import Analysis
+        from ....db_models.chado import Analysis
         _ids = chado_session.query(Analysis.analysis_id) \
             .filter(filter_parse(Analysis, [{'programversion': filter.get('programversion')}]))
-        from ..db_models.chado import AnalysisFeature
+        from ....db_models.chado import AnalysisFeature
         _ids = chado_session.query(AnalysisFeature.feature_id) \
             .filter(AnalysisFeature.analysis_id.in_(_ids))
         clause.append(Feature.feature_id.in_(_ids))
 
     if "algorithm" in filter:
-        from ..db_models.chado import Analysis
+        from ....db_models.chado import Analysis
         _ids = chado_session.query(Analysis.analysis_id) \
             .filter(filter_parse(Analysis, [{'algorithm': filter.get('algorithm')}]))
-        from ..db_models.chado import AnalysisFeature
+        from ....db_models.chado import AnalysisFeature
         _ids = chado_session.query(AnalysisFeature.feature_id) \
             .filter(AnalysisFeature.analysis_id.in_(_ids))
         clause.append(Feature.feature_id.in_(_ids))

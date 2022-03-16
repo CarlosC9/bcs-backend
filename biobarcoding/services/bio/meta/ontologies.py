@@ -1,7 +1,7 @@
-from . import log_exception, get_query, get_orm_params
-from ..db_models import DBSessionChado as chado_session
-from ..db_models.chado import Cvterm, Cv
-from ..rest import Issue, IType
+from ... import log_exception, get_query, get_orm_params
+from ....db_models import DBSessionChado as chado_session
+from ....db_models.chado import Cvterm, Cv
+from ....rest import Issue, IType
 
 
 ##
@@ -205,7 +205,7 @@ def import_file(input_file, format='obo', **kwargs):
         import os
         namespace = pronto.Ontology(input_file).metadata.default_namespace
         onto_name = f'-c {namespace}' if namespace else f'-c {os.path.basename(input_file)}'
-        from biobarcoding.services import exec_cmds
+        from ... import exec_cmds
         out, err = exec_cmds([
             f'''perl ./biobarcoding/services/perl_scripts/gmod_load_cvterms.pl\
                 -H {cfg["CHADO_HOST"]}\
@@ -291,7 +291,7 @@ def get_cvterm_query(id=None, type=None, subtype=None, **kwargs):
 def __aux_cvterms_filter(filter):
     clause = []
     if filter.get('feature_id'):
-        from biobarcoding.db_models.chado import Feature, Featureprop, FeatureCvterm
+        from ....db_models.chado import Feature, Featureprop, FeatureCvterm
         _ids = chado_session.query(Feature.type_id) \
             .filter(Feature.feature_id == filter.get('feature_id')).all()
         _ids += chado_session.query(Featureprop.type_id) \
@@ -300,14 +300,14 @@ def __aux_cvterms_filter(filter):
             .filter(FeatureCvterm.feature_id == filter.get('feature_id')).all()
         clause.append(Cvterm.cvterm_id.in_(_ids))
     if filter.get('analysis_id'):
-        from biobarcoding.db_models.chado import Analysisprop, AnalysisCvterm
+        from ....db_models.chado import Analysisprop, AnalysisCvterm
         _ids = chado_session.query(Analysisprop.type_id) \
             .filter(Analysisprop.analysis_id == filter.get('analysis_id')).all()
         _ids += chado_session.query(AnalysisCvterm.cvterm_id) \
             .filter(AnalysisCvterm.analysis_id == filter.get('analysis_id')).all()
         clause.append(Cvterm.cvterm_id.in_(_ids))
     if filter.get('phylotree_id'):
-        from biobarcoding.db_models.chado import Phylotree, Phylotreeprop
+        from ....db_models.chado import Phylotree, Phylotreeprop
         _ids = chado_session.query(Phylotree.type_id) \
             .filter(Phylotree.phylotree_id == filter.get('phylotree_id')).all()
         _ids += chado_session.query(Phylotreeprop.type_id) \

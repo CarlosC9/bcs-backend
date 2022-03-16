@@ -2,7 +2,7 @@ from ..db_models.core import CaseStudy, CProcess
 from ..db_models.hierarchies import HierarchyNode, Hierarchy
 from ..rest import h_subjects_name, h_sources_name, h_crs_name
 from ..db_models import DBSessionChado as chado_session
-from ..services.ontologies import get_cvterm_query as read_cvterms
+from ..services.bio.meta.ontologies import get_cvterm_query as read_cvterms
 
 def __getTypes(type):
     if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
