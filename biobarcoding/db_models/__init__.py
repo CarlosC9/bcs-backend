@@ -1,13 +1,11 @@
 import json
 import uuid
-# import typing
 from copy import deepcopy
 
 import geopandas
 from geoalchemy2.elements import WKBElement
 from geoalchemy2.shape import to_shape
 from geoalchemy2.types import Geometry as Multipolygon
-# from marshmallow import utils
 from marshmallow.fields import String as SchemaString
 from marshmallow_sqlalchemy import ModelConversionError, ModelSchema
 from marshmallow_sqlalchemy import ModelConverter as BaseModelConverter
@@ -64,28 +62,6 @@ class GUID(TypeDecorator):
             return value
         else:
             return uuid.UUID(value)
-    #
-    # def _serialize(self, value, attr, obj, **kwargs) -> typing.Optional[str]:
-    #     if value is None:
-    #         return None
-    #     return utils.ensure_text_type(value)
-    #
-    # def _validated(self, value) -> typing.Optional[uuid.UUID]:
-    #     """Format the value or raise a :exc:`ValidationError` if an error occurs."""
-    #     if value is None:
-    #         return None
-    #     if isinstance(value, uuid.UUID):
-    #         return value
-    #     try:
-    #         if isinstance(value, bytes) and len(value) == 16:
-    #             return uuid.UUID(bytes=value)
-    #         else:
-    #             return uuid.UUID(value)
-    #     except (ValueError, AttributeError, TypeError) as error:
-    #         raise self.make_error("invalid_uuid") from error
-    #
-    # def _deserialize(self, value, attr, data, **kwargs) -> typing.Optional[uuid.UUID]:
-    #     return self._validated(value)
 
 
 class BaseMixin(object):

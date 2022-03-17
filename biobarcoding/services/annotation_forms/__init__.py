@@ -45,6 +45,7 @@ class FormItemAuxService(SimpleAuxService):
             values['object_type_id'] = DBSession.query(ObjectType.id) \
                 .filter(ObjectType.name.in_(object_types)).all()
             # kwargs['object_type_id'] = [i for i, in kwargs['object_type_id']]
+
         return values
 
     def after_create(self, new_object, **values):

@@ -34,7 +34,7 @@ from ..db_models.jobs import *
 from ..db_models.sa_annotations import *
 from ..db_models.sysadmin import *
 from ..rest.socket_service import SocketService
-import biobarcoding
+import biobarcoding as base_app_pkg
 
 app_api_base = "/api"  # Base for all RESTful calls
 app_gui_base = "/gui"  # Base for the Angular2 GUI
@@ -957,22 +957,22 @@ def initialize_database(flask_app):
         print(db_connection_string)
         print("-----------------------------")
         if db_connection_string.startswith("sqlite://"):
-            biobarcoding.engine = sqlalchemy.create_engine(db_connection_string,
+            base_app_pkg.engine = sqlalchemy.create_engine(db_connection_string,
                                                            echo=True,
                                                            connect_args={'check_same_thread': False},
                                                            poolclass=StaticPool)
         else:
-            biobarcoding.engine = create_pg_database_engine(db_connection_string, app_acronym, recreate_db=recreate_db)
+            base_app_pkg.engine = create_pg_database_engine(db_connection_string, app_acronym, recreate_db=recreate_db)
 
         # global DBSession # global DBSession registry to get the scoped_session
-        DBSession.configure(bind=biobarcoding.engine)  # reconfigure the sessionmaker used by this scoped_session
+        DBSession.configure(bind=base_app_pkg.engine)  # reconfigure the sessionmaker used by this scoped_session
         orm.configure_mappers()  # Important for SQLAlchemy-Continuum
         tables = ORMBase.metadata.tables
-        connection = biobarcoding.engine.connect()
-        table_existence = [biobarcoding.engine.dialect.has_table(connection, tables[t].name) for t in tables]
+        connection = base_app_pkg.engine.connect()
+        table_existence = [base_app_pkg.engine.dialect.has_table(connection, tables[t].name) for t in tables]
         connection.close()
         if False in table_existence:
-            ORMBase.metadata.bind = biobarcoding.engine
+            ORMBase.metadata.bind = base_app_pkg.engine
             ORMBase.metadata.create_all()
         # connection = biobarcoding.engine.connect()
         # table_existence = [biobarcoding.engine.dialect.has_table(connection, tables[t].name) for t in tables]
@@ -994,13 +994,13 @@ def initialize_postgis(flask_app):
         print(db_connection_string)
         print("-----------------------------")
 
-        biobarcoding.postgis_engine = create_pg_database_engine(db_connection_string, f"{app_acronym}_geoserver",
+        base_app_pkg.postgis_engine = create_pg_database_engine(db_connection_string, f"{app_acronym}_geoserver",
                                                                 recreate_db=recreate_db)
         # global DBSession # global DBSession registry to get the scoped_session
         DBSessionGeo.configure(
-            bind=biobarcoding.postgis_engine)  # reconfigure the sessionmaker used by this scoped_session
+            bind=base_app_pkg.postgis_engine)  # reconfigure the sessionmaker used by this scoped_session
         orm.configure_mappers()  # Important for SQLAlchemy-Continuum
-        connection = biobarcoding.postgis_engine.connect()
+        connection = base_app_pkg.postgis_engine.connect()
         try:
             connection.execute("CREATE EXTENSION postgis")
         except:
@@ -1008,11 +1008,11 @@ def initialize_postgis(flask_app):
         connection.execute("commit")
         connection.close()
         tables = ORMBaseGeo.metadata.tables
-        connection = biobarcoding.postgis_engine.connect()
-        table_existence = [biobarcoding.postgis_engine.dialect.has_table(connection, tables[t].name) for t in tables]
+        connection = base_app_pkg.postgis_engine.connect()
+        table_existence = [base_app_pkg.postgis_engine.dialect.has_table(connection, tables[t].name) for t in tables]
         connection.close()
         if False in table_existence:
-            ORMBaseGeo.metadata.bind = biobarcoding.postgis_engine
+            ORMBaseGeo.metadata.bind = base_app_pkg.postgis_engine
             ORMBaseGeo.metadata.create_all()
         # Load base tables
         # initialize_gnd_geoserver_data() # not implemented
@@ -1573,12 +1573,12 @@ def initialize_database_chado(flask_app):
         print("Connecting to Chado database server")
         print(db_connection_string)
         print("-----------------------------")
-        biobarcoding.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=False)
+        base_app_pkg.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=False)
         # global DBSessionChado # global DBSessionChado registry to get the scoped_session
         DBSessionChado.configure(
-            bind=biobarcoding.chado_engine)  # reconfigure the sessionmaker used by this scoped_session
+            bind=base_app_pkg.chado_engine)  # reconfigure the sessionmaker used by this scoped_session
         orm.configure_mappers()  # Important for SQLAlchemy-Continuum
-        ORMBaseChado.metadata.bind = biobarcoding.chado_engine
+        ORMBaseChado.metadata.bind = base_app_pkg.chado_engine
         ORMBaseChado.metadata.reflect()
     else:
         print("No CHADO connection defined (CHADO_CONNECTION_STRING), exiting now!")
@@ -1603,15 +1603,15 @@ def initialize_chado_edam(flask_app):
         print("Connecting to Chado database server to insert EDAM")
         print(db_connection_string)
         print("-----------------------------")
-        biobarcoding.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=True)
+        base_app_pkg.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=True)
 
-        with biobarcoding.chado_engine.connect() as conn:
+        with base_app_pkg.chado_engine.connect() as conn:
             relationship_id = conn.execute(
                 text("select * from INFORMATION_SCHEMA.TABLES where TABLE_NAME = 'db_relationship'")).fetchone()
             if relationship_id is None:
                 try:
                     meta = MetaData()
-                    meta.reflect(biobarcoding.chado_engine, only=["db",
+                    meta.reflect(base_app_pkg.chado_engine, only=["db",
                                                                   "cvterm"])  # this get information about the db and cvterm tables in the existing database
                     # CREATE db_relationship table to relate EDAM submodules with EDAM itself
                     db_relationship = Table('db_relationship', meta,

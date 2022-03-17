@@ -169,6 +169,8 @@ class IdentityStoreAPI(MethodView):
     curl --cookie app-cookies.txt "http://localhost:5000/api/identity_store/"
     GET (key "status"):
     curl --cookie app-cookies.txt "http://localhost:5000/api/identity_store/status"
+    DELETE (key "status"):
+    curl --cookie app-cookies.txt -i -XDELETE "http://localhost:5000/api/identity_store/status"
 
     """
     @n_session(read_only=True, authr=None)
