@@ -170,8 +170,8 @@ def initialize_bibtex_forms():
 				"The year of publication (or, if unpublished, the year of creation)",
 		},
 	]
-	from ..services.annotation_forms.fields import AuxService
-	service = AuxService()
+	from ..services.annotation_forms.fields import Service
+	service = Service()
 	fields = dict()
 	for i in bibtex_fields:
 		try:
@@ -354,8 +354,8 @@ def initialize_bibtex_forms():
 				'bibtex',
 		},
 	]
-	from ..services.annotation_forms.templates import AuxService
-	service = AuxService()
+	from ..services.annotation_forms.templates import Service
+	service = Service()
 	for i in bibtex_entities:
 		try:
 			service.create(**i, object_type_id=object_type_id)

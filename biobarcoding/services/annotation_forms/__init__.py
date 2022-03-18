@@ -1,5 +1,5 @@
 from .. import get_or_create
-from ..main import SimpleAuxService, get_orm
+from ..main import BasicService, get_orm
 from ...rest import filter_parse
 from ...db_models import DBSession, DBSessionChado, ObjectType
 from ...db_models.chado import Cv, Cvterm, Db, Dbxref
@@ -10,7 +10,7 @@ from ...db_models.sa_annotations import AnnotationFormItemObjectType
 # TEMPLATE TOOLS
 ##
 
-class FormItemAuxService(SimpleAuxService):
+class FormItemService(BasicService):
 
     def prepare_values(self, cv=None, cvterm=None, db=None, dbxref=None, **values):
         if cv and cvterm and not values.get('cvterm_id'):
@@ -34,7 +34,7 @@ class FormItemAuxService(SimpleAuxService):
         if values.get("type"):
             self.orm = get_orm(f'{values.get("type")}') or self.orm
 
-        return super(FormItemAuxService, self).prepare_values(**values)
+        return super(FormItemService, self).prepare_values(**values)
 
     def prepare_external_values(self, object_type=[], **values):
         if object_type and not values.get('object_type_id'):

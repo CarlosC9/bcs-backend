@@ -46,43 +46,43 @@ def get_orm(entity):
 
 
 def get_service(entity):
-    AuxService = None
+    Service = None
     # BOS
     # TODO: add discriminant-matrices, blasts, supermatrices, collections
     if entity == 'sequences':
-        from .bio.bos.sequences import AuxService
+        from .bio.bos.sequences import Service
     elif entity == 'alignments':
-        from .bio.bos.alignments import AuxService
+        from .bio.bos.alignments import Service
     elif entity == 'phylotrees':
-        from .bio.bos.phylotrees import AuxService
+        from .bio.bos.phylotrees import Service
     # BOS METADATA
     # TODO: add publications, topics, sources, crs (reports?)
     elif entity == 'individuals':
-        from .bio.meta.individuals import AuxService
+        from .bio.meta.individuals import Service
     elif entity == 'analyses':
-        from .bio.meta.analyses import AuxService
+        from .bio.meta.analyses import Service
     elif entity == 'taxonomies':
-        from .bio.meta.taxonomies import AuxService
+        from .bio.meta.taxonomies import Service
     elif entity == 'organisms':
-        from .bio.meta.organisms import AuxService
+        from .bio.meta.organisms import Service
     elif entity == 'ontologies':
-        from .bio.meta.ontologies import AuxService
+        from .bio.meta.ontologies import Service
     elif entity == 'cvterms':
-        from .bio.meta.ontologies import CvtermsAuxService as AuxService
+        from .bio.meta.ontologies import CvtermsService as Service
     # ANNOTATIONS TOOLS
     elif entity == 'templates':
-        from .annotation_forms.templates import AuxService
+        from .annotation_forms.templates import Service
     elif entity == 'fields':
-        from .annotation_forms.fields import AuxService
+        from .annotation_forms.fields import Service
     elif entity == 'annotations':
-        from .annotation_forms.annotations import AuxService
-    return AuxService()
+        from .annotation_forms.annotations import Service
+    return Service()
 
 
 def getCRUDIE(entity):
 
     ORM = get_orm(entity)
-    AuxService = get_service(entity)
+    Service = get_service(entity)
 
     class CRUDIE:
 
@@ -96,7 +96,7 @@ def getCRUDIE(entity):
 
         def create(self, **kwargs):
             try:
-                self.content, self.count = AuxService.create(**kwargs)
+                self.content, self.count = Service.create(**kwargs)
                 self.issues += [Issue(IType.INFO,
                                       f'CREATE {entity}: The {entity} was created successfully.')]
                 self.status = 201
@@ -110,7 +110,7 @@ def getCRUDIE(entity):
 
         def read(self, **kwargs):
             try:
-                self.content, self.count = AuxService.read(**kwargs)
+                self.content, self.count = Service.read(**kwargs)
                 self.issues += [Issue(IType.INFO,
                                       f'READ {entity}: The {entity} were read successfully.')]
                 self.status = 200
@@ -124,7 +124,7 @@ def getCRUDIE(entity):
 
         def update(self, **kwargs):
             try:
-                self.content, self.count = AuxService.update(**kwargs)
+                self.content, self.count = Service.update(**kwargs)
                 self.issues += [Issue(IType.INFO,
                                       f'UPDATE {entity}: The {entity} was/were updated successfully.')]
                 self.status = 200
@@ -138,7 +138,7 @@ def getCRUDIE(entity):
 
         def delete(self, **kwargs):
             try:
-                self.content, self.count = AuxService.delete(**kwargs)
+                self.content, self.count = Service.delete(**kwargs)
                 self.issues += [Issue(IType.INFO,
                                       f'DELETE {entity}: The {entity} was/were removed successfully.')]
                 self.status = 200
@@ -153,7 +153,7 @@ def getCRUDIE(entity):
         # TODO: generic import in progress
         def import_file(self, input_file, **kwargs):
             try:
-                self.content, self.count = AuxService.import_file(input_file, **kwargs)
+                self.content, self.count = Service.import_file(input_file, **kwargs)
                 self.issues += [Issue(IType.INFO,
                                       f'IMPORT {entity}: The file {input_file} was imported successfully.')]
                 self.status = 200
@@ -168,9 +168,9 @@ def getCRUDIE(entity):
         # TODO: generic export in progress
         def export_file(self, **kwargs):
             try:
-                self.content, self.count = AuxService.export_file(**kwargs)
+                self.content, self.count = Service.export_file(**kwargs)
                 self.issues = [Issue(IType.INFO,
-                                        f'EXPORT {entity}: The {entity} were exported successfully.')]
+                                     f'EXPORT {entity}: The {entity} were exported successfully.')]
                 self.status = 200
             except Exception as e:
                 log_exception(e)
@@ -183,11 +183,15 @@ def getCRUDIE(entity):
     return CRUDIE()
 
 
-class SimpleAuxService:
+class BasicService:
 
     def __init__(self):
         self.orm = ORMBase
         self.db = DBSession
+
+    ##
+    # CREATE
+    ##
 
     # filter and deduce values (mostly ids) for creation or update
     def prepare_values(self, **values) -> dict:
@@ -197,16 +201,16 @@ class SimpleAuxService:
     def prepare_external_values(self, **values) -> dict:
         return values
 
-    # # check the validity of the values against the constraints to create or update
-    # def check_values(self, **values) -> dict:
-    #     return values
+    # check the validity of the values against the constraints to create or update
+    def check_values(self, **values) -> dict:
+        return values
 
     # deal with the creation
     def create(self, **kwargs):
         values = self.prepare_values(**kwargs)
         from sqlalchemy.exc import SQLAlchemyError
         try:
-            content = self.orm(**values)
+            content = self.orm(**self.check_values(**values))
             self.db.add(content)
             self.db.flush()
         except SQLAlchemyError as e:    # IntegrityError: already exists
@@ -221,19 +225,27 @@ class SimpleAuxService:
     def after_create(self, new_object, **kwargs):
         return new_object
 
+    ##
+    # READ
+    ##
+
     # read like get_query, but telling if it asks only for one or more. It can use get_query
     # @return: result, total_count
     def read(self, **kwargs):
-        content, count = self.get_query(**kwargs)
+        content, count = self.get_query(purpose='read', **kwargs)
         if kwargs.get('id'):
             content = self.attach_data(content.first())
         else:
-            content = self.attach_data(*content.all())
+            content = content.all()
         return content, count
 
     # any additional read if any
-    def attach_data(self, *args):
-        return args
+    def attach_data(self, content):
+        return content
+
+    ##
+    # GET SQLALCHEMY QUERY
+    ##
 
     # provide a sqlalchemy query (might be paged) and the total_count
     # @return: Query, total_count
@@ -249,10 +261,14 @@ class SimpleAuxService:
         """
         from ..rest import filter_parse, order_parse
         from ..services import paginator
-        query = query or self.db.query(self.orm)
+        query = query or self.pre_query(kwargs.pop('purpose', 'read')) or self.db.query(self.orm)
         count = 0
         if id:
-            query = query.filter(self.orm.id == id)
+            if hasattr(self.orm, 'id'):
+                query = query.filter(self.orm.id == id)
+            else:
+                from sqlalchemy import inspect
+                query = query.filter(inspect(self.orm).primary_key[0] == id)
             count = query.count()
         else:
             if not kwargs.get('values'):
@@ -261,16 +277,23 @@ class SimpleAuxService:
                 if not k in ['values', 'filter', 'order', 'pagination', 'searchValue'] and v:
                     kwargs['values'][k] = v
             if kwargs.get('values'):
-                query = query.filter_by(**self.prepare_values(**kwargs.get('values')))
+                query = query.filter_by(**get_orm_params(self.orm, **kwargs.get('values')))
                 # query = query.filter(filter_parse(self.orm, kwargs.get('values'), self.aux_filter))
             if kwargs.get('filter'):
                 query = query.filter(filter_parse(self.orm, kwargs.get('filter'), self.aux_filter))
+            if kwargs.get('searchValue', '') != '':
+                if hasattr(self.orm, "ts_vector"):
+                    query = query.filter(self.orm.ts_vector.match(kwargs.get('searchValue')))
             if kwargs.get('order'):
-                query = query.order_by(order_parse(self.orm, kwargs.get('order'), self.aux_order))
+                query = query.order_by(*order_parse(self.orm, kwargs.get('order'), self.aux_order))
             count = query.count()
             if kwargs.get('pagination'):
                 query = paginator(query, kwargs.get('pagination'))
         return query, count
+
+    # method to filter by acl and more particular issues when querying
+    def pre_query(self):
+        return None
 
     # method to filter by external values when querying
     def aux_filter(self, filter) -> list:
@@ -280,13 +303,17 @@ class SimpleAuxService:
     def aux_order(self, order) -> list:
         return []
 
+    ##
+    # UPDATE
+    ##
+
     # deal with the update
     def update(self, values={}, **kwargs):
         changes = self.prepare_values(**values)
-        content, count = self.get_query(**kwargs)
+        content, count = self.get_query(purpose='contribute', **kwargs)
         changes.update(values)
         foreign_changes = self.prepare_external_values(**values)
-        # self.content = self.content.update(AuxService.prepare_values(**values))
+        # self.content = self.content.update(Service.prepare_values(**values))
         content = content.all()
         for row in content:
             for k, v in changes.items():
@@ -301,19 +328,27 @@ class SimpleAuxService:
     def after_update(self, new_object, **values):
         return new_object
 
+    ##
+    # DELETE
+    ##
+
     # deal with the delete
     def delete(self, **kwargs):
-        content, count = self.get_query(**kwargs)
+        content, count = self.get_query(purpose='delete', **kwargs)
         # content = content.delete(synchronize_session='fetch')
         content = content.all()
         for row in content:
-            DBSession.delete(row)
-        self.after_delete(content, **kwargs)
+            self.db.delete(row)
+        self.after_delete(*content, **kwargs)
         return content, count
 
     # any additional delete if any
-    def after_delete(self, new_object, **kwargs):
-        return new_object
+    def after_delete(self, *content, **kwargs):
+        return content
+
+    ##
+    # IMPORT
+    ##
 
     # verify that a given file is the data it pretend to be
     def check_file(self, file, format) -> bool:
@@ -327,6 +362,10 @@ class SimpleAuxService:
         # create required rows ?
         # file2db ?
         return None, 0
+
+    ##
+    # EXPORT
+    ##
 
     # TODO: export
     def export_file(self, format=None, **kwargs):

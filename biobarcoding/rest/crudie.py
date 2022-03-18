@@ -18,14 +18,14 @@ class CrudieAPI(MethodView):
             self.service = getCRUDIE(entity)
         except Exception as e:
             from flask import abort
-            abort(400, f'Bad request: invalid URL ({request.path})')	# TODO: abort properly
+            abort(400, f'Bad request: invalid URL ({request.path})')  # TODO: abort properly
 
     def pre_request(self):
         try:
             self.params = parse_request_params()
         except Exception as e:
             from flask import abort
-            abort(400, f'Bad request: invalid params')	# TODO: abort properly
+            abort(400, f'Bad request: invalid params')  # TODO: abort properly
 
     # CRUDIE REQUESTS
 
@@ -35,7 +35,7 @@ class CrudieAPI(MethodView):
         self.pre_request()
 
         if format:
-            issues, content, count, status = self.service.export(id=id, format=format, **self.params)
+            issues, content, count, status = self.service.export_file(id=id, format=format, **self.params)
             if content:
                 return send_file(content, mimetype=f'text/{format}'), status
         else:
@@ -49,7 +49,7 @@ class CrudieAPI(MethodView):
         self.pre_request()
 
         if request.files or self.params.get('values', {}).get('filesAPI'):
-            issues, content, count, status = self._import_files(self.params.get('values'))
+            issues, content, count, status = self._import_files(**self.params.get('values'))
         else:
             issues, content, count, status = self.service.create(**self.params.get('values'))
 
@@ -75,15 +75,15 @@ class CrudieAPI(MethodView):
 
     # ADDITIONAL TOOLS
 
-    def _import_files(self, values={}):
+    def _import_files(self, **values):
         # TODO: allow combinations ?
         if values.get('filesAPI'):
-            return self._import_filesAPI(values)
+            return self._import_filesAPI(**values)
         if request.files:
-            return self._import_request_files(values)
+            return self._import_request_files(**values)
         return [], None, 0, 200
 
-    def _import_filesAPI(self, values={}):
+    def _import_filesAPI(self, **values):
         issues, content = [], []
         if values.get('filesAPI'):
             file = values.get('filesAPI')
@@ -107,12 +107,13 @@ class CrudieAPI(MethodView):
                 issues += [Issue(IType.ERROR, f'Could not import the file {file}.', file)]
         return issues, content, count, 207
 
-    def _import_request_files(self, format, values={}):
-        issues, content = [], []
+    def _import_request_files(self, **values):
+        issues, content, count = [], [], 0
         for key, file in request.files.items(multi=True):
             try:
                 file_cpy = self._make_file(file)
-                i, c, s = self.service.import_file(file_cpy, format, **values)
+                i, c, s = self.service.import_file(file_cpy, **values)
+                count += 1
             except Exception as e:
                 print(e)
                 i, c = [Issue(IType.ERROR, f'Could not import the file {file}.', file.filename)], {}

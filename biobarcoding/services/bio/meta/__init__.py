@@ -1,9 +1,9 @@
-from ...main import SimpleAuxService
+from ...main import BasicService
 
 
 ##
 # META TOOLS
 ##
 
-class MetaAuxService(SimpleAuxService):
+class MetaService(BasicService):
 	pass

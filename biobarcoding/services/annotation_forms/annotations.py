@@ -1,5 +1,5 @@
 from .. import get_or_create
-from ..main import SimpleAuxService, get_orm
+from ..main import BasicService, get_orm
 from ...db_models import DBSession
 from ...db_models.core import FunctionalObject
 from ...db_models.sa_annotations import AnnotationItemFunctionalObject
@@ -9,14 +9,14 @@ from ...db_models.sa_annotations import AnnotationItemFunctionalObject
 # ANNOTATION TOOLS
 ##
 
-class AuxService(SimpleAuxService):
+class Service(BasicService):
     # TODO:
     #  if an existent field allow multiple instances
     #  if the value for a field is valid by its range
     #  if the value for a field is valid by its type (tag, attribute, relationship)
 
     def __init__(self):
-        super(AuxService, self).__init__()
+        super(Service, self).__init__()
         self.orm = get_orm('annotations')
 
     def prepare_values(self, template=None, field=None, **values):
@@ -44,7 +44,7 @@ class AuxService(SimpleAuxService):
         if values.get("type") in ('template', 'field', 'text'):
             self.orm = get_orm(f'annotation_{values.get("type")}')
 
-        return super(AuxService, self).prepare_values(**values)
+        return super(Service, self).prepare_values(**values)
 
     def prepare_external_values(self, object_id=None, **values):
         if object_id is not None and not values.get('object_uuid'):
@@ -63,13 +63,13 @@ class AuxService(SimpleAuxService):
             content, count = [], 0
             for v in values:
                 v['object_uuid'] = v.get('object_uuid', object_uuid)
-                c, cc = super(AuxService, self).create(**v)
+                c, cc = super(Service, self).create(**v)
                 content.append(c)
                 count += cc
             return content, count
         else:
             values['object_uuid'] = values.get('object_uuid', object_uuid)
-            return super(AuxService, self).create(**values)
+            return super(Service, self).create(**values)
 
     def after_create(self, new_object, **values):
         if values.get('object_uuid'):
@@ -86,7 +86,7 @@ class AuxService(SimpleAuxService):
 
     def update(self, id=None, object_uuid=None, values={}, **kwargs):
         if id and not isinstance(values, (list, tuple)):
-            return super(AuxService, self).update(id=id, values=values, **kwargs)
+            return super(Service, self).update(id=id, values=values, **kwargs)
         elif object_uuid and isinstance(values, (list, tuple)):
             # DELETE anything missing
             self.db.query(AnnotationItemFunctionalObject) \
@@ -99,7 +99,7 @@ class AuxService(SimpleAuxService):
                 id = v.get('id')
                 i+=1
                 if id:
-                    c, cc = super(AuxService, self).update(id=id, values=v, **kwargs)
+                    c, cc = super(Service, self).update(id=id, values=v, **kwargs)
                     if len(c) != 1:
                         raise Exception(f'UPDATE: Could not be updated the annotation {id}')
                     self.after_create(c[0], object_uuid=object_uuid, rank=v.get('rank', i))
@@ -107,7 +107,7 @@ class AuxService(SimpleAuxService):
                     count += cc
                 else:
                     v['object_uuid'] = v.get('object_uuid', object_uuid)
-                    c, cc = super(AuxService, self).create(**v)
+                    c, cc = super(Service, self).create(**v)
                     content.append(c)
                     count += cc
             return content, count
@@ -134,7 +134,7 @@ class AuxService(SimpleAuxService):
         if object_uuid:
             query = query.join(AnnotationItemFunctionalObject).filter(
                 AnnotationItemFunctionalObject.object_uuid == object_uuid).order_by(AnnotationItemFunctionalObject.rank)
-        return super(AuxService, self).get_query(query, **kwargs)
+        return super(Service, self).get_query(query, **kwargs)
 
     def aux_filter(self, filter):
         clauses = []
