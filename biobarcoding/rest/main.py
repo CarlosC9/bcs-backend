@@ -9,7 +9,6 @@ from flask_socketio import SocketIO
 
 # Workaround for relative imports in a "__main__"
 # From: https://stackoverflow.com/a/28154841
-from ..rest.views_dashboards import bp_viewz, bp_dashboards, bp_dashboard_items
 
 if __name__ == '__main__' and (__package__ is None or __package__ == ""):
     file = Path(__file__).resolve()
@@ -28,6 +27,7 @@ if __name__ == '__main__' and (__package__ is None or __package__ == ""):
 import biobarcoding as base_app_pkg
 from ..authentication import initialize_firebase
 from ..geo import initialize_geoserver
+from ..rest.views_dashboards import bp_viewz, bp_dashboards, bp_dashboard_items
 from . import logger, log_level, load_configuration_file, construct_session_persistence_backend, initialize_database, app_gui_base, ResponseObject, init_socket, initialize_postgis, initialize_ssh, \
     initialize_chado_edam, initialize_database_chado, initialize_galaxy
 from biobarcoding import app_acronym
