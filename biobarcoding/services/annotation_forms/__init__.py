@@ -7,7 +7,7 @@ from ...db_models.sa_annotations import AnnotationFormItemObjectType
 
 
 ##
-# TEMPLATE TOOLS
+# ANNOTATION FORM SERVICE
 ##
 
 class FormItemService(BasicService):
@@ -45,7 +45,7 @@ class FormItemService(BasicService):
             values['object_type_id'] = DBSession.query(ObjectType.id) \
                 .filter(ObjectType.name.in_(object_types)).all()
             # kwargs['object_type_id'] = [i for i, in kwargs['object_type_id']]
-        return values
+        return super(FormItemService, self).prepare_external_values(**values)
 
     def after_create(self, new_object, **values):
         if values.get('object_type_id'):
@@ -96,4 +96,4 @@ class FormItemService(BasicService):
                 filter_parse(AnnotationFormItemObjectType, {'object_type_id': filter.get('object_type_id')}))
             clauses.append(self.orm.id.in_(_aux.subquery()))
 
-        return clauses
+        return clauses + super(FormItemService, self).aux_filter(filter)

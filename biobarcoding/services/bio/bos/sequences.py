@@ -2,18 +2,18 @@ import os.path
 import re
 
 from . import BosService
-from ..meta.ontologies import get_cvterm_query
+from ..meta.ontologies import get_type_id
 from ... import get_orm_params, log_exception, get_bioformat, get_or_create
 from ...main import get_orm
-from ....db_models import DBSession as db_session
+from ....db_models import DBSession
 from ....db_models import DBSessionChado
 from ....db_models.chado import Feature, Organism, StockFeature
 from ....db_models.bioinformatics import Sequence
-from ....rest import Issue, IType, filter_parse
+from ....rest import filter_parse
 
 
 ##
-# SEQUENCES TOOLS
+# SEQUENCE SERVICE
 ##
 class Service(BosService):
 
@@ -43,11 +43,11 @@ class Service(BosService):
 
         if not values.get('type_id') and values.get('type'):
             try:
-                values['type_id'] = get_cvterm_query(type=values.get('type'), subtype=values.get('subtype'))[0].one().cvterm_id
-            except Exception as e:
+                values['type_id'] = get_type_id(type=values.get('type'), subtype=values.get('subtype'))
+            except:
                 pass
 
-        return get_orm_params(self.orm, **values)
+        return super(Service, self).prepare_values(**values)
 
     def check_values(self, **values):
         """
@@ -57,20 +57,17 @@ class Service(BosService):
             raise Exception('Missing the uniquename (sequences ID)')
         if not values.get('type_id'):
             try:
-                values['type_id'] = get_cvterm_query(type='sequence')[0].one().cvterm_id
-            except Exception as e:
+                values['type_id'] = get_type_id(type='sequence')
+            except:
                 raise Exception(f'Missing the type_id for {values.get("uniquename")}')
         return get_orm_params(self.orm, **values)
-
-    def prepare_external_values(self, **values):
-        return values
 
     def seq_stock(self, seq, **values):
         if not values.get('stock_id') and values.get('stock'):
             from ..meta.individuals import __get_query as get_stock_query, create as create_stock
             try:
                 stock = get_stock_query(values.get('stock_id'), uniquename=values.get('stock'))[0].one()
-            except Exception as e:
+            except:
                 stock = create_stock(uniquename=values.get('stock'), organism_id=seq.organism_id)[1]
                 self.db.flush()   # stock_id required
             values['stock_id'] = stock.stock_id
@@ -87,7 +84,7 @@ class Service(BosService):
 
         stock = self.seq_stock(new_object, **values)
         # seq to bcs
-        bcs_seq = get_or_create(db_session, Sequence,   # specimen_id=bcs_specimen.id
+        bcs_seq = get_or_create(DBSession, Sequence,   # specimen_id=bcs_specimen.id
                                 native_id=new_object.feature_id,
                                 native_table='feature',
                                 name=new_object.uniquename)
@@ -101,7 +98,7 @@ class Service(BosService):
         import json
         from ....common import generate_json
         content = json.loads(generate_json(content))
-        content['uuid'] = str(db_session.query(Sequence)
+        content['uuid'] = str(DBSession.query(Sequence)
                               .filter(Sequence.native_table == 'feature',
                                       Sequence.native_id == content.get('feature_id')).one().uuid)
         return content
@@ -112,7 +109,7 @@ class Service(BosService):
 
     def after_delete(self, *content, **kwargs):
         ids = [seq.feature_id for seq in content]
-        query = db_session.query(Sequence).filter(Sequence.native_id.in_(ids))
+        query = DBSession.query(Sequence).filter(Sequence.native_id.in_(ids))
         return query.count()
         # TODO: check why all rows are deleted in bcs without filtering
         # return query.delete(synchronize_session='fetch')
@@ -220,7 +217,7 @@ class Service(BosService):
             elif format == 'genbank':   # genbank
                 return self.gbSeq2chado(seq, **params)
             return self.simpleSeq2chado(seq, **params)
-        except Exception as e:
+        except:
             self.db.rollback()
             # return [Issue(IType.ERROR, f'IMPORT sequences: {seq.id} could not be imported.')]
             return None, 0
@@ -250,12 +247,12 @@ class Service(BosService):
         if "organism" in format.lower():    # ('organismID', 'organism', 'organism_canon', 'organism_canon_underscored')
             orgs = self.db.query(Feature.uniquename, Organism.organism_id, Organism.name) \
                 .join(Organism).filter(Feature.uniquename.in_([x.uniquename for x in seqs])).all()
-            from ..meta.organisms import get_canonical
+            from ...species_names import get_canonical_species_names
             for seq_id, org_id, name in orgs:
                 if "id" in format.lower():
                     headers[seq_id] = str(org_id)
                 elif "canon" in format.lower():
-                    headers[seq_id] = get_canonical(name=name,
+                    headers[seq_id] = get_canonical_species_names(DBSession, [name],
                                                     underscores="underscore" in format.lower())
                 else:
                     headers[seq_id] = name
@@ -297,10 +294,11 @@ class Service(BosService):
                                   format=format,
                                   output_file=f'/tmp/output_ngd.{format}',
                                   header_format=values.get('header'))
-            issues, status = [Issue(IType.INFO, f'EXPORT sequences: {count} sequences were successfully exported.')], 200
+            # issues, status = [Issue(IType.INFO, f'EXPORT sequences: {count} sequences were successfully exported.')], 200
         except Exception as e:
+            # issues, status = [Issue(IType.ERROR, f'EXPORT sequences: The sequences could not be exported.')], 409
             log_exception(e)
-            issues, status = [Issue(IType.ERROR, f'EXPORT sequences: The sequences could not be exported.')], 409
+            raise Exception(f'EXPORT sequences: The sequences could not be exported.')
         return content, count
 
     ##
@@ -377,8 +375,4 @@ class Service(BosService):
                 .filter(filter_parse(Feature, {'timelastmodified':filter.get("lastmodified-to")}))
             clause.append(Feature.feature_id.in_(_ids))
 
-        return clause
-
-    def aux_own_order(self, order):
-        clause=[]
         return clause

@@ -6,7 +6,7 @@ from ...db_models.sa_annotations import AnnotationFormTemplate, AnnotationFormTe
 
 
 ##
-# FIELD TOOLS
+# FIELD SERVICE
 ##
 
 class Service(FormItemService):

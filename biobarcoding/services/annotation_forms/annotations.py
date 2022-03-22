@@ -6,7 +6,7 @@ from ...db_models.sa_annotations import AnnotationItemFunctionalObject
 
 
 ##
-# ANNOTATION TOOLS
+# ANNOTATION SERVICE
 ##
 
 class Service(BasicService):
@@ -55,7 +55,7 @@ class Service(BasicService):
             values['object_uuid'] = DBSession.query(FunctionalObject.uuid) \
                 .filter(FunctionalObject.id.in_(ids)).all()
             # kwargs['object_uuid'] = [i for i, in kwargs['object_uuid']]
-        return values
+        return super(Service, self).prepare_external_values(**values)
 
     def create(self, object_uuid=None, **kwargs):
         values = kwargs.get('values')
@@ -145,4 +145,4 @@ class Service(BasicService):
                 filter_parse(AnnotationItemFunctionalObject, {'object_uuid': filter.get('object_uuid')}))
             clauses.append(self.orm.id.in_(_aux.subquery()))
 
-        return clauses
+        return clauses + super(Service, self).aux_filter(filter)

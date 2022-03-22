@@ -16,14 +16,15 @@ class CrudieAPI(MethodView):
     def __init__(self, entity):
         try:
             self.service = getCRUDIE(entity)
-        except Exception as e:
+        except:
             from flask import abort
             abort(400, f'Bad request: invalid URL ({request.path})')  # TODO: abort properly
 
-    def pre_request(self):
+    def pre_request(self, **kwargs):
         try:
             self.params = parse_request_params()
-        except Exception as e:
+            self.params.update(kwargs)
+        except:
             from flask import abort
             abort(400, f'Bad request: invalid params')  # TODO: abort properly
 
@@ -32,21 +33,21 @@ class CrudieAPI(MethodView):
     @n_session(read_only=True)
     def get(self, endpoint=None, id=None, format=None, **kwargs):
         print(f'GET {request.path}\nGetting {endpoint}')
-        self.pre_request()
+        self.pre_request(id=id, format=format, **kwargs)
 
         if format:
-            issues, content, count, status = self.service.export_file(id=id, format=format, **self.params)
+            issues, content, count, status = self.service.export_file(**self.params)
             if content:
                 return send_file(content, mimetype=f'text/{format}'), status
         else:
-            issues, content, count, status = self.service.read(id=id, format=format, **self.params)
+            issues, content, count, status = self.service.read(**self.params)
 
         return ResponseObject(content=content, count=count, issues=issues, status=status).get_response()
 
     @n_session()
     def post(self, endpoint=None, **kwargs):
         print(f'POST {request.path}\nCreating {endpoint}')
-        self.pre_request()
+        self.pre_request(**kwargs)
 
         if request.files or self.params.get('values', {}).get('filesAPI'):
             issues, content, count, status = self._import_files(**self.params.get('values'))
@@ -58,18 +59,18 @@ class CrudieAPI(MethodView):
     @n_session()
     def put(self, endpoint=None, id=None, **kwargs):
         print(f'PUT {request.path}\nUpdating {endpoint} {id}')
-        self.pre_request()
+        self.pre_request(id=id, **kwargs)
 
-        issues, content, count, status = self.service.update(id=id, **self.params)
+        issues, content, count, status = self.service.update(**self.params)
 
         return ResponseObject(content=content, count=count, issues=issues, status=status).get_response()
 
     @n_session()
     def delete(self, endpoint=None, id=None, **kwargs):
         print(f'DELETE {request.path}\nDeleting {endpoint}')
-        self.pre_request()
+        self.pre_request(id=id, **kwargs)
 
-        issues, content, count, status = self.service.delete(id=id, **self.params)
+        issues, content, count, status = self.service.delete(**self.params)
 
         return ResponseObject(content=content, count=count, issues=issues, status=status).get_response()
 
@@ -112,13 +113,13 @@ class CrudieAPI(MethodView):
         for key, file in request.files.items(multi=True):
             try:
                 file_cpy = self._make_file(file)
-                i, c, s = self.service.import_file(file_cpy, **values)
-                count += 1
+                i, c, cc, s = self.service.import_file(file_cpy, **values)
             except Exception as e:
                 print(e)
                 i, c = [Issue(IType.ERROR, f'Could not import the file {file}.', file.filename)], {}
             issues += i
             content.append(c)
+            count += cc
         return issues, content, count, 207
 
     def _make_file(self, file):

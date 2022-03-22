@@ -178,7 +178,7 @@ def initialize_bibtex_forms():
 			c = service.create(**i, object_type_id=object_type_id)[0]
 			fields[c.name] = c
 			service.db.commit()
-		except Exception as e:
+		except:
 			service.db.rollback()
 			print(f'Something went wrong when creating the {i.get("name")} BibTeX field. It may already exist.')
 
@@ -360,6 +360,6 @@ def initialize_bibtex_forms():
 		try:
 			service.create(**i, object_type_id=object_type_id)
 			service.db.commit()
-		except Exception as e:
+		except:
 			service.db.rollback()
 			print(f'Something went wrong when creating the {i.get("name")} BibTeX template. It may already exist.')

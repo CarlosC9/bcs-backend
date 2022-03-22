@@ -1,9 +1,9 @@
-from ...main import BasicService
+from .. import BioService
 
 
 ##
-# META TOOLS
+# CHADO META SERVICE
 ##
 
-class MetaService(BasicService):
+class MetaService(BioService):
 	pass

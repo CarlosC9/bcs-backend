@@ -1,3 +1,5 @@
+import os.path
+
 from flask import g
 
 from . import log_exception, get_bioformat, get_orm_params
@@ -7,7 +9,7 @@ from ..db_models import ORMBase, DBSession
 
 def get_orm(entity):
     orm = None
-    # BOS
+    # BOS ORMS
     # TODO: add discriminant-matrices, blasts, supermatrices, collections
     if entity == 'sequences':
         from ..db_models.chado import Feature as orm
@@ -15,7 +17,7 @@ def get_orm(entity):
         from ..db_models.chado import Analysis as orm
     elif entity == 'phylotrees':
         from ..db_models.chado import Phylotree as orm
-    # BOS METADATA
+    # BIO META ORMS
     # TODO: add publications, topics, sources, crs (reports?)
     elif entity == 'individuals':
         from ..db_models.chado import Stock as orm
@@ -28,8 +30,8 @@ def get_orm(entity):
     elif entity == 'ontologies':
         from ..db_models.chado import Cv as orm
     elif entity == 'cvterms':
-        from ..db_models.chado import Cvterms as orm
-    # ANNOTATIONS TOOLS
+        from ..db_models.chado import Cvterm as orm
+    # ANNOTATION ORMS
     elif entity in ('template', 'templates'):
         from ..db_models.sa_annotations import AnnotationFormTemplate as orm
     elif entity in ('field', 'fields'):
@@ -47,7 +49,7 @@ def get_orm(entity):
 
 def get_service(entity):
     Service = None
-    # BOS
+    # BOS SERVICES
     # TODO: add discriminant-matrices, blasts, supermatrices, collections
     if entity == 'sequences':
         from .bio.bos.sequences import Service
@@ -55,7 +57,7 @@ def get_service(entity):
         from .bio.bos.alignments import Service
     elif entity == 'phylotrees':
         from .bio.bos.phylotrees import Service
-    # BOS METADATA
+    # BIO META SERVICES
     # TODO: add publications, topics, sources, crs (reports?)
     elif entity == 'individuals':
         from .bio.meta.individuals import Service
@@ -68,8 +70,8 @@ def get_service(entity):
     elif entity == 'ontologies':
         from .bio.meta.ontologies import Service
     elif entity == 'cvterms':
-        from .bio.meta.ontologies import CvtermsService as Service
-    # ANNOTATIONS TOOLS
+        from .bio.meta.ontologies import CvtermService as Service
+    # ANNOTATION SERVICES
     elif entity == 'templates':
         from .annotation_forms.templates import Service
     elif entity == 'fields':
@@ -155,13 +157,13 @@ def getCRUDIE(entity):
             try:
                 self.content, self.count = Service.import_file(input_file, **kwargs)
                 self.issues += [Issue(IType.INFO,
-                                      f'IMPORT {entity}: The file {input_file} was imported successfully.')]
+                                      f'IMPORT {entity}: The file {os.path.basename(input_file)} was imported successfully.')]
                 self.status = 200
             except Exception as e:
                 log_exception(e)
                 g.commit_after = False
                 self.issues += [Issue(IType.ERROR,
-                                      f'IMPORT {entity}: The file {input_file} could not be imported.')]
+                                      f'IMPORT {entity}: The file {os.path.basename(input_file)} could not be imported.')]
                 self.status = 409
             return self.issues, self.content, self.count, self.status
 
@@ -292,7 +294,7 @@ class BasicService:
         return query, count
 
     # method to filter by acl and more particular issues when querying
-    def pre_query(self):
+    def pre_query(self, purpose):
         return None
 
     # method to filter by external values when querying
@@ -319,7 +321,7 @@ class BasicService:
             for k, v in changes.items():
                 try:
                     setattr(row, k, v)
-                except Exception as e:
+                except:
                     log_exception(f'"{k}" does not exist in "{row}"')
             self.after_update(row, **foreign_changes)
         return content, count

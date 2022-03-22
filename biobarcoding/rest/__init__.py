@@ -1160,20 +1160,20 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
 def chew_data(param):
     try:
         param = param.decode()
-    except Exception as e:
+    except:
         pass
     try:
         import ast
         param = ast.literal_eval(param)
-    except Exception as e:
+    except:
         pass
     try:
         param = unquote(param)
-    except Exception as e:
+    except:
         pass
     try:
         param = json.loads(param)
-    except Exception as e:
+    except:
         pass
     return param
 
@@ -1207,7 +1207,7 @@ def parse_request_params(data=None, default_kwargs=None):
         for key in ('filter', 'order', 'pagination', 'values', 'searchValue'):
             try:
                 i = input.pop(key)
-            except Exception as e:
+            except:
                 continue
             kwargs[key] = i if i else kwargs[key]
         if input:
