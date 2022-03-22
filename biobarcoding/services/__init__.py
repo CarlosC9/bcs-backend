@@ -110,13 +110,15 @@ def get_encoding(file):
 def get_bioformat(file, format):
     import os
     ext = format if format else os.path.splitext(file)[1][1:]
-    return {'frn': 'fasta', 'fna': 'fasta', 'faa': 'fasta', 'fas': 'fasta', 'fasta': 'fasta',
-            'gb': 'genbank', 'gbf': 'genbank', 'gbk': 'genbank', 'genbank': 'genbank',
-            'gff': 'gff3', 'gff3': 'gff3',
-            'nex': 'nexus', 'nxs': 'nexus', 'nexus': 'nexus',
-            'aln': 'clustal', 'clustal': 'clustal',
-            'ph': 'phylip', 'phy': 'phylip', 'phylip': 'phylip',
-            'nhx': 'newick', 'nwx': 'newick', 'tree': 'newick', 'newick': 'newick'}.get(ext)
+    return {
+        'frn': 'fasta', 'fna': 'fasta', 'faa': 'fasta', 'fas': 'fasta', 'fasta': 'fasta',
+        'gb': 'genbank', 'gbf': 'genbank', 'gbk': 'genbank', 'genbank': 'genbank',
+        'gff': 'gff3', 'gff3': 'gff3',
+        'nex': 'nexus', 'nxs': 'nexus', 'nexus': 'nexus',
+        'aln': 'clustal', 'clustal': 'clustal',
+        'phy': 'phylip', 'phylip': 'phylip',
+        'ph': 'newick', 'nhx': 'newick', 'nwx': 'newick', 'tree': 'newick', 'newick': 'newick'
+    }.get(ext)
 
 
 def tsv_csv_parser(file):   # with csv lib

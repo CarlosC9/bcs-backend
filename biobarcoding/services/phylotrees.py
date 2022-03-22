@@ -144,6 +144,7 @@ def import_file(input_file, format=None, **kwargs):
             trees = TreeList.get_from_path(input_file, schema="nexus")
             tree = Phylo.read(StringIO(trees[-1].as_string("nexus")), "nexus")
         else:
+            # TODO: try formats ('newick', 'nexus', 'nexml', 'phyloxml', 'cdao') ?
             tree = Phylo.read(input_file, format)
     except Exception as e:
         issues = [Issue(IType.ERROR, f'IMPORT phylotress: The file {input_file}.{format} could not be imported.')]
@@ -167,7 +168,11 @@ def import_file(input_file, format=None, **kwargs):
 
 def __tree2phylonodes(phylotree_id, node, parent_id=None, index=[0]):
     phylonodes = []
-    feature_id = chado_session.query(Feature.feature_id).filter(Feature.uniquename == node.name).first()
+    f = chado_session.query(Feature).filter(Feature.uniquename == node.name).first()
+    try:
+        feature_id = f.feature_id
+    except:
+        feature_id = None
     phylonode = get_or_create(chado_session, Phylonode,
                               phylotree_id=phylotree_id,
                               parent_phylonode_id=parent_id,
