@@ -1245,8 +1245,8 @@ def related_perm_ids(permission_id: int):
     # Get the mayor permissions that also allow permission_id
     ids = DBSession.query(PermissionType.id) \
         .filter(or_(PermissionType.id==permission_id,
-                    PermissionType.rank <   # TODO: should be <= ?
-                    DBSession.query(PermissionType.rank).filter(PermissionType.id==permission_id)))
+                    PermissionType.rank >=
+                    DBSession.query(PermissionType.rank).filter(PermissionType.id == permission_id)))
     return [i for i, in ids]
 
 
