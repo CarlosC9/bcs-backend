@@ -357,13 +357,15 @@ def __get_query(id=None, purpose='read', **kwargs):
         query = chado_session.query(Feature).filter(Feature.feature_id == id)
         return query, query.count()
     from biobarcoding.db_models.sysadmin import PermissionType
-    purpose_id = db_session.query(PermissionType).filter(PermissionType.name==purpose).one().id
+    purpose_id = db_session.query(PermissionType).filter(PermissionType.name == purpose).one().id
     seq_clause = db_session.query(Sequence.native_id) \
         .filter(auth_filter(Sequence, purpose_id, [data_object_type_id['sequence']]))
-    seq_clause = [i for i, in seq_clause.all()]
+    seq_clause = [i for i, in seq_clause.all()]  # Cannot use .subquery(), because we have two -separate- databases
     seq_clause = Feature.feature_id.in_(seq_clause)
     query = chado_session.query(Feature).filter(seq_clause)
-    return get_query(chado_session, Feature, query=query, aux_filter=__aux_own_filter, aux_order=__aux_own_order, **kwargs)
+    return get_query(chado_session, Feature,
+                     query=query, aux_filter=__aux_own_filter, aux_order=__aux_own_order,
+                     **kwargs)
 
 
 def __aux_own_filter(filter):

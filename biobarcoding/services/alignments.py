@@ -215,10 +215,10 @@ def export(id, format='fasta', values={}, **kwargs):
 
 def __get_query(id=None, purpose='read', **kwargs):
     from biobarcoding.db_models.sysadmin import PermissionType
-    purpose_id = db_session.query(PermissionType).filter(PermissionType.name==purpose).one().id
+    purpose_id = db_session.query(PermissionType).filter(PermissionType.name == purpose).one().id
     aln_clause = db_session.query(MultipleSequenceAlignment.native_id) \
         .filter(auth_filter(MultipleSequenceAlignment, purpose_id, [data_object_type_id['multiple-sequence-alignment']]))
-    aln_clause = [i for i, in aln_clause.all()]
+    aln_clause = [i for i, in aln_clause.all()]  # Cannot use .subquery(), because we have two -separate- databases
     aln_clause = Analysis.analysis_id.in_(aln_clause)
     query = chado_session.query(Analysis).filter(aln_clause)
     return get_ansis_query(id, query=query, **kwargs)

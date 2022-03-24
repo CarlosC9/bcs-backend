@@ -6,7 +6,7 @@ import traceback
 
 import sys
 from enum import Enum
-from typing import Dict, List, Callable
+from typing import Dict, List, Callable, Union, Optional
 from urllib.parse import unquote
 
 import redis
@@ -1228,41 +1228,27 @@ def parse_request_params(data=None, default_kwargs=None):
     return kwargs
 
 
-def related_authr_ids(identity_id: int):
-    # Get the organizations, groups, and roles associated to an identity
-    ids = DBSession.query(Authorizable.id) \
-        .join(OrganizationIdentity, OrganizationIdentity.organization_id==Authorizable.id, isouter=True) \
-        .join(GroupIdentity, GroupIdentity.group_id==Authorizable.id, isouter=True) \
-        .join(RoleIdentity, RoleIdentity.role_id==Authorizable.id, isouter=True) \
-        .filter(or_(Authorizable.id==identity_id,
-                    OrganizationIdentity.identity_id==identity_id,
-                    GroupIdentity.identity_id==identity_id,
-                    RoleIdentity.identity_id==identity_id))
-    return [i for i, in ids]
-
-
-def related_perm_ids(permission_id: int):
-    # Get the mayor permissions that also allow permission_id
-    ids = DBSession.query(PermissionType.id) \
-        .filter(or_(PermissionType.id==permission_id,
-                    PermissionType.rank >=
-                    DBSession.query(PermissionType.rank).filter(PermissionType.id == permission_id)))
-    return [i for i, in ids]
-
-
-def auth_filter(orm, permission_types_ids, object_types_ids,
-                identity_id=None,
-                object_uuids=None, time=None,
-                permission_flag=False, authorizable_flag=False) -> Query:
+def auth_filter(orm,
+                permission_types_ids: Union[int, List[int]],
+                object_types_ids,
+                identity_id: Optional[int] = None,
+                object_uuids: Optional[List[str]] = None,
+                time=None,
+                permission_flag=False,
+                authorizable_flag=False,
+                reference_entity: Union[int, str] = -1) -> Query:
     """
-    * orm: base (with uuid) to build the filter
-    * identity_ids: who is requesting
-    * permission_types_ids: what kind of permission is requested
-    * object_types_ids: which object types are being requested
-    * object_uuid: reduce the search to a specific list of objects
-    * time: when is requesting
-    * permission_flag: True to return the permission in the query
-    * authorizable_flag: True to return the specific authorizable
+    !!!! ACL filter !!!!
+
+    @param orm: Class of SQLAlchemy ORM to check. "FunctionalObject" for any class
+    @param permission_types_ids: List of permission type ids (or just one) to pass the filter against
+    @param object_types_ids: List of object type ids (similar to "orm")
+    @param identity_id: Identity id of who is being authorized. If None, it is the user logged in the current session
+    @param object_uuids: List of specific object uuids to reduce the search for authorizations
+    @param time: Time, to check validity of ACL rules
+    @param permission_flag: If True, return the permission type enabling access
+    @param authorizable_flag: If True, return the authorizable (identity, group, organization, role) enabling access
+    @param reference_entity: Reference entity id (or uuid) to check against. If -1, find default reference entity
 
     CollectionDetail (cd) <> Collection (c) > ACL <> ACLDetail (ad)
 
@@ -1282,6 +1268,35 @@ def auth_filter(orm, permission_types_ids, object_types_ids,
 
     @return: <orm_clause_filter> || object_uuids[, permissions][, authorizables]
     """
+
+    def related_authr_ids(identity_id: int):
+        # Get the organizations, groups, and roles associated to an identity
+        ids = DBSession.query(Authorizable.id) \
+            .join(OrganizationIdentity, OrganizationIdentity.organization_id == Authorizable.id, isouter=True) \
+            .join(GroupIdentity, GroupIdentity.group_id == Authorizable.id, isouter=True) \
+            .join(RoleIdentity, RoleIdentity.role_id == Authorizable.id, isouter=True) \
+            .filter(or_(Authorizable.id == identity_id,
+                        OrganizationIdentity.identity_id == identity_id,
+                        GroupIdentity.identity_id == identity_id,
+                        RoleIdentity.identity_id == identity_id))
+        return [i for i, in ids]
+
+    def related_perm_ids(permission_id: int):
+        # Get the mayor permissions that also allow permission_id
+        ids = DBSession.query(PermissionType.id) \
+            .filter(or_(PermissionType.id == permission_id,
+                        PermissionType.rank >=
+                        DBSession.query(PermissionType.rank).filter(PermissionType.id == permission_id)))
+        return [i for i, in ids]
+
+    def default_reference_entity(clazz, identity_id: int):
+        ent = DBSession.query(clazz).filter(clazz.authr_reference == True).one_or_none()
+        if ent:
+            return ent.uuid
+        else:
+            return None
+
+    # --------------------------- auth_filter -------------------------------------------------------------------------
     from flask import current_app
     if current_app.config["ACL_ENABLED"] != 'True':  # Disable ACL control
         return True
@@ -1294,8 +1309,26 @@ def auth_filter(orm, permission_types_ids, object_types_ids,
     else:
         is_sys_admin = sys_admin_id in identity_id
 
-    if is_sys_admin:
+    if is_sys_admin:  # If user has "sys-admin" role, access to everything
         return True
+
+    # If reference entity enables access -> return True, if not, continue evaluation
+    if reference_entity is not None:  # Already checked
+        if reference_entity == -1:
+            # Find UUID of a reference object
+            reference_entity = default_reference_entity(orm, identity_id)
+        if reference_entity:
+            _ = auth_filter(orm,
+                            permission_types_ids,
+                            object_types_ids,
+                            identity_id,
+                            [reference_entity],
+                            time,
+                            False,
+                            False,
+                            None)
+            if str(reference_entity) in set([str(i.uuid) for i in DBSession.query(orm.uuid).filter(_).all()]):
+                return True
 
     # ACL Detail entry in valid date range
     from datetime import datetime
@@ -1327,6 +1360,7 @@ def auth_filter(orm, permission_types_ids, object_types_ids,
             .join(ACL, Collection.uuid == ACL.object_uuid) \
             .join(ACLDetail) \
             .filter(*filter_clause)
+
         # Direct object
         uncollected = DBSession.query(ACL.object_uuid).join(ACLDetail).filter(*filter_clause)
 

@@ -261,13 +261,15 @@ def __get_query(phylotree_id=None, purpose='read', **kwargs):
         query = chado_session.query(Phylotree).filter(Phylotree.phylotree_id == phylotree_id)
         return query, query.count()
     from biobarcoding.db_models.sysadmin import PermissionType
-    purpose_id = db_session.query(PermissionType).filter(PermissionType.name==purpose).one().id
+    purpose_id = db_session.query(PermissionType).filter(PermissionType.name == purpose).one().id
     phy_clause = db_session.query(PhylogeneticTree.native_id) \
         .filter(auth_filter(PhylogeneticTree, purpose_id, [data_object_type_id['phylogenetic-tree']]))
-    phy_clause = [i for i, in phy_clause.all()]
+    phy_clause = [i for i, in phy_clause.all()]  # Cannot use .subquery(), because we have two -separate- databases
     phy_clause = Phylotree.phylotree_id.in_(phy_clause)
     query = chado_session.query(Phylotree).filter(phy_clause)
-    return get_query(chado_session, Phylotree, query=query, aux_filter=__aux_own_filter, aux_order=__aux_own_order, **kwargs)
+    return get_query(chado_session, Phylotree,
+                     query=query, aux_filter=__aux_own_filter, aux_order=__aux_own_order,
+                     **kwargs)
 
 
 def __aux_own_filter(filter):
