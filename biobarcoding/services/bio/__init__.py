@@ -31,3 +31,11 @@ class BioService(BasicService):
 				.first().cvterm_id
 
 		return super(BioService, self).prepare_values(**values)
+
+	def prepare_export(self, **kwargs):
+		outfile, format = super(BioService, self).prepare_export(**kwargs)
+
+		from .. import get_bioformat
+		format = get_bioformat(outfile, format)
+
+		return outfile, format

@@ -117,7 +117,7 @@ def get_used_cvterm(type, subtype=None):
 
 
 def get_type_id(type=None, subtype=None):
-    return CvtermService().get_query(**get_used_cvterm(type=type, subtype=subtype))[0].one().cvterm_id
+    return CvtermService().get_query(purpose='read', **get_used_cvterm(type=type, subtype=subtype))[0].one().cvterm_id
 
 
 ##
@@ -134,20 +134,20 @@ class Service(MetaService):
     # IMPORT
     ##
 
-    def import_file(self, input_file, format='obo', **kwargs):
+    def import_file(self, infile, **kwargs):
         content, count = None, 0
         try:
             from flask import current_app
             cfg = current_app.config
-            # f"""go2fmt.pl -p obo_text -w xml {input_file} | \
-            #     go-apply-xslt oboxml_to_chadoxml - > {input_file}.xml"""
-            # cmd = f"""go2chadoxml {input_file} > /tmp/{input_file}.chado.xml;
+            # f"""go2fmt.pl -p obo_text -w xml {infile} | \
+            #     go-apply-xslt oboxml_to_chadoxml - > {infile}.xml"""
+            # cmd = f"""go2chadoxml {infile} > /tmp/{infile}.chado.xml;
             #     stag-storenode.pl -d 'dbi:Pg:dbname={cfg['database']};host={cfg['host']};port=cfg['port']'
-            #     --user {cfg['user']} --password {cfg['password']} /tmp/{input_file}.chado.xml"""
+            #     --user {cfg['user']} --password {cfg['password']} /tmp/{infile}.chado.xml"""
             import pronto
             import os.path
-            namespace = pronto.Ontology(input_file).metadata.default_namespace
-            onto_name = f'-c {namespace}' if namespace else f'-c {os.path.basename(input_file)}'
+            namespace = pronto.Ontology(infile).metadata.default_namespace
+            onto_name = f'-c {namespace}' if namespace else f'-c {os.path.basename(infile)}'
             from ... import exec_cmds
             out, err = exec_cmds([
                 f'''perl ./biobarcoding/services/perl_scripts/gmod_load_cvterms.pl\
@@ -156,7 +156,7 @@ class Service(MetaService):
                     -r {cfg["CHADO_USER"]}\
                     -p {cfg["CHADO_PASSWORD"]}\
                     -d Pg -s null -u\
-                    {input_file}''',
+                    {infile}''',
                 f'''perl ./biobarcoding/services/perl_scripts/gmod_make_cvtermpath.pl\
                     -H {cfg["CHADO_HOST"]}\
                     -D {cfg["CHADO_DATABASE"]}\
@@ -166,7 +166,7 @@ class Service(MetaService):
             count += 1
         except Exception as e:
             log_exception(e)
-            raise Exception(f'IMPORT ontologies: The file {os.path.basename(input_file)} could not be imported.')
+            raise Exception(f'IMPORT ontologies: The file {os.path.basename(infile)} could not be imported.')
         return content, count
 
 

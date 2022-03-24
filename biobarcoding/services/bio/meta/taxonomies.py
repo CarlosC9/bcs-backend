@@ -35,7 +35,7 @@ class Service(MetaService):
     # IMPORT
     ##
 
-    def import_file(self, input_file, format='obo', **kwargs):
+    def import_file(self, infile, **kwargs):
         content, count = None, 0
         try:
             from flask import current_app
@@ -51,18 +51,18 @@ class Service(MetaService):
                     -u {cfg["CHADO_USER"]}\
                     -p {cfg["CHADO_PASSWORD"]}\
                     -d Pg\
-                    -i {input_file}\
+                    -i {infile}\
                     {named})''')
             self.db.execute(
                 "SELECT setval('phylonode_phylonode_id_seq', (SELECT MAX(phylonode_id) FROM phylonode)+1);")
             # self.db.execute("ALTER SEQUENCE phylonode_phylonode_id_seq RESTART WITH (SELECT MAX(phylonode_id) FROM phylonode)+1;")
             if err:
-                e = Exception(f'IMPORT taxonomies: The taxonomy {os.path.basename(input_file)} was barely imported.')
+                e = Exception(f'IMPORT taxonomies: The taxonomy {os.path.basename(infile)} was barely imported.')
                 log_exception(e)
                 # raise e
         except Exception as e:
             log_exception(e)
-            raise Exception(f'IMPORT taxonomies: The taxonomy {os.path.basename(input_file)} could not be imported.')
+            raise Exception(f'IMPORT taxonomies: The taxonomy {os.path.basename(infile)} could not be imported.')
         return content, count
 
         ##

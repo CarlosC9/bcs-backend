@@ -84,7 +84,7 @@ class Service(BosService):
 
         stock = self.seq_stock(new_object, **values)
         # seq to bcs
-        bcs_seq = get_or_create(DBSession, Sequence,   # specimen_id=bcs_specimen.id
+        fos_seq = get_or_create(DBSession, Sequence,   # specimen_id=fos_specimen.id
                                 native_id=new_object.feature_id,
                                 native_table='feature',
                                 name=new_object.uniquename)
@@ -95,13 +95,11 @@ class Service(BosService):
     ##
 
     def attach_data(self, content):
-        import json
-        from ....common import generate_json
-        content = json.loads(generate_json(content))
-        content['uuid'] = str(DBSession.query(Sequence)
-                              .filter(Sequence.native_table == 'feature',
-                                      Sequence.native_id == content.get('feature_id')).one().uuid)
-        return content
+        new = super(Service, self).attach_data(content)
+        new['uuid'] = str(DBSession.query(Sequence)
+                          .filter(Sequence.native_table == 'feature',
+                                  Sequence.native_id == new.get('feature_id')).one().uuid)
+        return new
 
     ##
     # DELETE
@@ -138,69 +136,7 @@ class Service(BosService):
     def gbSeq2chado(self, seq, **params):
         # seq.id, seq.name, seq.seq, seq.description, seq.dbxrefs, seq.letter_annotations
         # seq.annotations # (<class 'dict'>):
-        """
-        {
-            'molecule_type': 'DNA',
-            'topology': 'linear',
-            'data_file_division': 'PLN',
-            'date': '03-DEC-2018',
-            'accessions': ['Seq1_18037'],
-            'keywords': [''],
-            'source': 'plastid Ruta montana',
-            'organism': 'Ruta montana',
-            'taxonomy': ['Eukaryota', 'Viridiplantae', 'Streptophyta', 'Embryophyta', 'Tracheophyta', 'Spermatophyta', 'Magnoliophyta', 'eudicotyledons', 'Gunneridae', 'Pentapetalae', 'rosids', 'malvids', 'Sapindales', 'Rutaceae', 'Rutoideae', 'Ruta'],
-            'references': [
-                {
-                    'location': '[0: 1509]',
-                    'authors': 'Jaen-Molina,R., Soto,M., Marrero,A., Mesa,R. and Caujape-Castells,J.',
-                    'title': 'Genetic data on the three Canarian endemic Ruta (Rutaceae) provide evidences of overlooked diversification and a complex evolutionary history',
-                    'journal': 'unpublished',
-                    'medline_id':'',
-                    'pubmed_id':'',
-                    'comment':'',
-                }],
-            'comment': 'Bankit Comment: ALT EMAIL:rjaenm@grancanaria.com\nBankit Comment: TOTAL # OF SEQS:34',
-            'structured_comment': # OrderedDict
-                {'Assembly-Data': # OrderedDict
-                     {'Sequencing Technology': 'Sanger dideoxy sequencing'}
-                 }
-        }
-        """
         # seq.features # (<class 'list'>):
-        """
-        [
-            # .location .type
-            SeqFeature(
-                location=FeatureLocation(ExactPosition(0), ExactPosition(1509), strand=1),
-                qualifiers= # OrderedDict
-                {
-                    'organism': ['Ruta montana'],
-                    'organelle': ['plastid'],
-                    'mol_type': ['genomic DNA'],
-                    'specimen_voucher': ['LPA s.n.'],
-                    'bio_material': ['JBCVC: DNABANK: 18037'],
-                    'db_xref': ['taxon:266085'],
-                    'country': ['Morocco: Between Tanalt to Tidli'],
-                    'collection_date': ['2015'],
-                    'collected_by': ['J. Caujape-Castells, C. Harrouni, F. Msanda, et al']
-                },
-                type='source'),
-            SeqFeature(...,
-                       qualifiers=OrderedDict({'gene': ['matK']}),
-                       type='gene'),
-            SeqFeature(...,
-                       qualifiers=OrderedDict({'gene': ['matK'],
-                                               'note': ['maturase K']}),
-                       type='gene'),
-            SeqFeature(...,
-                       qualifiers=OrderedDict({'gene': ['matK'],
-                                               'codon_start': ['1'],
-                                               'transl_table': ['11'],
-                                               'product': ['maturase K'],
-                                               'translation': ['FQVYFELDRSQQHNF...']}),
-                       type='CDS')
-        ]
-        """
         seq.name = f'{seq.id} {seq.description}' if seq.id == seq.name else seq.name
         return self.create(uniquename=seq.id, name=seq.name, residues=str(seq.seq), seqlen=len(seq.seq), description=seq.description,
                            dbxrefs=seq.dbxrefs, **seq.annotations, features=seq.features, **params)
@@ -222,19 +158,19 @@ class Service(BosService):
             # return [Issue(IType.ERROR, f'IMPORT sequences: {seq.id} could not be imported.')]
             return None, 0
 
-    def import_file(self, input_file, format=None, **kwargs):
+    def import_file(self, infile, format=None, **kwargs):
         content, count = [], 0
-        format = get_bioformat(input_file, format)
+        format = get_bioformat(infile, format)
         try:
             from ... import seqs_parser
-            for s in seqs_parser(input_file, format):
+            for s in seqs_parser(infile, format):
                 c, cc = self.bio2chado(s, format, **kwargs)
                 content.append(c)
                 count += cc
-                # issues += [Issue(i.itype, i.message, os.path.basename(input_file)) for i in iss]
+                # issues += [Issue(i.itype, i.message, os.path.basename(infile)) for i in iss]
         except Exception as e:
             log_exception(e)
-            raise Exception(f'IMPORT sequences: file {os.path.basename(input_file)} could not be imported.')
+            raise Exception(f'IMPORT sequences: file {os.path.basename(infile)} could not be imported.')
         return content, count
 
     ##
@@ -258,48 +194,39 @@ class Service(BosService):
                     headers[seq_id] = name
         return headers
 
-    def seqs2file(self, seqs, format='fasta', output_file=f"/tmp/output_ngd", header_format=None):
-        headers = self.seqs_header_parser(seqs, header_format) if header_format else {}
+    def chado2biopy(self, seqs: list, headers: dict) -> list:
         from Bio.SeqRecord import SeqRecord
         from Bio.Seq import Seq
         records = []
         for seq in seqs:
             # TODO: study molecule_type ?, and append taxonomy and features
-            annotations = {'molecule_type': 'DNA',
-                           'organism': self.db.query(Organism.name)
-                               .filter(Organism.organism_id == seq.organism_id).one()}
+            annotations = {
+                'molecule_type': 'DNA',
+                'organism': self.db.query(Organism.name)
+                    .filter(Organism.organism_id == seq.organism_id).one()[0]
+            }
             records.append(SeqRecord(Seq(seq.residues),
                                      headers.get(seq.uniquename, seq.uniquename),
                                      seq.uniquename,
-                                     '' if header_format else seq.name,
+                                     '' if headers else seq.name,
                                      annotations=annotations))
+        return records
+
+    def data2file(self, seqs: list, outfile, format: str, values={}, **kwargs):
+        headers = self.seqs_header_parser(seqs, values.pop('header', ''))
         from Bio import SeqIO
-        SeqIO.write(records, output_file, format=format)
+        records = self.chado2biopy(seqs, headers)
+        res = SeqIO.write(records, outfile, format=format)
         if format == "nexus":
             # format datatype=dna missing=? gap=- matchchar=.;
             from Bio.Nexus.Nexus import Nexus
-            aln = Nexus(output_file)
+            aln = Nexus(outfile)
             aln.datatype = 'dna'
             aln.missing = '?'
             aln.gap = '-'
             aln.matchchar = '.'
-            aln.write_nexus_data(output_file)
-        return output_file
-
-    def export_file(self, id=None, format='fasta', values={}, **kwargs):
-        content = None
-        try:
-            query, count = self.get_query(id, purpose='share', **kwargs)
-            content = self.seqs2file(query.all(),
-                                  format=format,
-                                  output_file=f'/tmp/output_ngd.{format}',
-                                  header_format=values.get('header'))
-            # issues, status = [Issue(IType.INFO, f'EXPORT sequences: {count} sequences were successfully exported.')], 200
-        except Exception as e:
-            # issues, status = [Issue(IType.ERROR, f'EXPORT sequences: The sequences could not be exported.')], 409
-            log_exception(e)
-            raise Exception(f'EXPORT sequences: The sequences could not be exported.')
-        return content, count
+            res = aln.write_nexus_data(outfile)
+        return res
 
     ##
     # GETTER AND OTHERS

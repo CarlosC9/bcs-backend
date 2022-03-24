@@ -10,8 +10,8 @@ def __check_stock_params(**values):
     if not values.get('uniquename'):
         raise Exception('Missing the uniquename')
     if not values.get('type_id'):
-        from ontologies import get_cvterm_query
-        values['type_id'] = get_cvterm_query(type=values.get('type') or 'stock')[0].one().cvterm_id
+        from ontologies import get_type_id
+        values['type_id'] = get_type_id(type=values.get('type', 'stock'))
     return get_orm_params(Stock, **values)
 
 

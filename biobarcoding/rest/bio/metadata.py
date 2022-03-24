@@ -30,6 +30,11 @@ def add_rules(bp=None) -> Blueprint:
             methods=['GET']
         )
         bp.add_url_rule(
+            app_api_base + f'/{metadata}/.<string:format>',
+            view_func=bp_view,
+            methods=['GET']
+        )
+        bp.add_url_rule(
             app_api_base + f'/{metadata}/<string:id>.<string:format>',
             view_func=bp_view,
             methods=['GET']

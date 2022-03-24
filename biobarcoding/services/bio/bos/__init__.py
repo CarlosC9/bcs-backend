@@ -9,6 +9,12 @@ from ....db_models import DBSession
 
 class BosService(BioService):
 
+    def prepare_values(self, **values):
+
+        values['sourceuri'] = values.get('sourceuri', values.get('filesAPI'))
+
+        return super(BosService, self).prepare_values(**values)
+
     def pre_query(self, purpose='read'):
         from ....db_models.sysadmin import PermissionType
         from ....db_models.core import data_object_type_id

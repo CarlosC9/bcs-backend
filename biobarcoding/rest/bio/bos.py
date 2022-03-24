@@ -39,14 +39,4 @@ def add_rules(bp=None) -> Blueprint:
             view_func=bp_view,
             methods=['GET']
         )
-        # bp.add_url_rule(
-        #     app_api_base + f'/bos/{bos}/<int:seq_id>/features/',
-        #     view_func=bp_view,
-        #     methods=['GET', 'POST']
-        # )
-        # bp.add_url_rule(
-        #     app_api_base + f'/bos/{bos}/<int:seq_id>/features/<int:cmt_id>',
-        #     view_func=bp_view,
-        #     methods=['GET', 'PUT', 'DELETE']
-        # )
     return bp

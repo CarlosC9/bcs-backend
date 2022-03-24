@@ -2,7 +2,9 @@ from ..db_models.core import CaseStudy, CProcess
 from ..db_models.hierarchies import HierarchyNode, Hierarchy
 from ..rest import h_subjects_name, h_sources_name, h_crs_name
 from ..db_models import DBSessionChado as chado_session
-from ..services.bio.meta.ontologies import Service as CvtermService
+from ..services.bio.meta.ontologies import CvtermService
+
+cvterm_service = CvtermService()
 
 def __getTypes(type):
     if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
@@ -16,7 +18,7 @@ def __getTypes(type):
     else:
         return None
     ids = chado_session.query(ORM.type_id).distinct(ORM.type_id).all()
-    ids = CvtermService.read(filter=[{'cvterm_id': {'op': 'in', 'unary': ids}}])[0].all()
+    ids = cvterm_service.get_query(filter=[{'cvterm_id': {'op': 'in', 'unary': ids}}])[0].all()
     return ids
 
 
@@ -30,7 +32,7 @@ def __getCvterms(type):
     else:
         return None
     ids = chado_session.query(ORM.cvterm_id).distinct(ORM.cvterm_id).all()
-    ids = CvtermService.read(filter=[{'cvterm_id': {'op': 'in', 'unary': ids}}])[0].all()
+    ids = cvterm_service.get_query(filter=[{'cvterm_id': {'op': 'in', 'unary': ids}}])[0].all()
     return ids
 
 
@@ -48,7 +50,7 @@ def __getProps(type):
     else:
         return None
     ids = chado_session.query(ORM.type_id).distinct(ORM.type_id).all()
-    ids = CvtermService.read(filter=[{'cvterm_id': {'op': 'in', 'unary': ids}}])[0].all()
+    ids = cvterm_service.get_query(filter=[{'cvterm_id': {'op': 'in', 'unary': ids}}])[0].all()
     return ids
 
 

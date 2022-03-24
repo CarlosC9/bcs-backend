@@ -1,7 +1,7 @@
-from ..db_models import DBSessionChado as chado_session
-from ..db_models.chado import Stockcollection
-from ..rest import Issue, IType, filter_parse
-from . import get_query
+from ....db_models import DBSessionChado as chado_session
+from ....db_models.chado import Stockcollection
+from ....rest import Issue, IType, filter_parse
+from ... import get_query
 
 
 def create(**kwargs):
@@ -10,8 +10,8 @@ def create(**kwargs):
         if not kwargs.get('uniquename'):
             raise Exception('Missing the uniquename')
         if not kwargs.get('type_id'):
-            from biobarcoding.db_models.chado import Cvterm
-            kwargs['type_id'] = chado_session.query(Cvterm.cvterm_id).filter(Cvterm.name == 'sequence_collection').one()
+            from ....db_models.chado import Cvterm
+            kwargs['type_id'] = chado_session.query(Cvterm).filter(Cvterm.name == 'sequence_collection').one().cvterm_id
         chado_session.add(Stockcollection(**kwargs))
         issues, status = [Issue(IType.INFO,
                                 f'CREATE collections: The collection "{kwargs.get("uniquename")}" created successfully.')], 201
@@ -74,13 +74,13 @@ def __aux_own_filter(filter):
     clause = []
 
     if filter.get('stock_id'):
-        from biobarcoding.db_models.chado import StockcollectionStock
+        from ....db_models.chado import StockcollectionStock
         _ids = chado_session.query(StockcollectionStock.stockcollection_id) \
             .filter(filter_parse(StockcollectionStock, {'stock_id': filter.get('stock_id')}))
         clause.append(Stockcollection.stockcollection_id.in_(_ids))
 
     if filter.get('feature_id'):
-        from biobarcoding.db_models.chado import Stock, StockcollectionStock
+        from ....db_models.chado import Stock, StockcollectionStock
         _ids = chado_session.query(Stock.stock_id) \
             .filter(filter_parse(Stock, {'feature_id': filter.get('feature_id')}))
         _ids = chado_session.query(StockcollectionStock.stockcollection_id) \
@@ -88,7 +88,7 @@ def __aux_own_filter(filter):
         clause.append(Stockcollection.stockcollection_id.in_(_ids))
 
     if filter.get('organism_id'):
-        from biobarcoding.db_models.chado import Stock, StockcollectionStock
+        from ....db_models.chado import Stock, StockcollectionStock
         _ids = chado_session.query(Stock.stock_id) \
             .filter(filter_parse(Stock, {'organism_id': filter.get('organism_id')}))
         _ids = chado_session.query(StockcollectionStock.stockcollection_id) \
@@ -96,20 +96,20 @@ def __aux_own_filter(filter):
         clause.append(Stockcollection.stockcollection_id.in_(_ids))
 
     if 'phylotree_id' in filter:
-        # from biobarcoding.db_models.chado import Phylotree
+        # from ....db_models.chado import Phylotree
         # _ids = chado_session.query(Phylotree.analysis_id) \
         #     .filter(filter_parse(Phylotree, [{'phylotree_id': filter.get('phylotree_id')}]))
         # clause.append(Stockcollection.stockcollection_id.in_(_ids))
         pass
 
     if "cvterm_id" in filter:
-        from biobarcoding.db_models.chado import StockcollectionCvterm
+        from ....db_models.chado import StockcollectionCvterm
         _ids = chado_session.query(StockcollectionCvterm.stockcollection_id) \
             .filter(filter_parse(StockcollectionCvterm, [{'cvterm_id': filter.get('cvterm_id')}]))
         clause.append(Stockcollection.stockcollection_id.in_(_ids))
 
     if "prop_cvterm_id" in filter:
-        from biobarcoding.db_models.chado import Stockcollectionprop
+        from ....db_models.chado import Stockcollectionprop
         _ids = chado_session.query(Stockcollectionprop.stockcollection_id) \
             .filter(filter_parse(Stockcollectionprop, [{'type_id': filter.get('prop_cvterm_id')}]))
         clause.append(Stockcollection.stockcollection_id.in_(_ids))

@@ -37,13 +37,14 @@ class Service(BosService):
         ansis_trigger = ('job_id', 'program', 'programversion', 'sourcename')
         if not values.get('analysis_id') and any(key in values.keys() for key in ansis_trigger):
             from ..meta.analyses import Service as AnsisService
+            ansis_service = AnsisService()
             try:
                 unique_keys = ['job_id'] if values.get('job_id') else ('program', 'programversion', 'sourcename')
-                content, count = AnsisService.get_query(**{k:values[k] for k in unique_keys if k in values})
+                content, count = ansis_service.get_query(purpose='annotate', **{k: values[k] for k in unique_keys if k in values})
                 content = content.one()
             except:
                 t_name = values.pop('name')   # Avoid to spread the treename to analysis
-                content, count = AnsisService.create(**values)
+                content, count = ansis_service.create(**values)
                 values['name'] = t_name
             values['analysis_id'] = content.analysis_id
 
@@ -89,28 +90,26 @@ class Service(BosService):
     # IMPORT
     ##
 
-    def import_file(self, input_file, format=None, **kwargs):
-        ## TODO: NGD newick phylotree import
-        # phylotree: store the input_file content into a phylotreeprop EDAM_newick ?
-        # phylonode: type_id ? (root,leaf,internal)
+    def import_file(self, infile, format=None, **kwargs):
+        # TODO ? phylonode:type_id (root,leaf,internal) ?
         content, count = None, 0
-        format = get_bioformat(input_file, format)
+        format = get_bioformat(infile, format)
         try:
             # Check phylotree file format
             from Bio import Phylo
             if format == 'nexus':
                 from dendropy import TreeList
                 from io import StringIO
-                trees = TreeList.get_from_path(input_file, schema="nexus")
+                trees = TreeList.get_from_path(infile, schema="nexus")
                 tree = Phylo.read(StringIO(trees[-1].as_string("nexus")), "nexus")
             else:
                 # TODO: try formats ('newick', 'nexus', 'nexml', 'phyloxml', 'cdao') ?
-                tree = Phylo.read(input_file, format)
+                tree = Phylo.read(infile, format)
         except:
-            raise Exception(f'IMPORT phylotress: The file {os.path.basename(input_file)} could not be imported. (unknown format)')
+            raise Exception(f'IMPORT phylotress: The file {os.path.basename(infile)} could not be imported. (unknown format)')
         try:
             if not kwargs.get('name'):
-                kwargs['name'] = os.path.basename(input_file)
+                kwargs['name'] = os.path.basename(infile)
             # Create the new phylotree
             content, count = self.create(**kwargs)
             # Get phylonodes insertion
@@ -118,7 +117,7 @@ class Service(BosService):
             count += 1
         except Exception as e:
             log_exception(e)
-            raise Exception(f'IMPORT phylotress: The file {os.path.basename(input_file)} could not be imported. (unmanageable)')
+            raise Exception(f'IMPORT phylotress: The file {os.path.basename(infile)} could not be imported. (unmanageable)')
         return content, count
 
 
@@ -156,8 +155,8 @@ class Service(BosService):
         content, count = f'/tmp/output_ngd.{format}', 0
         # NGD newick phylotree export
         try:
-            t_id = self.get_query(purpose='share', **kwargs)[0].one().phylotree_id
-            self.tree2file(t_id, format, content)
+            t_id = self.get_query(purpose='export', **kwargs)[0].one().phylotree_id
+            self.data2file(t_id, format, content)
             count += 1
         except Exception as e:
             log_exception(e)

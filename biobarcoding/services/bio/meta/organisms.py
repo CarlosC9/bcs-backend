@@ -1,11 +1,7 @@
-import os.path
-
 from . import MetaService
 from ...main import get_orm
 from ....db_models import DBSession, DBSessionChado
 from ....rest import filter_parse
-from ....common import generate_json
-from ... import log_exception
 
 
 ##
@@ -36,46 +32,70 @@ class Service(MetaService):
     ##
 
     def attach_data(self, content):
-        import json
-        new = json.loads(generate_json(content))
+        new = super(Service, self).attach_data(content)
+
         new['name'] = self.db.query(self.orm.name).filter(self.orm.organism_id == content.organism_id).one()[0]
         from ... import force_underscored
         from ...species_names import get_canonical_species_names
         new['canonical_name'] = get_canonical_species_names(DBSession, new.get('name'))[0] or new.get('name')
         new['canonical_underscored_name'] = get_canonical_species_names(DBSession, new.get('name'), underscores=True)[0] \
                                             or force_underscored(new.get('name'))
+        
         return new
 
     ##
     # EXPORT
     ##
 
-    def export_file(self, format=None, output_file=None, **kwargs):
-        count = 0
-        output_file = output_file or '/tmp/output_taxa.gbk'
-        format = format or 'genbank'
-        try:
-            import sys
-            stdout = sys.stdout
-            with open(output_file, "w") as sys.stdout:
-                if format == 'genbank':
-                    content, count = self.print_gbk(**kwargs)
-            sys.stdout = stdout
-        except Exception as e:
-            if stdout:
-                sys.stdout = stdout
-            # issues, status = Issue(IType.ERROR, 'EXPORT organisms: The organisms could not be exported.'), 404
-            log_exception(e)
-            raise Exception(f'EXPORT organism: file {os.path.basename(output_file)} could not be exported.')
-        return output_file, count
+    def data2file(self, orgs: list, outfile, format: str, **kwargs):
+        from Bio import SeqIO
+        return SeqIO.write(self.chado2biopy(orgs), outfile, format)
 
-    def print_gbk(self, id=None, **kwargs):
-        from ... import conn_chado
-        conn = conn_chado()
-        content, count = self.get_query(id, **kwargs)
-        for org in content.all():
-            conn.export.export_gbk(org['organism_id'])
-        return content, count
+    def chado2biopy(self, orgs: list) -> list:
+        from ..meta.ontologies import CvtermService
+        from ....db_models.chado import Feature, Featureloc, Featureprop
+        from Bio.SeqFeature import SeqFeature, FeatureLocation
+        from Bio.Seq import Seq
+        from Bio.SeqRecord import SeqRecord
+
+        seqs = []
+        for org in orgs:
+            seq = Seq('')
+            record_features = []
+            features = self.db.query(Feature, Featureloc) \
+                .filter_by(organism_id=org.organism_id) \
+                .join(Featureloc, Feature.feature_id == Featureloc.feature_id, isouter=True)
+
+            for idx, (feature, featureloc) in enumerate(features):
+                # Sequence containing feature
+                if feature.residues:
+                    ## This seems bad? What if multiple things have seqs?
+                    # seq = Seq(feature.residues)
+                    pass
+                else:
+                    qualifiers = {
+                        CvtermService.get_query(purpose='export', id=prop.type_id)[0].one().name: prop.value for prop in
+                        self.db.query(Featureprop).filter_by(feature_id=feature.feature_id).all()
+                    }
+                    record_features.append(
+                        SeqFeature(
+                            FeatureLocation(featureloc.fmin, featureloc.fmax),
+                            id=feature.uniquename,
+                            type=CvtermService.get_query(purpose='export', id=feature.type_id),
+                            strand=featureloc.strand,
+                            qualifiers=qualifiers
+                        )
+                    )
+
+            record = SeqRecord(seq,
+                               id=org.common_name or org.infraspecific_name or org.species,
+                               name=org.common_name or org.infraspecific_name or org.species,
+                               description="%s %s" % (org.genus, org.species),
+                               annotations={"molecule_type": "DNA"},)
+            record.features = record_features
+            seqs.append(record)
+
+        return seqs
 
     ##
     # GET SQLALCHEMY QUERY

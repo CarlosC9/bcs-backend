@@ -1,3 +1,4 @@
+import json
 import os.path
 
 from flask import g
@@ -152,8 +153,7 @@ def getCRUDIE(entity):
                 self.status = 404
             return self.issues, self.content, self.count, self.status
 
-        # TODO: generic import in progress
-        def import_file(self, input_file, **kwargs):
+        def import_data(self, input_file, **kwargs):
             try:
                 self.content, self.count = Service.import_file(input_file, **kwargs)
                 self.issues += [Issue(IType.INFO,
@@ -167,8 +167,7 @@ def getCRUDIE(entity):
                 self.status = 409
             return self.issues, self.content, self.count, self.status
 
-        # TODO: generic export in progress
-        def export_file(self, **kwargs):
+        def export_data(self, **kwargs):
             try:
                 self.content, self.count = Service.export_file(**kwargs)
                 self.issues = [Issue(IType.INFO,
@@ -224,7 +223,7 @@ class BasicService:
         return content, 1
 
     # any additional creation if any
-    def after_create(self, new_object, **kwargs):
+    def after_create(self, new_object, **values):
         return new_object
 
     ##
@@ -243,7 +242,9 @@ class BasicService:
 
     # any additional read if any
     def attach_data(self, content):
-        return content
+        import json
+        from ..common import generate_json
+        return json.loads(generate_json(content))
 
     ##
     # GET SQLALCHEMY QUERY
@@ -251,7 +252,7 @@ class BasicService:
 
     # provide a sqlalchemy query (might be paged) and the total_count
     # @return: Query, total_count
-    def get_query(self, query=None, id=None, **kwargs):
+    def get_query(self, query=None, id=None, purpose='delete', **kwargs):
         """
          reserved keywords in kwargs:
            'values': specific values of orm fields to filter
@@ -263,7 +264,7 @@ class BasicService:
         """
         from ..rest import filter_parse, order_parse
         from ..services import paginator
-        query = query or self.pre_query(kwargs.pop('purpose', 'read')) or self.db.query(self.orm)
+        query = query or self.pre_query(purpose) or self.db.query(self.orm)
         count = 0
         if id:
             if hasattr(self.orm, 'id'):
@@ -348,6 +349,7 @@ class BasicService:
     def after_delete(self, *content, **kwargs):
         return content
 
+    # TODO: generic import/export in progress
     ##
     # IMPORT
     ##
@@ -356,11 +358,12 @@ class BasicService:
     def check_file(self, file, format) -> bool:
         return True
 
-    # TODO: import
-    def import_file(self, file, format=None, **kwargs):
+    def import_file(self, infile, format=None, **kwargs):
+        """
         format = get_bioformat(file, format)
         self.check_file(file, format)
         values = self.prepare_values(**kwargs)
+        """
         # create required rows ?
         # file2db ?
         return None, 0
@@ -369,8 +372,20 @@ class BasicService:
     # EXPORT
     ##
 
-    # TODO: export
-    def export_file(self, format=None, **kwargs):
-        # get_query ?
-        # export ?
-        return None, 0
+    def prepare_export(self, outfile=None, format=None, **kwargs):
+        from flask import current_app
+        from werkzeug.utils import secure_filename
+        from biobarcoding import app_acronym
+        outfile = os.path.join(current_app.config['UPLOAD_FOLDER'], secure_filename(outfile or f'output_{app_acronym}'))
+        return outfile, format
+
+    def data2file(self, data: list, outfile, format: str, **kwargs):
+        with open(outfile, 'w') as wf:
+            json.dump(data, wf)
+        return outfile, 0
+
+    def export_file(self, outfile=None, format=None, **kwargs):
+        outfile, format = self.prepare_export(outfile=outfile, format=format)
+        query, count = self.get_query(purpose='export', **kwargs)
+        log = self.data2file(query.all(), outfile, format, **kwargs)
+        return outfile, count

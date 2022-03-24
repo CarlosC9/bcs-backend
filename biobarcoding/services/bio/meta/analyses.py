@@ -20,7 +20,9 @@ class Service(MetaService):
     def prepare_values(self, **values):
 
         if values.get('job_id'):
-            values['sourcename'], values['sourceversion'], values['sourceuri'] = values.get('job_id'), 'job', f'/jobs/{values.get("job_id")}'
+            values['sourcename'] = values.get('job_id')
+            values['sourceversion'] = 'job'
+            values['sourceuri'] = f'/jobs/{values.get("job_id")}'
 
         return super(Service, self).prepare_values(**values)
 
