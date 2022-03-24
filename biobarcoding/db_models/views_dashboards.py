@@ -15,6 +15,8 @@ class View(FunctionalObject):
         'polymorphic_identity': data_object_type_id['view'],
     }
     id = Column(BigInteger, ForeignKey(FunctionalObject.id), primary_key=True)
+    name = Column(String, nullable=False)
+    description = Column(String)
     type = Column(String(50))  # Map, Chart, PivotTable, etc.
     data = Column(JSONB)  # Maps: layers, visible attribute, opacity, color palette, legend, projection, etc.
 
@@ -25,6 +27,8 @@ class Dashboard(FunctionalObject):
         'polymorphic_identity': data_object_type_id['dashboard'],
     }
     id = Column(BigInteger, ForeignKey(FunctionalObject.id), primary_key=True)
+    name = Column(String, nullable=False)
+    description = Column(String)
     type = Column(String(50))  # Time centered (like Grafana), Only Maps, heterogeneous, etc.
     # Information for the context of the dashboard. Each view should store its position and extents
     data = Column(JSONB)
