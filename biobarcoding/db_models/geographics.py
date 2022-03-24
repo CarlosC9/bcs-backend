@@ -41,7 +41,6 @@ class GeographicLayer(Dataset):
     properties = Column(JSONB)  # Store information about fields in a vectorial layer. Name, style, range, ...
     published = Column(Boolean, default=False)
     in_postgis = Column(Boolean, default=False)
-    is_deleted = Column(Boolean, default=False)
     layer_type = Column(String(80))  # CHOICES?
 
 
