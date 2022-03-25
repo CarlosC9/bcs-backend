@@ -27,6 +27,12 @@ class SlurmMrBayesProcessAdaptor(SlurmProcessAdaptor):
                 "file": os.path.join(self.ASSETS_FOLDER, "mrbayes_assets", "mb_template_writer.py"),
                 "subprocess": "Mr Bayes",
                 "type": "python"
+            },
+            {
+                "remote_name": "nexus_translate_to_nexus.py",
+                "file": os.path.join(self.CONVERTERS_FOLDER, "nexus_translate_to_nexus.py"),
+                "subprocess": "Mr Bayes",
+                "type": "python"
             }
         ]
 
