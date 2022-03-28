@@ -700,7 +700,7 @@ class LayersAPI(MethodView):
         key_col = request.args.get("key_col")
         db_sess = g.n_session.db_session
         if _id:  # One layer or Job (return layer associated to job)
-            if _id.startswith("job"):  # LayerS associated with a job
+            if _id.startswith("job"):  # Layers associated with a job
                 job_id = _id[len("job"):]
                 # TODO Return more than one layer if there are more than one
                 layer = db_sess.query(GeographicLayer). \
@@ -724,7 +724,7 @@ class LayersAPI(MethodView):
                         serializer = layer.Schema()
                         serializer.dump(layer)
         elif not key_col:  # ALL LAYERS layers (maybe filtered)
-            # ACL Filter
+            # ACL Filter, here !!!
             purpose_id = db_sess.query(PermissionType).filter(PermissionType.name == "read").one().id
             ids_clause = db_sess.query(GeographicLayer.id). \
                 filter(auth_filter(GeographicLayer, purpose_id, [data_object_type_id['geolayer']],
@@ -749,7 +749,7 @@ class LayersAPI(MethodView):
                 # Modify "wms_url" for local layers
                 tmp = urlparse(request.base_url)
                 # WORKAROUND - tmp.scheme is always "http" in spite the request being https. So assume "https"
-                if not tmp.netloc.lower().startswith(("localhost", "172.17.0.1", "127.0.0.1", "0.0.0.0")):
+                if not tmp.netloc.lower().startswith(("localhost", "172.17.0.1", "127.0.0.1", "0.0.0.0", "10.141")):
                     scheme = "https"
                 else:
                     scheme = tmp.scheme

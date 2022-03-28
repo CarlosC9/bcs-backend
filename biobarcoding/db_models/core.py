@@ -55,6 +55,9 @@ class FunctionalObject(ORMBase):
     ts_vector_update_time = Column(DateTime, default=datetime.datetime.utcnow())
     entity_update_time = Column(DateTime, default=datetime.datetime.utcnow())
 
+    authr_reference = Column(Boolean, default=False)
+    is_deleted = Column(Boolean, default=False)
+
     __table_args__ = (
         UniqueConstraint(native_table, native_id, name=__tablename__ + '_c1'),
         Index('ix_fobj__ts_vector__', ts_vector, postgresql_using='gin'),

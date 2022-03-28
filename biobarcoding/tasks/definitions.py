@@ -160,6 +160,7 @@ def kill_process(pid):
 
 def call_app_entity_status_callback(jc: DottedDict, status: str):
     """
+
     "app entity" considered to be a separate thing from elaboration (job execution) of it
     Useful to provide higher level view of the status of this entity (without knowing about "jobs")
 
@@ -649,7 +650,7 @@ def wf1_transfer_data_to_resource(job_context: str) -> object:
 
     def get_files_to_upload(jc, job_executor):
         _ = [i for i in job_executor.get_upload_files_list(jc)
-             if not isinstance(i, str) or (isinstance(i, str) and not i.startswith("geoprocess"))]
+             if not isinstance(i.get("remote_name"), str) or (isinstance(i.get("remote_name"), str) and not i["remote_name"].startswith("geoprocess"))]
         return _
 
     ret_tuple = transfer_task(task_name="transfer_data_to_resource",
@@ -736,6 +737,7 @@ def wf1_wait_until_execution_starts(job_context: str):
     elif status == 'running' or status == 'ok':
         return job_context
     else:
+        # waiting until start of the job
         return 3, job_context
 
 

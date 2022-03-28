@@ -156,7 +156,8 @@ class ApiKeyAPI(MethodView):
                     key_idx += 1
                 # Generate API Key
                 k = uuid.uuid4().hex
-                r.content = dict(api_key=k)
+                # Fields needed to login (using "i-Bond" client)
+                r.content = dict(api_key=k, name=g.n_session.identity.name)
                 # Store hash
                 h = generate_password_hash(k)
                 d = dict(key_idx=key_idx, hash=h, roles=t['roles'],
@@ -164,7 +165,10 @@ class ApiKeyAPI(MethodView):
                 lst = identity_authenticator.authenticator_info.copy()
                 lst.append(d)
                 identity_authenticator.authenticator_info = lst
-                r.content.update(d)
+                d2 = d.copy()
+                del d2['hash']
+                del d2['key_idx']
+                r.content.update(d2)
         return r.get_response()
 
     @n_session()
