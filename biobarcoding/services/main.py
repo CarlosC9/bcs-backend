@@ -347,6 +347,7 @@ class BasicService:
 
     # any additional delete if any
     def after_delete(self, *content, **kwargs):
+        # TODO: check why all rows are deleted in bcs without filtering
         return content
 
     # TODO: generic import/export in progress
@@ -379,13 +380,14 @@ class BasicService:
         outfile = os.path.join(current_app.config['UPLOAD_FOLDER'], secure_filename(outfile or f'output_{app_acronym}'))
         return outfile, format
 
-    def data2file(self, data: list, outfile, format: str, **kwargs):
+    def data2file(self, data: list, outfile, format: str, **kwargs) -> int:
+        # TODO: check that the format is in self.formats ?
         with open(outfile, 'w') as wf:
             json.dump(data, wf)
-        return outfile, 0
+        return len(data)
 
     def export_file(self, outfile=None, format=None, **kwargs):
         outfile, format = self.prepare_export(outfile=outfile, format=format)
         query, count = self.get_query(purpose='export', **kwargs)
-        log = self.data2file(query.all(), outfile, format, **kwargs)
+        count = self.data2file(query.all(), outfile, format, **kwargs)
         return outfile, count

@@ -13,7 +13,7 @@ from .sequences import Service as SeqService
 from ..meta.analyses import Service as AnsisService
 
 seq_service = SeqService()
-ansis_service = AnsisService()
+ansis_service = AnsisService()  # TODO keep an eye on the BOS and Analysis services, they might be needed
 
 
 ##
@@ -26,14 +26,14 @@ class Service(BosService):
         self.db = DBSessionChado
         self.orm = get_orm('alignments')
         self.bos = 'multiple-sequence-alignment'
-
+        self.formats = ('clustal', 'emboss', 'fasta', 'fasta-m10', 'ig', 'maf', 'mauve', 'msf', 'nexus', 'phylip', 'phylip-sequential', 'phylip-relaxed', 'stockholm')
     ##
     # CREATE
     ##
 
     def prepare_values(self, **values):
-        values.update(ansis_service.check_values(**values))
-        return super(Service, self).check_values(**values)
+        values.update(ansis_service.prepare_values(**values))
+        return super(Service, self).prepare_values(**values)
 
 
     def check_values(self, **values) -> dict:
@@ -80,7 +80,6 @@ class Service(BosService):
         ids = [a.analysis_id for a in content]
         query = DBSession.query(MultipleSequenceAlignment).filter(MultipleSequenceAlignment.native_id.in_(ids))
         return query.count()
-        # TODO: check why all rows are deleted in bcs without filtering
         # return query.delete(synchronize_session='fetch')
 
     ##
@@ -152,19 +151,28 @@ class Service(BosService):
     # EXPORT
     ##
 
-    def export_file(self, format='fasta', values={}, **kwargs):
-        content, count = [], 0
-        try:
-            if format in ('fasta', 'nexus'):
-                header = {'header': values.pop('header', None)}
-                query, count = self.get_query(purpose='export', values=values, **kwargs)
-                for a in query.all():
-                    c, cc = seq_service.export_file(analysis_id=a.analysis_id, values=header)
-                    content.append(c)
-                    count += cc
-            else:
-                raise Exception(f'EXPORT alignments: The format {format} could not be exported.')
-        except Exception as e:
-            log_exception(e)
-            raise Exception(f'EXPORT alignments: The alignment could not be exported.')
-        return content, count
+    def data2file(self, alns: list, outfile, format: str, **kwargs) -> int:
+        files, count = [], 0
+        header = kwargs.get('values', {}).get('header')
+        for a in alns:
+            file = outfile
+            if len(alns) > 1:
+                file = f'{file}_{a.analysis_id}'
+            c, cc = seq_service.export_file(outfile=file, format=format,
+                                            analysis_id=a.analysis_id, values={'header': header})
+            files.append(file)
+            count += 1
+        if len(alns) > 1:
+            from ....common.helpers import zip_files
+            zip_files(outfile, files)
+        return count
+
+    ##
+    # GETTER AND OTHERS
+    ##
+
+    def get_query(self, **kwargs):
+        return ansis_service.get_query(query=super(Service, self).get_query(**kwargs)[0], **kwargs)
+
+    # def aux_filter(self, filter):
+    #     return ansis_service.aux_filter(filter) + super(Service, self).aux_filter(filter)

@@ -109,7 +109,6 @@ class Service(BosService):
         ids = [seq.feature_id for seq in content]
         query = DBSession.query(Sequence).filter(Sequence.native_id.in_(ids))
         return query.count()
-        # TODO: check why all rows are deleted in bcs without filtering
         # return query.delete(synchronize_session='fetch')
 
     ##
@@ -212,7 +211,7 @@ class Service(BosService):
                                      annotations=annotations))
         return records
 
-    def data2file(self, seqs: list, outfile, format: str, values={}, **kwargs):
+    def data2file(self, seqs: list, outfile, format: str, values={}, **kwargs) -> int:
         headers = self.seqs_header_parser(seqs, values.pop('header', ''))
         from Bio import SeqIO
         records = self.chado2biopy(seqs, headers)
@@ -232,26 +231,26 @@ class Service(BosService):
     # GETTER AND OTHERS
     ##
 
-    def aux_own_filter(self, filter):
-        clause=[]
+    def aux_filter(self, filter):
+        clauses = []
 
         if 'analysis_id' in filter:
             from ....db_models.chado import AnalysisFeature
             _ids = self.db.query(AnalysisFeature.feature_id)\
                 .filter(filter_parse(AnalysisFeature, [{'analysis_id': filter.get('analysis_id')}]))
-            clause.append(Feature.feature_id.in_(_ids))
+            clauses.append(Feature.feature_id.in_(_ids))
 
         if 'phylotree_id' in filter:
             from ....db_models.chado import Phylonode
             _ids = self.db.query(Phylonode.feature_id)\
                 .filter(filter_parse(Phylonode, [{'phylotree_id': filter.get('phylotree_id')}]))
-            clause.append(Feature.feature_id.in_(_ids))
+            clauses.append(Feature.feature_id.in_(_ids))
 
         if "prop_cvterm_id" in filter:
             from ....db_models.chado import Featureprop
             _ids = self.db.query(Featureprop.feature_id)\
                 .filter(filter_parse(Featureprop, [{'type_id': filter.get('prop_cvterm_id')}]))
-            clause.append(Feature.feature_id.in_(_ids))
+            clauses.append(Feature.feature_id.in_(_ids))
 
         if "program" in filter:
             from ....db_models.chado import Analysis
@@ -260,7 +259,7 @@ class Service(BosService):
             from ....db_models.chado import AnalysisFeature
             _ids = self.db.query(AnalysisFeature.feature_id) \
                 .filter(AnalysisFeature.analysis_id.in_(_ids))
-            clause.append(Feature.feature_id.in_(_ids))
+            clauses.append(Feature.feature_id.in_(_ids))
 
         if "programversion" in filter:
             from ....db_models.chado import Analysis
@@ -269,7 +268,7 @@ class Service(BosService):
             from ....db_models.chado import AnalysisFeature
             _ids = self.db.query(AnalysisFeature.feature_id) \
                 .filter(AnalysisFeature.analysis_id.in_(_ids))
-            clause.append(Feature.feature_id.in_(_ids))
+            clauses.append(Feature.feature_id.in_(_ids))
 
         if "algorithm" in filter:
             from ....db_models.chado import Analysis
@@ -278,28 +277,28 @@ class Service(BosService):
             from ....db_models.chado import AnalysisFeature
             _ids = self.db.query(AnalysisFeature.feature_id) \
                 .filter(AnalysisFeature.analysis_id.in_(_ids))
-            clause.append(Feature.feature_id.in_(_ids))
+            clauses.append(Feature.feature_id.in_(_ids))
 
         from datetime import datetime
         if "added-from" in filter:
             filter["added-from"]['unary'] = datetime.strptime(filter.get("added-from")['unary'], '%Y-%m-%d')
             _ids = self.db.query(Feature.feature_id) \
                 .filter(filter_parse(Feature, {'timeaccessioned':filter.get("added-from")}))
-            clause.append(Feature.feature_id.in_(_ids))
+            clauses.append(Feature.feature_id.in_(_ids))
         if "added-to" in filter:
             filter["added-to"]['unary'] = datetime.strptime(filter.get("added-to")['unary'], '%Y-%m-%d')
             _ids = self.db.query(Feature.feature_id) \
                 .filter(filter_parse(Feature, {'timeaccessioned':filter.get("added-to")}))
-            clause.append(Feature.feature_id.in_(_ids))
+            clauses.append(Feature.feature_id.in_(_ids))
         if "lastmodified-from" in filter:
             filter["lastmodified-from"]['unary'] = datetime.strptime(filter.get("lastmodified-from")['unary'], '%Y-%m-%d')
             _ids = self.db.query(Feature.feature_id) \
                 .filter(filter_parse(Feature, {'timelastmodified':filter.get("lastmodified-from")}))
-            clause.append(Feature.feature_id.in_(_ids))
+            clauses.append(Feature.feature_id.in_(_ids))
         if "lastmodified-to" in filter:
             filter["lastmodified-to"]['unary'] = datetime.strptime(filter.get("lastmodified-to")['unary'], '%Y-%m-%d')
             _ids = self.db.query(Feature.feature_id) \
                 .filter(filter_parse(Feature, {'timelastmodified':filter.get("lastmodified-to")}))
-            clause.append(Feature.feature_id.in_(_ids))
+            clauses.append(Feature.feature_id.in_(_ids))
 
-        return clause
+        return clauses + super(Service, self).aux_filter(filter)

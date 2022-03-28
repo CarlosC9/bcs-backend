@@ -76,14 +76,16 @@ class Service(MetaService):
             self.db.query(Dbxref.dbxref_id).filter(Dbxref.accession.like('taxonomy:%')).subquery()))
         return super(Service, self).get_query(query=query, **kwargs)
 
-    def aux_own_filter(self, filter):
-        clause = []
+    def aux_filter(self, filter):
         from ....rest import filter_parse
+        clauses = []
+
         if filter.get('organism_id'):
             from ....db_models.chado import Phylonode, PhylonodeOrganism
             _ids = self.db.query(Phylonode.phylotree_id).filter(Phylonode.phylonode_id.in_(
                 self.db.query(PhylonodeOrganism.phylonode_id).filter(
                     filter_parse(PhylonodeOrganism, [{'organism_id': filter.get('organism_id')}])).subquery())
             ).subquery()
-            clause.append(self.orm.phylotree_id.in_(_ids))
-        return clause
+            clauses.append(self.orm.phylotree_id.in_(_ids))
+
+        return clauses + super(Service, self).aux_filter(filter)

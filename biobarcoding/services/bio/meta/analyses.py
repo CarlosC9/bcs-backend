@@ -51,7 +51,7 @@ class Service(MetaService):
 
     def get_query(self, **kwargs):
         if kwargs.get('job_id'):
-            # TODO: will there be multiple analyzes for a single job ?
+            # TODO: will there be multiple analyses for a single job ?
             query = self.db.query(self.orm).filter(self.orm.sourcename == str(kwargs.get('job_id')),
                                                    self.orm.sourceversion == 'job')
             return query, query.count()

@@ -47,7 +47,7 @@ class Service(MetaService):
     # EXPORT
     ##
 
-    def data2file(self, orgs: list, outfile, format: str, **kwargs):
+    def data2file(self, orgs: list, outfile, format: str, **kwargs) -> int:
         from Bio import SeqIO
         return SeqIO.write(self.chado2biopy(orgs), outfile, format)
 

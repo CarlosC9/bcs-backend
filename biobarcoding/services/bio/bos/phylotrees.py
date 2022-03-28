@@ -20,6 +20,7 @@ class Service(BosService):
         self.db = DBSessionChado
         self.orm = get_orm('phylotrees')
         self.bos = 'phylogenetic-tree'
+        self.formats = ('newick', 'nexus', 'nexml', 'phyloxml', 'cdao')
 
     ##
     # CREATE
@@ -83,7 +84,6 @@ class Service(BosService):
         ids = [t.phylotree_id for t in content]
         query = DBSession.query(PhylogeneticTree).filter(PhylogeneticTree.native_id.in_(ids))
         return query.count()
-        # TODO: check why all rows are deleted in bcs without filtering
         # return query.delete(synchronize_session='fetch')
 
     ##
@@ -120,7 +120,6 @@ class Service(BosService):
             raise Exception(f'IMPORT phylotress: The file {os.path.basename(infile)} could not be imported. (unmanageable)')
         return content, count
 
-
     def tree2phylonodes(self, phylotree_id, node, parent_id=None, index=[0]):
         phylonodes = []
         f = self.db.query(Feature).filter(Feature.uniquename == node.name).first()
@@ -146,47 +145,41 @@ class Service(BosService):
         index[0] += 1
         return [phylonode] + phylonodes
 
-
     ##
     # EXPORT
     ##
 
-    def export_file(self, format='newick', **kwargs):
-        content, count = f'/tmp/output_ngd.{format}', 0
-        # NGD newick phylotree export
-        try:
-            t_id = self.get_query(purpose='export', **kwargs)[0].one().phylotree_id
-            self.data2file(t_id, format, content)
-            count += 1
-        except Exception as e:
-            log_exception(e)
-            raise Exception('EXPORT phylotrees: The phylotree could not be exported.')
-        return content, count
-
-
-    def tree2file(self, phylotree_id, format, output_file):
-        format = get_bioformat(output_file, format)
-        # TODO: build Bio.Phylo.BaseTree from chado, and Phylo.write(tree, output_file, format)
-        if format:
+    def data2file(self, trees: list, outfile, format: str, **kwargs) -> int:
+        # TODO: build Bio.Phylo.BaseTree from chado, and Phylo.write(tree, outfile, format)
+        files, count = [], 0
+        for t in trees:
             # dump to newick
-            root = self.db.query(Phylonode).filter(Phylonode.phylotree_id == phylotree_id,
-                                                         Phylonode.parent_phylonode_id == None).one()
+            root = self.db.query(Phylonode).filter(Phylonode.phylotree_id == t.phylotree_id,
+                                                   Phylonode.parent_phylonode_id == None).one()
             result = self.tree2newick(root)
-            with open("%s.newick" % output_file, "w") as file:
+            with open("%s.newick" % outfile, "w") as file:
                 file.write(result)
+            file = outfile
+            if len(trees) > 1:
+                file = f'{file}_{t.name}'
             # convert from newick to another format
-            if format in ["nexus", "nexml"] :
+            if format in ["nexus", "nexml"]:
                 from dendropy import Tree
-                tree = Tree.get(path="%s.newick" % output_file, schema="newick")
-                tree.write(path=output_file, schema=format)
+                tree = Tree.get(path="%s.newick" % outfile, schema="newick")
+                tree.write(path=file, schema=format)
             elif format != "newick":
                 from Bio import Phylo
-                Phylo.convert("%s.newick" % output_file, "newick", output_file, format)
+                Phylo.convert("%s.newick" % outfile, "newick", file, format)
             else:
-                os.rename("%s.newick" % output_file, output_file)
-        return output_file
+                os.rename("%s.newick" % outfile, file)
+            files.append(file)
+            count += 1
+        if len(trees) > 1:
+            from ....common.helpers import zip_files
+            zip_files(outfile, files)
+        return count
 
-    def tree2newick(self, node, is_root=True):
+    def tree2newick(self, node, is_root=True) -> str:
         result = ''
         children = self.db.query(Phylonode).filter(Phylonode.parent_phylonode_id == node.phylonode_id)
         if children.count() > 0:
@@ -258,4 +251,4 @@ class Service(BosService):
                 .filter(filter_parse(Analysis, {'timeexecuted': filter.get("added-to")}))
             clauses.append(self.orm.analysis_id.in_(_ids))
 
-        return clauses
+        return clauses + super(Service, self).aux_filter(filter)
