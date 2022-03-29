@@ -25,7 +25,7 @@ class Service(MetaService):
             raise Exception('Missing the uniquename')
 
         if not values.get('type_id'):
-            from ontologies import get_type_id
+            from .ontologies import get_type_id
             values['type_id'] = get_type_id(type=values.get('type', 'stock'))
 
         return super(Service, self).check_values(**values)

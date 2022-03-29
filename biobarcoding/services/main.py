@@ -242,9 +242,12 @@ class BasicService:
 
     # any additional read if any
     def attach_data(self, content):
-        import json
-        from ..common import generate_json
-        return json.loads(generate_json(content))
+        try:
+            import json
+            from ..common import generate_json
+            return json.loads(generate_json(content))
+        except:
+            return None
 
     ##
     # GET SQLALCHEMY QUERY

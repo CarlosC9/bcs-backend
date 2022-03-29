@@ -20,11 +20,11 @@ class BosService(BioService):
         from ....db_models.core import data_object_type_id
         from ....db_models.bioinformatics import FunctionalObject
         purpose_id = DBSession.query(PermissionType).filter(PermissionType.name == purpose).one().id
-        seq_clause = DBSession.query(FunctionalObject.native_id) \
+        bos_clause = DBSession.query(FunctionalObject.native_id) \
             .filter(auth_filter(FunctionalObject, purpose_id, [data_object_type_id[self.bos]]))
-        seq_clause = [i for i, in seq_clause.all()]
+        bos_clause = [i for i, in bos_clause.all()]  # Cannot use .subquery(), because we have two -separate- databases
 
         from sqlalchemy import inspect
-        seq_clause = inspect(self.orm).primary_key[0].in_(seq_clause)
-        query = self.db.query(self.orm).filter(seq_clause)
+        bos_clause = inspect(self.orm).primary_key[0].in_(bos_clause)
+        query = self.db.query(self.orm).filter(bos_clause)
         return query

@@ -34,13 +34,14 @@ class Service(MetaService):
     def attach_data(self, content):
         new = super(Service, self).attach_data(content)
 
-        new['name'] = self.db.query(self.orm.name).filter(self.orm.organism_id == content.organism_id).one()[0]
-        from ... import force_underscored
-        from ...species_names import get_canonical_species_names
-        new['canonical_name'] = get_canonical_species_names(DBSession, new.get('name'))[0] or new.get('name')
-        new['canonical_underscored_name'] = get_canonical_species_names(DBSession, new.get('name'), underscores=True)[0] \
-                                            or force_underscored(new.get('name'))
-        
+        if new:
+            new['name'] = self.db.query(self.orm.name).filter(self.orm.organism_id == content.organism_id).one()[0]
+            from ... import force_underscored
+            from ...species_names import get_canonical_species_names
+            new['canonical_name'] = get_canonical_species_names(DBSession, new.get('name'))[0] or new.get('name')
+            new['canonical_underscored_name'] = get_canonical_species_names(DBSession, new.get('name'), underscores=True)[0] \
+                                                or force_underscored(new.get('name'))
+
         return new
 
     ##

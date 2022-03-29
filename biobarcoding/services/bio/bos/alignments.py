@@ -61,14 +61,15 @@ class Service(BosService):
     def attach_data(self, content):
         new = super(Service, self).attach_data(content)
 
-        from sqlalchemy.sql.expression import func, distinct
-        info = self.db.query(func.max(func.length(Feature.residues)),
-                             func.count(AnalysisFeature.analysis_id),
-                             func.array_agg(distinct(Organism.name))) \
-            .select_from(AnalysisFeature).join(Feature).join(Organism) \
-            .filter(AnalysisFeature.analysis_id == content['analysis_id']) \
-            .group_by(AnalysisFeature.analysis_id)
-        content['seqlen'], content['seqnum'], content['taxa'] = info.one()
+        if new:
+            from sqlalchemy.sql.expression import func, distinct
+            info = self.db.query(func.max(func.length(Feature.residues)),
+                                 func.count(AnalysisFeature.analysis_id),
+                                 func.array_agg(distinct(Organism.name))) \
+                .select_from(AnalysisFeature).join(Feature).join(Organism) \
+                .filter(AnalysisFeature.analysis_id == content.analysis_id) \
+                .group_by(AnalysisFeature.analysis_id)
+            new['seqlen'], new['seqnum'], new['taxa'] = info.one()
 
         return new
 
@@ -151,6 +152,10 @@ class Service(BosService):
     # EXPORT
     ##
 
+    def chado2biopy(self, aln, header: str = None) -> list:
+        query, count = seq_service.get_query(purpose='export', filter={'analysis_id': aln.analysis_id})
+        return seq_service.chado2biopy(query.all(), header)
+
     def data2file(self, alns: list, outfile, format: str, **kwargs) -> int:
         files, count = [], 0
         header = kwargs.get('values', {}).get('header')
@@ -158,8 +163,9 @@ class Service(BosService):
             file = outfile
             if len(alns) > 1:
                 file = f'{file}_{a.analysis_id}'
-            c, cc = seq_service.export_file(outfile=file, format=format,
-                                            analysis_id=a.analysis_id, values={'header': header})
+            from Bio.Align import MultipleSeqAlignment
+            aln = MultipleSeqAlignment(self.chado2biopy(a, header))
+            AlignIO.write(aln, file, format)
             files.append(file)
             count += 1
         if len(alns) > 1:

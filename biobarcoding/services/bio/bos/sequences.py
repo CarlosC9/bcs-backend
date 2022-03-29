@@ -64,11 +64,13 @@ class Service(BosService):
 
     def seq_stock(self, seq, **values):
         if not values.get('stock_id') and values.get('stock'):
-            from ..meta.individuals import __get_query as get_stock_query, create as create_stock
+            from ..meta.individuals import Service as StockService
             try:
-                stock = get_stock_query(values.get('stock_id'), uniquename=values.get('stock'))[0].one()
+                stock = StockService().get_query(purpose='annotate',
+                                                 id=values.get('stock_id'),
+                                                 uniquename=values.get('stock'))[0].one()
             except:
-                stock = create_stock(uniquename=values.get('stock'), organism_id=seq.organism_id)[1]
+                stock = StockService().create(uniquename=values.get('stock'), organism_id=seq.organism_id)[0]
                 self.db.flush()   # stock_id required
             values['stock_id'] = stock.stock_id
         elif not values.get('stock_id'):
@@ -96,9 +98,12 @@ class Service(BosService):
 
     def attach_data(self, content):
         new = super(Service, self).attach_data(content)
-        new['uuid'] = str(DBSession.query(Sequence)
-                          .filter(Sequence.native_table == 'feature',
-                                  Sequence.native_id == new.get('feature_id')).one().uuid)
+
+        if new:
+            new['uuid'] = str(DBSession.query(Sequence)
+                              .filter(Sequence.native_table == 'feature',
+                                      Sequence.native_id == content.feature_id).one().uuid)
+
         return new
 
     ##
@@ -179,21 +184,23 @@ class Service(BosService):
     def seqs_header_parser(self, seqs, format: str):     # return dict(uniquename, header)
         # TODO: seqs header parser
         headers = {}
-        if "organism" in format.lower():    # ('organismID', 'organism', 'organism_canon', 'organism_canon_underscored')
-            orgs = self.db.query(Feature.uniquename, Organism.organism_id, Organism.name) \
-                .join(Organism).filter(Feature.uniquename.in_([x.uniquename for x in seqs])).all()
-            from ...species_names import get_canonical_species_names
-            for seq_id, org_id, name in orgs:
-                if "id" in format.lower():
-                    headers[seq_id] = str(org_id)
-                elif "canon" in format.lower():
-                    headers[seq_id] = get_canonical_species_names(DBSession, [name],
-                                                    underscores="underscore" in format.lower())
-                else:
-                    headers[seq_id] = name
+        if format:
+            if "organism" in format.lower():    # ('organismID', 'organism', 'organism_canon', 'organism_canon_underscored')
+                orgs = self.db.query(Feature.uniquename, Organism.organism_id, Organism.name) \
+                    .join(Organism).filter(Feature.uniquename.in_([x.uniquename for x in seqs])).all()
+                from ...species_names import get_canonical_species_names
+                for seq_id, org_id, name in orgs:
+                    if "id" in format.lower():
+                        headers[seq_id] = str(org_id)
+                    elif "canon" in format.lower():
+                        headers[seq_id] = get_canonical_species_names(DBSession, [name],
+                                                                      underscores="underscore" in format.lower())[0]
+                    else:
+                        headers[seq_id] = name
         return headers
 
-    def chado2biopy(self, seqs: list, headers: dict) -> list:
+    def chado2biopy(self, seqs: list, header: str = None) -> list:
+        headers = self.seqs_header_parser(seqs, header)
         from Bio.SeqRecord import SeqRecord
         from Bio.Seq import Seq
         records = []
@@ -202,7 +209,7 @@ class Service(BosService):
             annotations = {
                 'molecule_type': 'DNA',
                 'organism': self.db.query(Organism.name)
-                    .filter(Organism.organism_id == seq.organism_id).one()[0]
+                    .filter(Organism.organism_id == seq.organism_id).one()[0]   # hybrid property must be selected
             }
             records.append(SeqRecord(Seq(seq.residues),
                                      headers.get(seq.uniquename, seq.uniquename),
@@ -212,9 +219,8 @@ class Service(BosService):
         return records
 
     def data2file(self, seqs: list, outfile, format: str, values={}, **kwargs) -> int:
-        headers = self.seqs_header_parser(seqs, values.pop('header', ''))
+        records = self.chado2biopy(seqs, values.pop('header', ''))
         from Bio import SeqIO
-        records = self.chado2biopy(seqs, headers)
         res = SeqIO.write(records, outfile, format=format)
         if format == "nexus":
             # format datatype=dna missing=? gap=- matchchar=.;
@@ -225,7 +231,7 @@ class Service(BosService):
             aln.gap = '-'
             aln.matchchar = '.'
             res = aln.write_nexus_data(outfile)
-        return res
+        return len(seqs)
 
     ##
     # GETTER AND OTHERS
