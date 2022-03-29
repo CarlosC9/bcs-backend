@@ -170,15 +170,15 @@ def initialize_bibtex_forms():
 				"The year of publication (or, if unpublished, the year of creation)",
 		},
 	]
-	from ..services.annotation_forms.fields import AuxService
-	service = AuxService()
+	from ..services.annotation_forms.fields import Service
+	service = Service()
 	fields = dict()
 	for i in bibtex_fields:
 		try:
 			c = service.create(**i, object_type_id=object_type_id)[0]
 			fields[c.name] = c
 			service.db.commit()
-		except Exception as e:
+		except:
 			service.db.rollback()
 			print(f'Something went wrong when creating the {i.get("name")} BibTeX field. It may already exist.')
 
@@ -354,12 +354,12 @@ def initialize_bibtex_forms():
 				'bibtex',
 		},
 	]
-	from ..services.annotation_forms.templates import AuxService
-	service = AuxService()
+	from ..services.annotation_forms.templates import Service
+	service = Service()
 	for i in bibtex_entities:
 		try:
 			service.create(**i, object_type_id=object_type_id)
 			service.db.commit()
-		except Exception as e:
+		except:
 			service.db.rollback()
 			print(f'Something went wrong when creating the {i.get("name")} BibTeX template. It may already exist.')

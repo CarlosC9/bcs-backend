@@ -109,7 +109,7 @@ def get_encoding(file):
 
 def get_bioformat(file, format):
     import os
-    ext = format if format else os.path.splitext(file)[1][1:]
+    ext = format if format else os.path.splitext(file)[-1][1:]
     return {
         'frn': 'fasta', 'fna': 'fasta', 'faa': 'fasta', 'fas': 'fasta', 'fasta': 'fasta',
         'gb': 'genbank', 'gbf': 'genbank', 'gbk': 'genbank', 'genbank': 'genbank',
@@ -118,7 +118,7 @@ def get_bioformat(file, format):
         'aln': 'clustal', 'clustal': 'clustal',
         'phy': 'phylip', 'phylip': 'phylip',
         'ph': 'newick', 'nhx': 'newick', 'nwx': 'newick', 'tree': 'newick', 'newick': 'newick'
-    }.get(ext)
+    }.get(ext, ext)
 
 
 def tsv_csv_parser(file):   # with csv lib
@@ -188,7 +188,7 @@ def get_or_create(session, model, **params):
                                           acl_id=acl.id,
                                           authorizable_id=g.n_session.identity.id,
                                           permission_id=DBSession.query(PermissionType.id).filter(PermissionType.name=='delete').one())
-        except Exception as e:
+        except:
             pass
     return instance
 

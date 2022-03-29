@@ -1,4 +1,4 @@
-from . import FormItemAuxService
+from . import FormItemService
 from ..main import get_orm
 from ...rest import filter_parse
 from ...services import get_or_create
@@ -6,13 +6,13 @@ from ...db_models.sa_annotations import AnnotationFormTemplate, AnnotationFormTe
 
 
 ##
-# FIELD TOOLS
+# FIELD SERVICE
 ##
 
-class AuxService(FormItemAuxService):
+class Service(FormItemService):
 
     def __init__(self):
-        super(AuxService, self).__init__()
+        super(Service, self).__init__()
         self.orm = get_orm('fields')
 
     def prepare_external_values(self, template=None, **values):
@@ -23,10 +23,10 @@ class AuxService(FormItemAuxService):
                 filter = AnnotationFormTemplate.name == template
             values['template_id'] = self.db.query(AnnotationFormTemplate.id) \
                 .filter(filter).all()
-        return super(AuxService, self).prepare_external_values(**values)
+        return super(Service, self).prepare_external_values(**values)
 
     def after_create(self, new_object, **values):
-        super(AuxService, self).after_create(new_object, **values)
+        super(Service, self).after_create(new_object, **values)
         if values.get('template_id'):
             if isinstance(values['template_id'], (tuple, list, set)):
                 ids = values.get('template_id')
@@ -38,7 +38,7 @@ class AuxService(FormItemAuxService):
         return values
 
     def after_update(self, new_object, **values):
-        super(AuxService, self).after_update(new_object, **values)
+        super(Service, self).after_update(new_object, **values)
         if values.get('template_id') is not None:
             if isinstance(values['template_id'], (tuple, list, set)):
                 ids = values.get('template_id')
@@ -61,4 +61,4 @@ class AuxService(FormItemAuxService):
                 .filter(filter_parse(AnnotationFormTemplateField, {'template_id': filter.get('template_id')}))
             clauses.append(self.orm.id.in_(_ids.subquery()))
 
-        return clauses + super(AuxService, self).aux_filter(filter)
+        return clauses + super(Service, self).aux_filter(filter)
