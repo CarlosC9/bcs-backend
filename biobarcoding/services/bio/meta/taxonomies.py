@@ -65,9 +65,9 @@ class Service(MetaService):
             raise Exception(f'IMPORT taxonomies: The taxonomy {os.path.basename(infile)} could not be imported.')
         return content, count
 
-        ##
-        # GET SQLALCHEMY QUERY
-        ##
+    ##
+    # GET SQLALCHEMY QUERY
+    ##
 
     def get_query(self, **kwargs):
         query = None

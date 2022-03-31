@@ -2,6 +2,7 @@ import json
 import os.path
 
 from flask import g
+from typing import Tuple
 
 from . import log_exception, get_bioformat, get_orm_params
 from ..rest import Issue, IType
@@ -196,7 +197,7 @@ class BasicService:
 
     # filter and deduce values (mostly ids) for creation or update
     def prepare_values(self, **values) -> dict:
-        return get_orm_params(self.orm, **values)
+        return values
 
     # filter and deduce values (mostly ids) for creation or update
     def prepare_external_values(self, **values) -> dict:
@@ -204,10 +205,10 @@ class BasicService:
 
     # check the validity of the values against the constraints to create or update
     def check_values(self, **values) -> dict:
-        return values
+        return get_orm_params(self.orm, **values)
 
     # deal with the creation
-    def create(self, **kwargs):
+    def create(self, **kwargs) -> Tuple[any, int]:
         values = self.prepare_values(**kwargs)
         from sqlalchemy.exc import SQLAlchemyError
         try:
@@ -232,7 +233,7 @@ class BasicService:
 
     # read like get_query, but telling if it asks only for one or more. It can use get_query
     # @return: result, total_count
-    def read(self, **kwargs):
+    def read(self, **kwargs) -> Tuple[any, int]:
         content, count = self.get_query(purpose='read', **kwargs)
         if kwargs.get('id'):
             content = self.attach_data(content.first())
@@ -255,7 +256,7 @@ class BasicService:
 
     # provide a sqlalchemy query (might be paged) and the total_count
     # @return: Query, total_count
-    def get_query(self, query=None, id=None, purpose='delete', **kwargs):
+    def get_query(self, query=None, id=None, purpose='delete', **kwargs) -> Tuple[object, int]:
         """
          reserved keywords in kwargs:
            'values': specific values of orm fields to filter
@@ -314,12 +315,10 @@ class BasicService:
     ##
 
     # deal with the update
-    def update(self, values={}, **kwargs):
+    def update(self, values={}, **kwargs) -> Tuple[any, int]:
         changes = self.prepare_values(**values)
         content, count = self.get_query(purpose='contribute', **kwargs)
-        changes.update(values)
         foreign_changes = self.prepare_external_values(**values)
-        # self.content = self.content.update(Service.prepare_values(**values))
         content = content.all()
         for row in content:
             for k, v in changes.items():
@@ -339,7 +338,7 @@ class BasicService:
     ##
 
     # deal with the delete
-    def delete(self, **kwargs):
+    def delete(self, **kwargs) -> Tuple[any, int]:
         content, count = self.get_query(purpose='delete', **kwargs)
         # content = content.delete(synchronize_session='fetch')
         content = content.all()
@@ -362,7 +361,7 @@ class BasicService:
     def check_file(self, file, format) -> bool:
         return True
 
-    def import_file(self, infile, format=None, **kwargs):
+    def import_file(self, infile, format=None, **kwargs) -> Tuple[any, int]:
         """
         format = get_bioformat(file, format)
         self.check_file(file, format)
@@ -376,7 +375,7 @@ class BasicService:
     # EXPORT
     ##
 
-    def prepare_export(self, outfile=None, format=None, **kwargs):
+    def prepare_export(self, outfile=None, format=None, **kwargs) -> Tuple[str, str]:
         from flask import current_app
         from werkzeug.utils import secure_filename
         from biobarcoding import app_acronym
@@ -389,7 +388,7 @@ class BasicService:
             json.dump(data, wf)
         return len(data)
 
-    def export_file(self, outfile=None, format=None, **kwargs):
+    def export_file(self, outfile=None, format=None, **kwargs) -> Tuple[any, int]:
         outfile, format = self.prepare_export(outfile=outfile, format=format)
         query, count = self.get_query(purpose='export', **kwargs)
         count = self.data2file(query.all(), outfile, format, **kwargs)
