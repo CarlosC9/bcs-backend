@@ -2,6 +2,7 @@ import datetime
 import re
 import uuid
 
+from flask import g
 from sqlalchemy import Column, Integer, ForeignKey, String, BigInteger, Boolean, DateTime, UniqueConstraint, event, \
     func, Index, or_, and_
 from sqlalchemy.dialects.postgresql import JSONB
@@ -10,11 +11,13 @@ from sqlalchemy_utils import TSVectorType
 
 from . import ORMBase, GUID, ObjectType
 from .jobs import Job
+from .sysadmin import Identity
 from .. import app_acronym
 from ..common import generate_json
 
 prefix = f"{app_acronym}_"
 
+# This dictionary is global. And additional entries are added by other modules, to register their own data object types
 data_object_type_id = {
     "dataset": 0,
     "geolayer": 1,
@@ -23,7 +26,13 @@ data_object_type_id = {
     "process": 100,
     "geoprocess": 101,
     "geoprocess_instance": 102,
-    "case_study": 103
+    "case_study": 103,
+    "view": 104,
+    "dashboard": 105,
+    "sys-functions": 1000,
+    "compute-resource": 1001,
+    "algorithms": 1002,
+    "none": 1000001,
 }
 
 
@@ -36,12 +45,18 @@ class FunctionalObject(ORMBase):
     native_id = Column(BigInteger, nullable=True, primary_key=False)
     native_table = Column(String(80))
 
+    owner_id = Column(Integer, ForeignKey(Identity.id))
+    creation_time = Column(DateTime, default=datetime.datetime.utcnow())
+
     name = Column(String(300))
     attributes = Column(JSONB)  # Tags, and other categories, used to classify the object
 
     ts_vector = Column(TSVectorType())
     ts_vector_update_time = Column(DateTime, default=datetime.datetime.utcnow())
     entity_update_time = Column(DateTime, default=datetime.datetime.utcnow())
+
+    authr_reference = Column(Boolean, default=False)
+    is_deleted = Column(Boolean, default=False)
 
     __table_args__ = (
         UniqueConstraint(native_table, native_id, name=__tablename__ + '_c1'),
@@ -90,6 +105,11 @@ def set_functional_object_tsvector(entity):
 
 
 def after_create_or_update(mapper, connection, target):
+    # Set owner to currently logged-in identity (for new entities)
+    if target.id is None and g.n_session is not None:
+        target.owner_id = g.n_session.identity_id
+
+    # Prepare for full-text search
     if target.entity_update_time is None or \
             (target.entity_update_time is not None and
              (target.ts_vector_update_time is None or
@@ -112,6 +132,18 @@ def update_functional_object_tsvector(session):
         entity.entity_update_time = datetime.datetime.utcnow()
         set_functional_object_tsvector(entity)
     session.commit()
+
+
+class NullObject(FunctionalObject):
+    """
+    Represent nullified objects (for now an object that is not wanted anymore)
+
+    """
+    __tablename__ = f"{prefix}null_objs"
+    __mapper_args__ = {
+        'polymorphic_identity': 1000001,
+    }
+    id = Column(BigInteger, ForeignKey(FunctionalObject.id), nullable=True)
 
 
 class CaseStudy(FunctionalObject):
@@ -150,7 +182,6 @@ class Dataset(FunctionalObject):
     }
     id = Column(BigInteger, ForeignKey(FunctionalObject.id), primary_key=True)
     identity_id = Column(Integer)
-    creation_time = Column(DateTime, default=datetime.datetime.utcnow())
     structure = Column(JSONB)  # Used to match datasets and ports
     provenance = Column(JSONB)  # Origin of the dataset
     # attributes: source/intermediate/output (source+output, intermediate+output are possible), provenance, ...
@@ -232,7 +263,6 @@ class CProcessInstance(FunctionalObject):
     status = Column(String(10))
     # If it has a value, the process has been launched for execution
     job_id = Column(BigInteger, ForeignKey(Job.id))
-    creation_time = Column(DateTime, default=datetime.datetime.utcnow())
     hash_of_canonical = Column(String(64), unique=True)
     params = Column(JSONB)
 

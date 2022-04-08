@@ -35,8 +35,6 @@ def send_web_client_file(path=None):
     """
 
     def detect_mimetype(fn):
-        if fn.lower().startswith("main.") and fn.lower().endswith(".js"):
-            return "text/html"
         if fn.lower().endswith(".js"):
             return "application/javascript"
         elif fn.lower().endswith(".html"):

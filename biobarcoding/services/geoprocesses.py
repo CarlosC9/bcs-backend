@@ -100,10 +100,10 @@ def submit_geoprocess_instances(session, geoprocess_instances):
         d.process = DottedDict()
         d.process.name = f"geoprocess {params.geoprocess}"
         d.process.inputs = DottedDict()
-        d.process.inputs.parameters = DottedDict()
-        d.process.inputs.parameters[SSHProcessAdaptor.SCRIPT_KEY] = ["geoprocess"]
-        d.process.inputs.parameters[SSHProcessAdaptor.SCRIPT_FILES_KEY] = []
-        d.process.inputs.parameters[SSHProcessAdaptor.SCRIPT_PARAMS_KEY] = "execute ."
+        d.process.inputs.adapted_parameters = DottedDict()
+        d.process.inputs.adapted_parameters[SSHProcessAdaptor.SCRIPT_KEY] = [dict(remote_name="geoprocess")]
+        d.process.inputs.adapted_parameters[SSHProcessAdaptor.SCRIPT_FILES_KEY] = []
+        d.process.inputs.adapted_parameters[SSHProcessAdaptor.SCRIPT_PARAMS_KEY] = "execute ."
         d.process.callbacks = DottedDict()
         d.process.callbacks.endpoint = f"/geo/processes/instances/{instance.id}"
         d.process.callbacks.success_status = "success"
@@ -115,6 +115,7 @@ def submit_geoprocess_instances(session, geoprocess_instances):
         d.process.inputs.data.append(dict(remote_name="params.yml",
                                           type=None,
                                           object_type={"files": params_file_path},
+                                          queryParams=None,
                                           selection=0))
         # Input layers "->"
         for i_ in params.inputs:

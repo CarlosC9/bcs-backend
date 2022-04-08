@@ -1,3 +1,4 @@
+import json
 import unittest
 import requests
 
@@ -24,11 +25,12 @@ class TemplatesAPITest(unittest.TestCase):
         "dbxref_id": "",
         "db": "SO",
         "dbxref": "0000110",
-        "object_type": ["sequence", "multiple-sequence-alignment"],
+        "object_type": '["sequence", "multiple-sequence-alignment"]',
     }
 
     put_req = {
         "description": "modified",
+        "object_type": "sequence",
     }
 
     def test_create_template(self):
@@ -78,7 +80,7 @@ class FieldsAPITest(unittest.TestCase):
         "dbxref_id": "",
         "db": "SO",
         "dbxref": "0000001",
-        "object_type": ["sequences", "multiple-sequence-alignments"],
+        "object_type": '["sequence", "multiple-sequence-alignment"]',
         "type": "tag",
         "range": "",
         "view_type": "select",
@@ -87,7 +89,9 @@ class FieldsAPITest(unittest.TestCase):
     }
 
     put_req = {
+        "template": '[]',
         "description": "modified",
+        "object_type": "sequence",
     }
 
     def test_create_field(self):
@@ -129,10 +133,9 @@ class FieldsAPITest(unittest.TestCase):
 class AnnotationsAPITest(unittest.TestCase):
 
     url = "http://localhost:5000/api/annotations/"
+    object_uuids = ["0bae8453-fdd5-42fa-9f89-6a1af2771183", "4a2b5bb0-452c-452e-b5c3-a00b7a644351"]
 
     post_req_template = {
-        # "attributes": {"tags": ["test", "testing"]},
-        "object_uuid": "99856669-d9d9-45f6-beba-24e0a64a669e",
         "name": "new_annotation_template",
         "type": "template",
         "template": TemplatesAPITest.post_req.get('name'),
@@ -140,8 +143,6 @@ class AnnotationsAPITest(unittest.TestCase):
     }
 
     post_req_field = {
-        # "attributes": {"tags": ["test", "testing"]},
-        "object_uuid": "99856669-d9d9-45f6-beba-24e0a64a669e",
         "name": "new_annotation_field",
         "type": "field",
         "field": FieldsAPITest.post_req.get('name'),
@@ -149,29 +150,52 @@ class AnnotationsAPITest(unittest.TestCase):
     }
 
     post_req_text = {
-        # "attributes": {"tags": ["test", "testing"]},
-        "object_uuid": "99856669-d9d9-45f6-beba-24e0a64a669e",
         "name": "new_annotation_text",
         "type": "text",
         "value": "maturase k",
     }
 
-    put_req = {
+    put_req = json.dumps({
         "value": "modified",
-    }
+        "object_uuid": object_uuids,
+    })
 
-    def test_create_annotation(self):
+    put_req_batch_1 = json.dumps([post_req_template, post_req_field, post_req_text])
+    put_req_batch_2 = json.dumps([
+        {
+            "value": "<p>Hola, ¿qué tal?</p>",
+            "type": "text",
+            "name": "modified",
+            "id": 1
+        },
+        {
+            "value": "<p>Hey</p>",
+            "type": "text",
+            "name": "append",
+        },
+    ])
 
-        for payload in (self.post_req_template, self.post_req_field, self.post_req_text):
-            response = session.post(self.url, data=payload)
-            print(response.text)
+    def test_create_annotations_by_uuid(self):
 
-            self.assertEqual(response.status_code, 201)
+        data = [self.post_req_template, self.post_req_field, self.post_req_text]
+        response = session.post(self.url + self.object_uuids[0], data=str(data))
+        print(response.text)
 
+        self.assertEqual(response.status_code, 201)
         return None
 
+    # def test_create_annotation(self):
+    #
+    #     for payload in (self.post_req_template, self.post_req_field, self.post_req_text):
+    #         response = session.post(self.url, data=payload)
+    #         print(response.text)
+    #
+    #         self.assertEqual(response.status_code, 201)
+    #
+    #     return None
+
     def test_get_annotation_by_id(self):
-        response = session.get(f"{self.url}{self.post_req_text.get('object_uuid')}")
+        response = session.get(f"{self.url}{self.object_uuids[0]}")
         print(response.text)
 
         self.assertEqual(response.status_code, 200)
@@ -185,14 +209,28 @@ class AnnotationsAPITest(unittest.TestCase):
         return None
 
     def test_modify_annotation(self):
-        response = session.put(f"{self.url}{self.post_req_text.get('object_uuid')}", data=self.put_req)
+        response = session.put(f"{self.url}1", data=self.put_req)
+        print(response.text)
+
+        self.assertEqual(response.status_code, 200)
+        return None
+
+    def test_modify_annotation_by_batch(self):
+        response = session.put(f"{self.url}{self.object_uuids[1]}", data=self.put_req_batch_1)
+        print('PUT: create')
+        print(response.text)
+
+        self.assertEqual(response.status_code, 200)
+
+        response = session.put(f"{self.url}{self.object_uuids[1]}", data=self.put_req_batch_2)
+        print('PUT: modified and append')
         print(response.text)
 
         self.assertEqual(response.status_code, 200)
         return None
 
     # def test_detele_annotation(self):
-    #     response = session.delete(f"{self.url}{self.post_req_text.get('object_uuid')}")
+    #     response = session.delete(f"{self.url}{self.object_uuids[0]}")
     #     print(response.text)
     #
     #     self.assertEqual(response.status_code, 200)

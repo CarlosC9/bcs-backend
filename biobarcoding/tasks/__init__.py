@@ -2,7 +2,7 @@ import socket
 
 from celery import Celery
 
-import biobarcoding
+import biobarcoding as base_app_pkg
 from .celeryconfig import celery_config
 
 
@@ -64,11 +64,11 @@ def initialize_celery(flask_app):
 
     celery.Task = ContextTask
 
-    biobarcoding.celery = celery
+    base_app_pkg.celery = celery
 
 
 # CELERY APP, used by CELERY TASKS
-celery_app = biobarcoding.celery
+celery_app = base_app_pkg.celery
 
 if not celery_app:
     host = get_redis_host()

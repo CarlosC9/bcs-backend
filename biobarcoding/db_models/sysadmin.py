@@ -1,8 +1,7 @@
 import datetime
 import uuid
 
-from sqlalchemy import Column, ForeignKey, UniqueConstraint, Boolean, Integer, BigInteger, String, DateTime, Text, \
-    JSON, Sequence, Index
+from sqlalchemy import Column, ForeignKey, UniqueConstraint, Boolean, Integer, String, DateTime, Text, JSON, Index
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship, backref
 
@@ -63,6 +62,26 @@ class Identity(Authorizable):
     # configuration = Column(JSON)  # To store personal preferences, from language to other visualization features
     creation_time = Column(DateTime, default=datetime.datetime.utcnow())
     deactivation_time = Column(DateTime)
+
+
+class IdentityStoreEntry(ORMBase):
+    """
+    Used to store per identity information chunks (JSON), by key
+    Key can be whatever, from general GUI configuration, to GUI-views state, to other configurable aspects
+
+    """
+    __tablename__ = f"{prefix}identity_store_entries"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    identity_id = Column(Integer, ForeignKey(Identity.id), nullable=False)
+    identity = relationship(Identity)
+
+    key = Column(String(255), nullable=False)
+    value = Column(JSONB)
+
+    __table_args__ = (
+        UniqueConstraint(identity_id, key, name=__tablename__ + '_identity_key'),
+    )
 
 
 class IdentityAuthenticator(ORMBase):

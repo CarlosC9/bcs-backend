@@ -6,7 +6,7 @@ import traceback
 
 import sys
 from enum import Enum
-from typing import Dict, List, Callable
+from typing import Dict, List, Callable, Union, Optional
 from urllib.parse import unquote
 
 import redis
@@ -16,6 +16,7 @@ from flask import Response, Blueprint, g, request
 from flask.views import MethodView
 import sqlalchemy
 from sqlalchemy import orm, and_, or_
+from sqlalchemy.orm import Query
 from sqlalchemy.pool import StaticPool
 from bioblend import galaxy
 
@@ -33,7 +34,7 @@ from ..db_models.jobs import *
 from ..db_models.sa_annotations import *
 from ..db_models.sysadmin import *
 from ..rest.socket_service import SocketService
-import biobarcoding
+import biobarcoding as base_app_pkg
 
 app_api_base = "/api"  # Base for all RESTful calls
 app_gui_base = "/gui"  # Base for the Angular2 GUI
@@ -82,15 +83,13 @@ class Issue:
         return f'(type="{self.itype.name}", message="{self.message}", location="{self.location}")'
 
 
-@attrs
 class ResponseObject:
-    content = attrib(default=None)  # type: object
-    count = attrib(default=0)  # type: int
-    issues = attrib(default=[])  # type: List[Issue]
-    # Mimetype.
-    content_type = attrib(default="text/json")  # type: str
-    # HTTP response status code
-    status = attrib(default=200)  # type: int
+    def __init__(self, content=None, count=0, issues=None, content_type="text/json", status=200):
+        self.content = content
+        self.count = count
+        self.issues = [] if issues is None else issues
+        self.content_type = content_type
+        self.status = status
 
     def get_response(self) -> Response:
         """
@@ -315,9 +314,12 @@ tm_object_types = [  # ObjectType
     (data_object_type_id["geoprocess"], "ed678c7d-d4dd-4ddc-b811-a66c030ae574", "geoprocess"),  # CProcess
     (data_object_type_id["geoprocess_instance"], "f0bcbe79-89dc-42fb-b7a8-a103d361f27e", "geoprocess_instance"),
     (data_object_type_id["case_study"], "5f4c1666-e509-436b-8844-082ebe88b2b9", "case_study"),
-    (1000, "ad83dcb0-e479-4a44-acf5-387b9731e8da", "sys-functions"),
-    (1001, "aa97ddad-8937-4590-afc9-dc00c5601f2a", "compute-resource"),
-    (1002, "a4b4a7d2-732f-4db9-9a32-c57c00881eb7", "process")  # Algorithms
+    (data_object_type_id["view"], "4cc3b304-afb4-445b-a9da-6c5ec99aafc8", "view"),
+    (data_object_type_id["dashboard"], "633a7f00-4019-4302-9067-611bea1fc934", "dashboard"),
+    (data_object_type_id["sys-functions"], "ad83dcb0-e479-4a44-acf5-387b9731e8da", "sys-functions"),
+    (data_object_type_id["compute-resource"], "aa97ddad-8937-4590-afc9-dc00c5601f2a", "compute-resource"),
+    (data_object_type_id["algorithms"], "a4b4a7d2-732f-4db9-9a32-c57c00881eb7", "process"),  # Algorithms
+    (data_object_type_id["none"], "b5371878-582a-4758-9c7c-9e536c477992", "none")  # Nulled items
 ]
 
 tm_permissions_fields = ["uuid", "name", "rank"]
@@ -353,15 +355,24 @@ tm_default_groups = {
 
 tm_default_roles = {
     "c79b4ff7-9576-45f6-a439-551ac23c563b": "sys-admin",
-    "6e7ff87f-056b-46b0-b636-c7c0eb48cabe": "owner",
-    "0cb4ea40-26a6-4960-9c17-dd3012a53e0f": "basic-user",
+    "4cc73d65-f491-4199-a52d-fc05dd45c923": "research",
+    "a9f05332-ddd6-4d93-9cec-b48ef7190633": "molecular-admin",
+    "ebb39daa-98d7-4cee-9596-d2ffef70f960": "geo-admin",
+    "a6e1d17f-f2a3-428a-b24c-6e7b7d71fff4": "acl-admin",
+    "fedc08dc-1233-4998-9d7c-2cc305fac2a1": "compute-resources-admin",
+    "038f28e3-8374-4bf1-b1aa-0d63c5920294": "metadata-admin",
     "feb13f20-4223-4602-a195-a3ea14615982": "guest",
-    "94f3d8ab-7f20-426d-a881-0c19badd2a3d": "data-curator",
-    "6e6b4cce-74f0-44f7-ae82-a799ade98739": "data-importer",
-    "356e2030-28f5-49d5-a788-db553a889736": "data-updater",
-    "abb2cfe7-7990-4d84-b119-0834cc9937b5": "input-layers-admin",
-    "4b9e74b3-b0cc-4861-80ae-8390cd54cfab": "geoprocess-instances-admin",
-    "a2aef599-a34d-4290-bde5-14899b70eff1": "bioinformatic-job-executor"
+    "0156074d-acdd-43aa-8949-c7fce254ce32": "molecular-guest",
+    "999d05a1-4a16-4d11-a536-b92120288a86": "geo-guest",
+    "6e7ff87f-056b-46b0-b636-c7c0eb48cabe": "owner",
+    "a2aef599-a34d-4290-bde5-14899b70eff1": "bioinformatic-job-executor",
+    "fcc6c1e8-8c0c-46b0-9ed5-9185a427c64b": "read-molecular-api",
+    "8c5a5a19-815d-46e2-8ef9-21e964fb387d": "write-molecular-api",
+    "1fa175e8-28c2-4f59-a0b9-f07649ab924b": "read-geo-api",
+    "ec1a58b9-5f99-454c-a3fb-85b38dd70ccc": "write-geo-api",
+    "1b7d18ab-59e9-4a47-a8ef-7aab0534dfa8": "jobs-api",
+    "e8244111-04dc-4697-a8f5-3468c0fbdfe5": "read-files-api",
+    "9a5e8265-38c8-4607-bff2-85f5bebe6d3a": "write-files-api",
 }
 
 tm_authenticators = {  # Authenticator
@@ -410,6 +421,131 @@ tm_processes = {  # Preloaded processes
 }
 
 tm_system_functions = {
+    "a8be2137-a6ab-4bfa-8319-6fbf0c0bb346":	"gui-blasts",
+    "b7cf04d7-5860-4f81-9c8f-a7ad8212f89e":	"gui-blast-import",
+    "d07ff8b7-e6e3-4a6c-8e61-8243d803e7fa":	"gui-blast-export",
+    "5a2a2e8c-10ef-4fa8-816b-a837da3373cc":	"gui-blast-read",
+    "af8b3d88-0527-4e37-b411-cdef86e66b81":	"gui-blast-read-content",
+    "685be394-8099-48a9-bfe7-a3836fa860db":	"gui-blast-edit",
+    "898dfc3f-fa3c-4364-9c01-d2b17e5adb6e":	"gui-blast-delete",
+    "83937f8a-a5cc-40fb-a21c-bfdb622b3702":	"gui-blast-acl",
+    "06a0606c-bc13-4cad-bebf-73cb7f409239":	"gui-collections",
+    "1d0c423a-a776-4a48-9cb8-d71416e289bf":	"gui-collection-create",
+    "1a610222-a907-4041-952b-30e56addc0c8":	"gui-collection-read",
+    "a08fecfd-9332-426c-9348-cd69db044bb4":	"gui-collection-edit",
+    "6c70fddd-8684-4da5-9d7d-ef39570e3bc2":	"gui-collection-delete",
+    "6f1810a4-2985-4e37-b8cc-7635e32d9e4c":	"gui-collection-acl",
+    "5953ac54-22d2-4265-b5dc-ff68d9fbaf77":	"gui-cmatrices",
+    "d0034d6c-949d-4a24-b208-9f6fa1dbdd22":	"gui-cmatrix-create",
+    "3440f986-46ce-4050-ab06-0471c7aaa222":	"gui-cmatrix-read",
+    "77d59cf5-571f-4c90-9592-b0f56615bb15":	"gui-cmatrix-edit",
+    "1deddc20-c2d0-43c2-bb1c-a5e2c4d694f3":	"gui-cmatrix-delete",
+    "79df609a-f16c-4141-905e-d8d012ef89e0":	"gui-cmatrix-acl",
+    "878b1caa-ef5a-45b7-9fb0-063e9900f7ac":	"gui-mas",
+    "f9845e64-e5f9-4af0-9339-9e0fdc84920d":	"gui-ma-import",
+    "e6986c0f-a951-44d2-b3e8-f978171682ac":	"gui-ma-export",
+    "939df19e-cf0f-4c8a-b157-be3d12b161eb":	"gui-ma-read",
+    "a32f91cc-6f26-4cdf-b8aa-df5ccefd3f30":	"gui-ma-read-content",
+    "29958063-c8a3-4912-af38-e56148d86ee2":	"gui-ma-edit",
+    "0fea25d2-9836-4e2b-a390-0d77a161bbab":	"gui-ma-acl",
+    "fa1d24f9-96b6-4dc3-a97e-c1fce6b1b537":	"gui-pts",
+    "e57c4588-a2d4-429f-8359-c21f3e8531e5":	"gui-pt-import",
+    "d8c0481e-8d40-4dd3-92c4-075895cea3da":	"gui-pt-export",
+    "4bd27b17-37f6-40a7-8290-d1eab5d60ea4":	"gui-pt-read",
+    "6866a3d6-0a77-4e29-a3be-318eab5fbce2":	"gui-pt-edit",
+    "3d5f4e17-ae29-47b3-a7b4-7283ab6a5114":	"gui-pt-delete",
+    "305ec3bb-d940-4e25-8ef9-7854b742733b":	"gui-pt-acl",
+    "06fe47dd-e52d-4e26-819f-6d8632d05609":	"gui-seqs",
+    "92dd2092-77a3-4d81-8731-eebdc1e0e2fd":	"gui-seq-import",
+    "884f6f07-85d5-4418-bce1-4fc8a600ff83":	"gui-seq-export",
+    "cc97be39-10a4-449f-ae00-76c58aa99f6a":	"gui-seq-read",
+    "243774b9-9d0f-4a01-a9e1-7359e7ccc8c2":	"gui-seq-read-content",
+    "3211f86b-bb0b-4c4e-9874-611b1f9ba7ba":	"gui-seq-edit",
+    "33a3903a-caf7-4167-bc05-ddab1a88e85f":	"gui-seq-delete",
+    "656c2163-4a59-4eac-808f-8ffa27f075f3":	"gui-seq-acl",
+    "7fc54235-1aa8-496d-939e-7d3f185f01d5":	"gui-smatrices",
+    "5e558c50-f26c-44de-b626-a51d0380da5e":	"gui-smatrix-import",
+    "38242707-416c-41df-9ba9-a9dba8e7fa3f":	"gui-smatrix-export",
+    "f86bab48-8e9a-4ba3-a492-a0784f563e04":	"gui-smatrix-create",
+    "b9bfbd98-5051-49a0-95b9-2fcf9aa71b9b":	"gui-smatrix-read",
+    "5f01c6d2-23e1-4776-80cd-af58bb3c5346":	"gui-smatrix-read-content",
+    "da1000e4-f535-44d3-bc45-4f4ff1f87c17":	"gui-smatrix-edit",
+    "fee7ae36-b83d-4aff-98f7-296b6539302f":	"gui-smatrix-delete",
+    "ec211aa4-f664-4210-924d-c17b9dc49163":	"gui-smatrix-acl",
+    "2797775a-cab3-47b5-979c-2f3d9b2f2b5b":	"gui-layers",
+    "442343a6-16e8-4e41-9e75-57f770945e98":	"gui-layer-import",
+    "4a4f7238-0b30-45d2-bbb0-9c5f67bedda3":	"gui-layer-export",
+    "d8bc90a8-a3bf-4384-8121-fbeaa2b0650f":	"gui-layer-read",
+    "a203b85b-badb-4a7d-b239-49cc17b2aff2":	"gui-layer-edit",
+    "eb06f829-7535-4532-a886-f5b1042ef66b":	"gui-layer-delete",
+    "437de350-96d1-4a04-8c1c-7468b2f4eda4":	"gui-layer-acl",
+    "fa4b4a7e-03eb-492c-bcce-cb04e6c07e14": "gui-layers-graphical",
+    "dad2792c-dc80-4ba6-a6a7-9bfb7b64cd26":	"gui-jobs",
+    "9982fa19-04c1-4796-8381-fd1f5fcc931f":	"gui-jobs-executing",
+    "f7d5e190-1efd-4ea1-b375-66225afd3e53":	"gui-jobs-finished",
+    "cd61e65d-a750-4981-a1ea-1bd994c7a77f":	"gui-job-create",
+    "d49ba39d-86da-4fe1-a3fc-6b78a09f38a7":	"gui-job-read",
+    "dfd8236f-63b3-44bf-b58e-e46c209c5908":	"gui-job-respawn",
+    "5462a3d3-4e8b-4ca0-b0ea-a3a461d234f7":	"gui-job-cancel",
+    "ffa83589-d5c5-4648-86f5-f07a5277defb":	"gui-layers-graphical",
+    "682c7294-7a14-4a13-b63d-e73ba4fff0ce":	"gui-seqs-graphical",
+    "d0e908f4-f0fb-4229-8f79-96fc62c24aee":	"gui-case-studies",
+    "c7a38c19-a6d3-4e9d-9cd4-407063ce5e5d":	"gui-case-study-create",
+    "3f2b5c80-97fd-47e8-a65e-7cd86a2e3148":	"gui-case-study-read",
+    "127ca7b6-9754-4c8c-83c1-e82f30942891":	"gui-case-study-delete",
+    "7ddcafe0-b735-446e-b158-5f90e3b6c546":	"gui-case-study-edit",
+    "d5f6f175-f8b6-4957-983c-d2aea19478d1":	"gui-case-study-acl",
+    "511402cd-07e7-44da-8508-9fc43d64e02f":	"gui-subjects",
+    "02c87f97-657a-4b31-a1df-1912f1297aa1":	"gui-sources",
+    "0f5d3b99-3814-4def-ad6f-1adb71e0d4de":	"gui-crs",
+    "1564eebe-2101-4835-af2c-8097c49a174b":	"gui-analyses",
+    "f4d03150-a416-41ac-a511-ba4af3066ee2":	"gui-analysis-create",
+    "8a51c3e7-8bda-44aa-ac56-0598c5d3f43f":	"gui-analysis-read",
+    "e4d6d092-3036-479d-a62b-64b253188bd5":	"gui-analysis-edit",
+    "e7fc591c-f737-4fff-b31f-0c7b013be6b3":	"gui-analysis-delete",
+    "6d4de88e-5081-444d-b9c0-ca8fcaee45cf":	"gui-ontologies",
+    "279be182-09c4-4693-b802-24c64125a844":	"gui-ontology-import",
+    "101adefe-36cb-4e49-b99f-afe687da9f3e":	"gui-ontology-read",
+    "c0d2cca9-4b25-4f1b-880d-e9cfafe5771e":	"gui-ontology-edit",
+    "af963780-2eff-4233-9d5a-ef40c59a2387":	"gui-ontology-delete",
+    "dc01b386-29bf-48c6-b7c8-912b3ef7a4b7":	"gui-publications",
+    "c81ff697-ab62-4a62-b3bb-1626dc41a0e7":	"gui-publication-create",
+    "1f2cd272-5bd0-4c31-8482-2ef63814bff8":	"gui-publication-read",
+    "1a3f8a6f-a025-43aa-a93e-0d8fb8caffd7":	"gui-publication-edit",
+    "8008882a-db9a-4a21-93f3-8c8f6cafcc81":	"gui-publication-delete",
+    "3d3d506e-07b9-4946-87be-4463add566e6":	"gui-taxonomies",
+    "2a19277e-db56-47be-bfa4-8b22ea4a3fc3":	"gui-taxonomy-import",
+    "747150ac-088d-49d1-b24e-4b8f2af5f6bf":	"gui-taxonomy-read",
+    "4b94e284-805b-4b2d-a07b-5ca09f62d5ea":	"gui-taxonomy-edit",
+    "7bf11028-068d-4d2b-8700-4435b558f2d7":	"gui-taxonomy-delete",
+    "511063b9-2adb-4fa2-ab40-5dc01901ffa0":	"gui-cresources",
+    "abd68dd7-6a8b-4e83-b498-5f95aad5e16d":	"gui-cresource-create",
+    "021bf9eb-5737-4532-a884-b017f7c591b7":	"gui-cresource-read",
+    "f26460c0-67ee-458b-b2d0-4d6f12a71ab7":	"gui-cresource-edit",
+    "ae41a31e-aaf8-46fd-a205-b71ceebe8f8f":	"gui-cresource-delete",
+    "b477cc87-c62a-42f7-920d-e7c6437a6d89":	"gui-cresource-acl",
+    "0be2fc19-567f-4e38-9492-eaf7487bfdbd":	"gui-algorithms",
+    "1ee7dfa4-294b-4c3f-9130-9ad23b46f2e9":	"gui-algorithm-create",
+    "c1f4aaee-3272-4927-93d7-cc3889d2e149":	"gui-algorithm-read",
+    "03bf3cb6-c607-4b0e-99a1-9f21f9e2cc86":	"gui-algorithm-edit",
+    "4795a7b9-ca4a-4d57-9f98-565bd3d3ef8b":	"gui-algorithm-delete",
+    "daba6f5e-ac9e-4cf2-bea1-5c21a3650946":	"gui-algorithm-acl",
+    "5984dfae-f28f-4ad3-a365-a52b8e221a50":	"gui-users",
+    "ee930ee9-506a-4a14-838e-5c71cd32538d":	"gui-users-authorize",
+    "931a0e70-649d-40f9-97f7-482cfbc4d52b":	"gui-user-read",
+    "325e40b8-09c6-4c42-9a52-fb6a63d961d9":	"gui-user-edit",
+    "37905319-2abc-4ec8-aee9-f8e870953c59":	"gui-user-delete",
+    "78743d6e-811d-481d-9cf1-74b9ab4c2f4f":	"gui-roles",
+    "70a68ca9-01f0-40cc-a036-92496c54a4e0":	"gui-role-edit",
+    "69089521-febd-466a-b6a5-1101b9711da2":	"gui-role-delete",
+    "a829593d-9dc3-469d-8788-11ebb5fb811a":	"gui-organizations",
+    "f5180884-87ba-4a73-aaec-92de5b29ac9a":	"gui-organization-read",
+    "82667972-1cbf-4ce7-80c3-07ed23af703a":	"gui-organization-edit",
+    "1557fcab-0a14-4717-95e3-b5bf191edde7":	"gui-organization-delete",
+    "af324875-8d7a-4110-bf29-b4ea0459de42": "gui-groups",
+    "6e228af6-2edc-408d-9c1c-546d68908274": "gui-authenticators",
+    "f308f62b-d8a1-45f6-9532-12096369c8e7": "gui-permission-types",
+    "880042e1-ca8a-4008-828a-e16fbb1d1a27": "gui-system-functions",
     # API
     "6ba7c06b-c164-4049-8259-f713920284a2": "get sequence",
     "7d26e0fe-501e-4568-92a9-6c250eceb705": "post sequence",
@@ -423,106 +559,174 @@ tm_system_functions = {
     "1882a009-a285-45a4-bcd3-bb8e23bab2b6": "get job",
     "7b5e6398-3a35-400c-92cc-551687058cd0": "post job",
     "ab579882-0060-45ed-b747-5a43b39c8d25": "delete job",
-    # GUI (access to screens)
-    "10ad3429-79f4-430e-9474-e757911985f9": "gui-layers",
-    "bbd6bb13-7256-4e21-ace5-ce64712e63ce": "gui-layer-import",
-    "351b97c7-1b55-480d-bd3f-5090739632a9": "gui-layer-export",
-    "ffc1e390-62df-4c1b-b42c-cd1e50cb5e23": "gui-layer-read",
-    "b71e08df-1d48-4d64-813a-a476e04e4e68": "gui-layer-edit",
-    "2a903da7-0d33-4f41-9652-9fd5ee729f82": "gui-layer-delete",
-    "887146f7-4781-45db-8761-592188d03b53": "gui-layer-acl",
-    "fd0981d1-e59e-4775-b3f1-8f6a7a70911d": "gui-layers-graphical",
-    "040ca696-380a-4859-99b2-1c06b00080f1": "gui-geoprocesses",
-    "87bb3e53-ded7-4fcc-b6a1-70422989627f": "gui-geoprocess-read",
-    "0d07a7c1-6e91-4948-8b0e-45604b6ed4b4": "gui-geoprocess-edit",
-    "2e13521b-5bb1-4d4d-91e7-edf36f0c06bf": "gui-instances-candidate",
-    "3b1f8929-218a-403a-bf14-1d33fa5e0782": "gui-instance-read",
-    "ede453bb-8203-44a3-a78c-312651036667": "gui-instances-schedule",
-    "59e683eb-b4d1-442a-b765-f0f06eaecdc4": "gui-instance-delete",
-    "2fe1df59-2d1b-4d43-ae03-f5a25fa33850": "gui-instance-create",
-    "570330e9-7748-4b4b-a097-62b22df5aa12": "gui-instance-governance",
-    "aab7b4c6-635c-4585-9c52-f672c786854c": "gui-instance-update",
-    "6092fab1-382a-4ad7-9e22-fe29bc127b81": "gui-instances-scheduled",
-    "45e78495-baa8-4bb3-92b8-02744ba391e6": "gui-instances-finished",
-    "dd296392-8dac-43f8-a2c9-e7ae0d37ce0a": "gui-port-types",
-    "04031418-c368-4242-bcb3-77fd4ae82f8e": "gui-jobs-executing",
-    "52dc01da-4c01-4c32-a6e5-771c6ec93632": "gui-job-read",
-    "367ed1f2-56de-4b38-9440-574416b1adbd": "gui-job-cancel",
-    "780aaec6-030e-47ff-800a-e5d4b46157c2": "gui-jobs-finished",
-    "e15847a3-4b93-47cc-88b1-7eba8982ef4b": "gui-case-studies",
-    "b4aa0e27-b88e-44d3-aaa5-f3b62be57d92": "gui-case-study-create",
-    "3fe9c93d-9927-4f95-926d-8b891e202b16": "gui-case-study-read",
-    "3fb0f0bc-2234-4c61-97d2-45c3a25b61ff": "gui-case-study-edit",
-    "e74c05c1-bd45-4c45-b91e-b01fc11468a4": "gui-subjects",
-    "24386985-fa3b-4ba6-91ba-333c57082929": "gui-sources",
-    "1a8f6e2b-c9c6-414e-a9ee-011f416130db": "gui-crs",
-    "e8582e8d-9dd0-46cb-aa07-9ce1d57b2b32": "gui-users",
-    "505828db-2028-41d6-a151-212b8084028b": "gui-users-authorize",
-    "54cd5ed1-52cf-45b9-b58c-8d256b100dad": "gui-user-read",
-    "0816cc73-8fa2-4dc5-bbfc-19826c4899fa": "gui-user-edit",
-    "39382b18-6a6b-4a17-8925-ec86048aaa43": "gui-user-delete",
-    "b5d05b07-196a-4e93-b1d1-4fec95428307": "gui-roles",
-    "440b73f5-fdfa-463b-9bb8-ae4e8c3c3fec": "gui-role-edit",
-    "c2d1e08a-3637-432e-8fc0-ccd8990bce6e": "gui-role-delete",
-    "533c142e-86de-4a7a-941d-31faab8eb64d": "gui-organizations",
-    "8ffa434b-12d9-4689-8b5c-29ce838ab80b": "gui-organization-read",
-    "216222b4-1f83-40c6-8cd4-e4faeb543d5e": "gui-organization-edit",
-    "b22fd110-73cd-42cb-b771-67fc8cbea1b5": "gui-organization-delete",
-    "d7990a07-fe58-43bc-acb9-79f322e86f59": "gui-groups",
-    "93fb2a7f-29cc-4846-a02e-615a768a72c9": "gui-authenticators",
-    "f57827dd-3e43-4bcf-8a89-0d9256c68b3c": "gui-permission-types",
-    "90665142-905c-42af-90dd-40a907403513": "gui-system-functions"
+
 }
 
+
+def prepare_system_functions_rules(xlsx_file_name):
+    """
+    Prepare system functions rules
+    """
+    from openpyxl import load_workbook
+    wb = load_workbook(xlsx_file_name)
+    ws = wb.get_sheet_by_name('Funciones por rol')
+    system_functions_rules = {}
+    cols = {3: "sys-admin",
+            4: "guest",
+            5: "molecular-admin",
+            6: "geo-admin",
+            7: "acl-admin",
+            8: "compute-resources-admin",
+            9: "metadata-admin",
+            10: "molecular-guest",
+            11: "geo-guest"
+            }
+    for row in ws.iter_rows(min_row=3, max_row=ws.max_row, min_col=1, max_col=ws.max_column):
+        if row[1].value is not None:
+            roles = []
+            for col, role in cols.items():
+                if row[col].value is not None:
+                    roles.append(f"'{role}'")
+            if len(roles) == 0:
+                roles = ["'dont-show'"]
+            system_functions_rules[row[1].value] = f"role in ({','.join(roles)})"
+    return "tm_system_functions_rules = {\n" + ",\n".join([f'    "{k}": "{v}"' for k, v in system_functions_rules.items()]) + "\n}"
+
+
+# To update "tm_system_functions_rules" using Google Sheets:
+#    https://docs.google.com/spreadsheets/d/1fXj_nF640mDUSGClA_d7AEzCCLKtmwIww9xiHWmR2qs/edit#gid=0
+# ** Export to an XLSX file
+# ** Uncomment the following "print" statement, and put a breakpoint in it,
+# ** Then execute in Debug mode, using "main.py", "Step over" and
+# ** Copy-Paste resulting string from the console, replacing the current "tm_system_functions_rules"
+# print(prepare_system_functions_rules("/home/rnebot/Downloads/Lista de permisos - NEXTGENDEM.xlsx"))
+
+
 tm_system_functions_rules = {
-    "gui-layers": "role in ('sys-admin', 'input-layers-admin', 'geoprocess-instances-admin', 'guest')",
-    "gui-layer-import": "role in ('sys-admin', 'input-layers-admin')",
-    "gui-layer-export": "role in ('sys-admin', 'input-layers-admin', 'geoprocess-instances-admin')",
-    "gui-layer-read": "role in ('sys-admin', 'input-layers-admin', 'geoprocess-instances-admin', 'guest')",
-    "gui-layer-edit": "role in ('sys-admin', 'input-layers-admin', 'geoprocess-instances-admin')",
-    "gui-layer-delete": "role in ('sys-admin', 'input-layers-admin', 'geoprocess-instances-admin')",
-    "gui-layer-acl": "role in ('sys-admin', 'input-layers-admin', 'geoprocess-instances-admin')",
-    "gui-layers-graphical": "role in ('sys-admin', 'input-layers-admin', 'geoprocess-instances-admin', 'guest')",
-    "gui-geoprocesses": "role in ('sys-admin', 'geoprocess-instances-admin')",
-    "gui-geoprocess-read": "role in ('sys-admin', 'geoprocess-instances-admin')",
-    "gui-geoprocess-edit": "role in ('sys-admin', 'geoprocess-instances-admin')",
-    "gui-instances-candidate": "role in ('sys-admin', 'geoprocess-instances-admin')",
-    "gui-instance-read": "role in ('sys-admin', 'geoprocess-instances-admin')",
-    "gui-instances-schedule": "role in ('sys-admin', 'geoprocess-instances-admin')",
-    "gui-instance-delete": "role in ('sys-admin', 'geoprocess-instances-admin')",
-    "gui-instance-create": "role in ('sys-admin', 'geoprocess-instances-admin')",
-    "gui-instance-governance": "role in ('sys-admin', 'geoprocess-instances-admin')",
-    "gui-instance-update": "role in ('sys-admin', 'geoprocess-instances-admin')",
-    "gui-instances-scheduled": "role in ('sys-admin', 'geoprocess-instances-admin')",
-    "gui-instances-finished": "role in ('sys-admin', 'geoprocess-instances-admin')",
-    "gui-port-types": "role in ('sys-admin', 'geoprocess-instances-admin')",
-    "gui-jobs-executing": "role in ('sys-admin', 'geoprocess-instances-admin')",
-    "gui-job-read": "role in ('sys-admin', 'geoprocess-instances-admin')",
-    "gui-job-cancel": "role in ('sys-admin', 'geoprocess-instances-admin')",
-    "gui-jobs-finished": "role in ('sys-admin', 'geoprocess-instances-admin')",
-    "gui-case-studies": "role in ('sys-admin', 'input-layers-admin', 'geoprocess-instances-admin')",
-    "gui-case-study-create": "role in ('sys-admin', 'input-layers-admin', 'geoprocess-instances-admin')",
-    "gui-case-study-read": "role in ('sys-admin', 'input-layers-admin', 'geoprocess-instances-admin')",
-    "gui-case-study-edit": "role in ('sys-admin', 'input-layers-admin', 'geoprocess-instances-admin')",
-    "gui-subjects": "role in ('sys-admin', 'input-layers-admin', 'geoprocess-instances-admin', 'guest')",
-    "gui-sources": "role in ('sys-admin', 'input-layers-admin', 'geoprocess-instances-admin', 'guest')",
-    "gui-crs": "role in ('sys-admin', 'input-layers-admin', 'geoprocess-instances-admin', 'guest')",
-    "gui-users": "role in ('sys-admin')",
-    "gui-users-authorize": "role in ('sys-admin')",
-    "gui-user-read": "role in ('sys-admin')",
-    "gui-user-edit": "role in ('sys-admin')",
-    "gui-user-delete": "role in ('sys-admin')",
-    "gui-roles": "role in ('sys-admin')",
-    "gui-role-edit": "role in ('sys-admin')",
-    "gui-role-delete": "role in ('sys-admin')",
-    "gui-organizations": "role in ('sys-admin')",
-    "gui-organization-read": "role in ('sys-admin')",
-    "gui-organization-edit": "role in ('sys-admin')",
-    "gui-organization-delete": "role in ('sys-admin')",
-    "gui-groups": "role in ('dont-show')",
-    "gui-authenticators": "role in ('dont-show')",
-    "gui-permission-types": "role in ('dont-show')",
-    "gui-system-functions": "role in ('dont-show')"
+    "gui-blasts": "role in ('sys-admin','guest','molecular-admin','acl-admin')",
+    "gui-blast-import": "role in ('sys-admin','molecular-admin')",
+    "gui-blast-export": "role in ('sys-admin','molecular-admin')",
+    "gui-blast-read": "role in ('sys-admin','guest','molecular-admin','acl-admin')",
+    "gui-blast-read-content": "role in ('sys-admin','molecular-admin','molecular-guest')",
+    "gui-blast-edit": "role in ('sys-admin','molecular-admin')",
+    "gui-blast-delete": "role in ('sys-admin','molecular-admin')",
+    "gui-blast-acl": "role in ('sys-admin','molecular-admin','acl-admin')",
+    "gui-collections": "role in ('sys-admin','molecular-admin','acl-admin')",
+    "gui-collection-create": "role in ('sys-admin','molecular-admin')",
+    "gui-collection-read": "role in ('sys-admin','molecular-admin','acl-admin')",
+    "gui-collection-edit": "role in ('sys-admin','molecular-admin')",
+    "gui-collection-delete": "role in ('sys-admin','molecular-admin')",
+    "gui-collection-acl": "role in ('sys-admin','molecular-admin','acl-admin')",
+    "gui-cmatrices": "role in ('sys-admin','molecular-admin','acl-admin')",
+    "gui-cmatrix-create": "role in ('sys-admin','molecular-admin')",
+    "gui-cmatrix-read": "role in ('sys-admin','molecular-admin','acl-admin')",
+    "gui-cmatrix-edit": "role in ('sys-admin','molecular-admin')",
+    "gui-cmatrix-delete": "role in ('sys-admin','molecular-admin')",
+    "gui-cmatrix-acl": "role in ('sys-admin','molecular-admin','acl-admin')",
+    "gui-mas": "role in ('sys-admin','guest','molecular-admin','acl-admin')",
+    "gui-ma-import": "role in ('sys-admin','molecular-admin')",
+    "gui-ma-export": "role in ('sys-admin','molecular-admin')",
+    "gui-ma-read": "role in ('sys-admin','guest','molecular-admin','acl-admin')",
+    "gui-ma-read-content": "role in ('sys-admin','molecular-admin','molecular-guest')",
+    "gui-ma-edit": "role in ('sys-admin','molecular-admin')",
+    "gui-ma-acl": "role in ('sys-admin','molecular-admin','acl-admin')",
+    "gui-pts": "role in ('sys-admin','guest','molecular-admin','acl-admin')",
+    "gui-pt-import": "role in ('sys-admin','molecular-admin')",
+    "gui-pt-export": "role in ('sys-admin','molecular-admin')",
+    "gui-pt-read": "role in ('sys-admin','guest','molecular-admin','acl-admin')",
+    "gui-pt-edit": "role in ('sys-admin','molecular-admin')",
+    "gui-pt-delete": "role in ('sys-admin','molecular-admin')",
+    "gui-pt-acl": "role in ('sys-admin','molecular-admin','acl-admin')",
+    "gui-seqs": "role in ('sys-admin','guest','molecular-admin','acl-admin')",
+    "gui-seq-import": "role in ('sys-admin','molecular-admin')",
+    "gui-seq-export": "role in ('sys-admin','molecular-admin')",
+    "gui-seq-read": "role in ('sys-admin','guest','molecular-admin','acl-admin')",
+    "gui-seq-read-content": "role in ('sys-admin','molecular-admin','molecular-guest')",
+    "gui-seq-edit": "role in ('sys-admin','molecular-admin')",
+    "gui-seq-delete": "role in ('sys-admin','molecular-admin')",
+    "gui-seq-acl": "role in ('sys-admin','molecular-admin','acl-admin')",
+    "gui-smatrices": "role in ('sys-admin','guest','molecular-admin','acl-admin')",
+    "gui-smatrix-import": "role in ('sys-admin','molecular-admin')",
+    "gui-smatrix-export": "role in ('sys-admin','molecular-admin')",
+    "gui-smatrix-create": "role in ('sys-admin','molecular-admin')",
+    "gui-smatrix-read": "role in ('sys-admin','guest','molecular-admin','acl-admin')",
+    "gui-smatrix-read-content": "role in ('sys-admin','molecular-admin','molecular-guest')",
+    "gui-smatrix-edit": "role in ('sys-admin','molecular-admin')",
+    "gui-smatrix-delete": "role in ('sys-admin','molecular-admin')",
+    "gui-smatrix-acl": "role in ('sys-admin','molecular-admin','acl-admin')",
+    "gui-layers": "role in ('sys-admin','guest','molecular-admin','geo-admin','acl-admin')",
+    "gui-layer-import": "role in ('sys-admin','geo-admin')",
+    "gui-layer-export": "role in ('sys-admin','geo-admin','geo-guest')",
+    "gui-layer-read": "role in ('sys-admin','guest','molecular-admin','geo-admin','acl-admin')",
+    "gui-layer-edit": "role in ('sys-admin','geo-admin')",
+    "gui-layer-delete": "role in ('sys-admin','geo-admin')",
+    "gui-layer-acl": "role in ('sys-admin','geo-admin','acl-admin')",
+    "gui-layers-graphical": "role in ('sys-admin','guest','molecular-admin','geo-admin','acl-admin')",
+    "gui-jobs": "role in ('sys-admin','compute-resources-admin')",
+    "gui-jobs-executing": "role in ('sys-admin','compute-resources-admin')",
+    "gui-jobs-finished": "role in ('sys-admin','compute-resources-admin')",
+    "gui-job-create": "role in ('sys-admin','compute-resources-admin')",
+    "gui-job-read": "role in ('sys-admin','compute-resources-admin')",
+    "gui-job-respawn": "role in ('sys-admin','compute-resources-admin')",
+    "gui-job-cancel": "role in ('sys-admin','compute-resources-admin')",
+    "gui-seqs-graphical": "role in ('sys-admin','guest','molecular-admin')",
+    "gui-case-studies": "role in ('sys-admin','guest','molecular-admin','acl-admin')",
+    "gui-case-study-create": "role in ('sys-admin','molecular-admin','geo-admin')",
+    "gui-case-study-read": "role in ('sys-admin','guest','molecular-admin','geo-admin','acl-admin')",
+    "gui-case-study-delete": "role in ('sys-admin','molecular-admin','geo-admin')",
+    "gui-case-study-edit": "role in ('sys-admin','molecular-admin','geo-admin')",
+    "gui-case-study-acl": "role in ('sys-admin','molecular-admin','geo-admin','acl-admin')",
+    "gui-subjects": "role in ('sys-admin','geo-admin','metadata-admin')",
+    "gui-sources": "role in ('sys-admin','geo-admin','metadata-admin')",
+    "gui-crs": "role in ('sys-admin','geo-admin','metadata-admin')",
+    "gui-analyses": "role in ('sys-admin')",
+    "gui-analysis-create": "role in ('sys-admin')",
+    "gui-analysis-read": "role in ('sys-admin')",
+    "gui-analysis-edit": "role in ('sys-admin')",
+    "gui-analysis-delete": "role in ('sys-admin')",
+    "gui-ontologies": "role in ('sys-admin','metadata-admin')",
+    "gui-ontology-import": "role in ('sys-admin','metadata-admin')",
+    "gui-ontology-read": "role in ('sys-admin','metadata-admin')",
+    "gui-ontology-edit": "role in ('sys-admin','metadata-admin')",
+    "gui-ontology-delete": "role in ('sys-admin','metadata-admin')",
+    "gui-publications": "role in ('sys-admin')",
+    "gui-publication-create": "role in ('sys-admin')",
+    "gui-publication-read": "role in ('sys-admin')",
+    "gui-publication-edit": "role in ('sys-admin')",
+    "gui-publication-delete": "role in ('sys-admin')",
+    "gui-taxonomies": "role in ('sys-admin','metadata-admin')",
+    "gui-taxonomy-import": "role in ('sys-admin','metadata-admin')",
+    "gui-taxonomy-read": "role in ('sys-admin','metadata-admin')",
+    "gui-taxonomy-edit": "role in ('sys-admin','metadata-admin')",
+    "gui-taxonomy-delete": "role in ('sys-admin','metadata-admin')",
+    "gui-cresources": "role in ('sys-admin','compute-resources-admin')",
+    "gui-cresource-create": "role in ('sys-admin','compute-resources-admin')",
+    "gui-cresource-read": "role in ('sys-admin','compute-resources-admin')",
+    "gui-cresource-edit": "role in ('sys-admin','compute-resources-admin')",
+    "gui-cresource-delete": "role in ('sys-admin','compute-resources-admin')",
+    "gui-cresource-acl": "role in ('sys-admin','compute-resources-admin')",
+    "gui-algorithms": "role in ('sys-admin','acl-admin','compute-resources-admin')",
+    "gui-algorithm-create": "role in ('sys-admin','compute-resources-admin')",
+    "gui-algorithm-read": "role in ('sys-admin','acl-admin','compute-resources-admin')",
+    "gui-algorithm-edit": "role in ('sys-admin','compute-resources-admin')",
+    "gui-algorithm-delete": "role in ('sys-admin','compute-resources-admin')",
+    "gui-algorithm-acl": "role in ('sys-admin','acl-admin','compute-resources-admin')",
+    "gui-users": "role in ('sys-admin','acl-admin')",
+    "gui-users-authorize": "role in ('sys-admin','acl-admin')",
+    "gui-user-read": "role in ('sys-admin','acl-admin')",
+    "gui-user-edit": "role in ('sys-admin','acl-admin')",
+    "gui-user-delete": "role in ('sys-admin','acl-admin')",
+    "gui-roles": "role in ('sys-admin','acl-admin')",
+    "gui-role-edit": "role in ('sys-admin','acl-admin')",
+    "gui-role-delete": "role in ('sys-admin','acl-admin')",
+    "gui-organizations": "role in ('sys-admin','acl-admin')",
+    "gui-organization-read": "role in ('sys-admin','acl-admin')",
+    "gui-organization-edit": "role in ('sys-admin','acl-admin')",
+    "gui-organization-delete": "role in ('sys-admin','acl-admin')",
+    "gui-groups": "role in ('sys-admin')",
+    "gui-authenticators": "role in ('sys-admin')",
+    "gui-permission-types": "role in ('sys-admin')",
+    "gui-system-functions": "role in ('sys-admin')"
 }
 
 tm_browser_filter_form_fields = ("id", "uuid")
@@ -720,6 +924,8 @@ def initialize_database_data():
                              ("guest", anonymous_user_id)])
     load_many_to_many_table(DBSession, GroupIdentity, Group, Identity, ["group_id", "identity_id"],
                             [("all-identified", test_user_id)])
+
+    # Associate permission types to object types
     load_many_to_many_table(DBSession, ObjectTypePermissionType, ObjectType, PermissionType,
                             ["object_type_id", "permission_type_id"],
                             [["sequence", "read"],
@@ -750,22 +956,22 @@ def initialize_database(flask_app):
         print(db_connection_string)
         print("-----------------------------")
         if db_connection_string.startswith("sqlite://"):
-            biobarcoding.engine = sqlalchemy.create_engine(db_connection_string,
+            base_app_pkg.engine = sqlalchemy.create_engine(db_connection_string,
                                                            echo=True,
                                                            connect_args={'check_same_thread': False},
                                                            poolclass=StaticPool)
         else:
-            biobarcoding.engine = create_pg_database_engine(db_connection_string, app_acronym, recreate_db=recreate_db)
+            base_app_pkg.engine = create_pg_database_engine(db_connection_string, app_acronym, recreate_db=recreate_db)
 
         # global DBSession # global DBSession registry to get the scoped_session
-        DBSession.configure(bind=biobarcoding.engine)  # reconfigure the sessionmaker used by this scoped_session
+        DBSession.configure(bind=base_app_pkg.engine)  # reconfigure the sessionmaker used by this scoped_session
         orm.configure_mappers()  # Important for SQLAlchemy-Continuum
         tables = ORMBase.metadata.tables
-        connection = biobarcoding.engine.connect()
-        table_existence = [biobarcoding.engine.dialect.has_table(connection, tables[t].name) for t in tables]
+        connection = base_app_pkg.engine.connect()
+        table_existence = [base_app_pkg.engine.dialect.has_table(connection, tables[t].name) for t in tables]
         connection.close()
         if False in table_existence:
-            ORMBase.metadata.bind = biobarcoding.engine
+            ORMBase.metadata.bind = base_app_pkg.engine
             ORMBase.metadata.create_all()
         # connection = biobarcoding.engine.connect()
         # table_existence = [biobarcoding.engine.dialect.has_table(connection, tables[t].name) for t in tables]
@@ -787,13 +993,13 @@ def initialize_postgis(flask_app):
         print(db_connection_string)
         print("-----------------------------")
 
-        biobarcoding.postgis_engine = create_pg_database_engine(db_connection_string, f"{app_acronym}_geoserver",
+        base_app_pkg.postgis_engine = create_pg_database_engine(db_connection_string, f"{app_acronym}_geoserver",
                                                                 recreate_db=recreate_db)
         # global DBSession # global DBSession registry to get the scoped_session
         DBSessionGeo.configure(
-            bind=biobarcoding.postgis_engine)  # reconfigure the sessionmaker used by this scoped_session
+            bind=base_app_pkg.postgis_engine)  # reconfigure the sessionmaker used by this scoped_session
         orm.configure_mappers()  # Important for SQLAlchemy-Continuum
-        connection = biobarcoding.postgis_engine.connect()
+        connection = base_app_pkg.postgis_engine.connect()
         try:
             connection.execute("CREATE EXTENSION postgis")
         except:
@@ -801,11 +1007,11 @@ def initialize_postgis(flask_app):
         connection.execute("commit")
         connection.close()
         tables = ORMBaseGeo.metadata.tables
-        connection = biobarcoding.postgis_engine.connect()
-        table_existence = [biobarcoding.postgis_engine.dialect.has_table(connection, tables[t].name) for t in tables]
+        connection = base_app_pkg.postgis_engine.connect()
+        table_existence = [base_app_pkg.postgis_engine.dialect.has_table(connection, tables[t].name) for t in tables]
         connection.close()
         if False in table_existence:
-            ORMBaseGeo.metadata.bind = biobarcoding.postgis_engine
+            ORMBaseGeo.metadata.bind = base_app_pkg.postgis_engine
             ORMBaseGeo.metadata.create_all()
         # Load base tables
         # initialize_gnd_geoserver_data() # not implemented
@@ -842,19 +1048,31 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
         def get(self, _id=None):  # List or Read
             db = g.n_session.db_session
             r = ResponseObject()
-            if _id is None:
-                # List of all
-                kwargs = parse_request_params()
-                from ..services import get_query
-                query, count = get_query(db, entity, aux_filter=aux_filter, default_filter=default_filter, **kwargs)
-                # TODO Detail of fields
-                r.count = count
-                r.content = query.all()
-            else:
-                # Detail
-                # TODO Detail of fields
-                r.content = db.query(entity).filter(entity.id == int(_id)).first()
-                r.count = 1
+
+            if alt_getters and "get" in alt_getters:
+                entities = alt_getters["get"](db, _id)
+                if isinstance(entities, list):
+                    r.content = entities
+                    r.count = len(entities) if entities else 0
+                elif isinstance(entities, entity):
+                    r.content = entities
+                    r.count = 1
+            # The getter can return None to indicate to proceed with the default behavior, below
+            # Of course, if no alt_getter was specified, also proceed with the default behavior
+            if r.content is None:
+                if _id is None:
+                    # List of all
+                    kwargs = parse_request_params()
+                    from ..services import get_query
+                    query, count = get_query(db, entity, aux_filter=aux_filter, default_filter=default_filter, **kwargs)
+                    # TODO Detail of fields
+                    r.count = count
+                    r.content = query.all()
+                else:
+                    # Detail
+                    # TODO Detail of fields
+                    r.content = db.query(entity).filter(entity.id == int(_id)).first()
+                    r.count = 1
 
             return r.get_response()
 
@@ -940,25 +1158,40 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
 
 def chew_data(param):
     try:
+        param = param.decode()
+    except:
+        pass
+    try:
+        import ast
+        param = ast.literal_eval(param)
+    except:
+        pass
+    try:
         param = unquote(param)
-    except Exception as e:
+    except:
         pass
     try:
         param = json.loads(param)
-    except Exception as e:
+    except:
         pass
     return param
 
 
 def decode_request_params(data):
     res = {}
-    params = chew_data(data)
-    for key in params:
-        res[key] = chew_data(params[key])
+    params = chew_data(data) or []
+    if isinstance(params, (list, tuple)):
+        for obj in params:
+            for key in obj:
+                obj[key] = chew_data(obj[key])
+        return params
+    else:
+        for key in params:
+            res[key] = chew_data(params[key])
     return res
 
 
-def parse_request_params(data=None):
+def parse_request_params(data=None, default_kwargs=None):
     kwargs = {'filter': [], 'order': [], 'pagination': {}, 'values': {}, 'searchValue': ''}
     if not data and request:
         if request.json:
@@ -973,49 +1206,48 @@ def parse_request_params(data=None):
         for key in ('filter', 'order', 'pagination', 'values', 'searchValue'):
             try:
                 i = input.pop(key)
-            except Exception as e:
+            except:
                 continue
             kwargs[key] = i if i else kwargs[key]
-        kwargs['values'].update(input)
+        if input:
+            if type(kwargs.get('values')) != type(input):
+                kwargs['values'] = input
+            elif isinstance(input, dict):
+                kwargs['values'].update(input)
+            elif isinstance(input, (list,tuple)):
+                kwargs['values'] += input
+    if isinstance(default_kwargs, dict):
+        for k, v in default_kwargs.items():
+            if k in kwargs:
+                v = kwargs[k]
+                if v is None or (isinstance(v, list) and len(v) == 0) or (isinstance(v, str) and v == ''):
+                    kwargs[k] = default_kwargs[k]
+
     print(f'CLEAN_DATA: {kwargs}')
     return kwargs
 
 
-def related_authr_ids(identity_id: int):
-    # Get the organizations, groups, and roles associated to an identity
-    ids = DBSession.query(Authorizable.id) \
-        .join(OrganizationIdentity, OrganizationIdentity.organization_id==Authorizable.id, isouter=True) \
-        .join(GroupIdentity, GroupIdentity.group_id==Authorizable.id, isouter=True) \
-        .join(RoleIdentity, RoleIdentity.role_id==Authorizable.id, isouter=True) \
-        .filter(or_(Authorizable.id==identity_id,
-                    OrganizationIdentity.identity_id==identity_id,
-                    GroupIdentity.identity_id==identity_id,
-                    RoleIdentity.identity_id==identity_id))
-    return [i for i, in ids]
-
-
-def related_perm_ids(permission_id: int):
-    # Get the mayor permissions that also allow permission_id
-    ids = DBSession.query(PermissionType.id) \
-        .filter(or_(PermissionType.id==permission_id,
-                    PermissionType.rank <   # TODO: should be <= ?
-                    DBSession.query(PermissionType.rank).filter(PermissionType.id==permission_id)))
-    return [i for i, in ids]
-
-
-def auth_filter(orm, permission_types_ids, object_types_ids,
-                identity_id=None,
-                object_uuids=None, time=None,
-                permission_flag=False, authorizable_flag=False):
+def auth_filter(orm,
+                permission_types_ids: Union[int, List[int]],
+                object_types_ids,
+                identity_id: Optional[int] = None,
+                object_uuids: Optional[List[str]] = None,
+                time=None,
+                permission_flag=False,
+                authorizable_flag=False,
+                reference_entity: Union[int, str] = -1) -> Query:
     """
-    * orm: base (with uuid) to build the filter
-    * identity_ids: who is requesting
-    * permission_types_ids: what is requesting
-    * object_types_ids: where is requesting
-    * object_uuid: about what is requesting
-    * time: when is requesting
-    * permission_flag: extra info required
-    * authorizable_flag: extra info required
+    !!!! ACL filter !!!!
+
+    @param orm: Class of SQLAlchemy ORM to check. "FunctionalObject" for any class
+    @param permission_types_ids: List of permission type ids (or just one) to pass the filter against
+    @param object_types_ids: List of object type ids (similar to "orm")
+    @param identity_id: Identity id of who is being authorized. If None, it is the user logged in the current session
+    @param object_uuids: List of specific object uuids to reduce the search for authorizations
+    @param time: Time, to check validity of ACL rules
+    @param permission_flag: If True, return the permission type enabling access
+    @param authorizable_flag: If True, return the authorizable (identity, group, organization, role) enabling access
+    @param reference_entity: Reference entity id (or uuid) to check against. If -1, find default reference entity
 
     CollectionDetail (cd) <> Collection (c) > ACL <> ACLDetail (ad)
 
@@ -1035,37 +1267,100 @@ def auth_filter(orm, permission_types_ids, object_types_ids,
 
     @return: <orm_clause_filter> || object_uuids[, permissions][, authorizables]
     """
+
+    def related_authr_ids(identity_id: int):
+        # Get the organizations, groups, and roles associated to an identity
+        ids = DBSession.query(Authorizable.id) \
+            .join(OrganizationIdentity, OrganizationIdentity.organization_id == Authorizable.id, isouter=True) \
+            .join(GroupIdentity, GroupIdentity.group_id == Authorizable.id, isouter=True) \
+            .join(RoleIdentity, RoleIdentity.role_id == Authorizable.id, isouter=True) \
+            .filter(or_(Authorizable.id == identity_id,
+                        OrganizationIdentity.identity_id == identity_id,
+                        GroupIdentity.identity_id == identity_id,
+                        RoleIdentity.identity_id == identity_id))
+        return [i for i, in ids]
+
+    def related_perm_ids(permission_id: int):
+        # Get the mayor permissions that also allow permission_id
+        ids = DBSession.query(PermissionType.id) \
+            .filter(or_(PermissionType.id == permission_id,
+                        PermissionType.rank >=
+                        DBSession.query(PermissionType.rank).filter(PermissionType.id == permission_id)))
+        return [i for i, in ids]
+
+    def default_reference_entity(clazz, identity_id: int):
+        ent = DBSession.query(clazz).filter(clazz.authr_reference == True).one_or_none()
+        if ent:
+            return ent.uuid
+        else:
+            return None
+
+    # --------------------------- auth_filter -------------------------------------------------------------------------
     from flask import current_app
-    if current_app.config["ACL_ENABLED"] != 'True':
+    if current_app.config["ACL_ENABLED"] != 'True':  # Disable ACL control
         return True
 
+    identity_id = g.n_session.identity.id if identity_id is None else identity_id
+    sys_admin_id = DBSession.query(Role.id).filter(Role.name == 'sys-admin').first()[0]
+    if isinstance(identity_id, int):
+        authorizables = related_authr_ids(identity_id)
+        is_sys_admin = sys_admin_id in authorizables
+    else:
+        is_sys_admin = sys_admin_id in identity_id
+
+    if is_sys_admin:  # If user has "sys-admin" role, access to everything
+        return True
+
+    # If reference entity enables access -> return True, if not, continue evaluation
+    if reference_entity is not None:  # Already checked
+        if reference_entity == -1:
+            # Find UUID of a reference object
+            reference_entity = default_reference_entity(orm, identity_id)
+        if reference_entity:
+            _ = auth_filter(orm,
+                            permission_types_ids,
+                            object_types_ids,
+                            identity_id,
+                            [reference_entity],
+                            time,
+                            False,
+                            False,
+                            None)
+            if str(reference_entity) in set([str(i.uuid) for i in DBSession.query(orm.uuid).filter(_).all()]):
+                return True
+
+    # ACL Detail entry in valid date range
     from datetime import datetime
     time = time if time else datetime.now()
     filter_clause = [
         or_(time >= ACLDetail.validity_start, ACLDetail.validity_start == None),
         or_(time <= ACLDetail.validity_end, ACLDetail.validity_end == None)
     ]
+
+    # ACL applies to object types (if specified)
     filter_clause.append(ACL.object_type.in_(object_types_ids)) if object_types_ids else None
+    # ACL applies to specific objects (if specified)
     filter_clause.append(ACL.object_uuid.in_(object_uuids)) if object_uuids else None
     try:
-        # By identity or authorizables associated with the identity
+        # By identity or authorizables (role, group, organization) associated with the identity
         if isinstance(identity_id, int):
-            filter_clause.append(ACLDetail.authorizable_id.in_(related_authr_ids(identity_id)))
+            filter_clause.append(ACLDetail.authorizable_id.in_(authorizables))
         elif isinstance(identity_id, (tuple, list, set)):
             filter_clause.append(ACLDetail.authorizable_id.in_(identity_id))
-        else:
-            filter_clause.append(ACLDetail.authorizable_id.in_(related_authr_ids(g.n_session.identity.id)))
         # By permission or superior permissions
         if isinstance(permission_types_ids, int):
             filter_clause.append(ACLDetail.permission_id.in_(related_perm_ids(permission_types_ids)))
         elif isinstance(permission_types_ids, (tuple, list, set)):
             filter_clause.append(ACLDetail.permission_id.in_(permission_types_ids))
 
+        # Object in authorized collection
         collected = DBSession.query(CollectionDetail.object_uuid) \
             .join(Collection) \
-            .join(ACL, Collection.uuid==ACL.object_uuid) \
+            .join(ACL, Collection.uuid == ACL.object_uuid) \
             .join(ACLDetail) \
             .filter(*filter_clause)
+
+        # Direct object
         uncollected = DBSession.query(ACL.object_uuid).join(ACLDetail).filter(*filter_clause)
 
         final_query = collected.union(uncollected)
@@ -1073,9 +1368,14 @@ def auth_filter(orm, permission_types_ids, object_types_ids,
             entities = []
             entities += [ACLDetail.permission] if permission_flag else []
             entities += [ACLDetail.authorizable] if authorizable_flag else []
-            return final_query.with_entities(entities)
+            q = final_query.with_entities(entities)
         else:
-            return orm.uuid.in_(final_query)
+            q = orm.uuid.in_(final_query)
+
+        # OWNER has unlimited permissions (no need to check ACL)
+        if isinstance(identity_id, int):
+            q = or_(q, orm.owner_id == identity_id)
+        return q
     except Exception as e:
         print(e)
         return None
@@ -1093,6 +1393,12 @@ def filter_parse(orm, filter, aux_filter=None, session=None):
 
     def get_condition(orm, field, condition):
         obj = getattr(orm, field)
+
+        if not isinstance(condition, dict):
+            if isinstance(condition, (list, tuple)):
+                return obj.in_(condition)
+            return obj == condition
+
         op = condition["op"]
         value, left, right = condition.get("unary"), condition.get("left"), condition.get("right")
         if op == "out":
@@ -1178,7 +1484,7 @@ def get_content(session, clazz, issues, id_=None, aux_filter=None, query=None):
     try:
         if id_ is None:
             # List of all
-            kwargs = parse_request_params()
+            kwargs = parse_request_params(default_kwargs=dict(order=[dict(field="name", order="ascend")]))
             from ..services import get_query
             query2, count = get_query(session, clazz, query, aux_filter=aux_filter, **kwargs)
             content = query2.all()
@@ -1300,12 +1606,12 @@ def initialize_database_chado(flask_app):
         print("Connecting to Chado database server")
         print(db_connection_string)
         print("-----------------------------")
-        biobarcoding.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=False)
+        base_app_pkg.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=False)
         # global DBSessionChado # global DBSessionChado registry to get the scoped_session
         DBSessionChado.configure(
-            bind=biobarcoding.chado_engine)  # reconfigure the sessionmaker used by this scoped_session
+            bind=base_app_pkg.chado_engine)  # reconfigure the sessionmaker used by this scoped_session
         orm.configure_mappers()  # Important for SQLAlchemy-Continuum
-        ORMBaseChado.metadata.bind = biobarcoding.chado_engine
+        ORMBaseChado.metadata.bind = base_app_pkg.chado_engine
         ORMBaseChado.metadata.reflect()
     else:
         print("No CHADO connection defined (CHADO_CONNECTION_STRING), exiting now!")
@@ -1330,15 +1636,15 @@ def initialize_chado_edam(flask_app):
         print("Connecting to Chado database server to insert EDAM")
         print(db_connection_string)
         print("-----------------------------")
-        biobarcoding.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=True)
+        base_app_pkg.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=True)
 
-        with biobarcoding.chado_engine.connect() as conn:
+        with base_app_pkg.chado_engine.connect() as conn:
             relationship_id = conn.execute(
                 text("select * from INFORMATION_SCHEMA.TABLES where TABLE_NAME = 'db_relationship'")).fetchone()
             if relationship_id is None:
                 try:
                     meta = MetaData()
-                    meta.reflect(biobarcoding.chado_engine, only=["db",
+                    meta.reflect(base_app_pkg.chado_engine, only=["db",
                                                                   "cvterm"])  # this get information about the db and cvterm tables in the existing database
                     # CREATE db_relationship table to relate EDAM submodules with EDAM itself
                     db_relationship = Table('db_relationship', meta,
@@ -1364,16 +1670,6 @@ def initialize_chado_edam(flask_app):
                                             comment=db_relationship_comment
                                             )
 
-                    # DELETE CVTERMS THAT ARE IN THE CHADO XML AND ALSO IN THE DATABASE
-                    conn.execute(text("delete from cvterm where name = 'comment'and cv_id = 6 and is_obsolete = 0"))
-                    conn.execute(
-                        text("delete from cvterm where name = 'has_function'and cv_id = 4 and is_obsolete = 0"))
-                    conn.execute(text("delete from cvterm where name = 'has_input'and cv_id = 4 and is_obsolete = 0"))
-                    conn.execute(text("delete from cvterm where name = 'has_output'and cv_id = 4 and is_obsolete = 0"))
-                    conn.execute(text("delete from cvterm where name = 'is_a'and cv_id = 4 and is_obsolete = 0"))
-                    conn.execute(
-                        text("delete from cvterm where name = 'is_anonymous'and cv_id = 6 and is_obsolete = 0"))
-
                     db_relationship.create(bind=conn)
 
                 except Exception as e:
@@ -1393,18 +1689,18 @@ def initialize_chado_edam(flask_app):
 
                     subprocess.run(command)
                     # We commit 2 times because we need a commit on the last block to execute this one
-                    with biobarcoding.chado_engine.connect() as conn:
-                        # FILL THE db_relationship TABLE
-                        edam_id = conn.execute(text("select db_id from db where name=\'EDAM\'")).fetchone()[0]
-                        db_ids = conn.execute(text("select db_id from db where db_id > " + str(edam_id))).fetchall()
-                        type_id = conn.execute(text(
-                            "select cvterm_id from cvterm join cv on cvterm.cv_id = cv.cv_id where cvterm.name = \'part_of\' "
-                            "and cv.name = \'relationship\'")).fetchone()[0]
 
-                        for db_id in db_ids:
-                            conn.execute(text("INSERT INTO db_relationship (type_id,subject_id,object_id)" +
-                                              "VALUES(" + str(type_id) + "," + str(db_id[0]) + "," + str(
-                                edam_id) + ")"))
+                    # FILL THE db_relationship TABLE
+                    edam_id = conn.execute(text("select db_id from db where name=\'EDAM\'")).fetchone()[0]
+                    db_ids = conn.execute(text("select db_id from db where db_id > " + str(edam_id))).fetchall()
+                    type_id = conn.execute(text(
+                        "select cvterm_id from cvterm join cv on cvterm.cv_id = cv.cv_id where cvterm.name = \'part_of\' "
+                        "and cv.name = \'relationship\'")).fetchone()[0]
+
+                    for db_id in db_ids:
+                        conn.execute(text("INSERT INTO db_relationship (type_id,subject_id,object_id)" +
+                                          "VALUES(" + str(type_id) + "," + str(db_id[0]) + "," + str(
+                            edam_id) + ")"))
                 else:
                     print("EDAM was already inserted")
 
