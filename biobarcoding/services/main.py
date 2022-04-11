@@ -237,7 +237,7 @@ class BasicService:
         if kwargs.get('id'):
             content = self.attach_data(content.first())
         else:
-            content = content.all()
+            content = [self.attach_data(c) for c in content.all()]
         return content, count
 
     # any additional read if any
