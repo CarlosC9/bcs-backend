@@ -100,9 +100,12 @@ class Service(BosService):
         new = super(Service, self).attach_data(content)
 
         if new:
-            new['uuid'] = str(DBSession.query(Sequence)
-                              .filter(Sequence.native_table == 'feature',
-                                      Sequence.native_id == content.feature_id).one().uuid)
+            try:
+                new['uuid'] = str(DBSession.query(Sequence)
+                                  .filter(Sequence.native_table == 'feature',
+                                          Sequence.native_id == content.feature_id).one().uuid)
+            except:
+                pass
 
         return new
 
