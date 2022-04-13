@@ -79,7 +79,7 @@ class Service(BosService):
                                    stock_id=values.get('stock_id'),
                                    feature_id=seq.feature_id,
                                    type_id=seq.type_id)
-        return stock
+        return stock_bind
 
     def after_create(self, new_object, **values):
         super(Service, self).after_create(new_object, **values)
@@ -166,19 +166,21 @@ class Service(BosService):
             return None, 0
 
     def import_file(self, infile, format=None, **kwargs):
-        content, count = [], 0
-        format = get_bioformat(infile, format)
-        try:
-            from ... import seqs_parser
-            for s in seqs_parser(infile, format):
-                c, cc = self.bio2chado(s, format, **kwargs)
-                content.append(c)
-                count += cc
-                # issues += [Issue(i.itype, i.message, os.path.basename(infile)) for i in iss]
-        except Exception as e:
-            log_exception(e)
-            raise Exception(f'IMPORT sequences: file {os.path.basename(infile)} could not be imported.')
-        return content, count
+        # content, count = [], 0
+        # format = get_bioformat(infile, format)
+        # try:
+        #     from ... import seqs_parser
+        #     for s in seqs_parser(infile, format):
+        #         c, cc = self.bio2chado(s, format, **kwargs)
+        #         content.append(c)
+        #         count += cc
+        #         # issues += [Issue(i.itype, i.message, os.path.basename(infile)) for i in iss]
+        # except Exception as e:
+        #     log_exception(e)
+        #     raise Exception(f'IMPORT sequences: file {os.path.basename(infile)} could not be imported.')
+        # return content, count
+        from ....io.sequences import import_file
+        return import_file(infile, format, **kwargs)
 
     ##
     # EXPORT
