@@ -104,7 +104,12 @@ def import_file(infile, format=None, **kwargs):
         DBSession.add_all(db_specs)
         DBSession.add_all(db_seqs)
     except Exception as e:
+        ORG_BATCH.clear()
+        IND_BATCH.clear()
         log_exception(e)
         raise Exception(f'IMPORT sequences: file {os.path.basename(infile)} could not be imported.')
+    finally:
+        ORG_BATCH.clear()
+        IND_BATCH.clear()
     return content, count
 
