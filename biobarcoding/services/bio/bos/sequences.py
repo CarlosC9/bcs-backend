@@ -3,7 +3,7 @@ import re
 
 from . import BosService
 from ..meta.ontologies import get_type_id
-from ... import get_orm_params, log_exception, get_bioformat, get_or_create
+from ... import get_orm_params, log_exception, get_bioformat, get_or_create, force_underscored
 from ...main import get_orm
 from ....db_models import DBSession
 from ....db_models import DBSessionChado
@@ -192,14 +192,15 @@ class Service(BosService):
                 orgs = self.db.query(Feature.uniquename, Organism.organism_id, Organism.name) \
                     .join(Organism).filter(Feature.uniquename.in_([x.uniquename for x in seqs])).all()
                 from ...species_names import get_canonical_species_names
+                underscored = "underscore" in format.lower()
                 for seq_id, org_id, name in orgs:
                     if "id" in format.lower():
                         headers[seq_id] = str(org_id)
                     elif "canon" in format.lower():
                         headers[seq_id] = get_canonical_species_names(DBSession, [name],
-                                                                      underscores="underscore" in format.lower())[0]
-                    else:
-                        headers[seq_id] = name
+                                                                      underscores=underscored)[0]
+                    if not headers.get(seq_id):
+                        headers[seq_id] = force_underscored(name) if underscored else name
         return headers
 
     def chado2biopy(self, seqs: list, header: str = None) -> list:
