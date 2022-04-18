@@ -8,7 +8,7 @@ set -o nounset
 
 function init_sh() {
   cd $(dirname $0)
-  readonly nodes_file='nodes.dmp';
+  readonly nodes_file='../../perl_scripts/nodes.dmp';
   readonly input_file='orphan_input';
   readonly tmp='tmp';
   readonly parents_file='tmp_parents';

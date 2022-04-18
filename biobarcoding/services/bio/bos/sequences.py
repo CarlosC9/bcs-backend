@@ -3,13 +3,16 @@ import re
 
 from . import BosService
 from ..meta.ontologies import get_type_id
-from ... import get_orm_params, log_exception, get_bioformat, get_or_create, force_underscored
+from ..meta.organisms import Service as OrgService
+from ... import get_orm_params, get_or_create, force_underscored
 from ...main import get_orm
 from ....db_models import DBSession
 from ....db_models import DBSessionChado
 from ....db_models.chado import Feature, Organism, StockFeature
 from ....db_models.bioinformatics import Sequence
 from ....rest import filter_parse
+
+org_service = OrgService()
 
 
 ##
@@ -24,22 +27,16 @@ class Service(BosService):
         self.bos = 'sequence'
 
     def prepare_values(self, **values):
-        """
-        Process the values 'organism', 'stock', and 'type' into valid IDs
-        """
 
         if values.get('residues') and not values.get('seqlen'):
             values['seqlen'] = len(values.get('residues'))
 
         if not values.get('organism_id') and values.get('organism'):
-            org = values.get('organism').strip()
-            if org:
-                # TODO: check canónical name (getting genus and species?)
-                genus = org.split()[0]
-                species = org[len(genus):].strip()
-                values['organism_id'] = get_or_create(self.db, Organism, genus=genus, species=species).organism_id
-        if not values.get('organism_id'):
-            values['organism_id'] = get_or_create(self.db, Organism, genus='unknown', species='Unclassified organism').organism_id
+            try:
+                orgs = org_service.read(filter={'name': values.get('organism')})[0]
+                values['organism_id'] = orgs[0].organism_id
+            except Exception as e:
+                values['organism_id'] = org_service.create(organism=values.get('organism'))[0].organism_id
 
         if not values.get('type_id') and values.get('type'):
             try:
@@ -50,16 +47,19 @@ class Service(BosService):
         return super(Service, self).prepare_values(**values)
 
     def check_values(self, **values):
-        """
-        Fill in the empty not null fields whenever possible.
-        """
+
         if not values.get('uniquename'):
             raise Exception('Missing the uniquename (sequences ID)')
+
+        if not values.get('organism_id'):
+            values['organism_id'] = get_or_create(self.db, Organism, genus='unknown', species='organism').organism_id
+
         if not values.get('type_id'):
             try:
                 values['type_id'] = get_type_id(type='sequence')
             except:
                 raise Exception(f'Missing the type_id for {values.get("uniquename")}')
+
         return get_orm_params(self.orm, **values)
 
     def seq_stock(self, seq, **values):
@@ -116,8 +116,7 @@ class Service(BosService):
     def after_delete(self, *content, **kwargs):
         ids = [seq.feature_id for seq in content]
         query = DBSession.query(Sequence).filter(Sequence.native_id.in_(ids))
-        return query.count()
-        # return query.delete(synchronize_session='fetch')
+        return query.delete(synchronize_session='fetch')
 
     ##
     # IMPORT

@@ -1,5 +1,4 @@
 import os.path
-from typing import Tuple
 
 from . import batch_iterator
 from ..db_models import DBSessionChado, DBSession
@@ -8,25 +7,14 @@ from ..db_models.chado import Organism, Stock, Feature, StockFeature
 from ..db_models.metadata import Taxon
 from ..services import get_bioformat, log_exception
 from ..services.bio.meta.ontologies import get_type_id
-from ..services.bio.bos.sequences import Service
-seq_service = Service()
+from ..services.bio.meta.organisms import split_org_name
+
 
 BATCH_SIZE = 500
 ORG_BATCH = {}
 IND_BATCH = {}
 ind_type_id = get_type_id(type='stock')
 seq_type_id = get_type_id(type='sequence')
-
-
-def split_org_name(name: str) -> Tuple[str, str, str]:
-    # split a full name
-    genus = species = ssp = ''
-    n_split = name.split()
-    if len(n_split) > 0:
-        species = n_split[1-len(n_split)]
-        genus = n_split[0] if n_split[0] != species else ''
-        ssp = ' '.join(n_split[2:])
-    return genus.strip(), species.strip(), ssp.strip()
 
 
 def get_or_create(session, model, **params):
