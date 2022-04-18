@@ -3,8 +3,7 @@ import re
 
 from . import BosService
 from ..meta.ontologies import get_type_id
-from ..meta.organisms import Service as OrgService
-from ... import get_orm_params, log_exception, get_bioformat, get_or_create
+from ... import get_orm_params, log_exception, get_bioformat, get_or_create, force_underscored
 from ...main import get_orm
 from ....db_models import DBSession
 from ....db_models import DBSessionChado
@@ -78,7 +77,7 @@ class Service(BosService):
                                    stock_id=values.get('stock_id'),
                                    feature_id=seq.feature_id,
                                    type_id=seq.type_id)
-        return stock
+        return stock_bind
 
     def after_create(self, new_object, **values):
         super(Service, self).after_create(new_object, **values)
@@ -99,9 +98,12 @@ class Service(BosService):
         new = super(Service, self).attach_data(content)
 
         if new:
-            new['uuid'] = str(DBSession.query(Sequence)
-                              .filter(Sequence.native_table == 'feature',
-                                      Sequence.native_id == content.feature_id).one().uuid)
+            try:
+                new['uuid'] = str(DBSession.query(Sequence)
+                                  .filter(Sequence.native_table == 'feature',
+                                          Sequence.native_id == content.feature_id).one().uuid)
+            except:
+                pass
 
         return new
 
@@ -161,19 +163,21 @@ class Service(BosService):
             return None, 0
 
     def import_file(self, infile, format=None, **kwargs):
-        content, count = [], 0
-        format = get_bioformat(infile, format)
-        try:
-            from ... import seqs_parser
-            for s in seqs_parser(infile, format):
-                c, cc = self.bio2chado(s, format, **kwargs)
-                content.append(c)
-                count += cc
-                # issues += [Issue(i.itype, i.message, os.path.basename(infile)) for i in iss]
-        except Exception as e:
-            log_exception(e)
-            raise Exception(f'IMPORT sequences: file {os.path.basename(infile)} could not be imported.')
-        return content, count
+        # content, count = [], 0
+        # format = get_bioformat(infile, format)
+        # try:
+        #     from ... import seqs_parser
+        #     for s in seqs_parser(infile, format):
+        #         c, cc = self.bio2chado(s, format, **kwargs)
+        #         content.append(c)
+        #         count += cc
+        #         # issues += [Issue(i.itype, i.message, os.path.basename(infile)) for i in iss]
+        # except Exception as e:
+        #     log_exception(e)
+        #     raise Exception(f'IMPORT sequences: file {os.path.basename(infile)} could not be imported.')
+        # return content, count
+        from ....io.sequences import import_file
+        return import_file(infile, format, **kwargs)
 
     ##
     # EXPORT
@@ -187,14 +191,15 @@ class Service(BosService):
                 orgs = self.db.query(Feature.uniquename, Organism.organism_id, Organism.name) \
                     .join(Organism).filter(Feature.uniquename.in_([x.uniquename for x in seqs])).all()
                 from ...species_names import get_canonical_species_names
+                underscored = "underscore" in format.lower()
                 for seq_id, org_id, name in orgs:
                     if "id" in format.lower():
                         headers[seq_id] = str(org_id)
                     elif "canon" in format.lower():
                         headers[seq_id] = get_canonical_species_names(DBSession, [name],
-                                                                      underscores="underscore" in format.lower())[0]
-                    else:
-                        headers[seq_id] = name
+                                                                      underscores=underscored)[0]
+                    if not headers.get(seq_id):
+                        headers[seq_id] = force_underscored(name) if underscored else name
         return headers
 
     def chado2biopy(self, seqs: list, header: str = None) -> list:
