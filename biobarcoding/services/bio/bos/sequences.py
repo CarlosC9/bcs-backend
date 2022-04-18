@@ -3,7 +3,8 @@ import re
 
 from . import BosService
 from ..meta.ontologies import get_type_id
-from ... import get_orm_params, log_exception, get_bioformat, get_or_create, force_underscored
+from ..meta.organisms import Service as OrgService
+from ... import get_orm_params, get_or_create, force_underscored
 from ...main import get_orm
 from ....db_models import DBSession
 from ....db_models import DBSessionChado
@@ -32,9 +33,10 @@ class Service(BosService):
 
         if not values.get('organism_id') and values.get('organism'):
             try:
-                org_service.read(organism=values.get('organism'))[0].get('organism_id')
-            except:
-                org_service.create(organism=values.get('organism'))[0].get('organism_id')
+                orgs = org_service.read(filter={'name': values.get('organism')})[0]
+                values['organism_id'] = orgs[0].organism_id
+            except Exception as e:
+                values['organism_id'] = org_service.create(organism=values.get('organism'))[0].organism_id
 
         if not values.get('type_id') and values.get('type'):
             try:

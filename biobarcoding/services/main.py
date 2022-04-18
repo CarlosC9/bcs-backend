@@ -266,6 +266,7 @@ class BasicService:
            'searchValue': full-text search value (hopefully)
          otherwise it will be treated as 'values'
         """
+        # TODO: replace with biobarcoding.services.__init__:get_query
         from ..rest import filter_parse, order_parse
         from ..services import paginator
         query = query or self.pre_query(purpose) or self.db.query(self.orm)

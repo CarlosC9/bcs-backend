@@ -8,7 +8,9 @@ class Organism(ORMBaseChado):
 
     @hybrid_property
     def name(self):
-        return Organism.genus + ' ' + Organism.species
+        if self.infraspecific_name:
+            return self.genus + ' ' + self.species + ' ' + self.infraspecific_name
+        return self.genus + ' ' + self.species
 
 
 class Acquisition(ORMBaseChado):
