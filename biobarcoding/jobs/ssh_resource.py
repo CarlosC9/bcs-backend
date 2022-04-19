@@ -22,10 +22,12 @@ class RemoteSSHClient:
     RSYNC_OPTIONS = f"-e 'ssh {SSH_OPTIONS}'"
     """Client to interact with a remote host via SSH & SCP."""
 
-    def __init__(self, host, port, username, known_hosts_filepath, remote_workspace, local_workspace, logs_dict):
+    def __init__(self, host, data_host, port, data_port, username, known_hosts_filepath, remote_workspace, local_workspace, logs_dict):
         super()
         self.host = host
+        self.data_host = data_host
         self.port = port
+        self.data_port = data_port
         self.username = username
         self.known_hosts_filepath = known_hosts_filepath
         self.remote_workspace = remote_workspace
@@ -165,19 +167,9 @@ class RemoteSSHClient:
         @return: PID of the process uploading the file.
         """
         remote_path = os.path.join(self.remote_workspace, remote_path)
-        remote_dir = os.path.join(self.remote_workspace, os.path.split(remote_path)[0])
-        if remote_dir != "" and False:
-            create_remote_dir_cmd = f"--rsync-path='mkdir -p {remote_dir} & rsync'"
-        else:
-            create_remote_dir_cmd = ""
-        if self.port != 22:
-            e = f"-e 'ssh {self.SSH_OPTIONS} -p {self.port}'"
-        else:
-            e = ""
-        cmd = (f"(nohup bash -c \"rsync {self.RSYNC_OPTIONS} {e} {create_remote_dir_cmd} {local_path} " +
-               f"{self.username}@{self.host}:{remote_path}\" >>{self.logs_dict['upload_stdout']} " +
-               f"</dev/null 2>>{self.logs_dict['upload_stderr']} & echo $!; wait $!; echo $? >> " +
-               f"{self.local_workspace}/$!.exit_status)")
+        cmd = (f"(nohup scp -P {self.port} {self.SSH_OPTIONS} {local_path} {self.username}@{self.host}:{remote_path} " +
+                   f">>{self.logs_dict['download_stdout']} </dev/null 2>>{self.logs_dict['download_stderr']} " +
+                   f"& echo $!; wait $!; echo $? >> {self.local_workspace}/$!.exit_status)")
         print(cmd)
         popen_pipe = os.popen(cmd)
         self.last_job_remotely = False
@@ -240,7 +232,8 @@ class RemoteSSHClient:
         """
         if self.sftp is not None:
             if not await self.sftp.exists(os.path.join(self.remote_workspace, dir_name)):
-                await self.sftp.mkdir(os.path.join(self.remote_workspace, dir_name))
+                path = self.remote_workspace if self.remote_workspace == dir_name else os.path.join(self.remote_workspace, dir_name)
+                await self.sftp.mkdir(path)
             else:
                 print("folder already exists")
         else:
@@ -275,8 +268,9 @@ class RemoteSSHClient:
         @param name: Remote path
         @return: Boolean value indicating if path exists in host
         """
-        print(f"Exists remotely: {os.path.join(self.remote_workspace, name)}")
-        return await self.sftp.exists(os.path.join(self.remote_workspace, name))
+        print(f"Exists remotely check: {os.path.join(self.remote_workspace, name)}")
+        exist = await self.sftp.exists(os.path.join(self.remote_workspace, name))
+        return exist
 
     async def same_size(self, local_name, remote_name):
         """
@@ -295,13 +289,15 @@ class RemoteSSHClient:
 
 class JobExecutorWithSSH(JobExecutorAtResource):
 
-    def __init__(self, identity_job_id, create_local_workspace=True):
+    def __init__(self, identity_job_id, create_local_workspace=True, remote_workspace=None):
         super().__init__(identity_job_id, create_local_workspace)
         self.host = None
+        self.data_host = None
         self.port = 22
+        self.data_port = 22
         self.username = None
         self.known_hosts_filepath = None
-        self.remote_workspace = os.path.join(get_global_configuration_variable("SSH_JOBS_DEFAULT_REMOTE_WORKSPACE"),
+        self.remote_workspace = os.path.join(remote_workspace, identity_job_id) if remote_workspace else os.path.join(get_global_configuration_variable("SSH_JOBS_DEFAULT_REMOTE_WORKSPACE"),
                                              identity_job_id)
         self.remote_client = None
         self.loop = asyncio.get_event_loop()
@@ -310,6 +306,8 @@ class JobExecutorWithSSH(JobExecutorAtResource):
     def set_resource(self, resource_params):
         self.host = resource_params["jm_location"]['host']
         self.port = int(resource_params["jm_location"].get('port', "22"))
+        self.data_host = resource_params["jm_location"].get('data_host', self.host)
+        self.data_port = resource_params["jm_location"].get('data_port', self.port)
         self.username = resource_params["jm_credentials"]['username']
         self.known_hosts_filepath = resource_params["jm_credentials"]['known_hosts_filepath']
 
@@ -324,7 +322,7 @@ class JobExecutorWithSSH(JobExecutorAtResource):
             return True
 
     def connect(self):
-        self.remote_client = RemoteSSHClient(self.host, self.port, self.username,
+        self.remote_client = RemoteSSHClient(self.host, self.data_host, self.port, self.data_port, self.username,
                                              self.known_hosts_filepath, self.remote_workspace,
                                              self.local_workspace, self.log_filenames_dict)
         self.loop.run_until_complete(self.remote_client.connect())

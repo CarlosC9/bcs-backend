@@ -44,6 +44,11 @@ RESOURCE_PROCESSES_DICT = {
         "Mr Bayes",
         "BLAST"
     ],
+    "Teide HPC - slurm": [
+        "MAFFT",
+        "Mr Bayes",
+        "BLAST"
+    ]
 }
 
 PROCESSES_INPUTS = {

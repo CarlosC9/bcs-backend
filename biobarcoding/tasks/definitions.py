@@ -447,7 +447,8 @@ def transfer_task(task_name,
     else:
         write_to_file(job_executor.log_filenames_dict[f"{logs_prefix}_stdout"],
                       "#" * 20 + log_msg + "#" * 20)
-        open(job_executor.log_filenames_dict[f"{logs_prefix}_stderr"], "x")
+        if not os.path.exists(job_executor.log_filenames_dict[f"{logs_prefix}_stderr"]):
+            open(job_executor.log_filenames_dict[f"{logs_prefix}_stderr"], "x")
         i = 0
         n_attempts = 0
         jc.pid = None
