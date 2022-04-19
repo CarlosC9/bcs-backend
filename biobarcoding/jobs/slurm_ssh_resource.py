@@ -77,7 +77,7 @@ class RemoteSlurmClient(RemoteSSHClient):
         @param pid: Job ID of the process to check status
         @return: String defining satus of the pid. "running", "ok" and "" for error.
         """
-        cmd = f"ssh {self.SSH_OPTIONS} {self.username}@{self.host} 'sacct -n -X --jobs={native_job_id} --format=state'"
+        cmd = f"ssh {self.SSH_OPTIONS} {self.username}@{self.host} \"scontrol show job {pid}\" | grep 'JobState' | sed 's/=/ /' | awk '{{print $2}}'"
         popen_pipe = os.popen(cmd)
         job_state = popen_pipe.readline().strip()
         if job_state != '':
@@ -104,7 +104,7 @@ class RemoteSlurmClient(RemoteSSHClient):
 class JobExecutorWithSlurm(JobExecutorWithSSH):
 
     def connect(self):
-        self.remote_client = RemoteSlurmClient(self.host, self.port, self.username,
+        self.remote_client = RemoteSlurmClient(self.host, self.data_host, self.port, self.data_port, self.username,
                                                self.known_hosts_filepath, self.remote_workspace,
                                                self.local_workspace, self.log_filenames_dict)
         self.loop.run_until_complete(self.remote_client.connect())

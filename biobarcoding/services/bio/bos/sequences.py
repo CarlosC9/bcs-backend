@@ -3,13 +3,16 @@ import re
 
 from . import BosService
 from ..meta.ontologies import get_type_id
-from ... import get_orm_params, log_exception, get_bioformat, get_or_create
+from ..meta.organisms import Service as OrgService
+from ... import get_orm_params, get_or_create, force_underscored
 from ...main import get_orm
 from ....db_models import DBSession
 from ....db_models import DBSessionChado
 from ....db_models.chado import Feature, Organism, StockFeature
 from ....db_models.bioinformatics import Sequence
 from ....rest import filter_parse
+
+org_service = OrgService()
 
 
 ##
@@ -24,22 +27,16 @@ class Service(BosService):
         self.bos = 'sequence'
 
     def prepare_values(self, **values):
-        """
-        Process the values 'organism', 'stock', and 'type' into valid IDs
-        """
 
         if values.get('residues') and not values.get('seqlen'):
             values['seqlen'] = len(values.get('residues'))
 
         if not values.get('organism_id') and values.get('organism'):
-            org = values.get('organism').strip()
-            if org:
-                # TODO: check canónical name (getting genus and species?)
-                genus = org.split()[0]
-                species = org[len(genus):].strip()
-                values['organism_id'] = get_or_create(self.db, Organism, genus=genus, species=species).organism_id
-        if not values.get('organism_id'):
-            values['organism_id'] = get_or_create(self.db, Organism, genus='unknown', species='Unclassified organism').organism_id
+            try:
+                orgs = org_service.read(filter={'name': values.get('organism')})[0]
+                values['organism_id'] = orgs[0].organism_id
+            except Exception as e:
+                values['organism_id'] = org_service.create(organism=values.get('organism'))[0].organism_id
 
         if not values.get('type_id') and values.get('type'):
             try:
@@ -50,16 +47,19 @@ class Service(BosService):
         return super(Service, self).prepare_values(**values)
 
     def check_values(self, **values):
-        """
-        Fill in the empty not null fields whenever possible.
-        """
+
         if not values.get('uniquename'):
             raise Exception('Missing the uniquename (sequences ID)')
+
+        if not values.get('organism_id'):
+            values['organism_id'] = get_or_create(self.db, Organism, genus='unknown', species='organism').organism_id
+
         if not values.get('type_id'):
             try:
                 values['type_id'] = get_type_id(type='sequence')
             except:
                 raise Exception(f'Missing the type_id for {values.get("uniquename")}')
+
         return get_orm_params(self.orm, **values)
 
     def seq_stock(self, seq, **values):
@@ -79,7 +79,7 @@ class Service(BosService):
                                    stock_id=values.get('stock_id'),
                                    feature_id=seq.feature_id,
                                    type_id=seq.type_id)
-        return stock
+        return stock_bind
 
     def after_create(self, new_object, **values):
         super(Service, self).after_create(new_object, **values)
@@ -100,9 +100,12 @@ class Service(BosService):
         new = super(Service, self).attach_data(content)
 
         if new:
-            new['uuid'] = str(DBSession.query(Sequence)
-                              .filter(Sequence.native_table == 'feature',
-                                      Sequence.native_id == content.feature_id).one().uuid)
+            try:
+                new['uuid'] = str(DBSession.query(Sequence)
+                                  .filter(Sequence.native_table == 'feature',
+                                          Sequence.native_id == content.feature_id).one().uuid)
+            except:
+                pass
 
         return new
 
@@ -113,8 +116,7 @@ class Service(BosService):
     def after_delete(self, *content, **kwargs):
         ids = [seq.feature_id for seq in content]
         query = DBSession.query(Sequence).filter(Sequence.native_id.in_(ids))
-        return query.count()
-        # return query.delete(synchronize_session='fetch')
+        return query.delete(synchronize_session='fetch')
 
     ##
     # IMPORT
@@ -163,19 +165,21 @@ class Service(BosService):
             return None, 0
 
     def import_file(self, infile, format=None, **kwargs):
-        content, count = [], 0
-        format = get_bioformat(infile, format)
-        try:
-            from ... import seqs_parser
-            for s in seqs_parser(infile, format):
-                c, cc = self.bio2chado(s, format, **kwargs)
-                content.append(c)
-                count += cc
-                # issues += [Issue(i.itype, i.message, os.path.basename(infile)) for i in iss]
-        except Exception as e:
-            log_exception(e)
-            raise Exception(f'IMPORT sequences: file {os.path.basename(infile)} could not be imported.')
-        return content, count
+        # content, count = [], 0
+        # format = get_bioformat(infile, format)
+        # try:
+        #     from ... import seqs_parser
+        #     for s in seqs_parser(infile, format):
+        #         c, cc = self.bio2chado(s, format, **kwargs)
+        #         content.append(c)
+        #         count += cc
+        #         # issues += [Issue(i.itype, i.message, os.path.basename(infile)) for i in iss]
+        # except Exception as e:
+        #     log_exception(e)
+        #     raise Exception(f'IMPORT sequences: file {os.path.basename(infile)} could not be imported.')
+        # return content, count
+        from ....io.sequences import import_file
+        return import_file(infile, format, **kwargs)
 
     ##
     # EXPORT
@@ -189,14 +193,15 @@ class Service(BosService):
                 orgs = self.db.query(Feature.uniquename, Organism.organism_id, Organism.name) \
                     .join(Organism).filter(Feature.uniquename.in_([x.uniquename for x in seqs])).all()
                 from ...species_names import get_canonical_species_names
+                underscored = "underscore" in format.lower()
                 for seq_id, org_id, name in orgs:
                     if "id" in format.lower():
                         headers[seq_id] = str(org_id)
                     elif "canon" in format.lower():
                         headers[seq_id] = get_canonical_species_names(DBSession, [name],
-                                                                      underscores="underscore" in format.lower())[0]
-                    else:
-                        headers[seq_id] = name
+                                                                      underscores=underscored)[0]
+                    if not headers.get(seq_id):
+                        headers[seq_id] = force_underscored(name) if underscored else name
         return headers
 
     def chado2biopy(self, seqs: list, header: str = None) -> list:

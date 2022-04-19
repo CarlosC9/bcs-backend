@@ -15,7 +15,7 @@ class BosService(BioService):
 
         return super(BosService, self).prepare_values(**values)
 
-    def pre_query(self, purpose='read'):
+    def pre_query(self, purpose='delete'):
         from ....db_models.sysadmin import PermissionType
         from ....db_models.core import data_object_type_id
         from ....db_models.bioinformatics import FunctionalObject

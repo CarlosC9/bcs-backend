@@ -186,7 +186,12 @@ class JobExecutorAtResourceFactory:
             return tmp
         elif job_executor_name.lower() == "slurm":
             from .slurm_ssh_resource import JobExecutorWithSlurm
-            tmp = JobExecutorWithSlurm(str(kwargs["job_id"]) + "_" + str(kwargs["identity_id"]), create_local_workspace)
+            remote_workspace = None
+            if resource_param["name"].lower().startswith("teide"):
+                remote_workspace = get_global_configuration_variable("TEIDE_REMOTE_WORKSPACE")
+            tmp = JobExecutorWithSlurm(str(kwargs["job_id"]) + "_" + str(kwargs["identity_id"]),
+                                       create_local_workspace,
+                                       remote_workspace)
             tmp.set_resource(resource_param)
             tmp.connect()
             return tmp

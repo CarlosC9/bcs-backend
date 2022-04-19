@@ -62,14 +62,17 @@ class Service(BosService):
         new = super(Service, self).attach_data(content)
 
         if new:
-            from sqlalchemy.sql.expression import func, distinct
-            info = self.db.query(func.max(func.length(Feature.residues)),
-                                 func.count(AnalysisFeature.analysis_id),
-                                 func.array_agg(distinct(Organism.name))) \
-                .select_from(AnalysisFeature).join(Feature).join(Organism) \
-                .filter(AnalysisFeature.analysis_id == content.analysis_id) \
-                .group_by(AnalysisFeature.analysis_id)
-            new['seqlen'], new['seqnum'], new['taxa'] = info.one()
+            try:
+                from sqlalchemy.sql.expression import func, distinct
+                info = self.db.query(func.max(func.length(Feature.residues)),
+                                     func.count(AnalysisFeature.analysis_id),
+                                     func.array_agg(distinct(Organism.name))) \
+                    .select_from(AnalysisFeature).join(Feature).join(Organism) \
+                    .filter(AnalysisFeature.analysis_id == content.analysis_id) \
+                    .group_by(AnalysisFeature.analysis_id)
+                new['seqlen'], new['seqnum'], new['taxa'] = info.one()
+            except:
+                pass
 
         return new
 
