@@ -158,6 +158,7 @@ def get_default_configuration_dict():
         RESOURCES_CONFIG_FILE_PATH=f"{data_path}/compute_resources.json",
         JOBS_LOCAL_WORKSPACE=os.path.expanduser(f'~/{app_acronym}_jobs'),
         SSH_JOBS_DEFAULT_REMOTE_WORKSPACE="/tmp",
+        TEIDE_REMOTE_WORKSPACE="/home/dreyes/data",
         GALAXY_API_KEY="fakekey",
         GALAXY_LOCATION="http://localhost:8080",
         # MISC
@@ -798,8 +799,6 @@ tm_code_list_sources = [
     (h_sources_name, "55e9958c-2f73-47c4-afa6-37bf23c683f9", "EUROSTAT"),
 ]
 
-#
-# a31b2a73-d2b2-4d50-a64c-8d6d86559a02
 # 7ece7ead-4de9-436f-a12d-86350129e444
 # 071a22e8-1d90-4900-936a-0466880480d4
 # faec0128-c0e3-4c2c-bbb2-bd852430eed3
@@ -1517,7 +1516,7 @@ def initialize_ssh(flask_app):
     """
     session = DBSession()
     ssh_resources = session.query(ComputeResource, JobManagementType).filter(
-        ComputeResource.jm_type_id == JobManagementType.id, JobManagementType.name == 'ssh').all()
+        ComputeResource.jm_type_id == JobManagementType.id, or_(JobManagementType.name == 'ssh', JobManagementType.name == 'slurm')).all()
     for ssh_res in ssh_resources:
         compute_resource = ssh_res.ComputeResource
         ssh_credentials = compute_resource.jm_credentials
@@ -1526,6 +1525,11 @@ def initialize_ssh(flask_app):
                "-o", f"UserKnownHostsFile={ssh_credentials['known_hosts_filepath']}",
                f"{ssh_credentials['username']}@{ssh_location['host']}", "'echo'"]
         subprocess.run(cmd)
+        if ssh_location.get('data_host'):
+            cmd = ["ssh", "-o", "StrictHostKeyChecking=no",
+                   "-o", f"UserKnownHostsFile={ssh_credentials['known_hosts_filepath']}",
+                   f"{ssh_credentials['username']}@{ssh_location['data_host']}", "'echo'"]
+            subprocess.run(cmd)
 
 
 # GALAXY INIZIALIZATION
