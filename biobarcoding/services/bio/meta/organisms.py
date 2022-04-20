@@ -69,7 +69,7 @@ class Service(MetaService):
 
     def prepare_values(self, **values) -> dict:
 
-        genus, species, ssp = self.split_org_name(
+        genus, species, ssp = split_org_name(
             values.get('organism') or values.get('name') or values.get('species') or '')
         values['genus'] = values.get('genus') or genus
         values['species'] = values.get('species') or species
@@ -140,7 +140,7 @@ class Service(MetaService):
 
         if new:
             try:
-                name = " ".join([new['genus'], new['species'], new['infraspecific_name']]).strip()
+                name = " ".join([new['genus'], new['species'], new['infraspecific_name'] or '']).strip()
                 from ... import force_underscored
                 from ...species_names import get_canonical_species_names
                 new['name'] = name
@@ -216,7 +216,7 @@ class Service(MetaService):
 
         name = filter.get('organism') or filter.get('name')
         if name:
-            genus, species, ssp = self.split_org_name(name)
+            genus, species, ssp = split_org_name(name)
             clauses += [self.orm.genus == genus, self.orm.species == species, self.orm.infraspecific_name == ssp]
 
         # TODO: ask by lineage: ancestor/predecessor or descendant
