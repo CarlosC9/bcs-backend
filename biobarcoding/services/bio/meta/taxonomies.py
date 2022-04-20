@@ -1,8 +1,15 @@
+from typing import List
+
 from . import MetaService
 from ...main import get_orm
 from ....db_models import DBSessionChado
 from ... import log_exception, get_or_create
 
+NAMES = {
+    'gbif': 'GBIF taxonomy tree',
+    'ncbi': 'NCBI taxonomy tree',
+    'biota': 'BIOTA taxonomy tree',
+}
 
 ##
 # TAXONOMY SERVICE
@@ -34,8 +41,9 @@ class Service(MetaService):
     ##
     # IMPORT
     ##
-
     def import_file(self, infile, **kwargs):
+        # format: ncbi, gbif, biota ?
+        # source: biota ?
         content, count = None, 0
         try:
             from flask import current_app
@@ -65,9 +73,9 @@ class Service(MetaService):
             raise Exception(f'IMPORT taxonomies: The taxonomy {os.path.basename(infile)} could not be imported.')
         return content, count
 
-        ##
-        # GET SQLALCHEMY QUERY
-        ##
+    ##
+    # GET SQLALCHEMY QUERY
+    ##
 
     def get_query(self, **kwargs):
         query = None
@@ -89,3 +97,7 @@ class Service(MetaService):
             clauses.append(self.orm.phylotree_id.in_(_ids))
 
         return clauses + super(Service, self).aux_filter(filter)
+
+
+def insert_taxon(**kwargs) -> List[str]:
+    return []
