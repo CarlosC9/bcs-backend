@@ -150,30 +150,28 @@ def import_file(infile, format=None, **kwargs):
             # STEP 1: add the required rows to the session and flush
             DBSession.add_all(seq_batch)
             print('SEQUENCES:', len(seq_batch))
-            DBSession.flush()
-            print('flush ngd')
             DBSession.add_all(ann_batch)
             print('ANNOTATIONS:', len(ann_batch))
             DBSession.flush()
             print('flush ngd')
-            for a, seqs in seq4ann_batch.items():
-                # STEP 2: bind seqs2ann
-                for s in seqs:
-                    ann, seq = ANN_ENTRIES.get(a), seq_entries.get(s)
-                    if ann is None or seq is None:
-                        print(f'NOPE: {s} - {a}')
-                        continue
-                    ann_rl_rows.append(get_or_create(DBSession, AnnotationItemFunctionalObject,
-                                                     annotation=ann, object=seq))
-            print('ANNOTATED:', len(seq_batch))
+            # for a, seqs in seq4ann_batch.items():
+            #     # STEP 2: bind seqs2ann
+            #     for s in seqs:
+            #         ann, seq = ANN_ENTRIES.get(a), seq_entries.get(s)
+            #         if ann is None or seq is None:
+            #             print(f'NOPE: {s} - {a}')
+            #             continue
+            #         ann_rl_rows.append(get_or_create(DBSession, AnnotationItemFunctionalObject,
+            #                                          annotation=ann, object=seq))
+            # print('ANNOTATED:', len(seq_batch))
 
         print('BATCHES DONE')
         DBSession.add_all(taxa_rows)
         print(f'TAXA: {len(taxa_rows)}')
         DBSessionChado.add_all(stock_rl_rows)
         print(f'STOCK_RL: {len(stock_rl_rows)}')
-        DBSession.add_all(ann_rl_rows)
-        print(f'ANN_RL: {len(ann_rl_rows)}')
+        # DBSession.add_all(ann_rl_rows)
+        # print(f'ANN_RL: {len(ann_rl_rows)}')
         clear_entries()
     except Exception as e:
         clear_entries()
