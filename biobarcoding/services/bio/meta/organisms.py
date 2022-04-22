@@ -35,7 +35,7 @@ def build_org_name(**values):
             genus = ''
         ssp = values.get('infraspecific_name', '')
         org = ' '.join([genus, org, ssp])
-    return org
+    return org.strip()
 
 
 def get_org_lineage(*org) -> list:
@@ -59,9 +59,7 @@ class Service(MetaService):
         if organism_id:
             return self.db.query(self.orm.name).filter_by(organism_id=organism_id).one()[0].strip()
         org = values.get('organism') or values.get('name')
-        if not org:
-            org = build_org_name(**values)
-        return org.strip()
+        return org.strip() if org else build_org_name(**values)
 
     ##
     # CREATE
