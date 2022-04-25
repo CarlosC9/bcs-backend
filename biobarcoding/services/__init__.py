@@ -117,11 +117,13 @@ def get_bioformat(file, format):
         'nex': 'nexus', 'nxs': 'nexus', 'nexus': 'nexus',
         'aln': 'clustal', 'clustal': 'clustal',
         'phy': 'phylip', 'phylip': 'phylip',
-        'ph': 'newick', 'nhx': 'newick', 'nwx': 'newick', 'tree': 'newick', 'newick': 'newick'
+        'ph': 'newick', 'nhx': 'newick', 'nwx': 'newick', 'tree': 'newick', 'newick': 'newick',
+        'tsv': 'tsv',
+        'csv': 'csv',
     }.get(ext, ext)
 
 
-def tsv_csv_parser(file):   # with csv lib
+def csv_pd_parser(file) -> dict:   # with csv lib
     with open(file, encoding=get_encoding(file)) as fo:
         import csv
         tab = csv.reader(fo, delimiter='\t')
@@ -130,7 +132,7 @@ def tsv_csv_parser(file):   # with csv lib
             yield dict(zip(keys, rec))
 
 
-def tsv_pd_parser(file):   # with pandas lib
+def tsv_pd_parser(file) -> dict:   # with pandas lib
     import pandas as pd
     df = pd.read_csv(file, sep='\t', header=0, error_bad_lines=False,
                      encoding=get_encoding(file))
@@ -138,21 +140,32 @@ def tsv_pd_parser(file):   # with pandas lib
         yield r.to_dict()
 
 
-def gff_parser(file):
+##
+# FILES SEQS MANAGEMENT
+##
+from Bio.SeqRecord import SeqRecord
+
+
+def gff_parser(file) -> SeqRecord:
     from BCBio import GFF
     with open(file, encoding=get_encoding(file)) as f:
         for rec in GFF.parse(f):
             yield rec
 
 
-def seqs_parser(file, format='fasta'):
+def seqs_parser(file, format='fasta') -> SeqRecord:
     if format == 'gff':
         return gff_parser(file)
     if format == 'tsv':
-        return tsv_pd_parser(file)
+        return SeqRecord(**tsv_pd_parser(file))
+    if format == 'csv':
+        return SeqRecord(**csv_pd_parser(file))
     from Bio import SeqIO
     with open(file, encoding=get_encoding(file)) as fo:
         for rec in SeqIO.parse(fo, format):
+            if format == 'fasta':
+                # TODO: parse header
+                pass
             yield rec
 
 
