@@ -213,8 +213,7 @@ class Service(BosService):
             # TODO: study molecule_type ?, and append taxonomy and features
             annotations = {
                 'molecule_type': 'DNA',
-                'organism': self.db.query(Organism.name)
-                    .filter(Organism.organism_id == seq.organism_id).one()[0]   # hybrid property must be selected
+                'organism': org_service.get_org_name(seq.organism_id)
             }
             records.append(SeqRecord(Seq(seq.residues),
                                      headers.get(seq.uniquename, seq.uniquename),

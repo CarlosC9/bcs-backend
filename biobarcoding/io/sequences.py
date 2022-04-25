@@ -2,11 +2,12 @@ import json
 import os.path
 
 from . import batch_iterator
-from ..db_models import DBSessionChado, DBSession
+from ..db_models import DBSessionChado, DBSession, ObjectType
 from ..db_models.bioinformatics import Sequence, Specimen
 from ..db_models.chado import Organism, Stock, Feature, StockFeature
 from ..db_models.metadata import Taxon
-from ..db_models.sa_annotations import AnnotationFormField, AnnotationField, AnnotationItemFunctionalObject
+from ..db_models.sa_annotations import AnnotationFormField, AnnotationField, AnnotationItemFunctionalObject, \
+    AnnotationFormItemObjectType
 from ..services import get_bioformat, seqs_parser, log_exception
 from ..services.bio.meta.ontologies import get_type_id
 from ..services.bio.meta.organisms import split_org_name
@@ -57,6 +58,12 @@ def import_file(infile, format=None, **kwargs):
         gene_field = get_or_create(DBSession, AnnotationFormField, name='gene')
         DBSession.add(gene_field)
         DBSession.flush()
+        object_type = get_or_create(DBSession, ObjectType, name='sequence')
+        DBSession.add(object_type)
+        ann_obj = get_or_create(DBSession, AnnotationFormItemObjectType,
+                                form_item_id=gene_field.id,
+                                object_type_id=object_type.id)
+        DBSession.add(ann_obj)
         gene_field_id = gene_field.id
 
         taxa_rows, stock_rl_rows, ann_rl_rows = [], [], []
@@ -107,9 +114,9 @@ def import_file(infile, format=None, **kwargs):
                         gene = f.qualifiers.get('gene')
                         ann = gene[-1] if isinstance(gene, (tuple, list, set)) else gene
                         if seq4ann_batch.get(ann):
-                            seq4ann_batch[ann].append(seq.id)
+                            seq4ann_batch[ann].add(seq.id)
                         else:
-                            seq4ann_batch[ann] = [seq.id]
+                            seq4ann_batch[ann] = set([seq.id])
                         if ann not in ANN_ENTRIES:
                             # get_or_create for value(JSONB)
                             params = {'form_field_id': gene_field_id, 'value': json.dumps(ann)}
@@ -154,24 +161,24 @@ def import_file(infile, format=None, **kwargs):
             print('ANNOTATIONS:', len(ann_batch))
             DBSession.flush()
             print('flush ngd')
-            # for a, seqs in seq4ann_batch.items():
-            #     # STEP 2: bind seqs2ann
-            #     for s in seqs:
-            #         ann, seq = ANN_ENTRIES.get(a), seq_entries.get(s)
-            #         if ann is None or seq is None:
-            #             print(f'NOPE: {s} - {a}')
-            #             continue
-            #         ann_rl_rows.append(get_or_create(DBSession, AnnotationItemFunctionalObject,
-            #                                          annotation=ann, object=seq))
-            # print('ANNOTATED:', len(seq_batch))
+            for a, seqs in seq4ann_batch.items():
+                # STEP 2: bind seqs2ann
+                for s in seqs:
+                    ann, seq = ANN_ENTRIES.get(a), seq_entries.get(s)
+                    if ann is None or seq is None:
+                        print(f'NOT FOUND: {s} - {a}')
+                        continue
+                    ann_rl_rows.append(get_or_create(DBSession, AnnotationItemFunctionalObject,
+                                                     annotation_id=ann.id, object_uuid=seq.uuid))
+            print('ANNOTATED:', len(seq_batch))
 
         print('BATCHES DONE')
         DBSession.add_all(taxa_rows)
         print(f'TAXA: {len(taxa_rows)}')
         DBSessionChado.add_all(stock_rl_rows)
         print(f'STOCK_RL: {len(stock_rl_rows)}')
-        # DBSession.add_all(ann_rl_rows)
-        # print(f'ANN_RL: {len(ann_rl_rows)}')
+        DBSession.add_all(ann_rl_rows)
+        print(f'ANN_RL: {len(ann_rl_rows)}')
         clear_entries()
     except Exception as e:
         clear_entries()
