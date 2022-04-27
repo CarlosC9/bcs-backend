@@ -8,7 +8,7 @@ from ... import get_orm_params, get_or_create, force_underscored
 from ...main import get_orm
 from ....db_models import DBSession
 from ....db_models import DBSessionChado
-from ....db_models.chado import Feature, Organism, StockFeature
+from ....db_models.chado import Organism, StockFeature
 from ....db_models.bioinformatics import Sequence
 from ....rest import filter_parse
 
@@ -116,7 +116,9 @@ class Service(BosService):
     def after_delete(self, *content, **kwargs):
         ids = [seq.feature_id for seq in content]
         query = DBSession.query(Sequence).filter(Sequence.native_id.in_(ids))
-        return query.delete(synchronize_session='fetch')
+        # query = query.delete(synchronize_session=False)
+        # DBSession.expire_all()
+        return query.count()
 
     ##
     # IMPORT
@@ -190,8 +192,8 @@ class Service(BosService):
         headers = {}
         if format:
             if "organism" in format.lower():    # ('organismID', 'organism', 'organism_canon', 'organism_canon_underscored')
-                orgs = self.db.query(Feature.uniquename, Organism.organism_id, Organism.name) \
-                    .join(Organism).filter(Feature.uniquename.in_([x.uniquename for x in seqs])).all()
+                orgs = self.db.query(self.orm.uniquename, Organism.organism_id, Organism.name) \
+                    .join(Organism).filter(self.orm.uniquename.in_([x.uniquename for x in seqs])).all()
                 from ...species_names import get_canonical_species_names
                 underscored = "underscore" in format.lower()
                 for seq_id, org_id, name in orgs:
@@ -248,19 +250,19 @@ class Service(BosService):
             from ....db_models.chado import AnalysisFeature
             _ids = self.db.query(AnalysisFeature.feature_id)\
                 .filter(filter_parse(AnalysisFeature, [{'analysis_id': filter.get('analysis_id')}]))
-            clauses.append(Feature.feature_id.in_(_ids))
+            clauses.append(self.orm.feature_id.in_(_ids))
 
         if 'phylotree_id' in filter:
             from ....db_models.chado import Phylonode
             _ids = self.db.query(Phylonode.feature_id)\
                 .filter(filter_parse(Phylonode, [{'phylotree_id': filter.get('phylotree_id')}]))
-            clauses.append(Feature.feature_id.in_(_ids))
+            clauses.append(self.orm.feature_id.in_(_ids))
 
         if "prop_cvterm_id" in filter:
             from ....db_models.chado import Featureprop
             _ids = self.db.query(Featureprop.feature_id)\
                 .filter(filter_parse(Featureprop, [{'type_id': filter.get('prop_cvterm_id')}]))
-            clauses.append(Feature.feature_id.in_(_ids))
+            clauses.append(self.orm.feature_id.in_(_ids))
 
         if "program" in filter:
             from ....db_models.chado import Analysis
@@ -269,7 +271,7 @@ class Service(BosService):
             from ....db_models.chado import AnalysisFeature
             _ids = self.db.query(AnalysisFeature.feature_id) \
                 .filter(AnalysisFeature.analysis_id.in_(_ids))
-            clauses.append(Feature.feature_id.in_(_ids))
+            clauses.append(self.orm.feature_id.in_(_ids))
 
         if "programversion" in filter:
             from ....db_models.chado import Analysis
@@ -278,7 +280,7 @@ class Service(BosService):
             from ....db_models.chado import AnalysisFeature
             _ids = self.db.query(AnalysisFeature.feature_id) \
                 .filter(AnalysisFeature.analysis_id.in_(_ids))
-            clauses.append(Feature.feature_id.in_(_ids))
+            clauses.append(self.orm.feature_id.in_(_ids))
 
         if "algorithm" in filter:
             from ....db_models.chado import Analysis
@@ -287,28 +289,28 @@ class Service(BosService):
             from ....db_models.chado import AnalysisFeature
             _ids = self.db.query(AnalysisFeature.feature_id) \
                 .filter(AnalysisFeature.analysis_id.in_(_ids))
-            clauses.append(Feature.feature_id.in_(_ids))
+            clauses.append(self.orm.feature_id.in_(_ids))
 
         from datetime import datetime
         if "added-from" in filter:
             filter["added-from"]['unary'] = datetime.strptime(filter.get("added-from")['unary'], '%Y-%m-%d')
-            _ids = self.db.query(Feature.feature_id) \
-                .filter(filter_parse(Feature, {'timeaccessioned':filter.get("added-from")}))
-            clauses.append(Feature.feature_id.in_(_ids))
+            _ids = self.db.query(self.orm.feature_id) \
+                .filter(filter_parse(self.orm, {'timeaccessioned':filter.get("added-from")}))
+            clauses.append(self.orm.feature_id.in_(_ids))
         if "added-to" in filter:
             filter["added-to"]['unary'] = datetime.strptime(filter.get("added-to")['unary'], '%Y-%m-%d')
-            _ids = self.db.query(Feature.feature_id) \
-                .filter(filter_parse(Feature, {'timeaccessioned':filter.get("added-to")}))
-            clauses.append(Feature.feature_id.in_(_ids))
+            _ids = self.db.query(self.orm.feature_id) \
+                .filter(filter_parse(self.orm, {'timeaccessioned':filter.get("added-to")}))
+            clauses.append(self.orm.feature_id.in_(_ids))
         if "lastmodified-from" in filter:
             filter["lastmodified-from"]['unary'] = datetime.strptime(filter.get("lastmodified-from")['unary'], '%Y-%m-%d')
-            _ids = self.db.query(Feature.feature_id) \
-                .filter(filter_parse(Feature, {'timelastmodified':filter.get("lastmodified-from")}))
-            clauses.append(Feature.feature_id.in_(_ids))
+            _ids = self.db.query(self.orm.feature_id) \
+                .filter(filter_parse(self.orm, {'timelastmodified':filter.get("lastmodified-from")}))
+            clauses.append(self.orm.feature_id.in_(_ids))
         if "lastmodified-to" in filter:
             filter["lastmodified-to"]['unary'] = datetime.strptime(filter.get("lastmodified-to")['unary'], '%Y-%m-%d')
-            _ids = self.db.query(Feature.feature_id) \
-                .filter(filter_parse(Feature, {'timelastmodified':filter.get("lastmodified-to")}))
-            clauses.append(Feature.feature_id.in_(_ids))
+            _ids = self.db.query(self.orm.feature_id) \
+                .filter(filter_parse(self.orm, {'timelastmodified':filter.get("lastmodified-to")}))
+            clauses.append(self.orm.feature_id.in_(_ids))
 
         return clauses + super(Service, self).aux_filter(filter)
