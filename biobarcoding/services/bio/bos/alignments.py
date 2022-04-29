@@ -71,7 +71,9 @@ class Service(BosService):
                     .filter(AnalysisFeature.analysis_id == content.analysis_id) \
                     .group_by(AnalysisFeature.analysis_id)
                 new['seqlen'], new['seqnum'], new['taxa'] = info.one()
-            except:
+            except Exception as e:
+                print('Error: Additional data could not be attached.')
+                log_exception(e)
                 pass
 
         return new
@@ -80,11 +82,15 @@ class Service(BosService):
     # DELETE
     ##
 
-    def after_delete(self, *content, **kwargs):
+    def delete_related(self, *content, **kwargs):
         ids = [a.analysis_id for a in content]
+
+        from .phylotrees import Service as PhyService
+        PhyService().delete(filter={'analysis_id': ids})
+        seq_service.delete(filter={'analysis_id': ids})
+
         query = DBSession.query(MultipleSequenceAlignment).filter(MultipleSequenceAlignment.native_id.in_(ids))
-        return query.count()
-        # return query.delete(synchronize_session='fetch')
+        return len([DBSession.delete(row) for row in query.all()])
 
     ##
     # IMPORT

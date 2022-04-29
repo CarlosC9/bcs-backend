@@ -247,7 +247,9 @@ class BasicService:
             import json
             from ..common import generate_json
             return json.loads(generate_json(content))
-        except:
+        except Exception as e:
+            print('Error: The row could not be jsonify for attachment.')
+            log_exception(e)
             return None
 
     ##
@@ -341,16 +343,14 @@ class BasicService:
     # deal with the delete
     def delete(self, **kwargs) -> Tuple[any, int]:
         content, count = self.get_query(purpose='delete', **kwargs)
-        # content = content.delete(synchronize_session='fetch')
         content = content.all()
+        self.delete_related(*content, **kwargs)
         for row in content:
             self.db.delete(row)
-        self.after_delete(*content, **kwargs)
         return content, count
 
     # any additional delete if any
-    def after_delete(self, *content, **kwargs):
-        # TODO: check why all rows are deleted in bcs without filtering
+    def delete_related(self, *content, **kwargs):
         return content
 
     # TODO: generic import/export in progress

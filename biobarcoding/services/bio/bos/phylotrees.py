@@ -80,11 +80,10 @@ class Service(BosService):
     # DELETE
     ##
 
-    def after_delete(self, *content, **kwargs):
+    def delete_related(self, *content, **kwargs):
         ids = [t.phylotree_id for t in content]
         query = DBSession.query(PhylogeneticTree).filter(PhylogeneticTree.native_id.in_(ids))
-        return query.count()
-        # return query.delete(synchronize_session='fetch')
+        return len([DBSession.delete(row) for row in query.all()])
 
     ##
     # IMPORT

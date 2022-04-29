@@ -4,7 +4,7 @@ import re
 from . import BosService
 from ..meta.ontologies import get_type_id
 from ..meta.organisms import Service as OrgService
-from ... import get_orm_params, get_or_create, force_underscored
+from ... import get_orm_params, get_or_create, force_underscored, log_exception
 from ...main import get_orm
 from ....db_models import DBSession
 from ....db_models import DBSessionChado
@@ -104,7 +104,9 @@ class Service(BosService):
                 new['uuid'] = str(DBSession.query(Sequence)
                                   .filter(Sequence.native_table == 'feature',
                                           Sequence.native_id == content.feature_id).one().uuid)
-            except:
+            except Exception as e:
+                print('Error: Additional data could not be attached.')
+                log_exception(e)
                 pass
 
         return new
@@ -113,12 +115,10 @@ class Service(BosService):
     # DELETE
     ##
 
-    def after_delete(self, *content, **kwargs):
+    def delete_related(self, *content, **kwargs):
         ids = [seq.feature_id for seq in content]
         query = DBSession.query(Sequence).filter(Sequence.native_id.in_(ids))
-        # query = query.delete(synchronize_session=False)
-        # DBSession.expire_all()
-        return query.count()
+        return len([DBSession.delete(row) for row in query.all()])
 
     ##
     # IMPORT
@@ -134,7 +134,7 @@ class Service(BosService):
         if features:
             if isinstance(features, str):
                 features = features.split(',')
-            features = [ {'type': f.split()[-1], 'qualifiers': {f.split()[-1]:f[:-len(f.split()[-1])].strip()}} for f in features ]
+            features = [{'type': f.split()[-1], 'qualifiers': {f.split()[-1]:f[:-len(f.split()[-1])].strip()}} for f in features]
             params['features'] = features if isinstance(features, (tuple, list, set)) else params['features']
             params['molecule_type'] = features[-1]['type']
         elif origin:
