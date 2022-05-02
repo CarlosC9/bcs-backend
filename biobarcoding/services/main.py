@@ -12,13 +12,20 @@ from ..db_models import ORMBase, DBSession
 def get_orm(entity):
     orm = None
     # BOS ORMS
-    # TODO: add discriminant-matrices, blasts, supermatrices, collections
     if entity == 'sequences':
         from ..db_models.chado import Feature as orm
     elif entity == 'alignments':
         from ..db_models.chado import Analysis as orm
     elif entity == 'phylotrees':
         from ..db_models.chado import Phylotree as orm
+    elif entity == 'blasts':
+        from ..db_models.bioinformatics import SequenceSimilarity as orm
+    elif entity == 'discriminant-matrices':
+        from ..db_models.bioinformatics import DiscriminantMatrix as orm
+    elif entity == 'supermatrices':
+        from ..db_models.bioinformatics import Supermatrix as orm
+    elif entity == 'collections':
+        from ..db_models.sysadmin import Collection as orm
     # BIO META ORMS
     # TODO: add publications, topics, sources, crs (reports?)
     elif entity == 'individuals':
@@ -52,13 +59,20 @@ def get_orm(entity):
 def get_service(entity):
     Service = None
     # BOS SERVICES
-    # TODO: add discriminant-matrices, blasts, supermatrices, collections
     if entity == 'sequences':
         from .bio.bos.sequences import Service
     elif entity == 'alignments':
         from .bio.bos.alignments import Service
     elif entity == 'phylotrees':
         from .bio.bos.phylotrees import Service
+    elif entity == 'blasts':
+        from .bio.bos.blast import Service
+    elif entity == 'discriminant-matrices':
+        from .bio.bos.discriminant_matrices import Service
+    elif entity == 'supermatrices':
+        from .bio.bos.supermatrices import Service
+    elif entity == 'collections':
+        from .bio.meta.collections import Service
     # BIO META SERVICES
     # TODO: add publications, topics, sources, crs (reports?)
     elif entity == 'individuals':

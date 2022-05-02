@@ -3,11 +3,10 @@ from .. import app_api_base
 from ..crudie import CrudieAPI
 
 
-# TODO: add discriminant-matrices, blasts, supermatrices, collections
 def add_rules(bp=None) -> Blueprint:
     if not bp:
         from . import bp
-    for bos in ['sequences', 'alignments', 'phylotrees']:
+    for bos in ['sequences', 'alignments', 'phylotrees', 'discriminant-matrices', 'blasts', 'supermatrices']:
         bp_view = CrudieAPI.as_view('api_'+bos, entity=bos)
         bp.add_url_rule(
             app_api_base + f'/bos/{bos}',
