@@ -1,6 +1,8 @@
 import os.path
 import time
 
+from Bio import Phylo
+
 from . import BosService
 from ..meta.ontologies import get_type_id
 from ...main import get_orm
@@ -20,7 +22,7 @@ class Service(BosService):
         self.db = DBSessionChado
         self.orm = get_orm('phylotrees')
         self.bos = 'phylogenetic-tree'
-        self.formats = ('newick', 'nexus', 'nexml', 'phyloxml', 'cdao')
+        self.formats = ['newick', 'nexus', 'nexml', 'phyloxml', 'cdao']
 
     ##
     # CREATE
@@ -91,19 +93,26 @@ class Service(BosService):
 
     def import_file(self, infile, format=None, **kwargs):
         # TODO ? phylonode:type_id (root,leaf,internal) ?
-        content, count = None, 0
         format = get_bioformat(infile, format)
         try:
-            # Check phylotree file format
-            from Bio import Phylo
-            if format == 'nexus':
-                from dendropy import TreeList
-                from io import StringIO
-                trees = TreeList.get_from_path(infile, schema="nexus")
-                tree = Phylo.read(StringIO(trees[-1].as_string("nexus")), "nexus")
-            else:
-                # TODO: try formats ('newick', 'nexus', 'nexml', 'phyloxml', 'cdao') ?
-                tree = Phylo.read(infile, format)
+            # try every available format
+            fs = [format] + self.formats if format else self.formats
+            tree = None
+            for f in fs:
+                try:
+                    # check phylotree file format
+                    if f == 'nexus':
+                        from dendropy import TreeList
+                        from io import StringIO
+                        trees = TreeList.get_from_path(infile, schema=f)
+                        tree = Phylo.read(StringIO(trees[-1].as_string(f)), f)
+                    else:
+                        tree = Phylo.read(infile, f)
+                except:
+                    continue
+                break
+            if not tree:
+                raise Exception()
         except:
             raise Exception(f'IMPORT phylotress: The file {os.path.basename(infile)} could not be imported. (unknown format)')
         try:
@@ -113,7 +122,6 @@ class Service(BosService):
             content, count = self.create(**kwargs)
             # Get phylonodes insertion
             phylonodes = self.tree2phylonodes(content.phylotree_id, tree.root, None, [0])
-            count += 1
         except Exception as e:
             log_exception(e)
             raise Exception(f'IMPORT phylotress: The file {os.path.basename(infile)} could not be imported. (unmanageable)')
@@ -167,7 +175,6 @@ class Service(BosService):
                 tree = Tree.get(path="%s.newick" % outfile, schema="newick")
                 tree.write(path=file, schema=format)
             elif format != "newick":
-                from Bio import Phylo
                 Phylo.convert("%s.newick" % outfile, "newick", file, format)
             else:
                 os.rename("%s.newick" % outfile, file)

@@ -1,6 +1,8 @@
 import os.path
 import re
 
+from Bio import SeqIO
+
 from . import BosService
 from ..meta.ontologies import get_type_id
 from ..meta.organisms import Service as OrgService
@@ -25,6 +27,8 @@ class Service(BosService):
         self.db = DBSessionChado
         self.orm = get_orm('sequences')
         self.bos = 'sequence'
+        self.formats = ['clustal', 'embl', 'fasta', 'genbank', 'gb', 'nexus', 'phylip', 'seqxml', 'abi', 'abi-trim', 'ace', 'cif-atom', 'cif-seqres', 'fasta-2line', 'fastq-sanger', 'fastq', 'fastq-solexa', 'fastq-illumina', 'gck', 'ig', 'imgt', 'pdb-seqres', 'pdb-atom', 'phd', 'pir', 'sff', 'sff-trim', 'snapgene', 'stockholm', 'swiss', 'tab', 'qual', 'uniprot-xml', 'xdna']
+        # only write in 'clustal', 'embl', 'fasta', 'fasta-2line', 'fastq-sanger', 'fastq', 'fastq-solexa', 'fastq-illumina', 'genbank', 'gb', 'imgt', 'nexus', 'phd', 'phylip', 'pir', 'seqxml', 'sff', 'stockholm', 'tab', 'qual', 'xdna'
 
     def prepare_values(self, **values):
 
@@ -167,19 +171,19 @@ class Service(BosService):
             return None, 0
 
     def import_file(self, infile, format=None, **kwargs):
-        # content, count = [], 0
-        # format = get_bioformat(infile, format)
-        # try:
-        #     from ... import seqs_parser
-        #     for s in seqs_parser(infile, format):
-        #         c, cc = self.bio2chado(s, format, **kwargs)
-        #         content.append(c)
-        #         count += cc
-        #         # issues += [Issue(i.itype, i.message, os.path.basename(infile)) for i in iss]
-        # except Exception as e:
-        #     log_exception(e)
-        #     raise Exception(f'IMPORT sequences: file {os.path.basename(infile)} could not be imported.')
-        # return content, count
+        # try every available format
+        fs = [format] + self.formats if format else self.formats
+        content_file = None
+        for f in fs:
+            try:
+                # check aligned file
+                content_file = next(SeqIO.parse(infile, f))
+            except:
+                continue
+            format = f
+            break
+        if not content_file and not format:
+            raise Exception()
         from ....io.sequences import import_file
         return import_file(infile, format, **kwargs)
 
@@ -226,7 +230,6 @@ class Service(BosService):
 
     def data2file(self, seqs: list, outfile, format: str, values={}, **kwargs) -> int:
         records = self.chado2biopy(seqs, values.pop('header', ''))
-        from Bio import SeqIO
         res = SeqIO.write(records, outfile, format=format)
         if format == "nexus":
             # format datatype=dna missing=? gap=- matchchar=.;

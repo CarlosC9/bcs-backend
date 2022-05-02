@@ -51,6 +51,7 @@ def get_or_create(session, model, **params):
 
 def import_file(infile, format=None, **kwargs):
     # TODO: use bulk_save_objects ?
+    # TODO: use kwargs (p.e. analysis_id, gene, organism_id)
     try:
 
         ind_type_id = get_type_id(type='stock')

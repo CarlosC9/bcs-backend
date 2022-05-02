@@ -26,7 +26,7 @@ class Service(BosService):
         self.db = DBSessionChado
         self.orm = get_orm('alignments')
         self.bos = 'multiple-sequence-alignment'
-        self.formats = ('clustal', 'emboss', 'fasta', 'fasta-m10', 'ig', 'maf', 'mauve', 'msf', 'nexus', 'phylip', 'phylip-sequential', 'phylip-relaxed', 'stockholm')
+        self.formats = ['fasta', 'clustal', 'nexus', 'phylip', 'emboss', 'fasta-m10', 'ig', 'maf', 'mauve', 'msf', 'phylip-sequential', 'phylip-relaxed', 'stockholm']
     ##
     # CREATE
     ##
@@ -132,12 +132,20 @@ class Service(BosService):
         return msa
 
     def import_file(self, infile, format=None, **kwargs):
-        content, count = None, 0
         format = get_bioformat(infile, format)
         try:
-            # TODO: try every available format ('clustal', 'emboss', 'fasta', 'fasta-m10', 'ig', 'msf', 'nexus', 'phylip', 'phylip-sequential', 'phylip-relaxed', 'stockholm', 'mauve')
-            # check aligned file
-            content_file = AlignIO.read(infile, format or 'fasta')
+            # try every available format
+            fs = [format] + self.formats if format else self.formats
+            content_file = None
+            for f in fs:
+                try:
+                    # check aligned file
+                    content_file = AlignIO.read(infile, f)
+                except:
+                    continue
+                break
+            if not content_file:
+                raise Exception()
             # Set missing default values
             kwargs['programversion'] = kwargs.get('programversion') or '(Imported file)'
             kwargs['sourcename'] = kwargs.get('sourcename') or os.path.basename(infile)
@@ -149,7 +157,7 @@ class Service(BosService):
                 # Analysis row could be created by importing the results of other jobs, and without register as msa in bcs
                 self.after_create(content, **kwargs)
             except:
-                content, status = self.create(**kwargs)
+                content, count = self.create(**kwargs)
             # Read and import file content
             self.msafile2chado(content, content_file)
         except Exception as e:
