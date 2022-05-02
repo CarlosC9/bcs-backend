@@ -11,5 +11,5 @@ class Service(BosService):
     def __init__(self):
         super(Service, self).__init__()
         self.db = DBSession
-        self.orm = get_orm('discriminant-matrices')
+        self.orm = get_orm('discriminant_matrices')
         self.bos = 'discriminant-matrix'

@@ -141,35 +141,6 @@ def tsv_pd_parser(file) -> dict:   # with pandas lib
 
 
 ##
-# FILES SEQS MANAGEMENT
-##
-from Bio.SeqRecord import SeqRecord
-
-
-def gff_parser(file) -> SeqRecord:
-    from BCBio import GFF
-    with open(file, encoding=get_encoding(file)) as f:
-        for rec in GFF.parse(f):
-            yield rec
-
-
-def seqs_parser(file, format='fasta') -> SeqRecord:
-    if format == 'gff':
-        return gff_parser(file)
-    if format == 'tsv':
-        return SeqRecord(**tsv_pd_parser(file))
-    if format == 'csv':
-        return SeqRecord(**csv_pd_parser(file))
-    from Bio import SeqIO
-    with open(file, encoding=get_encoding(file)) as fo:
-        for rec in SeqIO.parse(fo, format):
-            if format == 'fasta':
-                # TODO: parse header
-                pass
-            yield rec
-
-
-##
 # SQLALCHEMY OPS
 ##
 

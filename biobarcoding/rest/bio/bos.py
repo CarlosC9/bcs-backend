@@ -6,7 +6,7 @@ from ..crudie import CrudieAPI
 def add_rules(bp=None) -> Blueprint:
     if not bp:
         from . import bp
-    for bos in ['sequences', 'alignments', 'phylotrees', 'discriminant-matrices', 'blasts', 'supermatrices']:
+    for bos in ['sequences', 'alignments', 'phylotrees', 'discriminant_matrices', 'blasts', 'supermatrices']:
         bp_view = CrudieAPI.as_view('api_'+bos, entity=bos)
         bp.add_url_rule(
             app_api_base + f'/bos/{bos}',

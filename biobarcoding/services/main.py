@@ -20,7 +20,7 @@ def get_orm(entity):
         from ..db_models.chado import Phylotree as orm
     elif entity == 'blasts':
         from ..db_models.bioinformatics import SequenceSimilarity as orm
-    elif entity == 'discriminant-matrices':
+    elif entity == 'discriminant_matrices':
         from ..db_models.bioinformatics import DiscriminantMatrix as orm
     elif entity == 'supermatrices':
         from ..db_models.bioinformatics import Supermatrix as orm
@@ -67,7 +67,7 @@ def get_service(entity):
         from .bio.bos.phylotrees import Service
     elif entity == 'blasts':
         from .bio.bos.blast import Service
-    elif entity == 'discriminant-matrices':
+    elif entity == 'discriminant_matrices':
         from .bio.bos.discriminant_matrices import Service
     elif entity == 'supermatrices':
         from .bio.bos.supermatrices import Service
