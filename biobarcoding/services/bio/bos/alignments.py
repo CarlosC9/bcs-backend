@@ -27,6 +27,7 @@ class Service(BosService):
         self.orm = get_orm('alignments')
         self.bos = 'multiple-sequence-alignment'
         self.formats = ['fasta', 'clustal', 'nexus', 'phylip', 'emboss', 'fasta-m10', 'ig', 'maf', 'mauve', 'msf', 'phylip-sequential', 'phylip-relaxed', 'stockholm']
+
     ##
     # CREATE
     ##
@@ -34,7 +35,6 @@ class Service(BosService):
     def prepare_values(self, **values):
         values.update(ansis_service.prepare_values(**values))
         return super(Service, self).prepare_values(**values)
-
 
     def check_values(self, **values) -> dict:
 

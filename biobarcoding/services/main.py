@@ -4,7 +4,7 @@ import os.path
 from flask import g
 from typing import Tuple
 
-from . import log_exception, get_bioformat, get_orm_params
+from . import log_exception, get_bioformat, get_orm_params, get_query
 from ..rest import Issue, IType
 from ..db_models import ORMBase, DBSession
 
@@ -27,7 +27,6 @@ def get_orm(entity):
     elif entity == 'collections':
         from ..db_models.sysadmin import Collection as orm
     # BIO META ORMS
-    # TODO: add publications, topics, sources, crs (reports?)
     elif entity == 'individuals':
         from ..db_models.chado import Stock as orm
     elif entity == 'analyses':
@@ -74,7 +73,6 @@ def get_service(entity):
     elif entity == 'collections':
         from .bio.meta.collections import Service
     # BIO META SERVICES
-    # TODO: add publications, topics, sources, crs (reports?)
     elif entity == 'individuals':
         from .bio.meta.individuals import Service
     elif entity == 'analyses':
@@ -273,47 +271,8 @@ class BasicService:
     # provide a sqlalchemy query (might be paged) and the total_count
     # @return: Query, total_count
     def get_query(self, query=None, id=None, purpose='delete', **kwargs) -> Tuple[object, int]:
-        """
-         reserved keywords in kwargs:
-           'values': specific values of orm fields to filter
-           'filter': advanced filtering clauses (see also filter_parse)
-           'order': advanced ordering clauses (see also order_parse)
-           'pagination': pageIndex and pageSize to paginate
-           'searchValue': full-text search value (hopefully)
-         otherwise it will be treated as 'values'
-        """
-        # TODO: replace with biobarcoding.services.__init__:get_query
-        from ..rest import filter_parse, order_parse
-        from ..services import paginator
-        query = query or self.pre_query(purpose) or self.db.query(self.orm)
-        count = 0
-        if id:
-            if hasattr(self.orm, 'id'):
-                query = query.filter(self.orm.id == id)
-            else:
-                from sqlalchemy import inspect
-                query = query.filter(inspect(self.orm).primary_key[0] == id)
-            count = query.count()
-        else:
-            if not kwargs.get('values'):
-                kwargs['values'] = {}
-            for k, v in kwargs.items():
-                if not k in ['values', 'filter', 'order', 'pagination', 'searchValue'] and v:
-                    kwargs['values'][k] = v
-            if kwargs.get('values'):
-                query = query.filter_by(**get_orm_params(self.orm, **kwargs.get('values')))
-                # query = query.filter(filter_parse(self.orm, kwargs.get('values'), self.aux_filter))
-            if kwargs.get('filter'):
-                query = query.filter(filter_parse(self.orm, kwargs.get('filter'), self.aux_filter))
-            if kwargs.get('searchValue', '') != '':
-                if hasattr(self.orm, "ts_vector"):
-                    query = query.filter(self.orm.ts_vector.match(kwargs.get('searchValue')))
-            if kwargs.get('order'):
-                query = query.order_by(*order_parse(self.orm, kwargs.get('order'), self.aux_order))
-            count = query.count()
-            if kwargs.get('pagination'):
-                query = paginator(query, kwargs.get('pagination'))
-        return query, count
+        return get_query(self.db, self.orm, query or self.pre_query(purpose), id,
+                         aux_filter=self.aux_filter, aux_order=self.aux_order, **kwargs)
 
     # method to filter by acl and more particular issues when querying
     def pre_query(self, purpose):

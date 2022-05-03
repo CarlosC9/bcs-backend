@@ -73,8 +73,9 @@ def force_underscored(text: str, replace: str = " ,.-") -> str:
 
 
 def orm2json(row):
-    # TODO: replace for generate_json ?
-    # TODO: missing inherited fields
+    # TODO:
+    #  replace for generate_json ?
+    #  missing inherited fields
     d = {}
     try:
         for column in row.__table__.columns:
@@ -207,7 +208,12 @@ def get_query(session, orm, query=None, id=None, aux_filter=None, default_filter
     query = query or session.query(orm)
     count = 0
     if id:
-        query = query.filter(orm.id == id)
+        if hasattr(orm, 'id'):
+            query = query.filter(orm.id == id)
+        else:
+            from sqlalchemy import inspect
+            query = query.filter(inspect(orm).primary_key[0] == id)
+        count = query.count()
     else:
         if not kwargs.get('values'):
             kwargs['values'] = {}
@@ -227,6 +233,7 @@ def get_query(session, orm, query=None, id=None, aux_filter=None, default_filter
             if hasattr(orm, "ts_vector"):
                 query = query.filter(orm.ts_vector.match(kwargs.get('searchValue')))
         if kwargs.get('order'):
+            # query = query.order_by(*order_parse(self.orm, kwargs.get('order'), self.aux_order))
             for o in order_parse(orm, kwargs.get('order'), aux_order):
                 query = query.order_by(o)
         count = query.count()

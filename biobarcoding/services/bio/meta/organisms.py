@@ -101,9 +101,6 @@ class Service(MetaService):
         if gbif:
             rank = gbif.get('rank', 'unknown').lower()
             values['species'] = values.get('species') or gbif.get(rank)
-            # TODO: if rank is genus or above ? replace genus by rank or leave it
-            # if not values.get('genus') or rank == 'genus':
-            #     values['genus'] = rank
             if not values.get('infraspecific_name') and gbif.get('scientificName'):
                 values['infraspecific_name'] = ' '.join(gbif.get('scientificName').split()[2:]).strip()
             try:
