@@ -3,7 +3,6 @@ from .. import app_api_base
 from ..crudie import CrudieAPI
 
 
-# TODO: add publications, topics, sources, crs (reports?)
 def add_rules(bp=None) -> Blueprint:
     if not bp:
         from . import bp

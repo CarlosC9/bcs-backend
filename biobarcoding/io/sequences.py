@@ -97,8 +97,9 @@ def seqs_parser(file, format='fasta') -> SeqRecord:
 
 
 def import_file(infile, format=None, **kwargs):
-    # TODO: use bulk_save_objects ?
-    # TODO: use kwargs (p.e. analysis_id, gene, organism_id)
+    # TODO:
+    #  use kwargs (p.e. analysis_id, gene, organism_id)
+    #  use bulk_save_objects ?
     try:
 
         ind_type_id = get_type_id(type='stock')
