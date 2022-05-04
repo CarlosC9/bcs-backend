@@ -3,11 +3,10 @@ from .. import app_api_base
 from ..crudie import CrudieAPI
 
 
-# TODO: add publications, topics, sources, crs (reports?)
 def add_rules(bp=None) -> Blueprint:
     if not bp:
         from . import bp
-    for metadata in ['taxonomies', 'organisms', 'ontologies', 'analyses', 'individuals']:
+    for metadata in ['taxonomies', 'organisms', 'ontologies', 'analyses', 'individuals', 'collections']:
         bp_view = CrudieAPI.as_view('api_'+metadata, entity=metadata)
         bp.add_url_rule(
             app_api_base + f'/{metadata}',

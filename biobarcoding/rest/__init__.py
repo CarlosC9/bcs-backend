@@ -1065,12 +1065,10 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
                     kwargs = parse_request_params()
                     from ..services import get_query
                     query, count = get_query(db, entity, aux_filter=aux_filter, default_filter=default_filter, **kwargs)
-                    # TODO Detail of fields
                     r.count = count
                     r.content = query.all()
                 else:
                     # Detail
-                    # TODO Detail of fields
                     r.content = db.query(entity).filter(entity.id == int(_id)).first()
                     r.count = 1
 
@@ -1563,6 +1561,7 @@ def check_galaxy_tools(wf1_dic, wf2_dic):
     tool_list = list()
     for step, content in steps1.items():
         if 'errors' in content:
+            # if content['errors'].startswith("Tool is not installed"): ?
             if content['errors'] == "Tool is not installed":
                 # TODO depende de la versión de galaxy esto lleva un punto al final o no xq lo que hay que buscar
                 #  otra cosa

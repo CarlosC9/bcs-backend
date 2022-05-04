@@ -73,8 +73,9 @@ def force_underscored(text: str, replace: str = " ,.-") -> str:
 
 
 def orm2json(row):
-    # TODO: replace for generate_json ?
-    # TODO: missing inherited fields
+    # TODO:
+    #  replace for generate_json ?
+    #  missing inherited fields
     d = {}
     try:
         for column in row.__table__.columns:
@@ -138,35 +139,6 @@ def tsv_pd_parser(file) -> dict:   # with pandas lib
                      encoding=get_encoding(file))
     for i, r in df.iterrows():
         yield r.to_dict()
-
-
-##
-# FILES SEQS MANAGEMENT
-##
-from Bio.SeqRecord import SeqRecord
-
-
-def gff_parser(file) -> SeqRecord:
-    from BCBio import GFF
-    with open(file, encoding=get_encoding(file)) as f:
-        for rec in GFF.parse(f):
-            yield rec
-
-
-def seqs_parser(file, format='fasta') -> SeqRecord:
-    if format == 'gff':
-        return gff_parser(file)
-    if format == 'tsv':
-        return SeqRecord(**tsv_pd_parser(file))
-    if format == 'csv':
-        return SeqRecord(**csv_pd_parser(file))
-    from Bio import SeqIO
-    with open(file, encoding=get_encoding(file)) as fo:
-        for rec in SeqIO.parse(fo, format):
-            if format == 'fasta':
-                # TODO: parse header
-                pass
-            yield rec
 
 
 ##
@@ -236,7 +208,12 @@ def get_query(session, orm, query=None, id=None, aux_filter=None, default_filter
     query = query or session.query(orm)
     count = 0
     if id:
-        query = query.filter(orm.id == id)
+        if hasattr(orm, 'id'):
+            query = query.filter(orm.id == id)
+        else:
+            from sqlalchemy import inspect
+            query = query.filter(inspect(orm).primary_key[0] == id)
+        count = query.count()
     else:
         if not kwargs.get('values'):
             kwargs['values'] = {}
@@ -256,6 +233,7 @@ def get_query(session, orm, query=None, id=None, aux_filter=None, default_filter
             if hasattr(orm, "ts_vector"):
                 query = query.filter(orm.ts_vector.match(kwargs.get('searchValue')))
         if kwargs.get('order'):
+            # query = query.order_by(*order_parse(self.orm, kwargs.get('order'), self.aux_order))
             for o in order_parse(orm, kwargs.get('order'), aux_order):
                 query = query.order_by(o)
         count = query.count()

@@ -1,6 +1,8 @@
 import json
 import os.path
 
+from Bio.SeqRecord import SeqRecord
+
 from . import batch_iterator
 from ..db_models import DBSessionChado, DBSession, ObjectType
 from ..db_models.bioinformatics import Sequence, Specimen
@@ -8,7 +10,7 @@ from ..db_models.chado import Organism, Stock, Feature, StockFeature
 from ..db_models.metadata import Taxon
 from ..db_models.sa_annotations import AnnotationFormField, AnnotationField, AnnotationItemFunctionalObject, \
     AnnotationFormItemObjectType
-from ..services import get_bioformat, seqs_parser, log_exception
+from ..services import get_bioformat, log_exception, get_encoding, tsv_pd_parser, csv_pd_parser
 from ..services.bio.meta.ontologies import get_type_id
 from ..services.bio.meta.organisms import split_org_name
 
@@ -34,6 +36,51 @@ def get_or_create(session, model, **params):
     return instance
 
 
+def gff_parser(file) -> SeqRecord:
+    from BCBio import GFF
+    with open(file, encoding=get_encoding(file)) as f:
+        for rec in GFF.parse(f):
+            yield rec
+
+
+def decode_fasta_header(seq: SeqRecord) -> SeqRecord:
+    pattern = '^(?P<id>\w+?) *\[organism=(?P<organism>.+?)\] *(?P<features>.+?); *(?P<origin>.+?)$'
+    # p.e.: >Seq1_1 [organism=Pinus canariensis] maturase K (matk) gene, partial sequence, partial cds; chloroplast
+    import re
+    meta = re.match(pattern, seq.description)
+    if meta:
+        meta = meta.groupdict()
+        organism = meta.get('organism')
+        seq.annotations['organism'] = organism
+        origin = meta.get('origin')
+        seq.annotations['source'] = f'{origin} {organism}'
+        features = meta.get('features')
+        # TODO ? seq.molecule_type
+        if features:
+            if isinstance(features, str):
+                features = features.split(',')
+            from Bio.SeqFeature import SeqFeature
+            seq.features = [SeqFeature(type=f.split()[-1],
+                                       qualifiers={f.split()[-1]:f[:-len(f.split()[-1])].strip()})
+                            for f in features]
+    return seq
+
+
+def seqs_parser(file, format='fasta') -> SeqRecord:
+    if format == 'gff':
+        return gff_parser(file)
+    if format == 'tsv':
+        return SeqRecord(**tsv_pd_parser(file))
+    if format == 'csv':
+        return SeqRecord(**csv_pd_parser(file))
+    from Bio import SeqIO
+    with open(file, encoding=get_encoding(file)) as fo:
+        for rec in SeqIO.parse(fo, format):
+            if format == 'fasta':
+                rec = decode_fasta_header(rec)
+            yield rec
+
+
 # def set_annotation(s):
 #     # bibtex = s.annotations.pop('references')
 #     # ann = [{'field': k, 'value': v} for k, v in s.annotations.items()]
@@ -50,8 +97,9 @@ def get_or_create(session, model, **params):
 
 
 def import_file(infile, format=None, **kwargs):
-    # TODO: use bulk_save_objects ?
-    # TODO: use kwargs (p.e. analysis_id, gene, organism_id)
+    # TODO:
+    #  use kwargs (p.e. analysis_id, gene, organism_id)
+    #  use bulk_save_objects ?
     try:
 
         ind_type_id = get_type_id(type='stock')

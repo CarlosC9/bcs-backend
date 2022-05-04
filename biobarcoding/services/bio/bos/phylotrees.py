@@ -2,6 +2,7 @@ import os.path
 import time
 
 from Bio import Phylo
+from Bio.Phylo.BaseTree import Tree, Clade
 
 from . import BosService
 from ..meta.ontologies import get_type_id
@@ -22,7 +23,7 @@ class Service(BosService):
         self.db = DBSessionChado
         self.orm = get_orm('phylotrees')
         self.bos = 'phylogenetic-tree'
-        self.formats = ['newick', 'nexus', 'nexml', 'phyloxml', 'cdao']
+        self.formats = ['newick', 'nexus', 'nexml', 'phyloxml']
 
     ##
     # CREATE
@@ -153,11 +154,10 @@ class Service(BosService):
         return [phylonode] + phylonodes
 
     ##
-    # EXPORT
+    # PREVIOUS EXPORT
     ##
 
-    def data2file(self, trees: list, outfile, format: str, **kwargs) -> int:
-        # TODO: build Bio.Phylo.BaseTree from chado, and Phylo.write(tree, outfile, format)
+    def _data2file(self, trees: list, outfile, format: str, **kwargs) -> int:
         files, count = [], 0
         for t in trees:
             # dump to newick
@@ -171,8 +171,8 @@ class Service(BosService):
                 file = f'{file}_{t.name}'
             # convert from newick to another format
             if format in ["nexus", "nexml"]:
-                from dendropy import Tree
-                tree = Tree.get(path="%s.newick" % outfile, schema="newick")
+                from dendropy import Tree as DenTree
+                tree = DenTree.get(path="%s.newick" % outfile, schema="newick")
                 tree.write(path=file, schema=format)
             elif format != "newick":
                 Phylo.convert("%s.newick" % outfile, "newick", file, format)
@@ -201,6 +201,50 @@ class Service(BosService):
             result += f'{label}:{distance}'
         result += ';' if is_root else ''
         return result
+
+    ##
+    # EXPORT
+    ##
+
+    def data2file(self, _phys: list, outfile, format: str, **kwargs) -> int:
+        trees, count = [], 0
+        for t in _phys:
+            root = self.db.query(Phylonode).filter(Phylonode.phylotree_id == t.phylotree_id,
+                                                   Phylonode.parent_phylonode_id.is_(None)).one()
+            rooted = bool(root.feature_id or root.label)
+            trees.append(Tree(root=self.tree2biopy(root), rooted=rooted, id=t.name, name=t.name))
+            count += 1
+        try:
+            Phylo.write(trees, outfile, format)
+            # if format not in ["nexus", "nexml"]:
+            #     Phylo.write(trees, "%s.newick" % outfile, 'newick')
+            #     from dendropy import Tree as DenTree
+            #     tree = DenTree.get(path="%s.newick" % outfile, schema="newick")
+            #     tree.write(path=file, schema=format)
+        except Exception as e:
+            if format not in self.formats:
+                raise Exception('The specified format is not available.\n'
+                                + 'The supported formats for phylogenetic trees are: ' + str(self.formats))
+            if len(trees) > 1 and format not in ["nexus", "nexml"]:
+                files = []
+                for t in trees:
+                    file = f'{outfile}_{t.name}'
+                    Phylo.write(t, file, format)
+                    files.append(file)
+                from ....common.helpers import zip_files
+                zip_files(outfile, files)
+            else:
+                raise e
+        return count
+
+    def tree2biopy(self, node, label_type=None) -> Clade:
+        if label_type:
+            # TODO: retrieve and change the label
+            pass
+        clade = Clade(branch_length=node.distance, name=node.label or '')
+        children = self.db.query(Phylonode).filter(Phylonode.parent_phylonode_id == node.phylonode_id)
+        clade.clades = [self.tree2biopy(n) for n in children.all()]
+        return clade
 
     ##
     # GETTER AND OTHERS
