@@ -1413,6 +1413,7 @@ def filter_parse(orm, filter, aux_filter=None, session=None):
             return obj >= value
         if op == "contains":
             return value.in_(obj)
+        # TODO: excludes?
 
         return True
 
