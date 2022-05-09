@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 import os
 import uuid
 
@@ -61,7 +61,7 @@ class Identity(Authorizable):
     email = Column(String(255))
     can_login = Column(Boolean, default=False)
     # configuration = Column(JSON)  # To store personal preferences, from language to other visualization features
-    creation_time = Column(DateTime, default=datetime.datetime.utcnow())
+    creation_time = Column(DateTime, default=datetime.utcnow())
     deactivation_time = Column(DateTime)
 
 
@@ -288,7 +288,7 @@ class Task(ORMBase):  # Celery task
     uuid = Column(GUID, nullable=False, default=uuid.uuid4)  # Object ID (ACL are on objects with UUID)
     description = Column(String(80))
     params = Column(JSON)
-    creation_time = Column(DateTime, default=datetime.datetime.utcnow())
+    creation_time = Column(DateTime, default=datetime.utcnow())
     finalization_time = Column(DateTime)
     status = Column(Integer, ForeignKey(TaskStatus.id))
     log = Column(Text)
@@ -338,25 +338,27 @@ class StatusChecker(ORMBase):
     type = Column(String(32), nullable=False)   # curl, pg_isready
     url = Column(String(80), nullable=False)
     status = Column(JSON)
-    last_check = Column(DateTime, default=datetime.datetime.utcnow())
+    last_check = Column(DateTime, default=datetime.utcnow())
 
     __table_args__ = (
         UniqueConstraint(name, type, url, name=__tablename__ + '_c1'),
     )
 
-    # @classmethod
     def check_status(self):
         from urllib.parse import urlparse
         u = urlparse(self.url)
-        if self.type == 'curl' or u.scheme == 'http' or u.scheme == 'https':
+        if self.type == 'pg' or u.scheme == 'postgres' or u.scheme == 'postgresql':
+            opt = '-h %s' % u.hostname
+            opt += ' -p %s' % u.port if u.port else ''
+            opt += ' -U %s' % u.username if u.username else ''
+            opt += ' -P %s' % u.password if u.password else ''
+            opt += ' -d %s' % u.path[1:] if u.path else ''
+            self.status = os.system('pg_isready ' + opt)
+        elif self.type == 'redis' or self.type == 'redis-cli':
+            self.status = os.system('redis-cli -h %s -p %s ping' % (u.hostname, u.port))
+        # elif self.type == 'curl' or u.scheme == 'http' or u.scheme == 'https':
+        else:
             from ..services import secure_url
             self.status = os.system('curl --fail -s %s || exit 1' % secure_url(self.url))
-        elif self.type == 'pg' or u.scheme == 'postgres' or u.scheme == 'postgresql':
-            opt = '-h %s' % u.hostname
-            opt += '-p %s' % u.port if u.port else ''
-            opt += '-U %s' % u.username if u.username else ''
-            opt += '-P %s' % u.password if u.password else ''
-            opt += '-d %s' % u.path[1:] if u.path else ''
-            self.status = os.system('pg_isready ' + opt)
-        self.last_check = self.last_check.utcnow()
+        self.last_check = datetime.utcnow()
         return self.status

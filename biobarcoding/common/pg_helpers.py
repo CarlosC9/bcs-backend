@@ -12,6 +12,7 @@ from sqlalchemy.pool import QueuePool
 from .. import get_global_configuration_variable, engine, case_sensitive
 from . import ROOT
 from ..db_models import ORMBase
+from ..db_models.sysadmin import StatusChecker
 from ..db_models.jobs import ComputeResource, JobManagementType, Process, ProcessInComputeResource
 # #####################################################################################################################
 # >>>> DATABASE FUNCTIONS <<<<
@@ -203,6 +204,20 @@ def load_many_to_many_table(sf, clazz, lclazz, rclazz, attributes: List[str], va
             setattr(ins, attributes[0], left.id)
             setattr(ins, attributes[1], right.id)
             session.add(ins)
+    session.commit()
+    sf.remove()
+
+
+def load_status_checkers(sf, app):
+    session = sf()
+    chs = []
+    from urllib.parse import urlparse
+    for k, v in app.config.items():
+        if isinstance(v, str) and '://' in v:
+            u = urlparse(v)
+            chs.append(StatusChecker(name=k, type=u.scheme, url=u.geturl()))
+    sf.add_all(chs)
+    # TODO: load resources too
     session.commit()
     sf.remove()
 
