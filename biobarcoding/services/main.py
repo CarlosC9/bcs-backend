@@ -11,8 +11,11 @@ from ..db_models import ORMBase, DBSession
 
 def get_orm(entity):
     orm = None
+    # SYS ORMS
+    if entity == 'status_checkers':
+        from ..db_models.sysadmin import StatusChecker as orm
     # BOS ORMS
-    if entity == 'sequences':
+    elif entity == 'sequences':
         from ..db_models.chado import Feature as orm
     elif entity == 'alignments':
         from ..db_models.chado import Analysis as orm
@@ -57,8 +60,11 @@ def get_orm(entity):
 
 def get_service(entity):
     Service = None
+    # SYS SERVICES
+    if entity == 'status_checkers':
+        from .sys.status_checkers import Service
     # BOS SERVICES
-    if entity == 'sequences':
+    elif entity == 'sequences':
         from .bio.bos.sequences import Service
     elif entity == 'alignments':
         from .bio.bos.alignments import Service

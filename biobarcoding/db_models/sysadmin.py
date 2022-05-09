@@ -1,4 +1,5 @@
 import datetime
+import os
 import uuid
 
 from sqlalchemy import Column, ForeignKey, UniqueConstraint, Boolean, Integer, String, DateTime, Text, JSON, Index
@@ -312,7 +313,7 @@ class BrowserFilter(ORMBase):
     __tablename__ = f"{prefix}filters"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(80), nullable=False)
     type = Column(String(80), nullable=False)
     values = Column(JSON)
@@ -323,3 +324,39 @@ class BrowserFilter(ORMBase):
     )
 
 
+# SUBSYSTEM STATUS
+
+prefix = "sa_status_"
+
+
+class StatusChecker(ORMBase):
+    __tablename__ = f"{prefix}checkers"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
+    name = Column(String(32), nullable=False)
+    type = Column(String(32), nullable=False)   # curl, pg_isready
+    url = Column(String(80), nullable=False)
+    status = Column(JSON)
+    last_check = Column(DateTime, default=datetime.datetime.utcnow())
+
+    __table_args__ = (
+        UniqueConstraint(name, type, url, name=__tablename__ + '_c1'),
+    )
+
+    # @classmethod
+    def check_status(self):
+        from urllib.parse import urlparse
+        u = urlparse(self.url)
+        if self.type == 'curl' or u.scheme == 'http' or u.scheme == 'https':
+            from ..services import secure_url
+            self.status = os.system('curl --fail -s %s || exit 1' % secure_url(self.url))
+        elif self.type == 'pg' or u.scheme == 'postgres' or u.scheme == 'postgresql':
+            opt = '-h %s' % u.hostname
+            opt += '-p %s' % u.port if u.port else ''
+            opt += '-U %s' % u.username if u.username else ''
+            opt += '-P %s' % u.password if u.password else ''
+            opt += '-d %s' % u.path[1:] if u.path else ''
+            self.status = os.system('pg_isready ' + opt)
+        self.last_check = self.last_check.utcnow()
+        return self.status

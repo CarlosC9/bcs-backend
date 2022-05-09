@@ -140,7 +140,7 @@ class Service(BasicService):
         clauses = []
 
         if filter.get('object_uuid'):
-            from biobarcoding.rest import filter_parse
+            from ...rest import filter_parse
             _aux = self.db.query(AnnotationItemFunctionalObject.annotation_id).filter(
                 filter_parse(AnnotationItemFunctionalObject, {'object_uuid': filter.get('object_uuid')}))
             clauses.append(self.orm.id.in_(_aux.subquery()))
