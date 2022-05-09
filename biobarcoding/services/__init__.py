@@ -70,9 +70,9 @@ def secure_url(url: str) -> str:
     from urllib.parse import urlparse
     u = urlparse(url)   # trying to block code injection
     r = '%s://' % u.scheme if u.scheme else ''
+    r += '%s:%s@' % (u.username, u.password) if u.username or u.password else ''
     r += u.hostname if u.hostname else ''
     r += ':%s' % u.port if u.port else ''
-    r += '@%s:%s' % (u.username, u.password) if u.username or u.password else ''
     r += '/%s' % u.path if u.path else ''   # TODO: maybe without path ?
     return r
 

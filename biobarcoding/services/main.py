@@ -13,7 +13,7 @@ def get_orm(entity):
     orm = None
     # SYS ORMS
     if entity == 'status_checkers':
-        from ..db_models.sysadmin import StatusChecker as orm
+        from ..db_models.jobs import StatusChecker as orm
     # BOS ORMS
     elif entity == 'sequences':
         from ..db_models.chado import Feature as orm

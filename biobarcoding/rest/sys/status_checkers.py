@@ -11,12 +11,12 @@ def add_rules(bp=None) -> Blueprint:
         bp.add_url_rule(
             app_api_base + f'/sys/{entity}',
             view_func=bp_view,
-            methods=['GET', 'POST', 'DELETE']
+            methods=['GET', 'POST', 'PUT', 'DELETE']
         )
         bp.add_url_rule(
             app_api_base + f'/sys/{entity}/',
             view_func=bp_view,
-            methods=['GET', 'POST', 'DELETE']
+            methods=['GET', 'POST', 'PUT', 'DELETE']
         )
         bp.add_url_rule(
             app_api_base + f'/sys/{entity}/<string:id>',

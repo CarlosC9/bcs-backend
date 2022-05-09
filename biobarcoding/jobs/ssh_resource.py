@@ -289,7 +289,7 @@ class RemoteSSHClient:
 
 class JobExecutorWithSSH(JobExecutorAtResource):
 
-    def __init__(self, identity_job_id, create_local_workspace=True, remote_workspace=None):
+    def __init__(self, identity_job_id, create_local_workspace=True, remote_workspace=None, initialize_loop=True):
         super().__init__(identity_job_id, create_local_workspace)
         self.host = None
         self.data_host = None
@@ -300,7 +300,7 @@ class JobExecutorWithSSH(JobExecutorAtResource):
         self.remote_workspace = os.path.join(remote_workspace, identity_job_id) if remote_workspace else os.path.join(get_global_configuration_variable("SSH_JOBS_DEFAULT_REMOTE_WORKSPACE"),
                                              identity_job_id)
         self.remote_client = None
-        self.loop = asyncio.get_event_loop()
+        self.loop = asyncio.get_event_loop() if initialize_loop else None
 
     # RESOURCE
     def set_resource(self, resource_params):
