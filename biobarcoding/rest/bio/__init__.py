@@ -1,5 +1,4 @@
 from flask import Blueprint
-from biobarcoding.rest.crudie import CrudieAPI
 
 bp = Blueprint('bp_bio', __name__)
 

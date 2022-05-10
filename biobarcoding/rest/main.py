@@ -43,6 +43,7 @@ from .hierarchies import bp_hierarchies, bp_hierarchy_nodes
 from .identities_and_company import bp_identities, bp_sys_functions, bp_roles, bp_identities_roles, \
     bp_groups, bp_organizations, bp_acl, bp_identities_authenticators, bp_identity_store
 from .jobs import bp_jobs
+from .sys import bp_sys
 from .bio import bp_bio
 from .annotation_forms import bp_annotations
 from .processes import bp_processes, bp_resources
@@ -106,7 +107,7 @@ def create_app(debug, start_socket=True, cfg_dict=None):
         initialize_chado_edam(app)
 
         # Insert BibTeX annotation forms
-        from biobarcoding.forms import initialize_bibtex_forms
+        from ..forms import initialize_bibtex_forms
         initialize_bibtex_forms()
 
         # PostGIS Database
@@ -175,6 +176,7 @@ def create_app(debug, start_socket=True, cfg_dict=None):
                bp_geoprocesses_ports,
                bp_geoprocess_instances,
                bp_geoprocess_port_types,
+			   bp_sys,
 			   bp_bio,
 			   bp_tasks,
                bp_identity_store,
