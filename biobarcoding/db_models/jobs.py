@@ -12,7 +12,8 @@ import os
 import json
 from datetime import datetime
 
-from sqlalchemy import Integer, Column, String, Text, ForeignKey, JSON, Boolean, UniqueConstraint, DateTime
+from sqlalchemy import Integer, Column, String, Text, ForeignKey, JSON, Boolean, DateTime, \
+    UniqueConstraint, CheckConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship, backref
 
@@ -265,6 +266,7 @@ class StatusChecker(ORMBase):
     __table_args__ = (
         UniqueConstraint(name, type, url, name=__tablename__ + '_c1'),
         UniqueConstraint(name, type, resource_id, name=__tablename__ + '_c2'),
+        CheckConstraint('COALESCE(url , resource_id::text) IS NOT NULL', name=__tablename__ + '_c3'),
     )
 
     def check_status(self):
