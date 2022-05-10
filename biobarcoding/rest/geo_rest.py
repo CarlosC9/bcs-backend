@@ -22,6 +22,7 @@ from marshmallow import EXCLUDE
 from matplotlib.colors import rgb2hex
 from pandas.core.indexes.numeric import Float64Index
 from sqlalchemy import Integer, and_
+from sqlalchemy.orm.attributes import flag_modified
 
 from .. import get_global_configuration_variable, app_acronym
 from ..authentication import n_session
@@ -1759,25 +1760,38 @@ def get_styles_rest():
 
 
 @n_session()
-def put_property_style(id_, property_):
+def put_property_attributes(id_, property_):
     from ..geo import geoserver_session
     issues = []
     status = 200
     req = request.get_json()
-    palette = req.get("palette")
+    palette = req.get("colormap")
     resp = dict()
     # Check if the layer "id_" and then, if the property exists
     session = g.n_session.db_session
     layer = session.query(GeographicLayer).filter(GeographicLayer.id == id_).first()
     property_dict = None
     if layer:
-        for p in layer.properties:
-            if p["name"] == property_ and p["type"] in ("numeric", "category"):
+        for p_idx, p in enumerate(layer.properties):
+            if p["name"] == property_:  # and p["data_type"] in ("numeric", "category"):
                 property_dict = p
                 break
+    # Modify the property
+    if property_dict:
+        some_change = False
+        for a in ["colormap", "data_type", "cat_type", "bins", "categories",
+                  "col_type", "representable", "nature", "unit"]:
+            if a in req:
+                property_dict[a] = req[a]
+                some_change = True
+        if some_change:
+            layer.properties[p_idx] = property_dict
+            # Trick to mark "layer.properties" updatable for the session
+            flag_modified(layer, "properties")
+
     # Check if the specified style exists
     if layer and property_dict and palette in get_styles():
-        if p["type"] == "numeric" and not get_styles()[palette] or p["type"] == "category" and get_styles()[palette]:
+        if p["data_type"] == "numeric" and not get_styles()[palette] or p["data_type"] == "category" and get_styles()[palette]:
             issues.append(Issue(IType.ERROR, f"The palette {palette} is not compatible with the property type {p['type']}"))
             status = 400
         else:
@@ -1811,7 +1825,7 @@ def put_property_style(id_, property_):
 
 
 bp_geo.add_url_rule(app_api_base + '/geo/layers/<int:id_>/<string:property_>',
-                    view_func=put_property_style, methods=['PUT'])
+                    view_func=put_property_attributes, methods=['PUT'])
 bp_geo.add_url_rule(app_api_base + '/geo/layers/styles/',
                     endpoint="geo/layers/styles", view_func=get_styles_rest, methods=['GET'])
 
