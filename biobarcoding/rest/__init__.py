@@ -24,7 +24,8 @@ from .. import config_file_var, app_acronym
 from ..authentication import n_session
 from ..common import generate_json, ROOT
 from ..common.pg_helpers import create_pg_database_engine, load_table, load_many_to_many_table, \
-    load_computing_resources, load_processes_in_computing_resources, load_process_input_schema, load_table_extended
+    load_computing_resources, load_processes_in_computing_resources, load_process_input_schema, load_table_extended, \
+    load_status_checkers
 from ..db_models import DBSession, DBSessionChado, ORMBaseChado, DBSessionGeo
 from ..db_models.bioinformatics import *
 from ..db_models.core import update_functional_object_tsvector
@@ -125,6 +126,7 @@ def get_default_configuration_dict():
     BACKEND_URL = BROKER_URL
 
     return dict(
+        # TODO: add a connection string for every subsystem status checker
         # SYSTEM DB
         DB_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432/",
         # CHADO (MOLECULAR DATA DB)
@@ -979,6 +981,7 @@ def initialize_database(flask_app):
 
         # Load base tables
         initialize_database_data()
+        load_status_checkers(DBSession, flask_app)
         update_functional_object_tsvector(DBSession())
     else:
         print("No database connection defined (DB_CONNECTION_STRING), exiting now!")
@@ -1065,12 +1068,10 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
                     kwargs = parse_request_params()
                     from ..services import get_query
                     query, count = get_query(db, entity, aux_filter=aux_filter, default_filter=default_filter, **kwargs)
-                    # TODO Detail of fields
                     r.count = count
                     r.content = query.all()
                 else:
                     # Detail
-                    # TODO Detail of fields
                     r.content = db.query(entity).filter(entity.id == int(_id)).first()
                     r.count = 1
 
@@ -1415,6 +1416,7 @@ def filter_parse(orm, filter, aux_filter=None, session=None):
             return obj >= value
         if op == "contains":
             return value.in_(obj)
+        # TODO: excludes?
 
         return True
 
@@ -1563,6 +1565,7 @@ def check_galaxy_tools(wf1_dic, wf2_dic):
     tool_list = list()
     for step, content in steps1.items():
         if 'errors' in content:
+            # if content['errors'].startswith("Tool is not installed"): ?
             if content['errors'] == "Tool is not installed":
                 # TODO depende de la versión de galaxy esto lleva un punto al final o no xq lo que hay que buscar
                 #  otra cosa

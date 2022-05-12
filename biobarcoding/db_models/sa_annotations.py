@@ -115,7 +115,7 @@ class AnnotationItemFunctionalObject(ORMBase):
     __tablename__ = f"{prefix}item_functional_object"
 
     annotation_id = Column(Integer, ForeignKey(AnnotationItem.id), primary_key=True)
-    object_uuid = Column(GUID, ForeignKey(FunctionalObject.uuid, ondelete="CASCADE"), primary_key=True)
+    object_uuid = Column(GUID, ForeignKey(FunctionalObject.uuid), primary_key=True)
     annotation = relationship(AnnotationItem, backref=backref("objects", cascade="all, delete-orphan"))
     object = relationship(FunctionalObject, backref=backref("annotations", cascade="all, delete-orphan"))
     rank = Column(Integer, Sequence('annotation_rank_seq'), nullable=False)

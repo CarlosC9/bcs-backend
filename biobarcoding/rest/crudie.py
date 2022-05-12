@@ -6,6 +6,7 @@ from werkzeug.utils import secure_filename
 
 from . import parse_request_params, ResponseObject, Issue, IType
 from ..authentication import n_session
+from ..services import log_exception
 from ..services.main import getCRUDIE
 
 
@@ -20,7 +21,9 @@ class CrudieAPI(MethodView):
         try:
             self.entity = entity
             self.service = getCRUDIE(self.entity)
-        except:
+        except Exception as e:
+            print(f'Bad request: invalid URL ({request.path})')
+            log_exception(e)
             from flask import abort
             abort(400, f'Bad request: invalid URL ({request.path})')  # TODO: abort properly
 
@@ -28,7 +31,9 @@ class CrudieAPI(MethodView):
         try:
             self.params = parse_request_params()
             self.params.update(kwargs)
-        except:
+        except Exception as e:
+            print(f'Bad request: invalid params')
+            log_exception(e)
             from flask import abort
             abort(400, f'Bad request: invalid params')  # TODO: abort properly
 

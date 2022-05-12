@@ -66,6 +66,17 @@ def unfolded_print(obj, level=2):
 # CONVERSIONS
 ##
 
+def secure_url(url: str) -> str:
+    from urllib.parse import urlparse
+    u = urlparse(url)   # trying to block code injection
+    r = '%s://' % u.scheme if u.scheme else ''
+    r += '%s:%s@' % (u.username, u.password) if u.username or u.password else ''
+    r += u.hostname if u.hostname else ''
+    r += ':%s' % u.port if u.port else ''
+    r += '/%s' % u.path if u.path else ''   # TODO: maybe without path ?
+    return r
+
+
 def force_underscored(text: str, replace: str = " ,.-") -> str:
     if not replace:
         replace = "".join(set(c for c in text if not c.isalnum()))
@@ -73,8 +84,9 @@ def force_underscored(text: str, replace: str = " ,.-") -> str:
 
 
 def orm2json(row):
-    # TODO: replace for generate_json ?
-    # TODO: missing inherited fields
+    # TODO:
+    #  replace for generate_json ?
+    #  missing inherited fields
     d = {}
     try:
         for column in row.__table__.columns:
@@ -141,35 +153,6 @@ def tsv_pd_parser(file) -> dict:   # with pandas lib
 
 
 ##
-# FILES SEQS MANAGEMENT
-##
-from Bio.SeqRecord import SeqRecord
-
-
-def gff_parser(file) -> SeqRecord:
-    from BCBio import GFF
-    with open(file, encoding=get_encoding(file)) as f:
-        for rec in GFF.parse(f):
-            yield rec
-
-
-def seqs_parser(file, format='fasta') -> SeqRecord:
-    if format == 'gff':
-        return gff_parser(file)
-    if format == 'tsv':
-        return SeqRecord(**tsv_pd_parser(file))
-    if format == 'csv':
-        return SeqRecord(**csv_pd_parser(file))
-    from Bio import SeqIO
-    with open(file, encoding=get_encoding(file)) as fo:
-        for rec in SeqIO.parse(fo, format):
-            if format == 'fasta':
-                # TODO: parse header
-                pass
-            yield rec
-
-
-##
 # SQLALCHEMY OPS
 ##
 
@@ -191,16 +174,16 @@ def get_or_create(session, model, **params):
             # acl
             from ..db_models.sysadmin import ACL
             acl = get_or_create(DBSession, ACL,
-                                    object_uuid=instance.uuid,
-                                    object_type=instance.obj_type_id)
+                                object_uuid=instance.uuid,
+                                object_type=instance.obj_type_id)
             # acldetail
             from ..db_models.sysadmin import ACLDetail
             from flask import g
             from ..db_models.sysadmin import PermissionType
             acldetail = get_or_create(DBSession, ACLDetail,
-                                          acl_id=acl.id,
-                                          authorizable_id=g.n_session.identity.id,
-                                          permission_id=DBSession.query(PermissionType.id).filter(PermissionType.name=='delete').one())
+                                      acl_id=acl.id,
+                                      authorizable_id=g.n_session.identity.id,
+                                      permission_id=DBSession.query(PermissionType.id).filter(PermissionType.name=='delete').one())
         except:
             pass
     return instance
@@ -236,7 +219,12 @@ def get_query(session, orm, query=None, id=None, aux_filter=None, default_filter
     query = query or session.query(orm)
     count = 0
     if id:
-        query = query.filter(orm.id == id)
+        if hasattr(orm, 'id'):
+            query = query.filter(orm.id == id)
+        else:
+            from sqlalchemy import inspect
+            query = query.filter(inspect(orm).primary_key[0] == id)
+        count = query.count()
     else:
         if not kwargs.get('values'):
             kwargs['values'] = {}
@@ -256,6 +244,7 @@ def get_query(session, orm, query=None, id=None, aux_filter=None, default_filter
             if hasattr(orm, "ts_vector"):
                 query = query.filter(orm.ts_vector.match(kwargs.get('searchValue')))
         if kwargs.get('order'):
+            # query = query.order_by(*order_parse(self.orm, kwargs.get('order'), self.aux_order))
             for o in order_parse(orm, kwargs.get('order'), aux_order):
                 query = query.order_by(o)
         count = query.count()

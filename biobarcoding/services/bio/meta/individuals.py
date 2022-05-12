@@ -44,10 +44,10 @@ class Service(MetaService):
     # DELETE
     ##
 
-    def after_delete(self, *content, **kwargs):
+    def delete_related(self, *content, **kwargs):
         names = [s.uniquename for s in content]
         query = DBSession.query(Specimen).filter(Specimen.name.in_(names))
-        return query.delete(synchronize_session='fetch')
+        return len([DBSession.delete(row) for row in query.all()])
 
     ##
     # GET SQLALCHEMY QUERY
