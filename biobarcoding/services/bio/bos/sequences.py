@@ -1,4 +1,3 @@
-import os.path
 import re
 
 from Bio import SeqIO
@@ -125,7 +124,7 @@ class Service(BosService):
         return len([DBSession.delete(row) for row in query.all()])
 
     ##
-    # IMPORT
+    # DEPRECATED IMPORT
     ##
 
     def simpleSeq2chado(self, seq, **params):
@@ -170,22 +169,17 @@ class Service(BosService):
             # return [Issue(IType.ERROR, f'IMPORT sequences: {seq.id} could not be imported.')]
             return None, 0
 
+    ##
+    # IMPORT
+    ##
+
+    def read_infile(self, file, _format) -> any:
+        return next(SeqIO.parse(file, _format))
+
     def import_file(self, infile, format=None, **kwargs):
-        # try every available format
-        fs = [format] + self.formats if format else self.formats
-        content_file = None
-        for f in fs:
-            try:
-                # check aligned file
-                content_file = next(SeqIO.parse(infile, f))
-            except:
-                continue
-            format = f
-            break
-        if not content_file and not format:
-            raise Exception()
+        content_file, _format = self.check_infile(infile, format)
         from ....io.sequences import import_file
-        return import_file(infile, format, **kwargs)
+        return import_file(infile, _format, **kwargs)
 
     ##
     # EXPORT

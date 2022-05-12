@@ -1,5 +1,3 @@
-from typing import Tuple, List
-
 from . import MetaService
 from ... import log_exception
 from ...main import get_orm
@@ -17,7 +15,7 @@ def get_taxonomic_ranks(rank):
     return CvtermService().read(cv='taxonomic_rank', cvterm=rank)[0]
 
 
-def split_org_name(name: str) -> Tuple[str, str, str]:
+def split_org_name(name: str) -> (str, str, str):
     # split a full name
     genus = species = ssp = ''
     n_split = name.split()
