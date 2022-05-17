@@ -1007,24 +1007,32 @@ class LayersAPI(MethodView):
             return {l.id: l.geoserver_name for l in layers}
 
         def get_table_field(fld):
-            _ = fld.split("$")
+            _ = str(fld).split("$")
             table = layer_names_dict[int(_[0])]
-            field = _[1]
-            return table, field, f"{table}.{field}"
+            if len(_) == 2:
+                field = _[1]
+                return table, field, f"{table}.{field}"
+            else:
+                return table, None, f"{table}"
 
         def select_clause(select_):
             select_a = []
-            for r in select_["rules"].values():
+            for r in select_["rules"]:  # .values()
+                if r["field"] == "*":
+                    select_a = ["*"]
+                    break
+
                 tab, fld, fld_sql = get_table_field(r["field"])
                 if r["operator"] == "not_function":
                     _ = f"{fld_sql}"
                 else:
                     params = ', '.join(r["value"])
                     _ = f"{r['operator']}({fld_sql}{params})"
-                if r["alias"]:
+                if r.get("alias"):
                     _ += f" AS {r['alias']}"
                 select_a.append(_)
-            else:
+
+            if len(select_a) == 0:
                 select_a.append("*")
 
             return ", ".join(select_a)
@@ -1066,7 +1074,8 @@ class LayersAPI(MethodView):
             :return:
             """
             if len(t) == 1:
-                return t[0]
+                table, fld, sql_name = get_table_field(t[0])
+                return table
 
             already_joined = set()
             from_join_str = ""
@@ -1093,7 +1102,7 @@ class LayersAPI(MethodView):
             params = set()
             where_str = ""
             # Boolean operators
-            if where_["condition"].lower() in ("and", "or", "not"):
+            if "condition" in where_ and where_["condition"].lower() in ("and", "or", "not"):
                 subs = []
                 for rule in where_["rules"]:
                     _, p2 = where_clause(rule)
@@ -1103,11 +1112,12 @@ class LayersAPI(MethodView):
                     where_str = f"NOT ({subs[0]})"
                 else:
                     where_str += "(" + f") {where_['condition']} (".join(subs) + ")"
-            elif where_["operator"].lower() in ("equals", "equals_ignore_case",
-                                                "=", ">", "<", ">=", "<=", "!=",
-                                                "like", "ilike"):
-                if where_["value"].startswith("$"):
-                    params.add(where_["value"][1:])
+            elif "operator" in where_ and where_["operator"].lower() in ("equals", "equals_ignore_case",
+                                                                         "=", ">", "<", ">=", "<=", "!=",
+                                                                         "like", "ilike"):
+                v = where_["value"]
+                if isinstance(v, str) and v.startswith("$"):
+                    params.add(v[1:])
                 operator = where_["operator"].lower()
                 if operator in ("equals_ignore_case", "equals"):
                     operator = "="
@@ -1116,13 +1126,14 @@ class LayersAPI(MethodView):
                 else:
                     function = "("
                 tab, fld, fld_sql = get_table_field(where_["field"])
-                value = f"'{where_['value']}'" if where_["type"] == "string" else where_["value"]
+                value = f"'{v}'" if where_["type"] == "string" else v
                 where_str += f"{function}{fld_sql}) {operator} {value}"
             elif where_["operator"].lower() == "in":
-                if where_["value"].startswith("$"):
-                    params.add(where_["value"][1:])
+                v = where_["value"]
+                if isinstance(v, str) and v.startswith("$"):
+                    params.add(v[1:])
                 tab, fld, fld_sql = get_table_field(where_["field"])
-                values = ','.join([f"'{v}'" if where_["type"] == "string" else v for v in where_["value"]])
+                values = ','.join([f"'{v_}'" if where_["type"] == "string" else v for v_ in v])
                 where_str += f"{fld_sql} IN ({values})"
 
             return where_str, params
@@ -1130,9 +1141,9 @@ class LayersAPI(MethodView):
         # ---------------------------------------------------------------------
 
         layer_names_dict = get_table_names(query_json["layers"])
-        select = select_clause(layer_names_dict, query_json["select"])
-        from_ = from_join_clause(layer_names_dict, query_json["layers"], query_json["join"])
-        where = where_clause(layer_names_dict, query_json["where"])
+        select = select_clause(query_json["select"])
+        from_ = from_join_clause(query_json["layers"], query_json.get("join", []))
+        where, where_params = where_clause(query_json["where"])
 
         return f"SELECT {select} FROM {from_} WHERE {where}"
 
@@ -1151,16 +1162,24 @@ class LayersAPI(MethodView):
         cached = True
         materialized = "MATERIALIZED" if cached else ""
         postgis_engine.execute(f"DROP {materialized} VIEW IF EXISTS {layer_name}")
-        s = f'CREATE {materialized} VIEW "{layer_name}" AS sql'
-        postgis_engine.execute(sql)
+        s = f'CREATE {materialized} VIEW "{layer_name}" AS {sql}'
+        postgis_engine.execute(s)
         self.issues.append(Issue(IType.INFO, f"layer created and stored in geo database"))
         self.status = 200
         if read:
             # Read the data
             df = pd.read_sql(f"SELECT * FROM {layer_name}", postgis_engine)
             # TODO Try to convert to GeoPandas
+            try:
+                df = gpd.GeoDataFrame(df)
+            except Exception as e:
+                pass
+                # self.issues.append(Issue(IType.WARNING, f"could not convert to GeoPandas: {e}"))
         else:
             df = None
+
+        # "add geoserver layer" function looks for any value in "data" to create a layer that is stored in PostGIS
+        self.kwargs["data"] = "dummy"
 
         return self.status, df
 
@@ -1231,8 +1250,9 @@ class LayersAPI(MethodView):
             # Store file in PostGIS
             status, gdf, has_geom_column = self._read_and_store_into_postgis(layer_name, lower_case_attributes)
         else:  # An SQL to create a new layer
-            sql, has_geom_column = self._create_sql_from_request(session, self.kwargs["layer_from_query"])
-            status, _ = self._create_postgis_view_and_read(sql, layer_name, lower_case_attributes)
+            sql = self._create_sql_from_request(session, self.kwargs["layer_from_query"])
+            status, gdf = self._create_postgis_view_and_read(sql, layer_name, lower_case_attributes, read=True)
+            has_geom_column = gdf.geometry.dropna().shape[0] > 0
 
         # Geometry type
         if not geographic_layer.attributes:
@@ -1243,8 +1263,10 @@ class LayersAPI(MethodView):
         else:
             geographic_layer.attributes["geom_type"] = "Polygon"  # Not known yet...
 
-        # Delete temporary file
-        os.remove(self.kwargs["path"])
+        # Delete temporary file (if file submitted, does not apply to SQL layers)
+        if "path" in self.kwargs:
+            os.remove(self.kwargs["path"])
+
         if status == 200:
             geographic_layer.in_postgis = True
 
