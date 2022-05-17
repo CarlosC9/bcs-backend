@@ -548,6 +548,8 @@ def obtain_dataset_properties(dataset_name: str, gdf: gpd.GeoDataFrame, lc_attri
             except:
                 p_type = "string"
             # TODO Find style: dynamic or static
+        elif str(gdf.dtypes[i]) == "geometry":
+            p_type = "geometry"
         else:
             # String column, do not create style
             p_type = "string"
