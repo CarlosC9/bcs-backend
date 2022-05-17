@@ -61,7 +61,7 @@ class Service(BosService):
     def attach_data(self, *content):
         new = super(Service, self).attach_data(*content)
 
-        _ids = [_.analysis_id for _ in new]
+        _ids = [_['analysis_id'] for _ in new]
         info = [None, None, []] * len(new)
         try:
             from sqlalchemy.sql.expression import case, func, distinct

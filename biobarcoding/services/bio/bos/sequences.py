@@ -103,7 +103,7 @@ class Service(BosService):
     def attach_data(self, *content):
         new = super(Service, self).attach_data(*content)
 
-        _ids = [_.feature_id for _ in new]
+        _ids = [_['feature_id'] for _ in new]
         seqs = [None] * len(new)
         try:
             from sqlalchemy.sql.expression import case

@@ -39,7 +39,7 @@ def build_org_name(**values):
 
 def get_orgs_lineages(*orgs) -> list:
     from ...species_names import get_canonical_species_lineages
-    return [t['canonicalName'] for t in [la for la in get_canonical_species_lineages(DBSession, orgs)]]
+    return [[t['canonicalName'] for t in la] for la in get_canonical_species_lineages(DBSession, orgs)]
 
 
 ##
@@ -136,7 +136,7 @@ class Service(MetaService):
         from ... import force_underscored
         from ...species_names import get_canonical_species_names
         names = [" ".join([_['genus'], _['species'], _['infraspecific_name'] or '']).strip() for _ in new]
-        c_names, cu_names, lineages = [None] * len(names)
+        c_names = cu_names = lineages = [None] * len(names)
         try:
             c_names = get_canonical_species_names(DBSession, names)
         except Exception as e:
@@ -147,17 +147,18 @@ class Service(MetaService):
         except Exception as e:
             print('Warning: Canonical underscored species names could not be retrieved.')
             log_exception(e)
-        try:
-            lineages = get_orgs_lineages(c_names)
-        except Exception as e:
-            print('Warning: Species lineages could not be retrieved.')
-            log_exception(e)
+        # try:
+        #     # TODO: must be cached
+        #     lineages = get_orgs_lineages(*c_names)
+        # except Exception as e:
+        #     print('Warning: Species lineages could not be retrieved.')
+        #     log_exception(e)
 
         for i, _ in enumerate(new):
             _['name'] = names[i]
             _['canonical_name'] = c_names[i] or names[i]
             _['canonical_underscored_name'] = cu_names[i] or force_underscored(names[i])
-            _['canonical_lineage'] = lineages[i] or []
+            # _['canonical_lineage'] = lineages[i] or []
 
         return new
 
