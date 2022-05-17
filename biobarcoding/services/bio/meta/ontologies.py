@@ -100,6 +100,13 @@ def get_ont_cvterm(type='ontology'):
     }.get(type)
 
 
+def get_rl_cvterm(type='relationship'):
+    return {
+        'relationship': {'cv': 'relationship', 'name': 'part_of'},
+        'derives_from': {'cv': 'relationship', 'name': 'derives_from'},
+    }.get(type)
+
+
 def get_used_cvterm(type, subtype=None):
     return {
         # 'default':      {'cv':'data', 'name':'Data'},
@@ -113,6 +120,7 @@ def get_used_cvterm(type, subtype=None):
         'blast':        get_blast_cvterm(subtype or type),
         'taxonomy':     get_tax_cvterm(subtype or type),
         'ontology':     get_ont_cvterm(subtype or type),
+        'relationship': get_rl_cvterm(subtype or type),
     }.get(type)
 
 

@@ -72,11 +72,13 @@ class Service(BosService):
         return super(Service, self).check_values(**values)
 
     def after_create(self, new_object, **values):
-        # tree to bcs
+        values = super(Service, self).after_create(new_object, **values)
+
         phylo = get_or_create(DBSession, PhylogeneticTree,
                               native_id=new_object.phylotree_id,
                               native_table='phylotree',
                               name=new_object.name)
+
         return values
 
     ##
@@ -154,7 +156,7 @@ class Service(BosService):
         return [phylonode] + phylonodes
 
     ##
-    # PREVIOUS EXPORT
+    # DEPRECATED EXPORT
     ##
 
     def _data2file(self, trees: list, outfile, format: str, **kwargs) -> int:

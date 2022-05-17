@@ -242,8 +242,8 @@ class BasicService:
         return content, 1
 
     # any additional creation if any
-    def after_create(self, new_object, **values):
-        return new_object
+    def after_create(self, new_object, **values) -> dict:
+        return values
 
     ##
     # READ
@@ -254,21 +254,21 @@ class BasicService:
     def read(self, **kwargs) -> (any, int):
         content, count = self.get_query(purpose='read', **kwargs)
         if kwargs.get('id'):
-            content = self.attach_data(content.first())
+            content = self.attach_data(content.one())[0]
         else:
-            content = [self.attach_data(c) for c in content.all()]
+            content = self.attach_data(*content.all())
         return content, count
 
     # any additional read if any
-    def attach_data(self, content):
+    def attach_data(self, *content) -> list:
         try:
             import json
             from ..common import generate_json
-            return json.loads(generate_json(content))
+            return [json.loads(generate_json(c)) for c in content]
         except Exception as e:
             print('Error: The row could not be jsonify for attachment.')
             log_exception(e)
-            return None
+            return []
 
     ##
     # GET SQLALCHEMY QUERY
@@ -312,8 +312,8 @@ class BasicService:
         return content, count
 
     # any additional update if any
-    def after_update(self, new_object, **values):
-        return new_object
+    def after_update(self, new_object, **values) -> dict:
+        return values
 
     ##
     # DELETE

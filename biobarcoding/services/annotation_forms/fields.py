@@ -26,7 +26,8 @@ class Service(FormItemService):
         return super(Service, self).prepare_external_values(**values)
 
     def after_create(self, new_object, **values):
-        super(Service, self).after_create(new_object, **values)
+        values = super(Service, self).after_create(new_object, **values)
+
         if values.get('template_id'):
             if isinstance(values['template_id'], (tuple, list, set)):
                 ids = values.get('template_id')
@@ -35,10 +36,12 @@ class Service(FormItemService):
             for i in ids:
                 get_or_create(self.db, AnnotationFormTemplateField,
                               form_field_id=new_object.id, form_template_id=i)
+
         return values
 
     def after_update(self, new_object, **values):
-        super(Service, self).after_update(new_object, **values)
+        values = super(Service, self).after_update(new_object, **values)
+
         if values.get('template_id') is not None:
             if isinstance(values['template_id'], (tuple, list, set)):
                 ids = values.get('template_id')
@@ -51,6 +54,7 @@ class Service(FormItemService):
             for i in ids:
                 get_or_create(self.db, AnnotationFormTemplateField,
                               form_field_id=new_object.id, form_template_id=i)
+
         return values
 
     def aux_filter(self, filter):

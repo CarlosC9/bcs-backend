@@ -58,23 +58,26 @@ class Service(BosService):
     # READ
     ##
     
-    def attach_data(self, content):
-        new = super(Service, self).attach_data(content)
+    def attach_data(self, *content):
+        new = super(Service, self).attach_data(*content)
 
-        if new:
-            try:
-                from sqlalchemy.sql.expression import func, distinct
-                info = self.db.query(func.max(func.length(Feature.residues)),
-                                     func.count(AnalysisFeature.analysis_id),
-                                     func.array_agg(distinct(Organism.name))) \
-                    .select_from(AnalysisFeature).join(Feature).join(Organism) \
-                    .filter(AnalysisFeature.analysis_id == content.analysis_id) \
-                    .group_by(AnalysisFeature.analysis_id)
-                new['seqlen'], new['seqnum'], new['taxa'] = info.one()
-            except Exception as e:
-                print('Error: Additional data could not be attached.')
-                log_exception(e)
-                pass
+        _ids = [_.analysis_id for _ in new]
+        info = [None, None, []] * len(new)
+        try:
+            from sqlalchemy.sql.expression import case, func, distinct
+            _ord = case({_id: index for index, _id in enumerate(_ids)},
+                        value=AnalysisFeature.analysis_id)  # TODO test order
+            info = self.db.query(func.max(func.length(Feature.residues)),
+                                 func.count(AnalysisFeature.analysis_id),
+                                 func.array_agg(distinct(Organism.name))) \
+                .select_from(AnalysisFeature).join(Feature).join(Organism) \
+                .filter(AnalysisFeature.analysis_id.in_(_ids)) \
+                .group_by(AnalysisFeature.analysis_id).order_by(_ord).all()
+        except Exception as e:
+            print('Error: Additional data could not be attached.')
+            log_exception(e)
+        for i, _ in enumerate(new):
+            _['seqlen'], _['seqnum'], _['taxa'] = info[i]
 
         return new
 

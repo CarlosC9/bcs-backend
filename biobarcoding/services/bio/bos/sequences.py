@@ -85,7 +85,7 @@ class Service(BosService):
         return stock_bind
 
     def after_create(self, new_object, **values):
-        super(Service, self).after_create(new_object, **values)
+        values = super(Service, self).after_create(new_object, **values)
 
         stock = self.seq_stock(new_object, **values)
         # seq to bcs
@@ -93,24 +93,29 @@ class Service(BosService):
                                 native_id=new_object.feature_id,
                                 native_table='feature',
                                 name=new_object.uniquename)
+
         return values
 
     ##
     # READ
     ##
 
-    def attach_data(self, content):
-        new = super(Service, self).attach_data(content)
+    def attach_data(self, *content):
+        new = super(Service, self).attach_data(*content)
 
-        if new:
-            try:
-                new['uuid'] = str(DBSession.query(Sequence)
-                                  .filter(Sequence.native_table == 'feature',
-                                          Sequence.native_id == content.feature_id).one().uuid)
-            except Exception as e:
-                print('Error: Additional data could not be attached.')
-                log_exception(e)
-                pass
+        _ids = [_.feature_id for _ in new]
+        seqs = [None] * len(new)
+        try:
+            from sqlalchemy.sql.expression import case
+            _ord = case({_id: index for index, _id in enumerate(_ids)},
+                        value=Sequence.native_id)   # TODO test order
+            seqs = DBSession.query(Sequence).filter(Sequence.native_table == 'feature',
+                                                    Sequence.native_id.in_(_ids)).order_by(_ord).all()
+        except Exception as e:
+            print('Error: Additional data could not be attached.')
+            log_exception(e)
+        for i, _ in enumerate(new):
+            _['uuid'] = str(seqs[i].uuid)
 
         return new
 
