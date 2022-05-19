@@ -1212,7 +1212,7 @@ class LayersAPI(MethodView):
         Then, do the POST, like
         curl --cookie app-cookies.txt -XPOST "$API_BASE_URL/geo/layers/?filesAPI=%2Ff1%2Ff2%2Ff3%2Fplantas.zip&job_id=6"
         """
-        def create_geographic_layer_entity(session, kwargs):
+        def create_geographic_layer_entity(session):
             geographic_layer_schema = getattr(GeographicLayer, "Schema")()
             geographic_layer_data = get_json_from_schema(GeographicLayer, self.kwargs)
             geographic_layer_data["id"] = 0
@@ -1225,14 +1225,20 @@ class LayersAPI(MethodView):
 
         session = g.n_session.db_session
         self.issues = []
-        self.kwargs = self._build_args_from_request_data()
         system_layer = True  # or user layer
+
+        # Prepare kwargs
+        self.kwargs = self._build_args_from_request_data()
         self.kwargs["wks"] = workspace_names[0] if system_layer else workspace_names[1]
 
         # Create layer entity, and persist it
-        geographic_layer = create_geographic_layer_entity(session, self.kwargs)
+        geographic_layer = create_geographic_layer_entity(session)
         session.add(geographic_layer)
         session.flush()
+
+        # Assign name automatically
+        if not geographic_layer.name:
+            geographic_layer.name = f"Layer {geographic_layer.id}, ir a detalle para renombrar"
 
         # Set URL
         tmp = urlparse(request.base_url)
@@ -1252,6 +1258,7 @@ class LayersAPI(MethodView):
         else:  # An SQL to create a new layer
             sql = self._create_sql_from_request(session, self.kwargs["layer_from_query"])
             status, gdf = self._create_postgis_view_and_read(sql, layer_name, lower_case_attributes, read=True)
+            geographic_layer.provenance = dict(sql=sql)
             has_geom_column = gdf.geometry.dropna().shape[0] > 0
 
         # Geometry type
@@ -1641,7 +1648,7 @@ class LayersAPI(MethodView):
             if "job_id" in args["attributes"]:
                 args["name"] = f'Capa salida del job {args["attributes"]["job_id"]}'
             else:
-                args["name"] = "Nombre no definido, ir a detalle para renombrar"
+                args["name"] = None
         return args
 
     def _file_posted(self):
