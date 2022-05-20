@@ -1820,10 +1820,15 @@ def put_property_attributes(id_, property_):
             # Trick to mark "layer.properties" updatable for the session
             flag_modified(layer, "properties")
 
-    # Check if the specified style exists
-    if layer and property_dict and palette in get_styles():
+    # Change style if
+    #  * layer defined,
+    #  * property_dict defined,
+    #  * palette defined,
+    #  * palette is a valid style
+    #  * Also, if the palette is compatible with the data_type (continuous style for numeric, categoric style for category)
+    if layer and property_dict and palette and palette in get_styles():
         if p["data_type"] == "numeric" and not get_styles()[palette] or p["data_type"] == "category" and get_styles()[palette]:
-            issues.append(Issue(IType.ERROR, f"The palette {palette} is not compatible with the property type {p['type']}"))
+            issues.append(Issue(IType.ERROR, f"The palette {palette} is not compatible with the property type {p['type']}. 'numeric' variables need continuous palette, 'category' variables need categoric palette."))
             status = 400
         else:
             style_name = f"layer_{id_}_{property_}"
@@ -1842,15 +1847,16 @@ def put_property_attributes(id_, property_):
                                      color_ramp=palette,
                                      overwrite=True,
                                      geom_type=geom_type)
-    else:
+    else:  # NOT Layer, NOT property_dict, NOT palette, NOT palette in get_styles()
         if not layer:
             issues.append(Issue(IType.ERROR, f"Layer {id_} does not exist"))
-        else:
-            issues.append(Issue(IType.ERROR, f"Property {property_} does not exist or it is not 'numeric'"))
-        if palette not in get_styles():
+            status = 400
+        if palette and palette not in get_styles():
             issues.append(Issue(IType.ERROR, f"Palette {palette} does not exist"))
-
-        status = 400
+            status = 400
+        if not property_dict:
+            issues.append(Issue(IType.ERROR, f"Property {property_dict} does not exist"))
+            status = 400
 
     return ResponseObject(issues=issues, status=status, content=resp, count=0).get_response()
 
