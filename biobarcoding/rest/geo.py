@@ -1810,7 +1810,8 @@ def put_property_attributes(id_, property_):
     # Modify the property
     if property_dict:
         some_change = False
-        for a in ["colormap", "data_type", "cat_type", "bins", "categories",
+        for a in ["colormap", "data_type", "cat_type", "bins",
+                  "min", "max", "categories",
                   "col_type", "representable", "nature", "unit"]:
             if a in req:
                 property_dict[a] = req[a]
