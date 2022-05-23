@@ -8,18 +8,18 @@ from ....db_models import DBSession
 from ....db_models import DBSessionChado
 from ....db_models.chado import Organism, Feature, AnalysisFeature
 from ....db_models.bioinformatics import MultipleSequenceAlignment
-from ... import get_or_create, log_exception, get_bioformat
+from ... import get_or_create, log_exception
 from .sequences import Service as SeqService
 from ..meta.analyses import Service as AnsisService
 
 seq_service = SeqService()
-ansis_service = AnsisService()  # TODO keep an eye on the BOS and Analysis services, they might be needed
+# ansis_service = AnsisService()  # TODO keep an eye on the BOS and Analysis services, they might be needed
 
 
 ##
 # ALIGNMENT SERVICE
 ##
-class Service(BosService):
+class Service(BosService, AnsisService):
 
     def __init__(self):
         super(Service, self).__init__()
@@ -33,7 +33,7 @@ class Service(BosService):
     ##
 
     def prepare_values(self, **values):
-        values.update(ansis_service.prepare_values(**values))
+        # values.update(AnsisService.prepare_values(self, **values))
         return super(Service, self).prepare_values(**values)
 
     def check_values(self, **values) -> dict:
@@ -41,11 +41,11 @@ class Service(BosService):
         if not values.get('program'):
             values['program'] = 'Multiple sequence alignment'
 
-        values.update(ansis_service.check_values(**values))
+        # values.update(super(Service, self).check_values(**values))
         return super(Service, self).check_values(**values)
 
     def after_create(self, new_object, **values):
-        super(Service, self).after_create(new_object, **values)
+        values = super(Service, self).after_create(new_object, **values)
 
         fos_msa = get_or_create(DBSession, MultipleSequenceAlignment,
                                 native_id=new_object.analysis_id,
@@ -96,7 +96,7 @@ class Service(BosService):
         return len([DBSession.delete(row) for row in query.all()])
 
     ##
-    # IMPORT
+    # DEPRECATED IMPORT
     ##
 
     def seq_org_id(self, name):
@@ -134,39 +134,32 @@ class Service(BosService):
             self.bind2ansis(msa, feature)
         return msa
 
+    ##
+    # IMPORT
+    ##
+
+    def read_infile(self, file, _format) -> any:
+        return AlignIO.read(file, _format)    # too slow
+        # from Bio import SeqIO
+        # return next(SeqIO.parse(file, _format))
+
     def import_file(self, infile, format=None, **kwargs):
-        format = get_bioformat(infile, format)
+        content_file, _format = self.check_infile(infile, format)
+        # Set missing default values
+        kwargs['programversion'] = kwargs.get('programversion') or '(Imported file)'
+        kwargs['sourcename'] = kwargs.get('sourcename') or os.path.basename(infile)
+        # Analysis row could exist for jobs, so get or create
         try:
-            # try every available format
-            fs = [format] + self.formats if format else self.formats
-            content_file = None
-            for f in fs:
-                try:
-                    # check aligned file
-                    content_file = AlignIO.read(infile, f)
-                except:
-                    continue
-                break
-            if not content_file:
-                raise Exception()
-            # Set missing default values
-            kwargs['programversion'] = kwargs.get('programversion') or '(Imported file)'
-            kwargs['sourcename'] = kwargs.get('sourcename') or os.path.basename(infile)
-            # Analysis row could exist for jobs, so get or create
-            try:
-                unique_keys = ['job_id'] if kwargs.get('job_id') else ('program', 'programversion', 'sourcename')
-                content, count = ansis_service.get_query(purpose='annotate', **{k: kwargs[k] for k in unique_keys if k in kwargs})
-                content = content.one()
-                # Analysis row could be created by importing the results of other jobs, and without register as msa in bcs
-                self.after_create(content, **kwargs)
-            except:
-                content, count = self.create(**kwargs)
-            # Read and import file content
-            self.msafile2chado(content, content_file)
-        except Exception as e:
-            log_exception(e)
-            raise Exception(f'IMPORT alignments: The file {os.path.basename(infile)} could not be imported.')
-        return content, count
+            unique_keys = ['job_id'] if kwargs.get('job_id') else ('program', 'programversion', 'sourcename')
+            content, count = self.get_query(purpose='annotate', **{k: kwargs[k] for k in unique_keys if k in kwargs})
+            content = content.one()
+            # Analysis row could be created by importing the results of other jobs, and without register as msa in bcs
+            self.after_create(content, **kwargs)
+        except:
+            content, count = self.create(**kwargs)
+        # Read and import file content
+        from ....io.sequences import import_file
+        return import_file(infile, _format, data=content_file, analysis_id=content.analysis_id)
 
     ##
     # EXPORT
@@ -198,7 +191,8 @@ class Service(BosService):
     ##
 
     def get_query(self, **kwargs):
-        return ansis_service.get_query(query=super(Service, self).get_query(**kwargs)[0], **kwargs)
+        # return AnsisService.get_query(query=BosService.get_query(**kwargs)[0], **kwargs)
+        return super(Service, self).get_query(**kwargs)
 
     # def aux_filter(self, filter):
     #     return ansis_service.aux_filter(filter) + super(Service, self).aux_filter(filter)
