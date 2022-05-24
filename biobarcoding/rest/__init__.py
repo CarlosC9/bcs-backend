@@ -752,11 +752,13 @@ tm_hierarchy_types = {
 h_subjects_name = "Temas"
 h_sources_name = "Fuentes"
 h_crs_name = "CRS"
+h_base_maps_name = "Mapas Base"
 tm_hierarchies_fields = ((HierarchyType, "name", "id", "h_type_id"), "uuid", "name")
 tm_hierarchies = [
     (ht_cl_name, "9975f4a0-a321-409a-bb2b-7afd05a60117", h_subjects_name),
     (ht_cl_name, "8267366d-97c7-47d8-83b5-68fe763c5e81", h_sources_name),
-    (ht_cl_name, "7cdc80c7-739d-4787-8529-b52f83994930", h_crs_name)
+    (ht_cl_name, "7cdc80c7-739d-4787-8529-b52f83994930", h_crs_name),
+    (ht_cl_name, "7ece7ead-4de9-436f-a12d-86350129e444", h_base_maps_name),
 ]
 
 tm_code_list_fields = ((Hierarchy, "name", "id", "hierarchy_id"), "uuid", "name")
@@ -801,12 +803,15 @@ tm_code_list_sources = [
     (h_sources_name, "55e9958c-2f73-47c4-afa6-37bf23c683f9", "EUROSTAT"),
 ]
 
-# 7ece7ead-4de9-436f-a12d-86350129e444
-# 071a22e8-1d90-4900-936a-0466880480d4
-# faec0128-c0e3-4c2c-bbb2-bd852430eed3
-# b4f90851-250e-425f-9a94-b677b593c842
-# d04fc218-8dea-4938-a4d0-49e3d8174715
-# 07c7512b-d7ce-4162-85c4-cda2503f290c
+tm_code_list_base_maps = [
+    (h_base_maps_name, "d77abee2-17ff-4063-8b54-a8e35647a5f0", "Grafcan OrtoExpress - https://idecan1.grafcan.es/ServicioWMS/OrtoExpress"),
+    (h_base_maps_name, "071a22e8-1d90-4900-936a-0466880480d4", "Grafcan Mapa Topográfico Integrado - https://idecan2.grafcan.es/ServicioWMS/MTI"),
+    (h_base_maps_name, "faec0128-c0e3-4c2c-bbb2-bd852430eed3", "Grafcan Ortofoto URbana alta resolución - https://idecan1.grafcan.es/ServicioWMS/OrtoUrb"),
+    (h_base_maps_name, "b4f90851-250e-425f-9a94-b677b593c842", "Grafcan Modelo LIDAR - https://idecan1.grafcan.es/ServicioWMS/MTL"),
+    (h_base_maps_name, "d04fc218-8dea-4938-a4d0-49e3d8174715", "Grafcan Modelo Sombras - https://idecan2.grafcan.es/ServicioWMS/MDSombras"),
+    (h_base_maps_name, "07c7512b-d7ce-4162-85c4-cda2503f290c", "Grafcan Alta Resolución - https://idecan2.grafcan.es/ServicioWMS/Gigapan")
+]
+
 # 95fd8186-927c-4712-8dbc-7fe9dbef35bb
 # 848b46b0-8602-42a2-a3fd-1b9be728d729
 # 79668ea7-80fa-4327-a433-721a69582542
