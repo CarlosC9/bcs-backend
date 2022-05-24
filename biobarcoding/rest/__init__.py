@@ -850,6 +850,7 @@ def initialize_database_data():
     load_table_extended(DBSession, HierarchyNode, tm_code_list_fields, tm_code_list_subjects)
     load_table_extended(DBSession, HierarchyNode, tm_code_list_fields, tm_code_list_sources)
     load_table_extended(DBSession, HierarchyNode, tm_code_list_fields, tm_code_list_crs)
+    load_table_extended(DBSession, HierarchyNode, tm_code_list_fields, tm_code_list_base_maps)
     session = DBSession()
     # ACLs for system functions
     system_functions = session.query(SystemFunction).filter(SystemFunction.name.in_(tm_system_functions_rules.keys())).all()
