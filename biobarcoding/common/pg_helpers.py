@@ -213,14 +213,24 @@ def load_status_checkers(sf, app):
     from urllib.parse import urlparse
     from ..services import get_or_create
     # connections from config
+    from sqlalchemy.exc import IntegrityError
     for k, v in app.config.items():
         if isinstance(v, str) and '://' in v:
             u = urlparse(v)
-            get_or_create(session, StatusChecker, name=k, type=u.scheme, url=u.geturl())
+            try:
+                get_or_create(session, StatusChecker, name=k, type=u.scheme, url=u.geturl())
+                session.commit()
+            except IntegrityError:
+                session.rollback()
+                print('The StatusChecker %s may already exist.' % k)
     # connections for compute resources
     for crs in session.query(ComputeResource).all():
-        get_or_create(session, StatusChecker, name=crs.name, type='compute-resource', resource_id=crs.id)
-    session.commit()
+        try:
+            get_or_create(session, StatusChecker, name=crs.name, type='compute-resource', resource_id=crs.id)
+            session.commit()
+        except IntegrityError:
+            session.rollback()
+            print('The StatusChecker %s may already exist.' % crs.name)
     sf.remove()
 
 
