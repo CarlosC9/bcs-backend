@@ -1809,6 +1809,13 @@ def put_property_attributes(id_, property_):
                 break
     # Modify the property
     if property_dict:
+        # Autodetect categories?
+        if req.get("autodetect_categories", True):
+            # Read the data, and obtain the set of unique values for the property
+            gdf = read_geolayer(layer.geoserver_name)
+            uniq = gdf[property_].unique()
+            req["categories"] = sorted(list(uniq))
+
         some_change = False
         for a in ["colormap", "data_type", "cat_type", "bins",
                   "min", "max", "categories",
