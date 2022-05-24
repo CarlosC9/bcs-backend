@@ -35,7 +35,7 @@ from ..services.geoprocesses import update_geoprocesses
 from .auth import bp_auth, bp_api_key
 from .browser_filters import bp_bfilters
 from .files import bp_files
-from .geo_rest import bp_geo
+from .geo import bp_geo
 from .geoprocesses_and_case_studies import bp_case_studies, bp_geoprocesses, bp_geoprocesses_ports, bp_geoprocess_instances, \
     bp_geoprocess_port_types, bp_case_studies_fos
 from .gui_static import bp_gui
