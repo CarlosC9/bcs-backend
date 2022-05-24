@@ -27,6 +27,12 @@ class SlurmMrBayesProcessAdaptor(SlurmProcessAdaptor):
                 "file": os.path.join(self.ASSETS_FOLDER, "mrbayes_assets", "mb_template_writer.py"),
                 "subprocess": "Mr Bayes",
                 "type": "python"
+            },
+            {
+                "remote_name": "nexus_translate_to_nexus.py",
+                "file": os.path.join(self.CONVERTERS_FOLDER, "nexus_translate_to_nexus.py"),
+                "subprocess": "Mr Bayes",
+                "type": "python"
             }
         ]
 
@@ -39,7 +45,7 @@ class SlurmMrBayesProcessAdaptor(SlurmProcessAdaptor):
         del mrbayes_parameters['start_phylotree']
         mrbayes_parameters['filename'] = self.OUTPUT_FILENAME_WITHOUT_EXTENSION
         hpc_parameters = process_parameters["hpc_parameters"]
-        mrbayes_parameters['ntasks'] = hpc_parameters['ntasks']
+        mrbayes_parameters['cpus_per_task'] = hpc_parameters['cpus_per_task']
 
         return mrbayes_parameters
 

@@ -9,7 +9,6 @@ from flask_socketio import SocketIO
 
 # Workaround for relative imports in a "__main__"
 # From: https://stackoverflow.com/a/28154841
-from biobarcoding.rest.views_dashboards import bp_viewz, bp_dashboards, bp_dashboard_items
 
 if __name__ == '__main__' and (__package__ is None or __package__ == ""):
     file = Path(__file__).resolve()
@@ -25,18 +24,18 @@ if __name__ == '__main__' and (__package__ is None or __package__ == ""):
     __package__ = 'biobarcoding.rest'
 # End of workaround
 
-import biobarcoding
+import biobarcoding as base_app_pkg
 from ..authentication import initialize_firebase
 from ..geo import initialize_geoserver
+from ..rest.views_dashboards import bp_viewz, bp_dashboards, bp_dashboard_items
 from . import logger, log_level, load_configuration_file, construct_session_persistence_backend, initialize_database, app_gui_base, ResponseObject, init_socket, initialize_postgis, initialize_ssh, \
     initialize_chado_edam, initialize_database_chado, initialize_galaxy
 from biobarcoding import app_acronym
 from ..services.geoprocesses import update_geoprocesses
 from .auth import bp_auth, bp_api_key
-from .bos import bp_bos
 from .browser_filters import bp_bfilters
 from .files import bp_files
-from .geo_rest import bp_geo
+from .geo import bp_geo
 from .geoprocesses_and_case_studies import bp_case_studies, bp_geoprocesses, bp_geoprocesses_ports, bp_geoprocess_instances, \
     bp_geoprocess_port_types, bp_case_studies_fos
 from .gui_static import bp_gui
@@ -44,7 +43,8 @@ from .hierarchies import bp_hierarchies, bp_hierarchy_nodes
 from .identities_and_company import bp_identities, bp_sys_functions, bp_roles, bp_identities_roles, \
     bp_groups, bp_organizations, bp_acl, bp_identities_authenticators, bp_identity_store
 from .jobs import bp_jobs
-from .metadata import bp_metadata
+from .sys import bp_sys
+from .bio import bp_bio
 from .annotation_forms import bp_annotations
 from .processes import bp_processes, bp_resources
 from .proxy import bp_proxy
@@ -137,8 +137,8 @@ def create_app(debug, start_socket=True, cfg_dict=None):
     # The reason was a version of PyProj (3.1.0 slow, 2.6.1 normal -fast-)
     #
     # from .geo_rest import LayersAPI, get_content
-    # from biobarcoding.db_models import DBSession
-    # from biobarcoding.db_models.geographics import GeographicLayer
+    # from base_app_pkg.db_models import DBSession
+    # from base_app_pkg.db_models.geographics import GeographicLayer
     # issues = []
     # issues, layer, count, status = get_content(DBSession(), GeographicLayer, issues, "14")
     # content = LayersAPI()._export(DBSession(), layer, _format="nexus")
@@ -184,8 +184,8 @@ def create_app(debug, start_socket=True, cfg_dict=None):
                bp_geoprocesses_ports,
                bp_geoprocess_instances,
                bp_geoprocess_port_types,
-               bp_bos,
-			   bp_metadata,
+			   bp_sys,
+			   bp_bio,
 			   bp_tasks,
                bp_identity_store,
                bp_viewz,
@@ -205,24 +205,27 @@ def create_app(debug, start_socket=True, cfg_dict=None):
 
 
 # FLASK_ENV=development FLASK_APP=biobarcoding.rest.main flask run
-logger.debug("BACKEND is STARTING !!!")
+logger.debug("BACKEND is STARTING...")
 
 start_socket = True
-biobarcoding.flask_app = create_app(True, start_socket=start_socket)
+base_app_pkg.flask_app = create_app(True, start_socket=start_socket)
 
-@biobarcoding.flask_app.route("/")
+logger.debug("BACKEND INITIALIZATION FINISHED !!!")
+
+
+@base_app_pkg.flask_app.route("/")
 def index():
     return redirect(app_gui_base)
 
 
-@biobarcoding.flask_app.route("/test")
+@base_app_pkg.flask_app.route("/test")
 def test_rest_open():
     r = ResponseObject()
     r.content = dict(it_works="yes!")
     return r.get_response()
 
 
-@biobarcoding.flask_app.after_request
+@base_app_pkg.flask_app.after_request
 def after_a_request(response):
     return response
 
@@ -235,7 +238,7 @@ def after_a_request(response):
         response.delete_cookie(current_app.session_cookie_name)
     else:
         # Allow Cross Site usage when debugging
-        if biobarcoding.get_global_configuration_variable("SAMESITE_NONE", "False") == "True":
+        if base_app_pkg.get_global_configuration_variable("SAMESITE_NONE", "False") == "True":
             for i, h in enumerate(response.headers):
                 if h[0].lower() == "set-cookie" and h[1].startswith(f"{current_app.session_cookie_name}="):
                     response.headers[i] = (h[0], f"{h[1]}; SameSite=None")
@@ -247,9 +250,9 @@ if __name__ == "__main__":
     localhost_name = "0.0.0.0"  # "localhost"  # 0.0.0.0, 127.0.0.1
     if not start_socket:
         logger.debug("BACKEND is STARTING FLASK SERVER !!!")
-        biobarcoding.flask_app.run(host=localhost_name,
+        base_app_pkg.flask_app.run(host=localhost_name,
                                    use_reloader=False,  # Avoid loading twice the application
                                    )
     else:
         logger.debug("BACKEND is STARTING FLASK SERVER WITH WEBSOCKETS !!!")
-        socket_service_socketio.run(biobarcoding.flask_app, host=localhost_name, use_reloader=False)
+        socket_service_socketio.run(base_app_pkg.flask_app, host=localhost_name, use_reloader=False)

@@ -3,13 +3,17 @@ import io
 import logging
 import os
 import os.path
+import pathlib
 import pickle
 import tempfile
 import urllib
 from urllib.parse import urlparse
+from zipfile import ZipFile, ZIP_DEFLATED
 
 import jsonpickle
 import sys
+
+from typing import Union
 import yaml
 from google.auth.transport.requests import Request
 from google_auth_oauthlib.flow import InstalledAppFlow
@@ -214,3 +218,9 @@ def read_yaml(file_name):
         contents = file.read()
     d = yaml.load(contents, Loader=yaml.FullLoader)
     return d
+
+def zip_files(zip_name: str, files: list):
+    with ZipFile(zip_name, 'w', ZIP_DEFLATED) as zf:
+        for file in files:
+            zf.write(file)
+    return zip_name

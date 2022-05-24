@@ -14,6 +14,8 @@ data_object_type_id.update({
     "multiple-sequence-alignment": 12,
     "phylogenetic-tree": 13,
     "sequence-similarity": 14,  # BLAST
+    "discriminant-matrix": 15,
+    "supermatrix": 16,
 })
 
 
@@ -67,5 +69,23 @@ class SequenceSimilarity(FunctionalObject):
     __tablename__ = f"{prefix}seq_sims"
     __mapper_args__ = {
         'polymorphic_identity': data_object_type_id['sequence-similarity'],
+    }
+    id = Column(BigInteger, ForeignKey(FunctionalObject.id), primary_key=True)
+
+
+class DiscriminantMatrix(FunctionalObject):
+    __versioned__ = {}
+    __tablename__ = f"{prefix}disc_matrix"
+    __mapper_args__ = {
+        'polymorphic_identity': data_object_type_id['discriminant-matrix'],
+    }
+    id = Column(BigInteger, ForeignKey(FunctionalObject.id), primary_key=True)
+
+
+class Supermatrix(FunctionalObject):
+    __versioned__ = {}
+    __tablename__ = f"{prefix}supermatrix"
+    __mapper_args__ = {
+        'polymorphic_identity': data_object_type_id['supermatrix'],
     }
     id = Column(BigInteger, ForeignKey(FunctionalObject.id), primary_key=True)

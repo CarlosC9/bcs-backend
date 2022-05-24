@@ -1,4 +1,6 @@
 from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.sql.functions import coalesce
+
 from . import ORMBaseChado
 
 
@@ -8,7 +10,7 @@ class Organism(ORMBaseChado):
 
     @hybrid_property
     def name(self):
-        return Organism.genus + ' ' + Organism.species
+        return self.genus + ' ' + self.species + coalesce(' ' + self.infraspecific_name, '')
 
 
 class Acquisition(ORMBaseChado):

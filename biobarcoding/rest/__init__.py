@@ -6,7 +6,7 @@ import traceback
 
 import sys
 from enum import Enum
-from typing import Dict, List, Callable
+from typing import Dict, List, Callable, Union, Optional
 from urllib.parse import unquote
 
 import redis
@@ -24,7 +24,8 @@ from .. import config_file_var, app_acronym
 from ..authentication import n_session
 from ..common import generate_json, ROOT
 from ..common.pg_helpers import create_pg_database_engine, load_table, load_many_to_many_table, \
-    load_computing_resources, load_processes_in_computing_resources, load_process_input_schema, load_table_extended
+    load_computing_resources, load_processes_in_computing_resources, load_process_input_schema, load_table_extended, \
+    load_status_checkers
 from ..db_models import DBSession, DBSessionChado, ORMBaseChado, DBSessionGeo
 from ..db_models.bioinformatics import *
 from ..db_models.core import update_functional_object_tsvector
@@ -34,7 +35,7 @@ from ..db_models.jobs import *
 from ..db_models.sa_annotations import *
 from ..db_models.sysadmin import *
 from ..rest.socket_service import SocketService
-import biobarcoding
+import biobarcoding as base_app_pkg
 
 app_api_base = "/api"  # Base for all RESTful calls
 app_gui_base = "/gui"  # Base for the Angular2 GUI
@@ -83,18 +84,13 @@ class Issue:
         return f'(type="{self.itype.name}", message="{self.message}", location="{self.location}")'
 
 
-@attrs
 class ResponseObject:
-    content = attrib(default=None)  # type: object
-    count = attrib(default=0)  # type: int
-    issues = attrib(default=[])  # type: List[Issue]
-    # Mimetype.
-    content_type = attrib(default="text/json")  # type: str
-    # HTTP response status code
-    status = attrib(default=200)  # type: int
-
-    def __init__(self):
-        self.issues = []
+    def __init__(self, content=None, count=0, issues=None, content_type="text/json", status=200):
+        self.content = content
+        self.count = count
+        self.issues = [] if issues is None else issues
+        self.content_type = content_type
+        self.status = status
 
     def get_response(self) -> Response:
         """
@@ -130,6 +126,7 @@ def get_default_configuration_dict():
     BACKEND_URL = BROKER_URL
 
     return dict(
+        # TODO: add a connection string for every subsystem status checker
         # SYSTEM DB
         DB_CONNECTION_STRING="postgresql://postgres:postgres@localhost:5432/",
         # CHADO (MOLECULAR DATA DB)
@@ -163,6 +160,7 @@ def get_default_configuration_dict():
         RESOURCES_CONFIG_FILE_PATH=f"{data_path}/compute_resources.json",
         JOBS_LOCAL_WORKSPACE=os.path.expanduser(f'~/{app_acronym}_jobs'),
         SSH_JOBS_DEFAULT_REMOTE_WORKSPACE="/tmp",
+        TEIDE_REMOTE_WORKSPACE="/home/dreyes/data",
         GALAXY_API_KEY="fakekey",
         GALAXY_LOCATION="http://localhost:8080",
         # MISC
@@ -803,8 +801,6 @@ tm_code_list_sources = [
     (h_sources_name, "55e9958c-2f73-47c4-afa6-37bf23c683f9", "EUROSTAT"),
 ]
 
-#
-# a31b2a73-d2b2-4d50-a64c-8d6d86559a02
 # 7ece7ead-4de9-436f-a12d-86350129e444
 # 071a22e8-1d90-4900-936a-0466880480d4
 # faec0128-c0e3-4c2c-bbb2-bd852430eed3
@@ -962,22 +958,22 @@ def initialize_database(flask_app):
         print(db_connection_string)
         print("-----------------------------")
         if db_connection_string.startswith("sqlite://"):
-            biobarcoding.engine = sqlalchemy.create_engine(db_connection_string,
+            base_app_pkg.engine = sqlalchemy.create_engine(db_connection_string,
                                                            echo=True,
                                                            connect_args={'check_same_thread': False},
                                                            poolclass=StaticPool)
         else:
-            biobarcoding.engine = create_pg_database_engine(db_connection_string, app_acronym, recreate_db=recreate_db)
+            base_app_pkg.engine = create_pg_database_engine(db_connection_string, app_acronym, recreate_db=recreate_db)
 
         # global DBSession # global DBSession registry to get the scoped_session
-        DBSession.configure(bind=biobarcoding.engine)  # reconfigure the sessionmaker used by this scoped_session
+        DBSession.configure(bind=base_app_pkg.engine)  # reconfigure the sessionmaker used by this scoped_session
         orm.configure_mappers()  # Important for SQLAlchemy-Continuum
         tables = ORMBase.metadata.tables
-        connection = biobarcoding.engine.connect()
-        table_existence = [biobarcoding.engine.dialect.has_table(connection, tables[t].name) for t in tables]
+        connection = base_app_pkg.engine.connect()
+        table_existence = [base_app_pkg.engine.dialect.has_table(connection, tables[t].name) for t in tables]
         connection.close()
         if False in table_existence:
-            ORMBase.metadata.bind = biobarcoding.engine
+            ORMBase.metadata.bind = base_app_pkg.engine
             ORMBase.metadata.create_all()
         # connection = biobarcoding.engine.connect()
         # table_existence = [biobarcoding.engine.dialect.has_table(connection, tables[t].name) for t in tables]
@@ -985,6 +981,7 @@ def initialize_database(flask_app):
 
         # Load base tables
         initialize_database_data()
+        load_status_checkers(DBSession, flask_app)
         update_functional_object_tsvector(DBSession())
     else:
         print("No database connection defined (DB_CONNECTION_STRING), exiting now!")
@@ -999,13 +996,13 @@ def initialize_postgis(flask_app):
         print(db_connection_string)
         print("-----------------------------")
 
-        biobarcoding.postgis_engine = create_pg_database_engine(db_connection_string, f"{app_acronym}_geoserver",
+        base_app_pkg.postgis_engine = create_pg_database_engine(db_connection_string, f"{app_acronym}_geoserver",
                                                                 recreate_db=recreate_db)
         # global DBSession # global DBSession registry to get the scoped_session
         DBSessionGeo.configure(
-            bind=biobarcoding.postgis_engine)  # reconfigure the sessionmaker used by this scoped_session
+            bind=base_app_pkg.postgis_engine)  # reconfigure the sessionmaker used by this scoped_session
         orm.configure_mappers()  # Important for SQLAlchemy-Continuum
-        connection = biobarcoding.postgis_engine.connect()
+        connection = base_app_pkg.postgis_engine.connect()
         try:
             connection.execute("CREATE EXTENSION postgis")
         except:
@@ -1013,11 +1010,11 @@ def initialize_postgis(flask_app):
         connection.execute("commit")
         connection.close()
         tables = ORMBaseGeo.metadata.tables
-        connection = biobarcoding.postgis_engine.connect()
-        table_existence = [biobarcoding.postgis_engine.dialect.has_table(connection, tables[t].name) for t in tables]
+        connection = base_app_pkg.postgis_engine.connect()
+        table_existence = [base_app_pkg.postgis_engine.dialect.has_table(connection, tables[t].name) for t in tables]
         connection.close()
         if False in table_existence:
-            ORMBaseGeo.metadata.bind = biobarcoding.postgis_engine
+            ORMBaseGeo.metadata.bind = base_app_pkg.postgis_engine
             ORMBaseGeo.metadata.create_all()
         # Load base tables
         # initialize_gnd_geoserver_data() # not implemented
@@ -1071,12 +1068,10 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
                     kwargs = parse_request_params()
                     from ..services import get_query
                     query, count = get_query(db, entity, aux_filter=aux_filter, default_filter=default_filter, **kwargs)
-                    # TODO Detail of fields
                     r.count = count
                     r.content = query.all()
                 else:
                     # Detail
-                    # TODO Detail of fields
                     r.content = db.query(entity).filter(entity.id == int(_id)).first()
                     r.count = 1
 
@@ -1165,20 +1160,20 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
 def chew_data(param):
     try:
         param = param.decode()
-    except Exception as e:
+    except:
         pass
     try:
         import ast
         param = ast.literal_eval(param)
-    except Exception as e:
+    except:
         pass
     try:
         param = unquote(param)
-    except Exception as e:
+    except:
         pass
     try:
         param = json.loads(param)
-    except Exception as e:
+    except:
         pass
     return param
 
@@ -1212,7 +1207,7 @@ def parse_request_params(data=None, default_kwargs=None):
         for key in ('filter', 'order', 'pagination', 'values', 'searchValue'):
             try:
                 i = input.pop(key)
-            except Exception as e:
+            except:
                 continue
             kwargs[key] = i if i else kwargs[key]
         if input:
@@ -1233,41 +1228,27 @@ def parse_request_params(data=None, default_kwargs=None):
     return kwargs
 
 
-def related_authr_ids(identity_id: int):
-    # Get the organizations, groups, and roles associated to an identity
-    ids = DBSession.query(Authorizable.id) \
-        .join(OrganizationIdentity, OrganizationIdentity.organization_id==Authorizable.id, isouter=True) \
-        .join(GroupIdentity, GroupIdentity.group_id==Authorizable.id, isouter=True) \
-        .join(RoleIdentity, RoleIdentity.role_id==Authorizable.id, isouter=True) \
-        .filter(or_(Authorizable.id==identity_id,
-                    OrganizationIdentity.identity_id==identity_id,
-                    GroupIdentity.identity_id==identity_id,
-                    RoleIdentity.identity_id==identity_id))
-    return [i for i, in ids]
-
-
-def related_perm_ids(permission_id: int):
-    # Get the mayor permissions that also allow permission_id
-    ids = DBSession.query(PermissionType.id) \
-        .filter(or_(PermissionType.id==permission_id,
-                    PermissionType.rank <   # TODO: should be <= ?
-                    DBSession.query(PermissionType.rank).filter(PermissionType.id==permission_id)))
-    return [i for i, in ids]
-
-
-def auth_filter(orm, permission_types_ids, object_types_ids,
-                identity_id=None,
-                object_uuids=None, time=None,
-                permission_flag=False, authorizable_flag=False) -> Query:
+def auth_filter(orm,
+                permission_types_ids: Union[int, List[int]],
+                object_types_ids,
+                identity_id: Optional[int] = None,
+                object_uuids: Optional[List[str]] = None,
+                time=None,
+                permission_flag=False,
+                authorizable_flag=False,
+                reference_entity: Union[int, str] = -1) -> Query:
     """
-    * orm: base (with uuid) to build the filter
-    * identity_ids: who is requesting
-    * permission_types_ids: what kind of permission is requested
-    * object_types_ids: which object types are being requested
-    * object_uuid: reduce the search to a specific list of objects
-    * time: when is requesting
-    * permission_flag: True to return the permission in the query
-    * authorizable_flag: True to return the specific authorizable
+    !!!! ACL filter !!!!
+
+    @param orm: Class of SQLAlchemy ORM to check. "FunctionalObject" for any class
+    @param permission_types_ids: List of permission type ids (or just one) to pass the filter against
+    @param object_types_ids: List of object type ids (similar to "orm")
+    @param identity_id: Identity id of who is being authorized. If None, it is the user logged in the current session
+    @param object_uuids: List of specific object uuids to reduce the search for authorizations
+    @param time: Time, to check validity of ACL rules
+    @param permission_flag: If True, return the permission type enabling access
+    @param authorizable_flag: If True, return the authorizable (identity, group, organization, role) enabling access
+    @param reference_entity: Reference entity id (or uuid) to check against. If -1, find default reference entity
 
     CollectionDetail (cd) <> Collection (c) > ACL <> ACLDetail (ad)
 
@@ -1287,6 +1268,35 @@ def auth_filter(orm, permission_types_ids, object_types_ids,
 
     @return: <orm_clause_filter> || object_uuids[, permissions][, authorizables]
     """
+
+    def related_authr_ids(identity_id: int):
+        # Get the organizations, groups, and roles associated to an identity
+        ids = DBSession.query(Authorizable.id) \
+            .join(OrganizationIdentity, OrganizationIdentity.organization_id == Authorizable.id, isouter=True) \
+            .join(GroupIdentity, GroupIdentity.group_id == Authorizable.id, isouter=True) \
+            .join(RoleIdentity, RoleIdentity.role_id == Authorizable.id, isouter=True) \
+            .filter(or_(Authorizable.id == identity_id,
+                        OrganizationIdentity.identity_id == identity_id,
+                        GroupIdentity.identity_id == identity_id,
+                        RoleIdentity.identity_id == identity_id))
+        return [i for i, in ids]
+
+    def related_perm_ids(permission_id: int):
+        # Get the mayor permissions that also allow permission_id
+        ids = DBSession.query(PermissionType.id) \
+            .filter(or_(PermissionType.id == permission_id,
+                        PermissionType.rank >=
+                        DBSession.query(PermissionType.rank).filter(PermissionType.id == permission_id)))
+        return [i for i, in ids]
+
+    def default_reference_entity(clazz, identity_id: int):
+        ent = DBSession.query(clazz).filter(clazz.authr_reference == True).one_or_none()
+        if ent:
+            return ent.uuid
+        else:
+            return None
+
+    # --------------------------- auth_filter -------------------------------------------------------------------------
     from flask import current_app
     if current_app.config["ACL_ENABLED"] != 'True':  # Disable ACL control
         return True
@@ -1299,8 +1309,26 @@ def auth_filter(orm, permission_types_ids, object_types_ids,
     else:
         is_sys_admin = sys_admin_id in identity_id
 
-    if is_sys_admin:
+    if is_sys_admin:  # If user has "sys-admin" role, access to everything
         return True
+
+    # If reference entity enables access -> return True, if not, continue evaluation
+    if reference_entity is not None:  # Already checked
+        if reference_entity == -1:
+            # Find UUID of a reference object
+            reference_entity = default_reference_entity(orm, identity_id)
+        if reference_entity:
+            _ = auth_filter(orm,
+                            permission_types_ids,
+                            object_types_ids,
+                            identity_id,
+                            [reference_entity],
+                            time,
+                            False,
+                            False,
+                            None)
+            if str(reference_entity) in set([str(i.uuid) for i in DBSession.query(orm.uuid).filter(_).all()]):
+                return True
 
     # ACL Detail entry in valid date range
     from datetime import datetime
@@ -1332,6 +1360,7 @@ def auth_filter(orm, permission_types_ids, object_types_ids,
             .join(ACL, Collection.uuid == ACL.object_uuid) \
             .join(ACLDetail) \
             .filter(*filter_clause)
+
         # Direct object
         uncollected = DBSession.query(ACL.object_uuid).join(ACLDetail).filter(*filter_clause)
 
@@ -1387,6 +1416,7 @@ def filter_parse(orm, filter, aux_filter=None, session=None):
             return obj >= value
         if op == "contains":
             return value.in_(obj)
+        # TODO: excludes?
 
         return True
 
@@ -1488,7 +1518,7 @@ def initialize_ssh(flask_app):
     """
     session = DBSession()
     ssh_resources = session.query(ComputeResource, JobManagementType).filter(
-        ComputeResource.jm_type_id == JobManagementType.id, JobManagementType.name == 'ssh').all()
+        ComputeResource.jm_type_id == JobManagementType.id, or_(JobManagementType.name == 'ssh', JobManagementType.name == 'slurm')).all()
     for ssh_res in ssh_resources:
         compute_resource = ssh_res.ComputeResource
         ssh_credentials = compute_resource.jm_credentials
@@ -1497,6 +1527,11 @@ def initialize_ssh(flask_app):
                "-o", f"UserKnownHostsFile={ssh_credentials['known_hosts_filepath']}",
                f"{ssh_credentials['username']}@{ssh_location['host']}", "'echo'"]
         subprocess.run(cmd)
+        if ssh_location.get('data_host'):
+            cmd = ["ssh", "-o", "StrictHostKeyChecking=no",
+                   "-o", f"UserKnownHostsFile={ssh_credentials['known_hosts_filepath']}",
+                   f"{ssh_credentials['username']}@{ssh_location['data_host']}", "'echo'"]
+            subprocess.run(cmd)
 
 
 # GALAXY INIZIALIZATION
@@ -1530,6 +1565,7 @@ def check_galaxy_tools(wf1_dic, wf2_dic):
     tool_list = list()
     for step, content in steps1.items():
         if 'errors' in content:
+            # if content['errors'].startswith("Tool is not installed"): ?
             if content['errors'] == "Tool is not installed":
                 # TODO depende de la versión de galaxy esto lleva un punto al final o no xq lo que hay que buscar
                 #  otra cosa
@@ -1578,12 +1614,12 @@ def initialize_database_chado(flask_app):
         print("Connecting to Chado database server")
         print(db_connection_string)
         print("-----------------------------")
-        biobarcoding.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=False)
+        base_app_pkg.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=False)
         # global DBSessionChado # global DBSessionChado registry to get the scoped_session
         DBSessionChado.configure(
-            bind=biobarcoding.chado_engine)  # reconfigure the sessionmaker used by this scoped_session
+            bind=base_app_pkg.chado_engine)  # reconfigure the sessionmaker used by this scoped_session
         orm.configure_mappers()  # Important for SQLAlchemy-Continuum
-        ORMBaseChado.metadata.bind = biobarcoding.chado_engine
+        ORMBaseChado.metadata.bind = base_app_pkg.chado_engine
         ORMBaseChado.metadata.reflect()
     else:
         print("No CHADO connection defined (CHADO_CONNECTION_STRING), exiting now!")
@@ -1608,15 +1644,15 @@ def initialize_chado_edam(flask_app):
         print("Connecting to Chado database server to insert EDAM")
         print(db_connection_string)
         print("-----------------------------")
-        biobarcoding.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=True)
+        base_app_pkg.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=True)
 
-        with biobarcoding.chado_engine.connect() as conn:
+        with base_app_pkg.chado_engine.connect() as conn:
             relationship_id = conn.execute(
                 text("select * from INFORMATION_SCHEMA.TABLES where TABLE_NAME = 'db_relationship'")).fetchone()
             if relationship_id is None:
                 try:
                     meta = MetaData()
-                    meta.reflect(biobarcoding.chado_engine, only=["db",
+                    meta.reflect(base_app_pkg.chado_engine, only=["db",
                                                                   "cvterm"])  # this get information about the db and cvterm tables in the existing database
                     # CREATE db_relationship table to relate EDAM submodules with EDAM itself
                     db_relationship = Table('db_relationship', meta,

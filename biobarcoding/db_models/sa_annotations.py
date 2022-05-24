@@ -74,7 +74,6 @@ class AnnotationFormTemplateField(ORMBase):
     rank = Column(Integer, Sequence('annotation_form_rank_seq'), primary_key=True)
     # rank = Column(Integer, nullable=False, default=select([func.max(1, func.max(rank))]))
     required = Column(Boolean, nullable=False, default=False)   # TODO: validation
-    # unique = Column(Boolean)
 
     @validates('form_field')
     def validate_field(self, key, field):
@@ -102,7 +101,7 @@ class AnnotationItem(ORMBase):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     type = Column(String(80), nullable=False)    # text, form, field
-    name = Column(String(80), nullable=False)
+    # name = Column(String(80), nullable=False)
     file_id = Column(BigInteger, ForeignKey(File.id))
     file = relationship(File)
 
@@ -116,7 +115,7 @@ class AnnotationItemFunctionalObject(ORMBase):
     __tablename__ = f"{prefix}item_functional_object"
 
     annotation_id = Column(Integer, ForeignKey(AnnotationItem.id), primary_key=True)
-    object_uuid = Column(GUID, ForeignKey(FunctionalObject.uuid, ondelete="CASCADE"), primary_key=True)
+    object_uuid = Column(GUID, ForeignKey(FunctionalObject.uuid), primary_key=True)
     annotation = relationship(AnnotationItem, backref=backref("objects", cascade="all, delete-orphan"))
     object = relationship(FunctionalObject, backref=backref("annotations", cascade="all, delete-orphan"))
     rank = Column(Integer, Sequence('annotation_rank_seq'), nullable=False)
@@ -134,7 +133,7 @@ class AnnotationText(AnnotationItem):
         'polymorphic_identity': 'text',
     }
     id = Column(BigInteger, ForeignKey(AnnotationItem.id, ondelete="CASCADE"), primary_key=True)
-    value = Column(Text)
+    value = Column(Text, unique=True)
 
 
 class AnnotationTemplate(AnnotationItem):
@@ -147,6 +146,10 @@ class AnnotationTemplate(AnnotationItem):
     form_template = relationship(AnnotationFormTemplate, backref=backref("annotations", cascade="all, delete-orphan"))
     value = Column(JSONB)
 
+    __table_args__ = (
+        UniqueConstraint(form_template_id, value, name=__tablename__ + '_c1'),
+    )
+
 
 class AnnotationField(AnnotationItem):
     __tablename__ = f"{prefix}field"
@@ -157,3 +160,7 @@ class AnnotationField(AnnotationItem):
     form_field_id = Column(Integer, ForeignKey(AnnotationFormField.id), nullable=False)
     form_field = relationship(AnnotationFormField, backref=backref("annotations", cascade="all, delete-orphan"))
     value = Column(JSONB)
+
+    __table_args__ = (
+        UniqueConstraint(form_field_id, value, name=__tablename__ + '_c1'),
+    )

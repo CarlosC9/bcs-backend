@@ -1,42 +1,110 @@
-from flask import g
+import json
+import os.path
 
-from . import log_exception, get_bioformat, get_orm_params
+from flask import g
+from typing import Tuple
+
+from . import log_exception, get_bioformat, get_orm_params, get_query
 from ..rest import Issue, IType
 from ..db_models import ORMBase, DBSession
 
 
 def get_orm(entity):
     orm = None
-    if entity in ('template', 'templates'):
+    # SYS ORMS
+    if entity == 'status_checkers':
+        from ..db_models.jobs import StatusChecker as orm
+    # BOS ORMS
+    elif entity == 'sequences':
+        from ..db_models.chado import Feature as orm
+    elif entity == 'alignments':
+        from ..db_models.chado import Analysis as orm
+    elif entity == 'phylotrees':
+        from ..db_models.chado import Phylotree as orm
+    elif entity == 'blasts':
+        from ..db_models.bioinformatics import SequenceSimilarity as orm
+    elif entity == 'discriminant_matrices':
+        from ..db_models.bioinformatics import DiscriminantMatrix as orm
+    elif entity == 'supermatrices':
+        from ..db_models.bioinformatics import Supermatrix as orm
+    elif entity == 'collections':
+        from ..db_models.sysadmin import Collection as orm
+    # BIO META ORMS
+    elif entity == 'individuals':
+        from ..db_models.chado import Stock as orm
+    elif entity == 'analyses':
+        from ..db_models.chado import Analysis as orm
+    elif entity == 'taxonomies':
+        from ..db_models.chado import Phylotree as orm
+    elif entity == 'organisms':
+        from ..db_models.chado import Organism as orm
+    elif entity == 'ontologies':
+        from ..db_models.chado import Cv as orm
+    elif entity == 'cvterms':
+        from ..db_models.chado import Cvterm as orm
+    # ANNOTATION ORMS
+    elif entity in ('template', 'templates'):
         from ..db_models.sa_annotations import AnnotationFormTemplate as orm
-    if entity in ('field', 'fields'):
+    elif entity in ('field', 'fields'):
         from ..db_models.sa_annotations import AnnotationFormField as orm
-    if entity in ('annotation', 'annotations'):
+    elif entity in ('annotation', 'annotations'):
         from ..db_models.sa_annotations import AnnotationItem as orm
-    if entity == 'annotation_template':
+    elif entity == 'annotation_template':
         from ..db_models.sa_annotations import AnnotationTemplate as orm
-    if entity == 'annotation_field':
+    elif entity == 'annotation_field':
         from ..db_models.sa_annotations import AnnotationField as orm
-    if entity == 'annotation_text':
+    elif entity == 'annotation_text':
         from ..db_models.sa_annotations import AnnotationText as orm
     return orm
 
 
 def get_service(entity):
-    AuxService = None
-    if entity == 'templates':
-        from .annotation_forms.templates import AuxService
-    if entity == 'fields':
-        from .annotation_forms.fields import AuxService
-    if entity == 'annotations':
-        from .annotation_forms.annotations import AuxService
-    return AuxService()
+    Service = None
+    # SYS SERVICES
+    if entity == 'status_checkers':
+        from .sys.status_checkers import Service
+    # BOS SERVICES
+    elif entity == 'sequences':
+        from .bio.bos.sequences import Service
+    elif entity == 'alignments':
+        from .bio.bos.alignments import Service
+    elif entity == 'phylotrees':
+        from .bio.bos.phylotrees import Service
+    elif entity == 'blasts':
+        from .bio.bos.blast import Service
+    elif entity == 'discriminant_matrices':
+        from .bio.bos.discriminant_matrices import Service
+    elif entity == 'supermatrices':
+        from .bio.bos.supermatrices import Service
+    elif entity == 'collections':
+        from .bio.meta.collections import Service
+    # BIO META SERVICES
+    elif entity == 'individuals':
+        from .bio.meta.individuals import Service
+    elif entity == 'analyses':
+        from .bio.meta.analyses import Service
+    elif entity == 'taxonomies':
+        from .bio.meta.taxonomies import Service
+    elif entity == 'organisms':
+        from .bio.meta.organisms import Service
+    elif entity == 'ontologies':
+        from .bio.meta.ontologies import Service
+    elif entity == 'cvterms':
+        from .bio.meta.ontologies import CvtermService as Service
+    # ANNOTATION SERVICES
+    elif entity == 'templates':
+        from .annotation_forms.templates import Service
+    elif entity == 'fields':
+        from .annotation_forms.fields import Service
+    elif entity == 'annotations':
+        from .annotation_forms.annotations import Service
+    return Service()
 
 
 def getCRUDIE(entity):
 
     ORM = get_orm(entity)
-    AuxService = get_service(entity)
+    Service = get_service(entity)
 
     class CRUDIE:
 
@@ -50,7 +118,7 @@ def getCRUDIE(entity):
 
         def create(self, **kwargs):
             try:
-                self.content, self.count = AuxService.create(**kwargs)
+                self.content, self.count = Service.create(**kwargs)
                 self.issues += [Issue(IType.INFO,
                                       f'CREATE {entity}: The {entity} was created successfully.')]
                 self.status = 201
@@ -64,7 +132,7 @@ def getCRUDIE(entity):
 
         def read(self, **kwargs):
             try:
-                self.content, self.count = AuxService.read(**kwargs)
+                self.content, self.count = Service.read(**kwargs)
                 self.issues += [Issue(IType.INFO,
                                       f'READ {entity}: The {entity} were read successfully.')]
                 self.status = 200
@@ -78,7 +146,7 @@ def getCRUDIE(entity):
 
         def update(self, **kwargs):
             try:
-                self.content, self.count = AuxService.update(**kwargs)
+                self.content, self.count = Service.update(**kwargs)
                 self.issues += [Issue(IType.INFO,
                                       f'UPDATE {entity}: The {entity} was/were updated successfully.')]
                 self.status = 200
@@ -92,7 +160,7 @@ def getCRUDIE(entity):
 
         def delete(self, **kwargs):
             try:
-                self.content, self.count = AuxService.delete(**kwargs)
+                self.content, self.count = Service.delete(**kwargs)
                 self.issues += [Issue(IType.INFO,
                                       f'DELETE {entity}: The {entity} was/were removed successfully.')]
                 self.status = 200
@@ -104,27 +172,25 @@ def getCRUDIE(entity):
                 self.status = 404
             return self.issues, self.content, self.count, self.status
 
-        # TODO: generic import in progress
-        def import_file(self, input_file, **kwargs):
+        def import_data(self, input_file, **kwargs):
             try:
-                self.content, self.count = AuxService.import_file(input_file, **kwargs)
+                self.content, self.count = Service.import_file(input_file, **kwargs)
                 self.issues += [Issue(IType.INFO,
-                                      f'IMPORT {entity}: The file {input_file} was imported successfully.')]
+                                      f'IMPORT {entity}: The file {os.path.basename(input_file)} was imported successfully.')]
                 self.status = 200
             except Exception as e:
                 log_exception(e)
                 g.commit_after = False
                 self.issues += [Issue(IType.ERROR,
-                                      f'IMPORT {entity}: The file {input_file} could not be imported.')]
+                                      f'IMPORT {entity}: The file {os.path.basename(input_file)} could not be imported.')]
                 self.status = 409
             return self.issues, self.content, self.count, self.status
 
-        # TODO: generic export in progress
-        def export_file(self, **kwargs):
+        def export_data(self, **kwargs):
             try:
-                self.content, self.count = AuxService.export_file(**kwargs)
+                self.content, self.count = Service.export_file(**kwargs)
                 self.issues = [Issue(IType.INFO,
-                                        f'EXPORT {entity}: The {entity} were exported successfully.')]
+                                     f'EXPORT {entity}: The {entity} were exported successfully.')]
                 self.status = 200
             except Exception as e:
                 log_exception(e)
@@ -137,30 +203,34 @@ def getCRUDIE(entity):
     return CRUDIE()
 
 
-class SimpleAuxService:
+class BasicService:
 
     def __init__(self):
         self.orm = ORMBase
         self.db = DBSession
 
+    ##
+    # CREATE
+    ##
+
     # filter and deduce values (mostly ids) for creation or update
     def prepare_values(self, **values) -> dict:
-        return get_orm_params(self.orm, **values)
+        return values
 
     # filter and deduce values (mostly ids) for creation or update
     def prepare_external_values(self, **values) -> dict:
         return values
 
-    # # check the validity of the values against the constraints to create or update
-    # def check_values(self, **values) -> dict:
-    #     return values
+    # check the validity of the values against the constraints to create or update
+    def check_values(self, **values) -> dict:
+        return get_orm_params(self.orm, **values)
 
     # deal with the creation
-    def create(self, **kwargs):
+    def create(self, **kwargs) -> Tuple[any, int]:
         values = self.prepare_values(**kwargs)
         from sqlalchemy.exc import SQLAlchemyError
         try:
-            content = self.orm(**values)
+            content = self.orm(**self.check_values(**values))
             self.db.add(content)
             self.db.flush()
         except SQLAlchemyError as e:    # IntegrityError: already exists
@@ -172,59 +242,47 @@ class SimpleAuxService:
         return content, 1
 
     # any additional creation if any
-    def after_create(self, new_object, **kwargs):
+    def after_create(self, new_object, **values):
         return new_object
+
+    ##
+    # READ
+    ##
 
     # read like get_query, but telling if it asks only for one or more. It can use get_query
     # @return: result, total_count
-    def read(self, **kwargs):
-        content, count = self.get_query(**kwargs)
+    def read(self, **kwargs) -> Tuple[any, int]:
+        content, count = self.get_query(purpose='read', **kwargs)
         if kwargs.get('id'):
             content = self.attach_data(content.first())
         else:
-            content = self.attach_data(*content.all())
+            content = [self.attach_data(c) for c in content.all()]
         return content, count
 
     # any additional read if any
-    def attach_data(self, *args):
-        return args
+    def attach_data(self, content):
+        try:
+            import json
+            from ..common import generate_json
+            return json.loads(generate_json(content))
+        except Exception as e:
+            print('Error: The row could not be jsonify for attachment.')
+            log_exception(e)
+            return None
+
+    ##
+    # GET SQLALCHEMY QUERY
+    ##
 
     # provide a sqlalchemy query (might be paged) and the total_count
     # @return: Query, total_count
-    def get_query(self, query=None, id=None, **kwargs):
-        """
-         reserved keywords in kwargs:
-           'values': specific values of orm fields to filter
-           'filter': advanced filtering clauses (see also filter_parse)
-           'order': advanced ordering clauses (see also order_parse)
-           'pagination': pageIndex and pageSize to paginate
-           'searchValue': full-text search value (hopefully)
-         otherwise it will be treated as 'values'
-        """
-        from ..rest import filter_parse, order_parse
-        from ..services import paginator
-        query = query or self.db.query(self.orm)
-        count = 0
-        if id:
-            query = query.filter(self.orm.id == id)
-            count = query.count()
-        else:
-            if not kwargs.get('values'):
-                kwargs['values'] = {}
-            for k, v in kwargs.items():
-                if not k in ['values', 'filter', 'order', 'pagination', 'searchValue'] and v:
-                    kwargs['values'][k] = v
-            if kwargs.get('values'):
-                query = query.filter_by(**self.prepare_values(**kwargs.get('values')))
-                # query = query.filter(filter_parse(self.orm, kwargs.get('values'), self.aux_filter))
-            if kwargs.get('filter'):
-                query = query.filter(filter_parse(self.orm, kwargs.get('filter'), self.aux_filter))
-            if kwargs.get('order'):
-                query = query.order_by(order_parse(self.orm, kwargs.get('order'), self.aux_order))
-            count = query.count()
-            if kwargs.get('pagination'):
-                query = paginator(query, kwargs.get('pagination'))
-        return query, count
+    def get_query(self, query=None, id=None, purpose='delete', **kwargs) -> Tuple[object, int]:
+        return get_query(self.db, self.orm, query or self.pre_query(purpose), id,
+                         aux_filter=self.aux_filter, aux_order=self.aux_order, **kwargs)
+
+    # method to filter by acl and more particular issues when querying
+    def pre_query(self, purpose):
+        return None
 
     # method to filter by external values when querying
     def aux_filter(self, filter) -> list:
@@ -234,19 +292,21 @@ class SimpleAuxService:
     def aux_order(self, order) -> list:
         return []
 
+    ##
+    # UPDATE
+    ##
+
     # deal with the update
-    def update(self, values={}, **kwargs):
+    def update(self, values={}, **kwargs) -> Tuple[any, int]:
         changes = self.prepare_values(**values)
-        content, count = self.get_query(**kwargs)
-        changes.update(values)
+        content, count = self.get_query(purpose='contribute', **kwargs)
         foreign_changes = self.prepare_external_values(**values)
-        # self.content = self.content.update(AuxService.prepare_values(**values))
         content = content.all()
         for row in content:
             for k, v in changes.items():
                 try:
                     setattr(row, k, v)
-                except Exception as e:
+                except:
                     log_exception(f'"{k}" does not exist in "{row}"')
             self.after_update(row, **foreign_changes)
         return content, count
@@ -255,35 +315,61 @@ class SimpleAuxService:
     def after_update(self, new_object, **values):
         return new_object
 
+    ##
+    # DELETE
+    ##
+
     # deal with the delete
-    def delete(self, **kwargs):
-        content, count = self.get_query(**kwargs)
-        # content = content.delete(synchronize_session='fetch')
+    def delete(self, **kwargs) -> Tuple[any, int]:
+        content, count = self.get_query(purpose='delete', **kwargs)
         content = content.all()
+        self.delete_related(*content, **kwargs)
         for row in content:
-            DBSession.delete(row)
-        self.after_delete(content, **kwargs)
+            self.db.delete(row)
         return content, count
 
     # any additional delete if any
-    def after_delete(self, new_object, **kwargs):
-        return new_object
+    def delete_related(self, *content, **kwargs):
+        return content
+
+    # TODO: generic import/export in progress
+    ##
+    # IMPORT
+    ##
 
     # verify that a given file is the data it pretend to be
     def check_file(self, file, format) -> bool:
         return True
 
-    # TODO: import
-    def import_file(self, file, format=None, **kwargs):
+    def import_file(self, infile, format=None, **kwargs) -> Tuple[any, int]:
+        """
         format = get_bioformat(file, format)
         self.check_file(file, format)
         values = self.prepare_values(**kwargs)
+        """
         # create required rows ?
         # file2db ?
         return None, 0
 
-    # TODO: export
-    def export_file(self, format=None, **kwargs):
-        # get_query ?
-        # export ?
-        return None, 0
+    ##
+    # EXPORT
+    ##
+
+    def prepare_export(self, outfile=None, format=None, **kwargs) -> Tuple[str, str]:
+        from flask import current_app
+        from werkzeug.utils import secure_filename
+        from biobarcoding import app_acronym
+        outfile = os.path.join(current_app.config['UPLOAD_FOLDER'], secure_filename(outfile or f'output_{app_acronym}'))
+        return outfile, format
+
+    def data2file(self, data: list, outfile, format: str, **kwargs) -> int:
+        # TODO: check that the format is in self.formats ?
+        with open(outfile, 'w') as wf:
+            json.dump(data, wf)
+        return len(data)
+
+    def export_file(self, outfile=None, format=None, **kwargs) -> Tuple[any, int]:
+        outfile, format = self.prepare_export(outfile=outfile, format=format)
+        query, count = self.get_query(purpose='export', **kwargs)
+        count = self.data2file(query.all(), outfile, format, **kwargs)
+        return outfile, count

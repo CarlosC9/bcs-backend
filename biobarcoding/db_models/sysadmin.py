@@ -1,4 +1,5 @@
-import datetime
+from datetime import datetime
+import os
 import uuid
 
 from sqlalchemy import Column, ForeignKey, UniqueConstraint, Boolean, Integer, String, DateTime, Text, JSON, Index
@@ -60,7 +61,7 @@ class Identity(Authorizable):
     email = Column(String(255))
     can_login = Column(Boolean, default=False)
     # configuration = Column(JSON)  # To store personal preferences, from language to other visualization features
-    creation_time = Column(DateTime, default=datetime.datetime.utcnow())
+    creation_time = Column(DateTime, default=datetime.utcnow())
     deactivation_time = Column(DateTime)
 
 
@@ -287,7 +288,7 @@ class Task(ORMBase):  # Celery task
     uuid = Column(GUID, nullable=False, default=uuid.uuid4)  # Object ID (ACL are on objects with UUID)
     description = Column(String(80))
     params = Column(JSON)
-    creation_time = Column(DateTime, default=datetime.datetime.utcnow())
+    creation_time = Column(DateTime, default=datetime.utcnow())
     finalization_time = Column(DateTime)
     status = Column(Integer, ForeignKey(TaskStatus.id))
     log = Column(Text)
@@ -312,7 +313,7 @@ class BrowserFilter(ORMBase):
     __tablename__ = f"{prefix}filters"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    uuid = Column(GUID, unique=True)
+    uuid = Column(GUID, unique=True, default=uuid.uuid4)
     name = Column(String(80), nullable=False)
     type = Column(String(80), nullable=False)
     values = Column(JSON)
@@ -321,5 +322,3 @@ class BrowserFilter(ORMBase):
     __table_args__ = (
         UniqueConstraint(name, type, user_id, name=__tablename__ + '_c1'),
     )
-
-
