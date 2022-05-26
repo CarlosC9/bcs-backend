@@ -94,9 +94,10 @@ class Service(FormItemService):
     def aux_filter(self, filter):
         clauses = []
 
-        if filter.get('field_id'):
+        field_id = filter.get('field_id', filter.get('form_field_id', filter.get('annotation_form_field_id')))
+        if field_id:
             _ids = self.db.query(AnnotationFormTemplateField.form_template_id) \
-                .filter(filter_parse(AnnotationFormTemplateField, {'field_id': filter.get('field_id')}))
+                .filter(filter_parse(AnnotationFormTemplateField, {'form_field_id': field_id}))
             clauses.append(self.orm.id.in_(_ids.subquery()))
 
         return clauses + super(Service, self).aux_filter(filter)

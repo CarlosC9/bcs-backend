@@ -40,6 +40,15 @@ formly = {'types':
                    'valueProp': 'cvterm_id',
                    'labelProp': 'name',
                }},
+          'standards':
+              {'key': 'standard',
+               'type': 'select',
+               'templateOptions': {
+                   'label': 'Estándares',
+                   'placeholder': 'Estándares asociados',
+                   'multiple': True,
+                   'options': [],
+               }},
           'annotation_form_templates':
               {'key': 'annotation_form_template_id',
                'type': 'select',

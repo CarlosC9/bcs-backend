@@ -1,8 +1,8 @@
 from sqlalchemy.exc import SQLAlchemyError
 from urllib.error import URLError
 from ..db_models import DBSession, ObjectType
-from ..services.annotation_forms.templates import AuxService as templatesAuxService
-from ..services.annotation_forms.fields import AuxService as fieldsAuxService
+from ..services.annotation_forms.templates import Service as templatesService
+from ..services.annotation_forms.fields import Service as fieldsService
 
 
 def __create_by_service(service, **kwargs):
@@ -16,8 +16,8 @@ def __create_by_service(service, **kwargs):
 	return None
 
 
-template_service = templatesAuxService()
-field_service = fieldsAuxService()
+template_service = templatesService()
+field_service = fieldsService()
 object_type_id = [i.id for i in DBSession.query(ObjectType).all()]
 
 
@@ -543,8 +543,8 @@ def initialize_dwc_forms():
 	print('\n > Creating Darwin Core fields')
 
 	for row_index, row in terms_sorted_by_localname.iterrows():
-			print('creating field', row.get('label'))
-			__create_by_service(field_service, **__dwc_term2annotation(**row))
+		# print('creating field', row.get('label'))
+		__create_by_service(field_service, **__dwc_term2annotation(**row))
 
 	# for category in range(0, len(display_order)):
 	# 	print('**' + display_label[category] + '**')
