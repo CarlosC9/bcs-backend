@@ -297,7 +297,7 @@ def write_to_universal_log_and_truncate(step_stdout, step_stderr, universal_log)
         universal_log_file.write(step_log)
 
 
-def generate_export_cmd(file_dict: dict, tmp_path: str, job_executor):
+def generate_export_cmd(file_dict: dict, tmp_path: str, job_executor, jc):
     endpoint: str = get_global_configuration_variable("ENDPOINT_URL")
     cookies_file_path: str = get_global_configuration_variable("COOKIES_FILE_PATH")
     extension: str = file_dict['type']
@@ -323,13 +323,16 @@ def generate_export_cmd(file_dict: dict, tmp_path: str, job_executor):
         url = f"{endpoint}{app_api_base}/files/{object_type['files']}.content"
 
     if with_filter:
-        curl = (f"curl --cookie-jar {cookies_file_path} --cookie {cookies_file_path} -X GET -d \'{selection_json}\' " +
+        curl = (f"curl --cookie-jar {cookies_file_path} --cookie {cookies_file_path} -X GET -d \'{selection_json}\' "
+                f"-H \'Impersonated-id: {jc.identity_id}\'"    
                 f"-H \'Content-Type:application/json\' {url} -o \'{tmp_path}\'")
-        return (f"(nohup bash -c &quot;{curl}&quot; >>{job_executor.log_filenames_dict['export_stdout']} " +
-                f"</dev/null 2>>{job_executor.log_filenames_dict['export_stderr']} & echo $!; wait $!; " +
+        return (f"(nohup bash -c &quot;{curl}&quot; >>{job_executor.log_filenames_dict['export_stdout']} "
+                f"</dev/null 2>>{job_executor.log_filenames_dict['export_stderr']} & echo $!; wait $!; "
                 f"echo $? >> {job_executor.local_workspace}/$!.exit_status)")
     else:
-        curl = f"curl --cookie {cookies_file_path} -X GET {url} -o \'{tmp_path}\'"
+        curl = f"curl --cookie {cookies_file_path} -X GET {url} -o \'{tmp_path}\'" \
+               f" -H \'Impersonated-id: {jc.identity_id}\'"
+
         return (f"(nohup bash -c \"{curl}\" >>{job_executor.log_filenames_dict['export_stdout']} " +
                 f"</dev/null 2>>{job_executor.log_filenames_dict['export_stderr']} & echo $!; wait $!; " +
                 f"echo $? >> {job_executor.local_workspace}/$!.exit_status)")
@@ -339,7 +342,7 @@ def generate_export_cmd(file_dict: dict, tmp_path: str, job_executor):
 #  que se puedan concatenar si se refieren al mismo fichero.
 #  Mirar: https://stackoverflow.com/questions/40359012/how-to-append-a-file-with-the-existing-one-using-curl
 
-def export(file_dict, job_executor) -> object:
+def export(file_dict, job_executor, jc) -> object:
     """
     Export file to the local workspace (which depends on "job_executor")
 
@@ -349,7 +352,7 @@ def export(file_dict, job_executor) -> object:
     """
     api_login()  # Logout is executed after successful export
     tmp_path = os.path.join(job_executor.local_workspace, file_dict["remote_name"])
-    cmd = generate_export_cmd(file_dict, tmp_path, job_executor)
+    cmd = generate_export_cmd(file_dict, tmp_path, job_executor, jc)
     logger.debug(cmd)
     popen_pipe = os.popen(cmd)
     pid = popen_pipe.readline().rstrip()
@@ -622,7 +625,7 @@ def wf1_export_to_supported_file_formats(job_context: str):
                               logs_prefix="export",
                               jc=jc,
                               job_executor=job_executor,
-                              action_function=lambda file_dict, je, jc: (export(file_dict, je), {}),
+                              action_function=lambda file_dict, je, jc: (export(file_dict, je, jc), {}),
                               check_action_function=lambda jc, je: is_file_exported(os.path.join(je.local_workspace, jc.process.inputs.data[jc.state_dict.idx]["remote_name"])),
                               after_action_function=after_export,
                               files_function=lambda job_context, job_executor: job_context.process.inputs.data,
