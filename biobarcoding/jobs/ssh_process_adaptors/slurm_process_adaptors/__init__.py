@@ -28,3 +28,9 @@ class SlurmProcessAdaptor(SSHProcessAdaptor, abc.ABC):
         job_context["process"]["inputs"]["adapted_parameters"] = new_process_parameters
         job_context[self.RESULTS_KEY] = self.get_results_files_list(script_parameters)
         return job_context
+
+    def parse_dict_env_variables(self, d: dict):
+        env_variables = ""
+        for key, value in d.items():
+            env_variables += f"{key}={value},"
+        return env_variables[:-1] # remove last comma

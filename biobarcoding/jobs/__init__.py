@@ -149,7 +149,7 @@ class JobExecutorAtResource(ABC):
                         print(f"Error executing get with pid: {pid}. Exit status = {exit_status}")
                         exit_status = ""  # This means error
             else:
-                exit_status = "running"
+                exit_status = ""
 
         return exit_status
 

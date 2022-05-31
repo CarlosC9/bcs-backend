@@ -16,7 +16,7 @@ class CipresProcessAdaptor(ProcessAdaptor, abc.ABC):
                                  "cipres_process_assets")
 
     def adapt_job_context(self, job_context):
-        process_parameters = job_context["process"]["inputs"]["parameters"]["script_params"]
+        process_parameters = job_context["process"]["inputs"]["parameters"]
         print(process_parameters)
         new_process_parameters = {
             self.SCRIPT_KEY: self.get_script_filenames(),

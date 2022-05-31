@@ -38,16 +38,13 @@ class SlurmMrBayesProcessAdaptor(SlurmProcessAdaptor):
 
     def parse_script_params(self, process_parameters):
         mrbayes_parameters = process_parameters["script_parameters"]["Mr Bayes"]
-        if mrbayes_parameters['start_phylotree']:
-            mrbayes_parameters['input_tree_cmd'] = "\'execute start_phylotree.nexus;\'"
-        else:
-            mrbayes_parameters['input_tree_cmd'] = "\'[No input tree]\'"
-        del mrbayes_parameters['start_phylotree']
         mrbayes_parameters['filename'] = self.OUTPUT_FILENAME_WITHOUT_EXTENSION
         hpc_parameters = process_parameters["hpc_parameters"]
         mrbayes_parameters['cpus_per_task'] = hpc_parameters['cpus_per_task']
 
-        return mrbayes_parameters
+        mrbayes_env_vars = self.parse_dict_env_variables(mrbayes_parameters)
+
+        return mrbayes_env_vars
 
     def get_results_files_list(self, process_parameters):
         return [

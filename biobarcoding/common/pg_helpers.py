@@ -49,6 +49,10 @@ RESOURCE_PROCESSES_DICT = {
         "MAFFT",
         "Mr Bayes",
         "BLAST"
+    ],
+    "San Diego Supercomputer Center - cipres": [
+        "Mr Bayes",
+        "MAFFT"
     ]
 }
 

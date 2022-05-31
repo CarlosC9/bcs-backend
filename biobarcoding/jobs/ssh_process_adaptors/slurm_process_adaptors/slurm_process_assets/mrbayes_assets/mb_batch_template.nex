@@ -1,6 +1,5 @@
 begin mrbayes;
    set autoclose=yes nowarn=yes;
-   $input_tree_cmd
    execute aln.nexus;
    lset nst=$nst rates=$rates;
    outgroup $taxons_select;
