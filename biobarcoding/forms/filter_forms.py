@@ -1,130 +1,155 @@
+from ..db_models.chado import Cvterm
 from ..db_models.core import CaseStudy, CProcess
 from ..db_models.hierarchies import HierarchyNode, Hierarchy
 from ..rest import h_subjects_name, h_sources_name, h_crs_name
-from ..db_models import DBSessionChado as chado_session
-from ..services.bio.meta.ontologies import CvtermService
+from ..db_models import DBSession, DBSessionChado
 
-cvterm_service = CvtermService()
 
 def __getTypes(type):
     if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
-        from biobarcoding.db_models.chado import Feature as ORM
+        from ..db_models.chado import Feature as ORM
     elif type == 'phylotree' or type == 'phylotrees':
-        from biobarcoding.db_models.chado import Phylotree as ORM
+        from ..db_models.chado import Phylotree as ORM
     elif type == 'individual' or type == 'individuals' or type == 'stock' or type == 'stocks':
-        from biobarcoding.db_models.chado import Stock as ORM
-    elif type == 'collection' or type == 'collections' or type == 'stockcollection' or type == 'stockcollections':
-        from biobarcoding.db_models.chado import Stockcollection as ORM
+        from ..db_models.chado import Stock as ORM
     else:
         return None
-    ids = chado_session.query(ORM.type_id).distinct(ORM.type_id).all()
-    ids = cvterm_service.get_query(filter=[{'cvterm_id': {'op': 'in', 'unary': ids}}])[0].all()
-    return ids
+    ids = DBSessionChado.query(ORM.type_id).distinct(ORM.type_id).subquery()
+    return DBSessionChado.query(Cvterm).filter(Cvterm.cvterm_id.in_(ids)).all()
 
 
 def __getCvterms(type):
     if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
-        from biobarcoding.db_models.chado import FeatureCvterm as ORM
+        from ..db_models.chado import FeatureCvterm as ORM
     elif type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
-        from biobarcoding.db_models.chado import AnalysisCvterm as ORM
+        from ..db_models.chado import AnalysisCvterm as ORM
     elif type == 'individual' or type == 'individuals' or type == 'stock' or type == 'stocks':
-        from biobarcoding.db_models.chado import StockCvterm as ORM
+        from ..db_models.chado import StockCvterm as ORM
     else:
         return None
-    ids = chado_session.query(ORM.cvterm_id).distinct(ORM.cvterm_id).all()
-    ids = cvterm_service.get_query(filter=[{'cvterm_id': {'op': 'in', 'unary': ids}}])[0].all()
-    return ids
+    ids = DBSessionChado.query(ORM.cvterm_id).distinct(ORM.cvterm_id).subquery()
+    return DBSessionChado.query(Cvterm).filter(Cvterm.cvterm_id.in_(ids)).all()
 
 
 def __getProps(type):
     if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
-        from biobarcoding.db_models.chado import Featureprop as ORM
+        from ..db_models.chado import Featureprop as ORM
     elif type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
-        from biobarcoding.db_models.chado import Analysisprop as ORM
+        from ..db_models.chado import Analysisprop as ORM
     elif type == 'phylotree' or type == 'phylotrees':
-        from biobarcoding.db_models.chado import Phylotreeprop as ORM
+        from ..db_models.chado import Phylotreeprop as ORM
     elif type == 'individual' or type == 'individuals' or type == 'stock' or type == 'stocks':
-        from biobarcoding.db_models.chado import Stockprop as ORM
-    elif type == 'collection' or type == 'collections' or type == 'stockcollection' or type == 'stockcollections':
-        from biobarcoding.db_models.chado import Stockcollectionprop as ORM
+        from ..db_models.chado import Stockprop as ORM
     else:
         return None
-    ids = chado_session.query(ORM.type_id).distinct(ORM.type_id).all()
-    ids = cvterm_service.get_query(filter=[{'cvterm_id': {'op': 'in', 'unary': ids}}])[0].all()
-    return ids
+    ids = DBSessionChado.query(ORM.type_id).distinct(ORM.type_id).subquery()
+    return DBSessionChado.query(Cvterm).filter(Cvterm.cvterm_id.in_(ids)).all()
 
 
 def __getDbxref(type):
     if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
-        from biobarcoding.db_models.chado import Feature as ORM
+        from ..db_models.chado import Feature as ORM
     elif type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
-        from biobarcoding.db_models.chado import AnalysisDbxref as ORM
+        from ..db_models.chado import AnalysisDbxref as ORM
     elif type == 'phylotree' or type == 'phylotrees':
-        from biobarcoding.db_models.chado import Phylotree as ORM
+        from ..db_models.chado import Phylotree as ORM
     elif type == 'individual' or type == 'individuals' or type == 'stock' or type == 'stocks':
-        from biobarcoding.db_models.chado import Stock as ORM
+        from ..db_models.chado import Stock as ORM
     else:
         return None
-    ids = chado_session.query(ORM.dbxref_id).distinct(ORM.dbxref_id).all()
-    from biobarcoding.db_models.chado import Dbxref
-    ids = chado_session.query(Dbxref).filter(Dbxref.dbxref_id.in_(ids)).all()
-    return ids
+    ids = DBSessionChado.query(ORM.dbxref_id).distinct(ORM.dbxref_id).subquery()
+    from ..db_models.chado import Dbxref
+    return DBSessionChado.query(Dbxref).filter(Dbxref.dbxref_id.in_(ids)).all()
 
 
 def __getOrganisms(type):
-    from biobarcoding.db_models.chado import Feature as ORM
-    if type == 'phylotree' or type == 'phylotrees':
-        # Phylonode > Feature
-        from biobarcoding.db_models.chado import Phylonode
-        ids = chado_session.query(Phylonode.feature_id).distinct(Phylonode.feature_id).all()
-        ids = chado_session.query(ORM.organism_id).filter(ORM.feature_id.in_(ids))
-    # if type == 'taxonomy' or type == 'taxonomies':
-    # Phylonode > PhylonodeOrganism
-    # from biobarcoding.db_models.chado import PhylonodeOrganism
-    # ids += chado_session.query(PhylonodeOrganism.organism_id).distinct(PhylonodeOrganism.organism_id).all()
+    from ..db_models.chado import Feature as ORM
+    if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
+        ids = DBSessionChado.query(ORM.organism_id)
     elif type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
         # AnalysisFeature > Feature
-        from biobarcoding.db_models.chado import AnalysisFeature
-        ids = chado_session.query(AnalysisFeature.feature_id).distinct(AnalysisFeature.feature_id).all()
-        ids = chado_session.query(ORM.organism_id).filter(ORM.feature_id.in_(ids))
-    elif type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
-        ids = chado_session.query(ORM.organism_id)
-
+        from ..db_models.chado import AnalysisFeature
+        ids = DBSessionChado.query(AnalysisFeature.feature_id).subquery()
+        ids = DBSessionChado.query(ORM.organism_id).filter(ORM.feature_id.in_(ids))
+    elif type == 'phylotree' or type == 'phylotrees':
+        # Phylonode > Feature
+        from ..db_models.chado import Phylonode
+        ids = DBSessionChado.query(Phylonode.feature_id).subquery()
+        ids = DBSessionChado.query(ORM.organism_id).filter(ORM.feature_id.in_(ids))
     elif type == 'individual' or type == 'individuals' or type == 'stock' or type == 'stocks':
-        from biobarcoding.db_models.chado import Stock as ORM
-        ids = chado_session.query(ORM.organism_id)
-    elif type == 'collection' or type == 'collections' or type == 'stockcollection' or type == 'stockcollections':
-        from biobarcoding.db_models.chado import Stock as ORM, StockcollectionStock
-        ids = chado_session.query(StockcollectionStock.stock_id).distinct(StockcollectionStock.stock_id).all()
-        ids = chado_session.query(ORM.organism_id).filter(ORM.stock_id.in_(ids))
+        from ..db_models.chado import Stock as ORM
+        ids = DBSessionChado.query(ORM.organism_id)
+    elif type == 'taxonomy' or type == 'taxonomies':
+        from ..db_models.chado import PhylonodeOrganism as ORM
+        ids = DBSessionChado.query(ORM.organism_id)
     else:
         return None
-    from biobarcoding.db_models.chado import Organism
     ids = ids.distinct(ORM.organism_id).all()
-    ids = chado_session.query(Organism).filter(Organism.organism_id.in_(ids)).all()
-    return ids
+    from ..services.bio.meta.organisms import Service as OrgService
+    return OrgService().read(filter={'organism_id': ids})[0]    # info attachment needed
 
 
 def __getAnalyses(type):
     if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
-        from biobarcoding.db_models.chado import AnalysisFeature as ORM
+        from ..db_models.chado import AnalysisFeature as ORM
     elif type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
-        from biobarcoding.db_models.chado import Analysis as ORM
+        from ..db_models.chado import Analysis as ORM
     elif type == 'phylotree' or type == 'phylotrees':
-        from biobarcoding.db_models.chado import Phylotree as ORM
-    # elif type == 'individual' or type == 'individuals' or type == 'stock' or type == 'stocks':
-    #   from biobarcoding.db_models.chado import StockFeature
-    #   ids = chado_session.query(StockFeature.feature_id).distinct(StockFeature.feature_id)
-    # elif type == 'collection' or type == 'collections' or type == 'stockcollection' or type == 'stockcollections':
-    #   from biobarcoding.db_models.chado import Stock as ORM, StockcollectionStock
-    #   ids = chado_session.query(StockcollectionStock.stock_id).distinct(StockcollectionStock.stock_id).all()
-    #   ids = chado_session.query(ORM.organism_id).filter(ORM.stock_id.in_(ids))
+        from ..db_models.chado import Phylotree as ORM
     else:
         return None
-    ids = chado_session.query(ORM.analysis_id).distinct(ORM.analysis_id).all()
-    from biobarcoding.db_models.chado import Analysis
-    ids = chado_session.query(Analysis).filter(Analysis.analysis_id.in_(ids)).all()
-    return ids
+    ids = DBSessionChado.query(ORM.analysis_id).distinct(ORM.analysis_id).subquery()
+    from ..db_models.chado import Analysis
+    return DBSessionChado.query(Analysis).filter(Analysis.analysis_id.in_(ids)).all()
+
+
+def __getAnnotationFormTemplates(type):
+    if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
+        from ..db_models.bioinformatics import Sequence as ORM
+    elif type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
+        from ..db_models.bioinformatics import MultipleSequenceAlignment as ORM
+    elif type == 'phylotree' or type == 'phylotrees':
+        from ..db_models.bioinformatics import PhylogeneticTree as ORM
+    else:
+        return None
+    from ..db_models.sa_annotations import AnnotationFormTemplate, AnnotationTemplate, AnnotationItemFunctionalObject
+    return DBSession.query(AnnotationFormTemplate).join(AnnotationTemplate).join(AnnotationItemFunctionalObject).join(ORM).all()
+
+
+def __getAnnotationFormFields(type):
+    if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
+        from ..db_models.bioinformatics import Sequence as ORM
+    elif type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
+        from ..db_models.bioinformatics import MultipleSequenceAlignment as ORM
+    elif type == 'phylotree' or type == 'phylotrees':
+        from ..db_models.bioinformatics import PhylogeneticTree as ORM
+    else:
+        return None
+    from ..db_models.sa_annotations import AnnotationFormField, AnnotationField, AnnotationItemFunctionalObject
+    return DBSession.query(AnnotationFormField).join(AnnotationField).join(AnnotationItemFunctionalObject).join(ORM).all()
+
+
+def __getAnnotationFields(type):
+    if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
+        from ..db_models.bioinformatics import Sequence as ORM
+    elif type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
+        from ..db_models.bioinformatics import MultipleSequenceAlignment as ORM
+    elif type == 'phylotree' or type == 'phylotrees':
+        from ..db_models.bioinformatics import PhylogeneticTree as ORM
+    else:
+        return None
+    from ..db_models.sa_annotations import AnnotationField, AnnotationItemFunctionalObject
+    import json
+    from ..common import generate_json
+    all = DBSession.query(AnnotationField).join(AnnotationItemFunctionalObject).join(ORM).all()
+    form_fields = dict((i.form_field_id, i.form_field.name) for i in all)
+
+    def _f(x):
+        d = json.loads(generate_json(x))
+        d['form_field'] = form_fields.get(x.form_field_id, '')
+        return d
+
+    return [_f(i) for i in all]
 
 
 def getFilterSchema(type, session):
@@ -132,6 +157,9 @@ def getFilterSchema(type, session):
     kwargs['types'] = __getTypes(type)
     kwargs['cvterms'] = __getCvterms(type)
     kwargs['props'] = __getProps(type)
+    kwargs['annotation_form_templates'] = __getAnnotationFormTemplates(type)
+    kwargs['annotation_form_fields'] = __getAnnotationFormFields(type)
+    kwargs['annotation_fields'] = __getAnnotationFields(type)
     kwargs['dbxref'] = __getDbxref(type)
     kwargs['organisms'] = __getOrganisms(type)
     kwargs['analyses'] = __getAnalyses(type)

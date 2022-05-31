@@ -40,28 +40,43 @@ formly = {'types':
                    'valueProp': 'cvterm_id',
                    'labelProp': 'name',
                }},
-          'cvterms':
-              {'key': 'cvterm_id',
+          'annotation_form_templates':
+              {'key': 'annotation_form_template_id',
                'type': 'select',
                'templateOptions': {
-                   'label': 'Términos',
-                   'placeholder': 'Términos asociados',
+                   'label': 'Plantillas',
+                   'placeholder': 'Plantillas asociados',
                    'multiple': True,
                    'options': [],
-                   'valueProp': 'cvterm_id',
+                   # 'groupProp': 'type',
+                   'groupProp': 'standard',
+                   'valueProp': 'id',
                    'labelProp': 'name',
                }},
-          'props':
-          # TODO: prop-value-selector. how?
-              {'key': 'prop_cvterm_id',
+          'annotation_form_fields':
+              {'key': 'annotation_form_field_id',
+               'type': 'select',
+               'templateOptions': {
+                   'label': 'Campos',
+                   'placeholder': 'Campos asociados',
+                   'multiple': True,
+                   'options': [],
+                   # 'groupProp': 'type',
+                   'groupProp': 'standard',
+                   'valueProp': 'id',
+                   'labelProp': 'name',
+               }},
+          'annotation_fields':
+              {'key': 'annotation_field_id',
                'type': 'select',
                'templateOptions': {
                    'label': 'Propiedades',
                    'placeholder': 'Propiedades asociadas',
                    'multiple': True,
                    'options': [],
-                   'valueProp': 'cvterm_id',
-                   'labelProp': 'name',
+                   'groupProp': 'form_field',
+                   'valueProp': 'id',
+                   'labelProp': 'value',
                }},
           'dbxrefs':
               {'key': 'dbxref_id',
@@ -85,7 +100,7 @@ formly = {'types':
                    'options': [],
                    'groupProp': 'genus',
                    'valueProp': 'organism_id',
-                   'labelProp': 'species',
+                   'labelProp': 'canonical_name',
                }},
           'analyses':
               {'key': 'analysis_id',
@@ -148,9 +163,9 @@ def getJSONFilterSchema(**kwargs):
     schema = []
     for key in kwargs:
         # if there are values for the filter and the filter itself
-        if key in formly:
-            schema.append(__getJSONFilter(key, kwargs[key]))
-        else:
+        if key not in formly:
             schema.append(kwargs[key])
+        elif kwargs.get(key):
+            schema.append(__getJSONFilter(key, kwargs[key]))
     return [x for x in schema if x] + datetime_filter_fields
 

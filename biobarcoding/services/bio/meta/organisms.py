@@ -1,6 +1,7 @@
 from typing import Tuple, List
 
 from . import MetaService
+from ... import log_exception
 from ...main import get_orm
 from ....db_models import DBSession, DBSessionChado
 from ....db_models.metadata import Taxon
@@ -100,9 +101,6 @@ class Service(MetaService):
         if gbif:
             rank = gbif.get('rank', 'unknown').lower()
             values['species'] = values.get('species') or gbif.get(rank)
-            # TODO: if rank is genus or above ? replace genus by rank or leave it
-            # if not values.get('genus') or rank == 'genus':
-            #     values['genus'] = rank
             if not values.get('infraspecific_name') and gbif.get('scientificName'):
                 values['infraspecific_name'] = ' '.join(gbif.get('scientificName').split()[2:]).strip()
             try:
@@ -146,7 +144,9 @@ class Service(MetaService):
                 new['canonical_underscored_name'] = get_canonical_species_names(DBSession, [name], underscores=True)[0] \
                                                     or force_underscored(name)
                 # new['canonical_lineage'] = get_org_lineage(name)
-            except:
+            except Exception as e:
+                print('Error: Additional data could not be attached.')
+                log_exception(e)
                 pass
 
         return new

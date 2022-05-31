@@ -129,7 +129,7 @@ def read_obj_types(id_=None, uuid=None, **kwargs):
         content, count = get_query(DBSession, ObjectType, id=id_, uuid=uuid, **kwargs)
         if id_ or uuid or content.count() == 1:
             content = orm2json(content.first())
-            from biobarcoding.db_models.sysadmin import ObjectTypePermissionType
+            from ..db_models.sysadmin import ObjectTypePermissionType
             perms = DBSession.query(PermissionType).join(ObjectTypePermissionType) \
                 .filter(ObjectTypePermissionType.object_type_id == content.get('id'))
             content['permission_types'] = perms.all()

@@ -1,14 +1,16 @@
 import os.path
 import re
 
+from Bio import SeqIO
+
 from . import BosService
 from ..meta.ontologies import get_type_id
 from ..meta.organisms import Service as OrgService
-from ... import get_orm_params, get_or_create, force_underscored
+from ... import get_orm_params, get_or_create, force_underscored, log_exception
 from ...main import get_orm
 from ....db_models import DBSession
 from ....db_models import DBSessionChado
-from ....db_models.chado import Feature, Organism, StockFeature
+from ....db_models.chado import Organism, StockFeature
 from ....db_models.bioinformatics import Sequence
 from ....rest import filter_parse
 
@@ -25,6 +27,8 @@ class Service(BosService):
         self.db = DBSessionChado
         self.orm = get_orm('sequences')
         self.bos = 'sequence'
+        self.formats = ['clustal', 'embl', 'fasta', 'genbank', 'gb', 'nexus', 'phylip', 'seqxml', 'abi', 'abi-trim', 'ace', 'cif-atom', 'cif-seqres', 'fasta-2line', 'fastq-sanger', 'fastq', 'fastq-solexa', 'fastq-illumina', 'gck', 'ig', 'imgt', 'pdb-seqres', 'pdb-atom', 'phd', 'pir', 'sff', 'sff-trim', 'snapgene', 'stockholm', 'swiss', 'tab', 'qual', 'uniprot-xml', 'xdna']
+        # only write in 'clustal', 'embl', 'fasta', 'fasta-2line', 'fastq-sanger', 'fastq', 'fastq-solexa', 'fastq-illumina', 'genbank', 'gb', 'imgt', 'nexus', 'phd', 'phylip', 'pir', 'seqxml', 'sff', 'stockholm', 'tab', 'qual', 'xdna'
 
     def prepare_values(self, **values):
 
@@ -104,7 +108,9 @@ class Service(BosService):
                 new['uuid'] = str(DBSession.query(Sequence)
                                   .filter(Sequence.native_table == 'feature',
                                           Sequence.native_id == content.feature_id).one().uuid)
-            except:
+            except Exception as e:
+                print('Error: Additional data could not be attached.')
+                log_exception(e)
                 pass
 
         return new
@@ -113,10 +119,10 @@ class Service(BosService):
     # DELETE
     ##
 
-    def after_delete(self, *content, **kwargs):
+    def delete_related(self, *content, **kwargs):
         ids = [seq.feature_id for seq in content]
         query = DBSession.query(Sequence).filter(Sequence.native_id.in_(ids))
-        return query.delete(synchronize_session='fetch')
+        return len([DBSession.delete(row) for row in query.all()])
 
     ##
     # IMPORT
@@ -132,7 +138,7 @@ class Service(BosService):
         if features:
             if isinstance(features, str):
                 features = features.split(',')
-            features = [ {'type': f.split()[-1], 'qualifiers': {f.split()[-1]:f[:-len(f.split()[-1])].strip()}} for f in features ]
+            features = [{'type': f.split()[-1], 'qualifiers': {f.split()[-1]:f[:-len(f.split()[-1])].strip()}} for f in features]
             params['features'] = features if isinstance(features, (tuple, list, set)) else params['features']
             params['molecule_type'] = features[-1]['type']
         elif origin:
@@ -165,19 +171,19 @@ class Service(BosService):
             return None, 0
 
     def import_file(self, infile, format=None, **kwargs):
-        # content, count = [], 0
-        # format = get_bioformat(infile, format)
-        # try:
-        #     from ... import seqs_parser
-        #     for s in seqs_parser(infile, format):
-        #         c, cc = self.bio2chado(s, format, **kwargs)
-        #         content.append(c)
-        #         count += cc
-        #         # issues += [Issue(i.itype, i.message, os.path.basename(infile)) for i in iss]
-        # except Exception as e:
-        #     log_exception(e)
-        #     raise Exception(f'IMPORT sequences: file {os.path.basename(infile)} could not be imported.')
-        # return content, count
+        # try every available format
+        fs = [format] + self.formats if format else self.formats
+        content_file = None
+        for f in fs:
+            try:
+                # check aligned file
+                content_file = next(SeqIO.parse(infile, f))
+            except:
+                continue
+            format = f
+            break
+        if not content_file and not format:
+            raise Exception()
         from ....io.sequences import import_file
         return import_file(infile, format, **kwargs)
 
@@ -190,8 +196,8 @@ class Service(BosService):
         headers = {}
         if format:
             if "organism" in format.lower():    # ('organismID', 'organism', 'organism_canon', 'organism_canon_underscored')
-                orgs = self.db.query(Feature.uniquename, Organism.organism_id, Organism.name) \
-                    .join(Organism).filter(Feature.uniquename.in_([x.uniquename for x in seqs])).all()
+                orgs = self.db.query(self.orm.uniquename, Organism.organism_id, Organism.name) \
+                    .join(Organism).filter(self.orm.uniquename.in_([x.uniquename for x in seqs])).all()
                 from ...species_names import get_canonical_species_names
                 underscored = "underscore" in format.lower()
                 for seq_id, org_id, name in orgs:
@@ -213,8 +219,7 @@ class Service(BosService):
             # TODO: study molecule_type ?, and append taxonomy and features
             annotations = {
                 'molecule_type': 'DNA',
-                'organism': self.db.query(Organism.name)
-                    .filter(Organism.organism_id == seq.organism_id).one()[0]   # hybrid property must be selected
+                'organism': org_service.get_org_name(seq.organism_id)
             }
             records.append(SeqRecord(Seq(seq.residues),
                                      headers.get(seq.uniquename, seq.uniquename),
@@ -225,7 +230,6 @@ class Service(BosService):
 
     def data2file(self, seqs: list, outfile, format: str, values={}, **kwargs) -> int:
         records = self.chado2biopy(seqs, values.pop('header', ''))
-        from Bio import SeqIO
         res = SeqIO.write(records, outfile, format=format)
         if format == "nexus":
             # format datatype=dna missing=? gap=- matchchar=.;
@@ -249,19 +253,19 @@ class Service(BosService):
             from ....db_models.chado import AnalysisFeature
             _ids = self.db.query(AnalysisFeature.feature_id)\
                 .filter(filter_parse(AnalysisFeature, [{'analysis_id': filter.get('analysis_id')}]))
-            clauses.append(Feature.feature_id.in_(_ids))
+            clauses.append(self.orm.feature_id.in_(_ids))
 
         if 'phylotree_id' in filter:
             from ....db_models.chado import Phylonode
             _ids = self.db.query(Phylonode.feature_id)\
                 .filter(filter_parse(Phylonode, [{'phylotree_id': filter.get('phylotree_id')}]))
-            clauses.append(Feature.feature_id.in_(_ids))
+            clauses.append(self.orm.feature_id.in_(_ids))
 
         if "prop_cvterm_id" in filter:
             from ....db_models.chado import Featureprop
             _ids = self.db.query(Featureprop.feature_id)\
                 .filter(filter_parse(Featureprop, [{'type_id': filter.get('prop_cvterm_id')}]))
-            clauses.append(Feature.feature_id.in_(_ids))
+            clauses.append(self.orm.feature_id.in_(_ids))
 
         if "program" in filter:
             from ....db_models.chado import Analysis
@@ -270,7 +274,7 @@ class Service(BosService):
             from ....db_models.chado import AnalysisFeature
             _ids = self.db.query(AnalysisFeature.feature_id) \
                 .filter(AnalysisFeature.analysis_id.in_(_ids))
-            clauses.append(Feature.feature_id.in_(_ids))
+            clauses.append(self.orm.feature_id.in_(_ids))
 
         if "programversion" in filter:
             from ....db_models.chado import Analysis
@@ -279,7 +283,7 @@ class Service(BosService):
             from ....db_models.chado import AnalysisFeature
             _ids = self.db.query(AnalysisFeature.feature_id) \
                 .filter(AnalysisFeature.analysis_id.in_(_ids))
-            clauses.append(Feature.feature_id.in_(_ids))
+            clauses.append(self.orm.feature_id.in_(_ids))
 
         if "algorithm" in filter:
             from ....db_models.chado import Analysis
@@ -288,28 +292,28 @@ class Service(BosService):
             from ....db_models.chado import AnalysisFeature
             _ids = self.db.query(AnalysisFeature.feature_id) \
                 .filter(AnalysisFeature.analysis_id.in_(_ids))
-            clauses.append(Feature.feature_id.in_(_ids))
+            clauses.append(self.orm.feature_id.in_(_ids))
 
         from datetime import datetime
         if "added-from" in filter:
             filter["added-from"]['unary'] = datetime.strptime(filter.get("added-from")['unary'], '%Y-%m-%d')
-            _ids = self.db.query(Feature.feature_id) \
-                .filter(filter_parse(Feature, {'timeaccessioned':filter.get("added-from")}))
-            clauses.append(Feature.feature_id.in_(_ids))
+            _ids = self.db.query(self.orm.feature_id) \
+                .filter(filter_parse(self.orm, {'timeaccessioned':filter.get("added-from")}))
+            clauses.append(self.orm.feature_id.in_(_ids))
         if "added-to" in filter:
             filter["added-to"]['unary'] = datetime.strptime(filter.get("added-to")['unary'], '%Y-%m-%d')
-            _ids = self.db.query(Feature.feature_id) \
-                .filter(filter_parse(Feature, {'timeaccessioned':filter.get("added-to")}))
-            clauses.append(Feature.feature_id.in_(_ids))
+            _ids = self.db.query(self.orm.feature_id) \
+                .filter(filter_parse(self.orm, {'timeaccessioned':filter.get("added-to")}))
+            clauses.append(self.orm.feature_id.in_(_ids))
         if "lastmodified-from" in filter:
             filter["lastmodified-from"]['unary'] = datetime.strptime(filter.get("lastmodified-from")['unary'], '%Y-%m-%d')
-            _ids = self.db.query(Feature.feature_id) \
-                .filter(filter_parse(Feature, {'timelastmodified':filter.get("lastmodified-from")}))
-            clauses.append(Feature.feature_id.in_(_ids))
+            _ids = self.db.query(self.orm.feature_id) \
+                .filter(filter_parse(self.orm, {'timelastmodified':filter.get("lastmodified-from")}))
+            clauses.append(self.orm.feature_id.in_(_ids))
         if "lastmodified-to" in filter:
             filter["lastmodified-to"]['unary'] = datetime.strptime(filter.get("lastmodified-to")['unary'], '%Y-%m-%d')
-            _ids = self.db.query(Feature.feature_id) \
-                .filter(filter_parse(Feature, {'timelastmodified':filter.get("lastmodified-to")}))
-            clauses.append(Feature.feature_id.in_(_ids))
+            _ids = self.db.query(self.orm.feature_id) \
+                .filter(filter_parse(self.orm, {'timelastmodified':filter.get("lastmodified-to")}))
+            clauses.append(self.orm.feature_id.in_(_ids))
 
         return clauses + super(Service, self).aux_filter(filter)

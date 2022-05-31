@@ -1,6 +1,6 @@
 from . import MetaService
 from ...main import get_orm
-from ....db_models import DBSessionChado
+from ....db_models import DBSessionChado, DBSession
 
 
 ##
@@ -10,6 +10,17 @@ class Service(MetaService):
 
     def __init__(self):
         super(Service, self).__init__()
+        self.db = DBSession
+        self.orm = get_orm('collections')
+
+
+##
+# CHADO STOCK COLLECTION SERVICE
+##
+class StockCollService(MetaService):
+
+    def __init__(self):
+        super(StockCollService, self).__init__()
         self.db = DBSessionChado
         self.orm = get_orm('collections')
 
@@ -22,7 +33,7 @@ class Service(MetaService):
             from .ontologies import get_type_id
             values['type_id'] = get_type_id(type=values.get('type', 'stockcoll'))
 
-        return super(Service, self).check_values(**values)
+        return super(StockCollService, self).check_values(**values)
 
     def aux_filter(self, filter):
         from ....rest import filter_parse
@@ -81,4 +92,4 @@ class Service(MetaService):
         #         .filter(filter_parse(self.orm, {'timeexecuted':filter.get("added-to")}))
         #     clauses.append(self.orm.stockcollection_id.in_(_ids))
 
-        return clauses + super(Service, self).aux_filter(filter)
+        return clauses + super(StockCollService, self).aux_filter(filter)
