@@ -321,6 +321,9 @@ class n_session(object):
                     # - Impersonate header is set
                     # - Current user can impersonate (e.g. celery_user)
                     # - Operation is read-only
+                    # Example:
+                    #   curl --cookie-jar app-cookies.txt -X PUT "$API_BASE_URL/authn?user=celery_user"
+                    #   curl --cookie app-cookies.txt "$API_BASE_URL/geo/layers/" -H "Impersonated-id: 30"
                     if 'Impersonated-id' in request.headers and identity_can_impersonate(ident) and self.read_only:
                         g.n_session.original_identity_id = g.n_session.identity_id
                         g.n_session.identity_id = request.headers['Impersonated-id']
