@@ -324,7 +324,7 @@ def generate_export_cmd(file_dict: dict, tmp_path: str, job_executor, jc):
 
     if with_filter:
         curl = (f"curl --cookie-jar {cookies_file_path} --cookie {cookies_file_path} -X GET -d \'{selection_json}\' "
-                f"-H \'Impersonated-id: {jc.identity_id}\'"    
+                f"-H \'Impersonated-id: {jc.identity_id}\' "    
                 f"-H \'Content-Type:application/json\' {url} -o \'{tmp_path}\'")
         return (f"(nohup bash -c &quot;{curl}&quot; >>{job_executor.log_filenames_dict['export_stdout']} "
                 f"</dev/null 2>>{job_executor.log_filenames_dict['export_stderr']} & echo $!; wait $!; "
