@@ -1,4 +1,3 @@
-import os.path
 import re
 
 from Bio import SeqIO
@@ -86,7 +85,7 @@ class Service(BosService):
         return stock_bind
 
     def after_create(self, new_object, **values):
-        super(Service, self).after_create(new_object, **values)
+        values = super(Service, self).after_create(new_object, **values)
 
         stock = self.seq_stock(new_object, **values)
         # seq to bcs
@@ -94,24 +93,29 @@ class Service(BosService):
                                 native_id=new_object.feature_id,
                                 native_table='feature',
                                 name=new_object.uniquename)
+
         return values
 
     ##
     # READ
     ##
 
-    def attach_data(self, content):
-        new = super(Service, self).attach_data(content)
+    def attach_data(self, *content):
+        new = super(Service, self).attach_data(*content)
 
-        if new:
-            try:
-                new['uuid'] = str(DBSession.query(Sequence)
-                                  .filter(Sequence.native_table == 'feature',
-                                          Sequence.native_id == content.feature_id).one().uuid)
-            except Exception as e:
-                print('Error: Additional data could not be attached.')
-                log_exception(e)
-                pass
+        _ids = [_['feature_id'] for _ in new]
+        seqs = [None] * len(new)
+        try:
+            from sqlalchemy.sql.expression import case
+            _ord = case({_id: index for index, _id in enumerate(_ids)},
+                        value=Sequence.native_id)   # TODO test order
+            seqs = DBSession.query(Sequence).filter(Sequence.native_table == 'feature',
+                                                    Sequence.native_id.in_(_ids)).order_by(_ord).all()
+        except Exception as e:
+            print('Error: Additional data could not be attached.')
+            log_exception(e)
+        for i, _ in enumerate(new):
+            _['uuid'] = str(seqs[i].uuid)
 
         return new
 
@@ -125,7 +129,7 @@ class Service(BosService):
         return len([DBSession.delete(row) for row in query.all()])
 
     ##
-    # IMPORT
+    # DEPRECATED IMPORT
     ##
 
     def simpleSeq2chado(self, seq, **params):
@@ -170,22 +174,17 @@ class Service(BosService):
             # return [Issue(IType.ERROR, f'IMPORT sequences: {seq.id} could not be imported.')]
             return None, 0
 
+    ##
+    # IMPORT
+    ##
+
+    def read_infile(self, file, _format) -> any:
+        return next(SeqIO.parse(file, _format))
+
     def import_file(self, infile, format=None, **kwargs):
-        # try every available format
-        fs = [format] + self.formats if format else self.formats
-        content_file = None
-        for f in fs:
-            try:
-                # check aligned file
-                content_file = next(SeqIO.parse(infile, f))
-            except:
-                continue
-            format = f
-            break
-        if not content_file and not format:
-            raise Exception()
+        content_file, _format = self.check_infile(infile, format)
         from ....io.sequences import import_file
-        return import_file(infile, format, **kwargs)
+        return import_file(infile, _format, **kwargs)
 
     ##
     # EXPORT

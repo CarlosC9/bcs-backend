@@ -1,5 +1,3 @@
-from typing import Tuple, List
-
 from . import MetaService
 from ... import log_exception
 from ...main import get_orm
@@ -17,7 +15,7 @@ def get_taxonomic_ranks(rank):
     return CvtermService().read(cv='taxonomic_rank', cvterm=rank)[0]
 
 
-def split_org_name(name: str) -> Tuple[str, str, str]:
+def split_org_name(name: str) -> (str, str, str):
     # split a full name
     genus = species = ssp = ''
     n_split = name.split()
@@ -39,9 +37,9 @@ def build_org_name(**values):
     return org.strip()
 
 
-def get_org_lineage(*org) -> list:
+def get_orgs_lineages(*orgs) -> list:
     from ...species_names import get_canonical_species_lineages
-    return [t['canonicalName'] for t in get_canonical_species_lineages(DBSession, org)[0]]
+    return [[t['canonicalName'] for t in la] for la in get_canonical_species_lineages(DBSession, orgs)]
 
 
 ##
@@ -113,7 +111,8 @@ class Service(MetaService):
 
         return values
 
-    def after_create(self, new_object, **kwargs):
+    def after_create(self, new_object, **values):
+        values = super(Service, self).after_create(new_object, **values)
 
         # org to bcs
         from ... import get_or_create
@@ -123,31 +122,43 @@ class Service(MetaService):
             pass
 
         from .taxonomies import insert_taxon
-        insert_taxon(organism_id=new_object.organism_id, **kwargs)
+        insert_taxon(organism_id=new_object.organism_id, **values)
 
-        return new_object
+        return values
 
     ##
     # READ
     ##
 
-    def attach_data(self, content):
-        new = super(Service, self).attach_data(content)
+    def attach_data(self, *content) -> list:
+        new = super(Service, self).attach_data(*content)
 
-        if new:
-            try:
-                name = " ".join([new['genus'], new['species'], new['infraspecific_name'] or '']).strip()
-                from ... import force_underscored
-                from ...species_names import get_canonical_species_names
-                new['name'] = name
-                new['canonical_name'] = get_canonical_species_names(DBSession, [name])[0] or name
-                new['canonical_underscored_name'] = get_canonical_species_names(DBSession, [name], underscores=True)[0] \
-                                                    or force_underscored(name)
-                # new['canonical_lineage'] = get_org_lineage(name)
-            except Exception as e:
-                print('Error: Additional data could not be attached.')
-                log_exception(e)
-                pass
+        from ... import force_underscored
+        from ...species_names import get_canonical_species_names
+        names = [" ".join([_['genus'], _['species'], _['infraspecific_name'] or '']).strip() for _ in new]
+        c_names = cu_names = lineages = [None] * len(names)
+        try:
+            c_names = get_canonical_species_names(DBSession, names)
+        except Exception as e:
+            print('Warning: Canonical species names could not be retrieved.')
+            log_exception(e)
+        try:
+            cu_names = get_canonical_species_names(DBSession, names, underscores=True)
+        except Exception as e:
+            print('Warning: Canonical underscored species names could not be retrieved.')
+            log_exception(e)
+        # try:
+        #     # TODO: must be cached
+        #     lineages = get_orgs_lineages(*c_names)
+        # except Exception as e:
+        #     print('Warning: Species lineages could not be retrieved.')
+        #     log_exception(e)
+
+        for i, _ in enumerate(new):
+            _['name'] = names[i]
+            _['canonical_name'] = c_names[i] or names[i]
+            _['canonical_underscored_name'] = cu_names[i] or force_underscored(names[i])
+            # _['canonical_lineage'] = lineages[i] or []
 
         return new
 

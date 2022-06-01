@@ -36,7 +36,7 @@ class Service(FormItemService):
         return super(Service, self).prepare_external_values(**values)
 
     def after_create(self, new_object, **values):
-        super(Service, self).after_create(new_object, **values)
+        values = super(Service, self).after_create(new_object, **values)
 
         if values.get('field_id'):
             if isinstance(values['field_id'], (tuple, list, set)):
@@ -59,7 +59,7 @@ class Service(FormItemService):
         return values
 
     def after_update(self, new_object, **values):
-        super(Service, self).after_update(new_object, **values)
+        values = super(Service, self).after_update(new_object, **values)
 
         if values.get('field_id') is not None:
             if isinstance(values['field_id'], (tuple, list, set)):

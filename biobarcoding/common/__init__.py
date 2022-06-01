@@ -139,6 +139,8 @@ def create_dictionary(case_sens=True, multi_dict=False, data=dict()):
 def _json_serial(obj):
     """JSON serializer for objects not serializable by default json code"""
     from datetime import datetime
+    from uuid import UUID
+    from ..db_models.jobs import StatusEnum
 
     if isinstance(obj, datetime):
         serial = obj.isoformat()
@@ -149,7 +151,9 @@ def _json_serial(obj):
         return int(obj)
     elif isinstance(obj, pandas.DataFrame):
         return obj.to_dict("records")
-    elif isinstance(obj, uuid.UUID):
+    elif isinstance(obj, UUID):
+        return str(obj)
+    elif isinstance(obj, StatusEnum):
         return str(obj)
     elif hasattr(obj, "Schema"):
         return getattr(obj, "Schema")().dump(obj)  # "marshmallow"
