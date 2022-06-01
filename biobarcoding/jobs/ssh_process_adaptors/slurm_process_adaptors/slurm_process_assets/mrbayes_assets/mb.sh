@@ -13,7 +13,7 @@ then
 fi
 
 
-python3 mb_template_writer.py  "$input_tree_cmd" $nst $rates $taxons_select $ngen $nchains $samplefreq $filename $burninfrac
+python3 mb_template_writer.py $nst $rates $taxons_select $ngen $nchains $samplefreq $filename $burninfrac
 srun mpirun --oversubscribe -np $cpus_per_task mb mb_batch.nex
 for f in *.t; do
   mv -- "$f" "${f%.t}_phylotrees.t"

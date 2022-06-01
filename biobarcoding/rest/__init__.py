@@ -407,6 +407,7 @@ tm_job_mgmt_types = {
     "0292821a-dd33-450a-bdd8-813b2b95c456": "ssh",
     "02f44e54-f139-4ea0-a1bf-fe27054c0d6c": "slurm",
     "fc1fb247-6b76-420c-9c48-f69f154cbe1d": "ebi",
+    "7ece7ead-4de9-436f-a12d-86350129e444": "cipres",
 }
 
 tm_processes = {  # Preloaded processes

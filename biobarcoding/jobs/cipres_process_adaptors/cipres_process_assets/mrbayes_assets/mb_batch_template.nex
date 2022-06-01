@@ -1,6 +1,4 @@
 begin mrbayes;
-   set autoclose=yes nowarn=yes;
-   execute aln.nexus;
    lset nst=$nst rates=$rates;
    outgroup $taxons_select;
    mcmc nruns=1 ngen=$ngen nchains=$nchains samplefreq=$samplefreq filename=$filename burninfrac=$burninfrac;

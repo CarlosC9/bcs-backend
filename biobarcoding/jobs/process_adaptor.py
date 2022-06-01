@@ -10,6 +10,13 @@ class ProcessAdaptor(abc.ABC):
     def adapt_job_context(self, job_context):
         raise NotImplementedError
 
+    def parse_dict_env_variables(self, d: dict):
+        env_variables = ""
+        for key, value in d.items():
+            env_variables += f"{key}={value} "
+        return env_variables.rstrip()
+
+
 
 class ProcessAdaptorFactory:
 
@@ -21,6 +28,8 @@ class ProcessAdaptorFactory:
             process_adaptor = self._get_ssh_process_adaptor(process_id)
         elif jm_type == "slurm":
             process_adaptor = self._get_slurm_process_adaptor(process_id)
+        elif jm_type == "cipres":
+            process_adaptor = self._get_cipres_process_adaptor(process_id)
         return process_adaptor
 
     def _get_ssh_process_adaptor(self, process_id):
@@ -73,3 +82,14 @@ class ProcessAdaptorFactory:
             slurm_process_adaptor = SlurmBlastProcessAdaptor()
 
         return slurm_process_adaptor
+
+    def _get_cipres_process_adaptor(self, process_id):
+        cipres_process_adaptor = None
+        if tm_processes[process_id] == "Mr Bayes":
+            from biobarcoding.jobs.cipres_process_adaptors.CipresMrBayesProcessAdaptor import CipresMrBayesProcessAdaptor
+            cipres_process_adaptor = CipresMrBayesProcessAdaptor()
+        elif tm_processes[process_id] == "MAFFT":
+            from biobarcoding.jobs.cipres_process_adaptors.CipresMafftProcessAdaptor import CipresMafftProcessAdaptor
+            cipres_process_adaptor = CipresMafftProcessAdaptor()
+
+        return cipres_process_adaptor

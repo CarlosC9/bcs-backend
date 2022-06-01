@@ -24,7 +24,7 @@ class SlurmMAFFTProcessAdaptor(SlurmProcessAdaptor):
         mafft_parameters['cpus_per_task'] = hpc_parameters['cpus_per_task']
         mafft_parameters['ntasks'] = hpc_parameters['ntasks']
 
-        return mafft_parameters
+        return self.parse_dict_env_variables(mafft_parameters)
 
     def get_results_files_list(self, process_parameters):
         return [

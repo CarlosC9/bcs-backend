@@ -54,15 +54,18 @@ wf1 = {
     },
     "export": {
         "": "transfer_data",
-        "cancel": "cleanup"
+        "cancel": "cleanup",
+        "manage_error": "manage_error"
     },
     "transfer_data": {
         "": "submit",
-        "cancel": "cleanup"
+        "cancel": "cleanup",
+        "manage_error": "manage_error"
     },
     "submit": {
         "cancel": "cleanup",
-        "": "wait_until_execution_starts"
+        "": "wait_until_execution_starts",
+        "manage_error": "manage_error"
     },
     "wait_until_execution_starts": {
         "": "wait_for_execution_end",
@@ -81,7 +84,7 @@ wf1 = {
     },
     "store_result_in_backend": {
         "": "cleanup",
-        "manage_error": "error",
+        "manage_error": "manage_error",
         "cancel": "cancel"
     },
     "cleanup": {
@@ -91,6 +94,7 @@ wf1 = {
     },
     "manage_error": {
         "": "store_result_in_backend",
+        "error": "error"
     }
     # "success"
     # "error"
@@ -152,9 +156,9 @@ def change_status_or_cancel_if_requested(jc, job_status, cancel_task_function):
 def kill_process(pid):
     if pid:
         try:
-            os.kill(int(pid), signal.SIGTERM)
+            os.system(f"kill -9 -- -$(ps -p {pid} -o pgid=)")
         except Exception as e:
-            logger.error(e)
+            print(e)
             traceback.print_exc()
 
 
@@ -188,7 +192,7 @@ def can_execute_job(job_id):
     try:
         d = json.loads(_)
     except JSONDecodeError as e:
-        logger.error(e)
+        print(e)
         return False
     if d.get("content"):
         _ = d["content"]
@@ -207,7 +211,7 @@ def write_to_file(filename, s):
         with open(filename, "a+") as f:
             f.write(s + "\r\n")
     except:
-        logger.debug(f"Warning: could not write '{s}' to file '{filename}'")
+        print(f"Warning: could not write '{s}' to file '{filename}'")
 
 
 celery_user = "celery_user"
@@ -242,7 +246,7 @@ def check_file_is_stored_in_backend(check_url):
     try:
         process_return_dict = json.loads(_)
     except JSONDecodeError as e:
-        logger.error(e)
+        print(e)
         return False
     if process_return_dict.get("content"):
         return process_return_dict["content"].get("size") != 0
@@ -269,6 +273,7 @@ def remove_local_workspace(local_workspace, result_files=None):
 
 def local_workspace_exists(local_workspace, result_files=None):
     _ = os.path.exists(local_workspace)
+    print(_)
     return _
     # cleaned = True
     # result_filenames = [os.path.basename(f["file"]) for f in result_files]
@@ -283,18 +288,20 @@ def local_workspace_exists(local_workspace, result_files=None):
 
 
 def write_to_universal_log_and_truncate(step_stdout, step_stderr, universal_log):
-    stdout_file = open(step_stdout, 'r+')
-    stderr_file = open(step_stderr, 'r+')
-    stdout = stdout_file.read()
-    stderr = stderr_file.read()
-    stdout_file.truncate(0)
-    stderr_file.truncate(0)
-    stdout_file.close()
-    stderr_file.close()
+    exists = os.path.exists
+    if exists(step_stdout) and exists(step_stderr):
+        stdout_file = open(step_stdout, 'r+')
+        stderr_file = open(step_stderr, 'r+')
+        stdout = stdout_file.read()
+        stderr = stderr_file.read()
+        stdout_file.truncate(0)
+        stderr_file.truncate(0)
+        stdout_file.close()
+        stderr_file.close()
 
-    step_log = f"\n{stdout}\nAPP_STDERR\n{stderr}APP_STDERR\n"
-    with open(universal_log, "a+") as universal_log_file:
-        universal_log_file.write(step_log)
+        step_log = f"\n{stdout}\nAPP_STDERR\n{stderr}APP_STDERR\n"
+        with open(universal_log, "a+") as universal_log_file:
+            universal_log_file.write(step_log)
 
 
 def generate_export_cmd(file_dict: dict, tmp_path: str, job_executor, jc):
@@ -305,11 +312,12 @@ def generate_export_cmd(file_dict: dict, tmp_path: str, job_executor, jc):
     selection = file_dict['selection']
     queryParams = file_dict['queryParams']
     with_filter = False
+    selection_json: str = "{}"
     if type(selection) == dict:  # Get with filter
-        selection_json: str = json.dumps(selection)
+        selection_json = json.dumps(selection)
         with_filter = True
     elif type(selection) == DottedDict:  # Get with filter
-        selection_json: str = d2s(selection)
+        selection_json = d2s(selection)
         with_filter = True
     url = ""
     if "bos" in object_type.keys() and object_type['bos'] == 'sequences':
@@ -356,7 +364,7 @@ def export(file_dict, job_executor, jc) -> object:
     logger.debug(cmd)
     popen_pipe = os.popen(cmd)
     pid = popen_pipe.readline().rstrip()
-    logger.debug(f"PID: {pid}")
+    print(f"PID: {pid}")
     return pid
 
 
@@ -364,7 +372,7 @@ def import_(file_dict, job_executor, jc):
     endpoint = get_global_configuration_variable("ENDPOINT_URL")
     cookies_file_path = get_global_configuration_variable("COOKIES_FILE_PATH")
     local_path = os.path.join(job_executor.local_workspace, file_dict["file"])
-    logger.debug(file_dict)
+    print(file_dict)
     api_login()
     if "autoimport" in file_dict and file_dict["autoimport"]:
         file_dict["metadata"]["job_id"] = jc.job_id
@@ -378,6 +386,9 @@ def import_(file_dict, job_executor, jc):
                        f"-F \"metadata={metadata};type=application/json\" " \
                        f"{endpoint}{app_api_base}/geo/layers/"
             check_url = f"{endpoint}{app_api_base}/geo/layers/job{jc.job_id}"
+        else:
+            curl_cmd = f"echo 'Error in import_ in definitions.py' >> {job_executor.log_filenames_dict['store_stderr']} ; exit 1"
+            check_url = f""
     else:
         curl_cmd = (f"curl -s --cookie-jar {cookies_file_path} --cookie {cookies_file_path} " +
                     f"-H \"Content-Type: {file_dict['content_type']}\" -XPUT --data-binary @\"{local_path}\" " +
@@ -386,10 +397,10 @@ def import_(file_dict, job_executor, jc):
     cmd = (f"(nohup bash -c '{curl_cmd} ' >>{job_executor.log_filenames_dict['store_stdout']} " +
            f"</dev/null 2>>{job_executor.log_filenames_dict['store_stderr']} & echo $!; wait $!; " +
            f"echo $? >> {job_executor.local_workspace}/$!.exit_status)")
-    logger.debug(cmd)
+    print(cmd)
     popen_pipe = os.popen(cmd)
     pid = popen_pipe.readline().rstrip()
-    logger.debug(f"PID: {pid}")
+    print(f"PID: {pid}")
     return pid, dict(check_url=check_url)
 
 
@@ -402,12 +413,12 @@ def is_file_exported(input_file):
             if not re.search(r'\b<!DOCTYPE HTML PUBLIC\b', file_content):
                 return True
             else:
-                logger.warning(f"{input_file} is a html file")
+                print(f"{input_file} is a html file")
                 return False
         except:
             return True  # If the search cannot be performed, it is a binary file, OK
     else:
-        logger.warning(f"{input_file} does not exists")
+        print(f"{input_file} does not exists")
         return False
 
 
@@ -440,6 +451,7 @@ def transfer_task(task_name,
     if not change_status_or_cancel_if_requested(jc,
                                                 task_name,
                                                 partial(kill_process, jc.get("pid"))):
+        del jc.state_dict
         return "cancel", d2s(jc)
 
     state = jc.get("state_dict")
@@ -460,11 +472,11 @@ def transfer_task(task_name,
     # Files to process
     files = files_function(jc, job_executor)
     file_dict = files[i] if i < len(files) else dict(file="", remote_name="", type="")
-    logger.debug(file_dict)
+    print(file_dict)
 
     if not job_executor.check():
         error_str = "Connection to the server has been lost"
-        logger.error(error_str)
+        print(error_str)
         write_to_file(job_executor.log_filenames_dict[f"{logs_prefix}_stderr"], error_str)
         write_to_universal_log_and_truncate(job_executor.log_filenames_dict[f"{logs_prefix}_stdout"],
                                             job_executor.log_filenames_dict[f"{logs_prefix}_stderr"],
@@ -481,7 +493,7 @@ def transfer_task(task_name,
         jc.error = error_str
         return "manage_error", d2s(jc)
     elif i == len(files):  # Task finished
-        logger.debug(f"{task_name} finished")
+        print(f"{task_name} finished")
         write_to_file(job_executor.log_filenames_dict[f"{logs_prefix}_stdout"],
                       f"{task_name} finished successfully")
         write_to_universal_log_and_truncate(job_executor.log_filenames_dict[f"{logs_prefix}_stdout"],
@@ -492,16 +504,16 @@ def transfer_task(task_name,
         # jc.results.append(dict(remote_name="", file=log_file, content_type="text/plain", type="log"))
         return d2s(jc)
     elif job_executor.step_status(jc) == "running":  # TASK is being executed
-        logger.debug(f"{task_name} executing")
+        print(f"{task_name} executing")
         return 1, d2s(jc)
     elif job_executor.step_status(jc) == "":  # ERROR job_executor.step_status(jc) == "ok" for "store_result_in_backend"
-        logger.debug(f"{task_name} error: File {i + 1}")
+        print(f"{task_name} error: File {i + 1}")
         jc.pid = None
         return None, d2s(jc)
     elif check_action_function(jc, job_executor):
-        logger.debug(f"File {file_dict['remote_name']} {task_name}ed -> Moving to next. Attempt: {n_attempts}")
+        print(f"File {file_dict['remote_name']} {task_name}ed -> Moving to next.")
         write_to_file(job_executor.log_filenames_dict[f"{logs_prefix}_stdout"],
-                      f"File {file_dict['remote_name']} {logs_prefix}ed -> Moving to next. Attempt: {n_attempts + 1}")
+                      f"File {file_dict['remote_name']} {logs_prefix}ed -> Moving to next.")
         write_to_universal_log_and_truncate(job_executor.log_filenames_dict[f"{logs_prefix}_stdout"],
                                             job_executor.log_filenames_dict[f"{logs_prefix}_stderr"],
                                             job_executor.log_filenames_dict["universal_log"])
@@ -513,7 +525,7 @@ def transfer_task(task_name,
         jc.state_dict = dict(idx=i + 1, n_attempts=0, state=task_name)
         return None, d2s(jc)
     else:  # TRANSFER file i
-        logger.debug(f"Begin {task_name} {i + 1}: {file_dict['remote_name']}. Attempt: {n_attempts + 1}")
+        print(f"Begin {task_name} {i + 1}: {file_dict['remote_name']}. Attempt: {n_attempts + 1}")
         write_to_file(job_executor.log_filenames_dict[f"{logs_prefix}_stdout"],
                       f"Begin {task_name} {i + 1}: {file_dict['remote_name']}. Attempt: {n_attempts + 1}")
         write_to_universal_log_and_truncate(job_executor.log_filenames_dict[f"{logs_prefix}_stdout"],
@@ -543,7 +555,6 @@ def wf1_prepare_workspace(job_context):
     :return:
     """
     jc = s2d(job_context)
-
     # Before proceeding with this and next tasks, check if execution must be contained,
     # wait 5 seconds if that is the case and return here
     if jc.status == "created":
@@ -552,15 +563,13 @@ def wf1_prepare_workspace(job_context):
             return "manage_error", d2s(jc)
         elif not res:
             return 5, job_context
-
     job_executor = JobExecutorAtResourceFactory().get(jc)
     if not change_status_or_cancel_if_requested(jc, "preparing_workspace", None):
-        return "cancel", job_context
-
+        del jc.state_dict
+        return "cancel", d2s(jc)
     state = jc.get("state_dict")
 
-    logging.debug(f"Prepare state: {state}")
-
+    print(f"Prepare state: {state}")
     if state:  # ya ha empezado el prepare
         n_attempts = state.n_attempts
     else:
@@ -569,7 +578,6 @@ def wf1_prepare_workspace(job_context):
                       "#" * 25 + " PREPARE WORKSPACE STEP " + "#" * 25)
         open(job_executor.log_filenames_dict["prepare_stderr"], "x")
         jc.state_dict = dict(n_attempts=n_attempts, state="prepare")
-
     if not job_executor.check():  # No connection to the compute resource
         error_str = "Connection to the server has been lost"
         jc.error = error_str
@@ -579,6 +587,7 @@ def wf1_prepare_workspace(job_context):
                                             job_executor.log_filenames_dict["universal_log"])
         return "manage_error", d2s(jc)
     elif n_attempts >= MAX_ATTEMPTS:  # Maximum number of
+        print("aqui 8")
         jc.error = f"It was impossible to prepare the working directory of Job {jc.job_id}." + \
                    f"Maybe it could be due to some disk space or credentials issue."
         write_to_file(job_executor.log_filenames_dict["prepare_stderr"], jc.error)
@@ -587,7 +596,7 @@ def wf1_prepare_workspace(job_context):
                                             job_executor.log_filenames_dict["universal_log"])
         return "manage_error", d2s(jc)
     elif job_executor.job_workspace_exists() or job_executor.job_workspace_exists() is None:
-        logger.info("Job workspace created")
+        print("Job workspace created")
         # None when the job is executed in localhost
         write_to_file(job_executor.log_filenames_dict["prepare_stdout"], f"Job {jc.job_id} workspace prepared")
         write_to_universal_log_and_truncate(job_executor.log_filenames_dict["prepare_stdout"],
@@ -630,7 +639,7 @@ def wf1_export_to_supported_file_formats(job_context: str):
                               after_action_function=after_export,
                               files_function=lambda job_context, job_executor: job_context.process.inputs.data,
                               log_msg=" EXPORT TO SUPPORTED FILE FORMATS STEP ")
-    logger.debug(f"RET: {ret_tuple}")
+    print(f"RET: {ret_tuple}")
     return ret_tuple
 
 
@@ -682,8 +691,9 @@ def wf1_submit(job_context: str):
 
     if not change_status_or_cancel_if_requested(jc,
                                                 "submit",
-                                                partial(job_executor.cancel_job, jc.get("pid"))):
-        return "cancel", job_context
+                                                None):
+        del jc.state_dict
+        return "cancel", d2s(jc)
 
     write_to_file(job_executor.log_filenames_dict["submit_stdout"], "#" * 25 + " SUBMIT STEP " + "#" * 25)
     with open(job_executor.log_filenames_dict["submit_stderr"], "x"):
@@ -711,35 +721,48 @@ def wf1_wait_until_execution_starts(job_context: str):
     if not change_status_or_cancel_if_requested(jc,
                                                 "wait_until_execution_starts",
                                                 partial(job_executor.cancel_job, jc.get("pid"))):
-        return "cancel", job_context
+        del jc.state_dict
+        return "cancel", d2s(jc)
 
-    jc.state_dict = dict(state="submit", substep="wait_until_execution_starts")
+    state = jc.get("state_dict")
+
+    if state.get('n_attempts'):  # transfer already started
+        n_attempts = state['n_attempts']
+    else:
+        jc.state_dict = dict(state="submit", substep="wait_until_execution_starts", n_attempts=0)
+        n_attempts = 0
     if not job_executor.check():
         error_str = "Connection to the server has been lost"
         write_to_file(job_executor.log_filenames_dict["submit_stderr"], error_str)
         write_to_universal_log_and_truncate(job_executor.log_filenames_dict["submit_stdout"],
                                             job_executor.log_filenames_dict["submit_stderr"],
                                             job_executor.log_filenames_dict["universal_log"])
-        logger.error(error_str)
+        print(error_str)
         jc.error = error_str
         return "manage_error", d2s(jc)
+
     status = job_executor.step_status(jc)
     write_to_file(CELERY_LOG, f"wait_until_execution_starts: status: {status}")
     if isinstance(status, dict) or status == "":
-        if status != "":
-            jc.process.error = status
-            error_str = f"The process failed to start with status: {status}."
+        if n_attempts < 3:
+            jc.state_dict['n_attempts'] += 1
+            return 20, d2s(jc)
         else:
-            error_str = "The process failed to start."
-        logger.error(error_str)
-        write_to_file(job_executor.log_filenames_dict["submit_stderr"], json.dumps(error_str))
-        write_to_universal_log_and_truncate(job_executor.log_filenames_dict["submit_stdout"],
-                                            job_executor.log_filenames_dict["submit_stderr"],
-                                            job_executor.log_filenames_dict["universal_log"])
-        jc.error = error_str
-        return 'manage_error', d2s(jc)
+            if status != "":
+                jc.process.error = status
+                error_str = f"The process failed to start with status: {status}."
+            else:
+                error_str = "The process failed to start."
+            print(error_str)
+            write_to_file(job_executor.log_filenames_dict["submit_stderr"], json.dumps(error_str))
+            write_to_universal_log_and_truncate(job_executor.log_filenames_dict["submit_stdout"],
+                                                job_executor.log_filenames_dict["submit_stderr"],
+                                                job_executor.log_filenames_dict["universal_log"])
+            jc.error = error_str
+            return 'manage_error', d2s(jc)
     elif status == 'running' or status == 'ok':
-        return job_context
+        jc.pop('n_attempts', None)
+        return d2s(jc)
     else:
         # waiting until start of the job
         return 3, job_context
@@ -761,14 +784,15 @@ def wf1_wait_for_execution_end(job_context: str):
     if not change_status_or_cancel_if_requested(jc,
                                                 "wait_for_execution_end",
                                                 partial(job_executor.cancel_job, jc.get("pid"))):
-        return "cancel", job_context
+        del jc.state_dict
+        return "cancel", d2s(jc)
 
     jc.state_dict = dict(state="submit", substep="wait_for_execution_end")
     status = job_executor.step_status(jc)
     write_to_file(CELERY_LOG, f"wait_for_execution_end: status: {status}")
     if not job_executor.check():
         error_str = "Connection to the server has been lost"
-        logger.error(error_str)
+        print(error_str)
         write_to_file(job_executor.log_filenames_dict["submit_stderr"], error_str)
         write_to_universal_log_and_truncate(job_executor.log_filenames_dict["submit_stdout"],
                                             job_executor.log_filenames_dict["submit_stderr"],
@@ -778,7 +802,7 @@ def wf1_wait_for_execution_end(job_context: str):
     elif isinstance(status, dict):
         jc.process.error = status
         write_to_file(job_executor.log_filenames_dict["submit_stderr"], json.dumps(status))
-        return 'error', d2s(jc)
+        return 'manage_error', d2s(jc)
     elif status == 'ok':
         del jc.state_dict
         write_to_file(job_executor.log_filenames_dict["submit_stdout"],
@@ -793,7 +817,7 @@ def wf1_wait_for_execution_end(job_context: str):
         write_to_universal_log_and_truncate(job_executor.log_filenames_dict["submit_stdout"],
                                             job_executor.log_filenames_dict["submit_stderr"],
                                             job_executor.log_filenames_dict["universal_log"])
-        return 'error', job_context
+        return 'manage_error', job_context
     else:
         return 3, job_context
 
@@ -866,7 +890,10 @@ def wf1_cleanup_workspace(job_context: str):
     :param job_context:
     :return:
     """
-    logger.debug("cleanup 1 ----------")
+
+    jc = s2d(job_context)
+    return "error", d2s(jc)
+    '''
     jc = s2d(job_context)
     job_executor = JobExecutorAtResourceFactory().get(jc, create_local_workspace=False)
 
@@ -876,7 +903,7 @@ def wf1_cleanup_workspace(job_context: str):
 
     state = jc.get("state_dict")
 
-    logger.debug(f"Cleanup state: {state}")
+    print(f"Cleanup state: {state}")
     result_files = jc.results
 
     if state:  # ya ha empezado el prepare
@@ -889,18 +916,17 @@ def wf1_cleanup_workspace(job_context: str):
     if not job_executor.check():
         error_str = "Connection to the server has been lost"
         write_to_file(job_executor.log_filenames_dict["cleanup_stderr"], error_str)
-        logger.error(error_str)
+        print(error_str)
         jc.error = error_str
         return "error", d2s(jc)
-    elif n_attempts >= MAX_ATTEMPTS:
+    elif n_attempts >= MAX_ATTEMPTS * 2:  # *2 because first we delete remote workspace and then local workspace:
         error_str = f"It was impossible to remove the working directory of Job {jc['job_id']}." + \
                     f"Maybe it could be due to some disk space or credentials issue."
         jc.error = error_str
         # write_to_file(job_executor.log_filenames_dict["cleanup_stderr"], error_str)
-        logger.error(error_str)
+        print(error_str)
         return "error", d2s(jc)
-    elif ((not job_executor.job_workspace_exists()) and
-          (not local_workspace_exists(job_executor.local_workspace, result_files))):
+    elif not local_workspace_exists(job_executor.local_workspace, result_files):  # if local workspace is deleted, then remote workspace is also deleted
         del jc.state_dict
         write_to_file(CELERY_LOG, f"cleanup:")
         if jc.get("cleanup_error"):
@@ -910,17 +936,20 @@ def wf1_cleanup_workspace(job_context: str):
         else:
             return d2s(jc)  # Jump to default task (should be "success")
     else:
+        remote_workspace_exists = job_executor.job_workspace_exists()
         # MAIN !!!
         try:
             job_executor.remove_job_workspace()
         except:
             traceback.print_exc()
         try:
-            remove_local_workspace(job_executor.local_workspace, result_files)
+            if not remote_workspace_exists:  # maybe to remove the remote workspace we need local workspace info
+                remove_local_workspace(job_executor.local_workspace, result_files)
         except:
             traceback.print_exc()
         jc.state_dict = dict(n_attempts=n_attempts + 1)
-        return None, d2s(jc)
+        
+        return None, d2s(jc)'''
 
 
 @celery_app.task(name="success", ack_late=ack_late_idempotent_tasks)
@@ -952,13 +981,9 @@ def wf1_manage_error(job_context: str):
     jc = s2d(job_context)
     refresh_status(jc, "manage_error")
     call_app_entity_status_callback(jc, "manage_error")
-
-    # job_executor = JobExecutorAtResourceFactory().get(jc)
-    # jc.results = clean_failed_results(jc.results, job_executor.local_workspace)
-    jc.results = []
     jc.cleanup_error = True
+    jc.results = []
     del jc.state_dict  # needed to store to work
-
     return d2s(jc)
 
 
