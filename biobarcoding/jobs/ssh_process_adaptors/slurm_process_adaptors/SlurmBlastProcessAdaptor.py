@@ -23,7 +23,7 @@ class SlurmBlastProcessAdaptor(SlurmProcessAdaptor):
         hpc_parameters = process_parameters["hpc_parameters"]
         blast_parameters['cpus_per_task'] = hpc_parameters['cpus_per_task']
 
-        return blast_parameters
+        return self.parse_dict_env_variables(blast_parameters)
 
     def get_results_files_list(self, process_parameters):
         return [

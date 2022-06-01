@@ -1,5 +1,6 @@
 import os
 import requests
+import subprocess
 from python_cipres import client as cipres
 from datetime import datetime
 
@@ -38,10 +39,13 @@ class MyJobStatus(cipres.JobStatus):
             # Override note: adding final stage in message to self.myJobStage
             last_date = None
             for m in xml.find("messages"):
-                date = datetime.strptime(m.find("timestamp").rsplit("-", 1)[0], "%Y-%m-%dT%H:%M:%S")
+                date = datetime.strptime(m.find("timestamp").text.rsplit("-", 1)[0], "%Y-%m-%dT%H:%M:%S")
                 if last_date is None or date > last_date:
                     last_date = date
-                    self.myJobStage = m.find("stage")
+                    self.myJobStage = m.find("stage").text
+                    print("-----------------TESTING JOB STAGE-----------------")
+                    print(m)
+                    print(self.myJobStage)
                 self.messages.append("%s: %s" % (m.find("timestamp").text, m.find("text").text))
         if xml.find("metadata") is not None:
             for e in xml.find("metadata").findall("entry"):
@@ -57,9 +61,9 @@ cipres.JobStatus = MyJobStatus
 class JobExecutorWithCipres(JobExecutorAtResource):
 
     JOB_STATES_DICT = {
-        'QUEUE': "wait_until_start",
-        'COMMANDRENDERING': "wait_until_start",
-        'INPUTSTAGING': "wait_until_start",
+        'QUEUE': "running",
+        'COMMANDRENDERING': "running",
+        'INPUTSTAGING': "running",
         'SUBMITTED': "running",
         'LOAD_RESULTS': "running",
         'COMPLETED': "ok"
@@ -85,7 +89,7 @@ class JobExecutorWithCipres(JobExecutorAtResource):
         self.appID = resource_params["jm_credentials"]['appID']
 
     def check(self):
-        return requests.head(self.base_url) == 200
+        return requests.head(self.base_url).status_code == 200
 
     def connect(self):
         os.environ["URL"] = self.base_url
@@ -104,28 +108,34 @@ class JobExecutorWithCipres(JobExecutorAtResource):
         """In cipres there is no remote workspace per se. This function should return True, if the job
         hasn't been submitted or if the job has terminated and it has been deleted from CIPRES."""
         if os.path.exists(os.path.join(self.local_workspace, "job_handle.txt")):
-            with open(os.path.join(self.local_workspace, "job_handle.txt", "r")) as f:
+            with open(os.path.join(self.local_workspace, "job_handle.txt"), "r") as f:
                 job_handle = f.read()
-                for job_status in self.cipres_client.listJobs(job_handle):
-                    if job_status.jobHandle == job_handle:
-                        return False
+            cmd = f"curl -s -i -u {self.username}:{self.password} -H cipres-appkey:{self.appID} " +\
+                  f"{self.base_url}/job/{self.username}/{job_handle} | grep 'Job not found'"
+            result = subprocess.run(cmd, shell=True)
+            print(cmd)
+            print(result.returncode)
+            return result.returncode == 1
 
         return True
 
     def remove_job_workspace(self):
         """In CIPRES there is no remote workspace per se. This function delete the job records from CIPRES"""
         if os.path.exists(os.path.join(self.local_workspace, "job_handle.txt")):
-            with open(os.path.join(self.local_workspace, "job_handle.txt", "r")) as f:
+            with open(os.path.join(self.local_workspace, "job_handle.txt"), "r") as f:
                 job_handle = f.read()
-            job_status = self.cipres_client.getjobStatus(job_handle)
-            job_status.delete()
+            cmd = f"curl -u {self.username}:{self.password} -H cipres-appkey:{self.appID} " + \
+                  f"-X DELETE {self.base_url}/job/{self.username}/{job_handle}"
+            r = subprocess.run(cmd, shell=True)
+            print(cmd)
+            print(r)
 
     def exists(self, job_context):
         i = job_context["state_dict"]["idx"]
         if job_context["state_dict"]["state"] == "upload":
             filename = self.get_upload_files_list(job_context)[i].get("remote_name")
         else:
-            filename = self.get_download_files_list(job_context)[i].get("remote_name")
+            filename = self.get_download_files_list(job_context)[i].get("file")
         path = os.path.join(self.local_workspace, filename)
         return os.path.exists(path)
 
@@ -146,15 +156,18 @@ class JobExecutorWithCipres(JobExecutorAtResource):
     def download_file(self, job_context):
         i = job_context["state_dict"]["idx"]
         if os.path.exists(os.path.join(self.local_workspace, "job_handle.txt")):
-            with open(os.path.join(self.local_workspace, "job_handle.txt", "r")) as f:
+            with open(os.path.join(self.local_workspace, "job_handle.txt"), "r") as f:
                 job_handle = f.read()
         else:
             return ""
-        job_status = self.cipres_client.getjobStatus(job_handle)
+        job_status = self.cipres_client.getJobStatus(job_handle)
+        print("------------------------TESTING DOWNLOAD----------------------------")
+        print(job_status.listResults())
         filename = self.get_download_files_list(job_context)[i]["file"]
-        file_url = job_status.listResults()[filename].getUrl()
-        cmd = (f"(nohup curl -u {self.username}:{self.password} -H cipres-appkey:{self.appID} " +
-               f"-O -J --output-dir {self.local_workspace} {file_url}"
+        remote_filename = self.get_download_files_list(job_context)[i]["remote_name"]
+        file_url = job_status.listResults()[remote_filename].getUrl()
+        cmd = (f"(nohup curl -o {self.local_workspace}/{filename} -u {self.username}:{self.password} " +
+               f"-H cipres-appkey:{self.appID} -O -J {file_url}"
                f">>{self.log_filenames_dict['download_stdout']} </dev/null 2>>{self.log_filenames_dict['download_stderr']} " +
                f"& echo $!; wait $!; echo $? >> {self.local_workspace}/$!.exit_status)")
 
@@ -166,13 +179,19 @@ class JobExecutorWithCipres(JobExecutorAtResource):
 
     def submit(self, process):
         params = process["inputs"]["adapted_parameters"]
-        script_file = params[CipresProcessAdaptor.SCRIPT_KEY][0]["remote_name"],
+        script_file = params[CipresProcessAdaptor.SCRIPT_KEY][0]["remote_name"]
         script_params = params[CipresProcessAdaptor.SCRIPT_PARAMS_KEY]
+        credentials = f"username={self.username} base_url={self.base_url} password={self.password} appID={self.appID} app_name={self.app_name} "
+        print("--------------------------------- SUBMIT ------------------------------------")
+        print(script_params)
+        env_variables = credentials + script_params
+        print("------------------------------------------------------")
+        print(env_variables)
         cmd = (
                 f"cd {self.local_workspace} && chmod +x {script_file} &> /dev/null " +
-                f"; (nohup {script_file} {self.base_url} {self.username} {self.password} {self.appID} {self.app_name} {script_params} " +
-                f">/{self.local_workspace}/{os.path.basename(self.logs_dict['submit_stdout'])} " +
-                f"</dev/null 2>/{self.local_workspace}/{os.path.basename(self.logs_dict['submit_stderr'])}" +
+                f"&& export {env_variables} && (cd {self.local_workspace} && nohup ./{script_file} " +
+                f">/{self.local_workspace}/{os.path.basename(self.LOG_FILENAMES_DICT['submit_stdout'])} " +
+                f"</dev/null 2>/{self.local_workspace}/{os.path.basename(self.LOG_FILENAMES_DICT['submit_stderr'])}" +
                 f"& echo $!; wait $!; echo $? >> {self.local_workspace}/$!.exit_status)")
 
         print(repr(cmd))
@@ -196,15 +215,22 @@ class JobExecutorWithCipres(JobExecutorAtResource):
                 status = self.local_job_status(pid)
                 if status == "ok":
                     if os.path.exists(os.path.join(self.local_workspace, "job_handle.txt")):
-                        with open(os.path.join(self.local_workspace, "job_handle.txt", "r")) as f:
+                        with open(os.path.join(self.local_workspace, "job_handle.txt"), "r") as f:
                             job_handle = f.read()
-                        job_status = self.cipres_client.getjobStatus(job_handle)
-                        if job_status.isError:
+                        job_status = self.cipres_client.getJobStatus(job_handle)
+                        '''if job_status.isError:
+                            print("aqui")
+                            print(job_status.myJobStage)
+                            print(job_status.jobStage)
                             status = ""
                         elif job_status.isDone:
+                            print("aqui 2")
                             status = "ok"
-                        else:
-                            status = self.JOB_STATES_DICT[job_status.myJobStage]
+                        else:'''
+                        print("aqui 3")
+                        print(job_status.myJobStage)
+                        print(job_status.jobStage)
+                        status = self.JOB_STATES_DICT[job_status.jobStage]
                         if status == "ok" or status == "":
                             self.write_remote_logs(job_context["state_dict"], job_status)
                     else:
@@ -251,9 +277,9 @@ class JobExecutorWithCipres(JobExecutorAtResource):
     def cancel_job(self, native_id):
         os.kill(native_id)
         if os.path.exists(os.path.join(self.local_workspace, "job_handle.txt")):
-            with open(os.path.join(self.local_workspace, "job_handle.txt", "r")) as f:
+            with open(os.path.join(self.local_workspace, "job_handle.txt"), "r") as f:
                 job_handle = f.read()
-            job_status = self.cipres_client.getjobStatus(job_handle)
+            job_status = self.cipres_client.getJobStatus(job_handle)
             job_status.delete()
 
     def get_upload_files_list(self, job_context):

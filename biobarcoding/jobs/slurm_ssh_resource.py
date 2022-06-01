@@ -1,5 +1,7 @@
 import os
 
+import psutil
+
 from .ssh_resource import RemoteSSHClient, JobExecutorWithSSH
 from .. import get_global_configuration_variable
 
@@ -52,10 +54,9 @@ class RemoteSlurmClient(RemoteSSHClient):
         time = f"--time={hpc_parameters['time']}" if 'time' in hpc_parameters else ""#TODO hablar lo del PENDING
         '''time_min = f"--time-min={hpc_parameters['time_min']}" if 'time_min' in hpc_parameters else ""
         tmp = f"--tmp={hpc_parameters['tmp']}" if 'tmp' in hpc_parameters else ""'''
-        process_parameters = ""
-        for key, value in script_params['process_parameters'].items():
-            process_parameters += f"{key}={value},"
-        process_parameters = process_parameters[:-1] #remove last comma
+
+        process_parameters = script_params['process_parameters']
+
         cmd = (
                 f"ssh {self.SSH_OPTIONS} {self.username}@{self.host} \"cd {self.remote_workspace} " +
                 f"&& sbatch {ntasks} {cpus_per_task} {cpus_per_gpu} {gpus} {priority} " +
@@ -67,17 +68,16 @@ class RemoteSlurmClient(RemoteSSHClient):
         print(repr(cmd))
         popen_pipe = os.popen(cmd)
         pid = popen_pipe.readline().strip()
-        self.last_job_remotely = True
         print(f"PID: {pid}")
         return pid
 
     async def remote_command_status(self, native_job_id):
         """
         Get Job status
-        @param pid: Job ID of the process to check status
+        @param native_job_id: Job ID of the process to check status
         @return: String defining satus of the pid. "running", "ok" and "" for error.
         """
-        cmd = f"ssh {self.SSH_OPTIONS} {self.username}@{self.host} \"scontrol show job {pid}\" | grep 'JobState' | sed 's/=/ /' | awk '{{print $2}}'"
+        cmd = f"ssh {self.SSH_OPTIONS} {self.username}@{self.host} \"scontrol show job {native_job_id}\" | grep 'JobState' | sed 's/=/ /' | awk '{{print $2}}'"
         popen_pipe = os.popen(cmd)
         job_state = popen_pipe.readline().strip()
         if job_state != '':
@@ -93,10 +93,11 @@ class RemoteSlurmClient(RemoteSSHClient):
         @param pid: Job ID to kill
         """
         if pid is not None and pid != "":
-            if self.last_job_remotely:
+            last_job_remotely = psutil.pid_exists(int(pid))
+            if last_job_remotely:
                 os.system(f"ssh {self.username}@{self.host} 'scancel {pid}'")
             else:
-                os.system(f"kill -9 {pid}")
+                os.system(f"kill -9 -- -$(ps -p {pid} -o pgid=)")
         else:
             print("No command has been executed")
 

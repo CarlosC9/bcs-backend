@@ -1,7 +1,7 @@
 
 import sys
 
-argument_names = ['input_tree_cmd', 'nst', 'rates', 'taxons_select', 'ngen', 'nchains', 'samplefreq', 'filename', 'burninfrac']
+argument_names = ['nst', 'rates', 'taxons_select', 'ngen', 'nchains', 'samplefreq', 'filename', 'burninfrac']
 
 def main(argv):
     with open('mb_batch_template.nex', 'r') as f:

@@ -1,38 +1,40 @@
 import os
 import sys
-import json
 
-argument_names = ['start_phylotree', 'nst', 'rates', 'taxons_select', 'ngen', 'nchains', 'samplefreq', 'filename', 'burninfrac']
+argument_names = ['nst', 'rates', 'taxons_select', 'ngen', 'nchains', 'samplefreq', 'filename', 'burninfrac']
 
 def write_template(argv):
     #Read alignment
     with open('aln.nexus', 'r') as f:
         alignment = f.read()
 
-    if argv[0] == "true":  #if guide tree is used
-        with open('start_phylotree.nexus', 'r') as f:
-            tree = f.read()
-            tree = tree.replace("#NEXUS", "")
+    with open('mb_batch_template.nex', 'r') as f:
+        template = f.read()
 
-    for i in range(1, len(argv)):
+    for i in range(len(argv)):
         template = template.replace(f"${argument_names[i]}", argv[i])
 
-    final_script = f"{alignment}\n{tree}\n{template}"
+    final_script = f"{alignment}\n{template}"
     print(final_script)
     with open('mb_batch.nex', 'w') as f:
         f.write(final_script)
 
 if __name__ == "__main__":
-    write_template(sys.argv[6:])
-    infile = os.path.join(os.path.realpath(__file__), "mb_batch.nex")
+    write_template(sys.argv[6:14])
+    infile = os.path.join(os.path.dirname(__file__), "mb_batch.nex")
     inputParams = {"infile_": infile}
+    print(sys.argv)
     vParams = {
-        "toolId": "MRBAYES_XSEDE",
-        "runtime_": 0.5,
+        "tool": "MRBAYES_XSEDE",
+        "runtime_": float(sys.argv[15]) / 60,
         "mrbayesblockquery_": 1,
-        "nchains_specified_": sys.argv[11],
-        "nruns_specified_": 4,
+        "nchains_specified_": sys.argv[10],
+        "nruns_specified_": 1,
         "set_beagle_params_": 1,
     }
-    cmd = f"python3 submit_cipres.py {' '.join(sys.argv[1:6])} \"{json.dumps(vParams)}\" \"{json.dumps(inputParams)}\""
-    sys
+    print("-----------INPUT PARAMS--------------")
+    print(inputParams)
+    print("-----------V PARAMS--------------")
+    print(vParams)
+    from submit_cipres import submit_cipres
+    submit_cipres(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5], vParams, inputParams)

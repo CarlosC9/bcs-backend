@@ -1,4 +1,4 @@
 #!/bin/bash
 
 
-python3 mb.py $1 $2 $3 $4 $5 $6 $7 $8 $9 ${10} ${11} ${12} ${13} ${14} ${15}
+python3 mb.py $base_url $username $password $appID $app_name $nst $rates $taxons_select $ngen $nchains $samplefreq $filename $burninfrac $cpus_per_task $time
