@@ -30,13 +30,13 @@ class Service(MetaService):
 
         return super(Service, self).check_values(**values)
 
-    def after_create(self, stock, **values):
-        super(Service, self).after_create(stock, **values)
+    def after_create(self, new_object, **values):
+        values = super(Service, self).after_create(new_object, **values)
 
         s = get_or_create(DBSession, Specimen,
-                          # native_id=stock.stock_id,
+                          # native_id=new_object.stock_id,
                           # native_table='stock',
-                          name=stock.uniquename)
+                          name=new_object.uniquename)
 
         return values
 

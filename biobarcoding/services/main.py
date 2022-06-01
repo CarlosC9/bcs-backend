@@ -2,9 +2,8 @@ import json
 import os.path
 
 from flask import g
-from typing import Tuple
 
-from . import log_exception, get_bioformat, get_orm_params, get_query
+from . import log_exception, get_orm_params, get_query
 from ..rest import Issue, IType
 from ..db_models import ORMBase, DBSession
 
@@ -208,6 +207,7 @@ class BasicService:
     def __init__(self):
         self.orm = ORMBase
         self.db = DBSession
+        self.formats = []
 
     ##
     # CREATE
@@ -226,7 +226,7 @@ class BasicService:
         return get_orm_params(self.orm, **values)
 
     # deal with the creation
-    def create(self, **kwargs) -> Tuple[any, int]:
+    def create(self, **kwargs) -> (object, int):
         values = self.prepare_values(**kwargs)
         from sqlalchemy.exc import SQLAlchemyError
         try:
@@ -242,8 +242,8 @@ class BasicService:
         return content, 1
 
     # any additional creation if any
-    def after_create(self, new_object, **values):
-        return new_object
+    def after_create(self, new_object, **values) -> dict:
+        return values
 
     ##
     # READ
@@ -251,24 +251,24 @@ class BasicService:
 
     # read like get_query, but telling if it asks only for one or more. It can use get_query
     # @return: result, total_count
-    def read(self, **kwargs) -> Tuple[any, int]:
+    def read(self, **kwargs) -> (any, int):
         content, count = self.get_query(purpose='read', **kwargs)
         if kwargs.get('id'):
-            content = self.attach_data(content.first())
+            content = self.attach_data(content.one())[0]
         else:
-            content = [self.attach_data(c) for c in content.all()]
+            content = self.attach_data(*content.all())
         return content, count
 
     # any additional read if any
-    def attach_data(self, content):
+    def attach_data(self, *content) -> list:
         try:
             import json
             from ..common import generate_json
-            return json.loads(generate_json(content))
+            return [json.loads(generate_json(c)) for c in content]
         except Exception as e:
             print('Error: The row could not be jsonify for attachment.')
             log_exception(e)
-            return None
+            return []
 
     ##
     # GET SQLALCHEMY QUERY
@@ -276,7 +276,7 @@ class BasicService:
 
     # provide a sqlalchemy query (might be paged) and the total_count
     # @return: Query, total_count
-    def get_query(self, query=None, id=None, purpose='delete', **kwargs) -> Tuple[object, int]:
+    def get_query(self, query=None, id=None, purpose='delete', **kwargs) -> (object, int):
         return get_query(self.db, self.orm, query or self.pre_query(purpose), id,
                          aux_filter=self.aux_filter, aux_order=self.aux_order, **kwargs)
 
@@ -297,7 +297,7 @@ class BasicService:
     ##
 
     # deal with the update
-    def update(self, values={}, **kwargs) -> Tuple[any, int]:
+    def update(self, values={}, **kwargs) -> (any, int):
         changes = self.prepare_values(**values)
         content, count = self.get_query(purpose='contribute', **kwargs)
         foreign_changes = self.prepare_external_values(**values)
@@ -312,15 +312,15 @@ class BasicService:
         return content, count
 
     # any additional update if any
-    def after_update(self, new_object, **values):
-        return new_object
+    def after_update(self, new_object, **values) -> dict:
+        return values
 
     ##
     # DELETE
     ##
 
     # deal with the delete
-    def delete(self, **kwargs) -> Tuple[any, int]:
+    def delete(self, **kwargs) -> (any, int):
         content, count = self.get_query(purpose='delete', **kwargs)
         content = content.all()
         self.delete_related(*content, **kwargs)
@@ -338,29 +338,33 @@ class BasicService:
     ##
 
     # verify that a given file is the data it pretend to be
-    def check_file(self, file, format) -> bool:
-        return True
+    def read_infile(self, file, _format) -> any:
+        return file
 
-    def import_file(self, infile, format=None, **kwargs) -> Tuple[any, int]:
+    # figure out the format for a given file
+    def check_infile(self, file, _format) -> (any, str):
+        return self.read_infile(file, _format), _format
+
+    def import_file(self, infile, format=None, **kwargs) -> (any, int):
         """
-        format = get_bioformat(file, format)
-        self.check_file(file, format)
-        values = self.prepare_values(**kwargs)
+        content_file, _format = self.check_infile(file, format)
+        # values = self.prepare_values(**kwargs)
+        content = self.create(**kwargs)
+        c, count = self.file2data(content_file, **kwargs)
+        return content, count
         """
-        # create required rows ?
-        # file2db ?
         return None, 0
 
     ##
     # EXPORT
     ##
 
-    def prepare_export(self, outfile=None, format=None, **kwargs) -> Tuple[str, str]:
+    def prepare_export(self, outfile=None, _format=None) -> (str, str):
         from flask import current_app
         from werkzeug.utils import secure_filename
         from biobarcoding import app_acronym
         outfile = os.path.join(current_app.config['UPLOAD_FOLDER'], secure_filename(outfile or f'output_{app_acronym}'))
-        return outfile, format
+        return outfile, _format
 
     def data2file(self, data: list, outfile, format: str, **kwargs) -> int:
         # TODO: check that the format is in self.formats ?
@@ -368,8 +372,8 @@ class BasicService:
             json.dump(data, wf)
         return len(data)
 
-    def export_file(self, outfile=None, format=None, **kwargs) -> Tuple[any, int]:
-        outfile, format = self.prepare_export(outfile=outfile, format=format)
+    def export_file(self, outfile=None, format=None, **kwargs) -> (str, int):
+        outfile, _format = self.prepare_export(outfile, format)
         query, count = self.get_query(purpose='export', **kwargs)
-        count = self.data2file(query.all(), outfile, format, **kwargs)
+        count = self.data2file(query.all(), outfile, _format, **kwargs)
         return outfile, count

@@ -20,9 +20,15 @@ class Service(MetaService):
     def prepare_values(self, **values):
 
         if values.get('job_id'):
-            values['sourcename'] = values.get('job_id')
+            from ....db_models.jobs import Job
+            job = DBSession.query(Job).filter(Job.id == values.get('job_id')).one()
+            # DBSession:Process
+            values['programname'] = job.process_id
+            values['programversion'] = job.process.name
+            # DBSession:Job
+            values['sourcename'] = job.id
             values['sourceversion'] = 'job'
-            values['sourceuri'] = f'/jobs/{values.get("job_id")}'
+            values['sourceuri'] = f'/jobs/{job.id}'
 
         return super(Service, self).prepare_values(**values)
 
