@@ -104,18 +104,18 @@ class Service(BosService):
         new = super(Service, self).attach_data(*content)
 
         _ids = [_['feature_id'] for _ in new]
-        seqs = [None] * len(new)
+        seqs = {}
         try:
-            from sqlalchemy.sql.expression import case
-            _ord = case({_id: index for index, _id in enumerate(_ids)},
-                        value=Sequence.native_id)   # TODO test order
-            seqs = DBSession.query(Sequence).filter(Sequence.native_table == 'feature',
-                                                    Sequence.native_id.in_(_ids)).order_by(_ord).all()
+            # from sqlalchemy.sql.expression import case
+            # _ord = case({_id: index for index, _id in enumerate(_ids)},
+            #             value=Sequence.native_id)   # TODO test order
+            seqs = dict(DBSession.query(Sequence.native_id, Sequence.uuid)
+                        .filter(Sequence.native_id.in_(_ids)).all())
         except Exception as e:
             print('Error: Additional data could not be attached.')
             log_exception(e)
-        for i, _ in enumerate(new):
-            _['uuid'] = str(seqs[i].uuid)
+        for _ in new:
+            _['uuid'] = str(seqs.get(_['feature_id'], ''))
 
         return new
 
