@@ -890,7 +890,7 @@ def wf1_cleanup_workspace(job_context: str):
     :param job_context:
     :return:
     """
-
+    '''
     jc = s2d(job_context)
     return "error", d2s(jc)
     '''
@@ -949,7 +949,7 @@ def wf1_cleanup_workspace(job_context: str):
             traceback.print_exc()
         jc.state_dict = dict(n_attempts=n_attempts + 1)
         
-        return None, d2s(jc)'''
+        return None, d2s(jc)
 
 
 @celery_app.task(name="success", ack_late=ack_late_idempotent_tasks)
