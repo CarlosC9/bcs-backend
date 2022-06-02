@@ -265,7 +265,7 @@ class StatusChecker(ORMBase):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(GUID, unique=True, default=uuid.uuid4)
-    name = Column(String(32), nullable=False)
+    name = Column(String(50), nullable=False)
     type = Column(String(32), nullable=False)   # pg, redis, ssh, compute-resources
     url = Column(String(80))
     resource_id = Column(Integer, ForeignKey(ComputeResource.id), nullable=True, primary_key=False)
