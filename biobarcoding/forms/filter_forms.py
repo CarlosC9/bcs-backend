@@ -25,6 +25,11 @@ def __getCvterms(type):
         from ..db_models.chado import AnalysisCvterm as ORM
     elif type == 'individual' or type == 'individuals' or type == 'stock' or type == 'stocks':
         from ..db_models.chado import StockCvterm as ORM
+    elif type == 'annotation_form_template' or type == 'annotation_form_templates' \
+            or type == 'annotation_form_field' or type == 'annotation_form_fields':
+        from ..db_models.sa_annotations import AnnotationFormItem as ORM
+        ids = DBSession.query(ORM.cvterm_id).distinct(ORM.cvterm_id).all()
+        return DBSessionChado.query(Cvterm).filter(Cvterm.cvterm_id.in_(ids)).all()
     else:
         return None
     ids = DBSessionChado.query(ORM.cvterm_id).distinct(ORM.cvterm_id).subquery()
@@ -47,6 +52,7 @@ def __getProps(type):
 
 
 def __getDbxref(type):
+    from ..db_models.chado import Dbxref
     if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
         from ..db_models.chado import Feature as ORM
     elif type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
@@ -55,10 +61,14 @@ def __getDbxref(type):
         from ..db_models.chado import Phylotree as ORM
     elif type == 'individual' or type == 'individuals' or type == 'stock' or type == 'stocks':
         from ..db_models.chado import Stock as ORM
+    elif type == 'annotation_form_template' or type == 'annotation_form_templates' \
+            or type == 'annotation_form_field' or type == 'annotation_form_fields':
+        from ..db_models.sa_annotations import AnnotationFormItem as ORM
+        ids = DBSession.query(ORM.dbxref_id).distinct(ORM.dbxref_id).all()
+        return DBSessionChado.query(Dbxref).filter(Dbxref.dbxref_id.in_(ids)).all()
     else:
         return None
     ids = DBSessionChado.query(ORM.dbxref_id).distinct(ORM.dbxref_id).subquery()
-    from ..db_models.chado import Dbxref
     return DBSessionChado.query(Dbxref).filter(Dbxref.dbxref_id.in_(ids)).all()
 
 
@@ -110,6 +120,9 @@ def __getAnnotationFormTemplates(type):
         from ..db_models.bioinformatics import MultipleSequenceAlignment as ORM
     elif type == 'phylotree' or type == 'phylotrees':
         from ..db_models.bioinformatics import PhylogeneticTree as ORM
+    elif type == 'annotation_form_field' or type == 'annotation_form_fields':
+        from ..db_models.sa_annotations import AnnotationFormTemplate, AnnotationFormTemplateField as ORM
+        return DBSession.query(AnnotationFormTemplate).join(ORM).all()
     else:
         return None
     from ..db_models.sa_annotations import AnnotationFormTemplate, AnnotationTemplate, AnnotationItemFunctionalObject
@@ -123,6 +136,9 @@ def __getAnnotationFormFields(type):
         from ..db_models.bioinformatics import MultipleSequenceAlignment as ORM
     elif type == 'phylotree' or type == 'phylotrees':
         from ..db_models.bioinformatics import PhylogeneticTree as ORM
+    elif type == 'annotation_form_template' or type == 'annotation_form_templates':
+        from ..db_models.sa_annotations import AnnotationFormField, AnnotationFormTemplateField as ORM
+        return DBSession.query(AnnotationFormField).join(ORM).all()
     else:
         return None
     from ..db_models.sa_annotations import AnnotationFormField, AnnotationField, AnnotationItemFunctionalObject
@@ -139,17 +155,18 @@ def __getAnnotationFields(type):
     else:
         return None
     from ..db_models.sa_annotations import AnnotationField, AnnotationItemFunctionalObject
+    _all = DBSession.query(AnnotationField).join(AnnotationItemFunctionalObject).join(ORM).all()
+    form_fields = dict((i.form_field_id, i.form_field.name) for i in _all)
+
     import json
     from ..common import generate_json
-    all = DBSession.query(AnnotationField).join(AnnotationItemFunctionalObject).join(ORM).all()
-    form_fields = dict((i.form_field_id, i.form_field.name) for i in all)
 
     def _f(x):
         d = json.loads(generate_json(x))
         d['form_field'] = form_fields.get(x.form_field_id, '')
         return d
 
-    return [_f(i) for i in all]
+    return [_f(i) for i in _all]
 
 
 def getFilterSchema(type, session):
@@ -173,6 +190,10 @@ def getFilterSchema(type, session):
         kwargs['algorithms'] = [dict(t) for t in {tuple(p.items()) for p in kwargs['algorithms']}]
         if type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
             kwargs['analyses'] = []
+    elif type.startswith("annotation_form_"):
+        from ..db_models.sa_annotations import AnnotationFormItem
+        kwargs['standards'] = [{'label': i, 'value': i} for i, in
+                               DBSession.query(AnnotationFormItem.standard).distinct(AnnotationFormItem.standard).all()]
     elif type == "geoprocesses_instances":  # Process instances
         kwargs["status"] = {
             'key': 'status',
