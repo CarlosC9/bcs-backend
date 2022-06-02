@@ -1,6 +1,10 @@
 flask==1.1.2
 Flask_Session>=0.4.0
 Flask_Cors==3.0.8
+# TODO remove when flask is updated
+Jinja2==3.0.3
+itsdangerous==2.0.1
+werkzeug==2.0.3
 
 pronto>=2.3.1
 
