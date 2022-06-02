@@ -516,49 +516,52 @@ def initialize_dwc_forms():
 
 	# Turn list of lists into dataframe
 	terms_df = pd.DataFrame(term_lists, columns=column_list)
+	terms_df = terms_df[terms_df.term_deprecated != 'true']		# TODO: store and manage deprecated terms ?
 
 	# This makes sort case insensitive
 	terms_sorted_by_localname = terms_df.iloc[terms_df.term_localName.str.lower().argsort()]
 
 	# # To organize in categories, the display_order list must contain the IRIs that are values of tdwgutility_organizedInClass
-	# # display_order = ['', 'http://purl.org/dc/elements/1.1/', 'http://purl.org/dc/terms/', 'http://rs.tdwg.org/dwc/terms/attributes/UseWithIRI']
-	# # display_label = ['Record level', 'Dublin Core legacy namespace', 'Dublin Core terms namespace', 'IRI-value terms']
-	# display_order = []
-	# display_label = []
+	# display_order = ['', 'http://purl.org/dc/elements/1.1/', 'http://purl.org/dc/terms/', 'http://rs.tdwg.org/dwc/terms/attributes/UseWithIRI']
+	# display_label = ['Record level', 'Dublin Core legacy namespace', 'Dublin Core terms namespace', 'IRI-value terms']
+	category_order = list(set(terms_df.tdwgutility_organizedInClass))
+	_ = [i.rsplit('/', 1) for i in category_order]
+	category_label = [i[-1] for i in _]
+	_ = [(i[0]+'/', i[-1]) for i in _]
+	groups_df = terms_df[terms_df[['vann_preferredNamespaceUri', 'term_localName']].apply(tuple, axis=1).isin(_)]
+	groups = set(category_label)
 
 	print('\n > Creating Darwin Core templates')
 
 	print('**Classes**')
-	groups = set(terms_df['tdwgutility_organizedInClass'])
-	for g in sorted(groups):
-		uri = g.rsplit('/', 1)
-		df_tmp = terms_df[terms_df['term_localName'] == uri[-1]]
-		if len(df_tmp) == 1:
-			row = df_tmp.head(1).to_dict(orient='records')[0]
-			print('creating template', row.get('label'))
-			__create_by_service(template_service, **__dwc_term2annotation(**row))
-			# display_order.append(g)
-			# display_label.append(uri[-1])
+	classes = set(terms_df[terms_df.rdf_type.str.endswith('rdf-schema#Class')]['term_localName'])
+	templates = classes.intersection(groups)
+	# TODO: what to do?
+	#  not_templates = classes.difference(groups)
+	#  free_fields = groups.difference(classes)
+	for row_index, row in groups_df.iterrows():
+		print('creating template', row.get('label'))
+		uri = row['vann_preferredNamespaceUri'] + row['term_localName']
+		curie = row['vann_preferredNamespacePrefix'] + ":" + row['term_localName']
+		print('[' + curie + '](#' + curie.replace(':', '_') + ')\n' + uri)
+		__create_by_service(template_service, **__dwc_term2annotation(**row))
 
 	print('\n > Creating Darwin Core fields')
 
-	for row_index, row in terms_sorted_by_localname.iterrows():
-		# print('creating field', row.get('label'))
-		__create_by_service(field_service, **__dwc_term2annotation(**row))
+	for i in range(0, len(category_order)):
+		print('\n**' + category_label[i] + '** (' + category_order[i] + ')')
+		filtered_table = terms_sorted_by_localname[terms_sorted_by_localname['tdwgutility_organizedInClass'] == category_order[i]]
+		filtered_table.reset_index(drop=True, inplace=True)
 
-	# for category in range(0, len(display_order)):
-	# 	print('**' + display_label[category] + '**')
-	# 	filtered_table = terms_sorted_by_localname[terms_sorted_by_localname['tdwgutility_organizedInClass'] == display_order[category]]
-	# 	filtered_table.reset_index(drop=True, inplace=True)
-	#
-	# 	for row_index, row in filtered_table.iterrows():
-	# 		if row['rdf_type'] != 'http://www.w3.org/2000/01/rdf-schema#Class':
-	# 			curie = row['vann_preferredNamespacePrefix'] + ":" + row['term_localName']
-	# 			curie_anchor = curie.replace(':', '_')
-	# 			uri = row['vann_preferredNamespaceUri'] + row['term_localName']
-	# 			print('[' + curie + '](#' + curie_anchor + ')')
-	# 		else:
-	# 			print()
+		for row_index, row in filtered_table.iterrows():
+			# print('creating field', row.get('label'))
+			# uri = row['vann_preferredNamespaceUri'] + row['term_localName']
+			# curie = row['vann_preferredNamespacePrefix'] + ":" + row['term_localName']
+			# print('[' + curie + '](#' + curie.replace(':', '_') + ')\n' + uri)
+			values = __dwc_term2annotation(**row)
+			if category_label[i] not in templates:
+				values.pop('tdwgutility_organizedInClass', '')
+			__create_by_service(field_service, **values)
 
 
 if __name__ == '__main__':

@@ -17,7 +17,7 @@ class AnnotationFormItem(ORMBase):
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     name = Column(String(80), nullable=False, unique=True)
-    description = Column(String(512))
+    description = Column(String(1024))
     standard = Column(String(32))   # 'bibtex', 'darwin core', 'dublin core', ...
     cvterm_id = Column(Integer, unique=True)
     dbxref_id = Column(Integer)
