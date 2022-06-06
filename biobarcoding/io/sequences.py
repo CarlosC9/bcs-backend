@@ -196,7 +196,8 @@ def import_file(infile, _format=None, data=None, analysis_id=None, **kwargs):
                 _id = f'{seq.id}.a{analysis_id}' if analysis_id else seq.id
                 if analysis_id:
                     feat_src_batch[_id] = seq.id
-                feat_batch.append(Feature(uniquename=_id, name=seq.name or seq.description,
+                feat_batch.append(Feature(uniquename=_id, name=seq.name if seq.name and seq.name != '<unknown name>'
+                                          else seq.description or seq.id,
                                           type_id=seq_type_id, is_analysis=bool(analysis_id),
                                           organism_id=ORG_ENTRIES.get(_org).organism_id,
                                           residues=str(seq.seq), seqlen=len(seq.seq)))

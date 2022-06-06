@@ -306,6 +306,7 @@ def init_socket(socketio):
 
 tm_object_type_fields = ["id", "uuid", "name"]
 tm_object_types = [  # ObjectType
+    (data_object_type_id["specimen"], "95fd8186-927c-4712-8dbc-7fe9dbef35bb", "specimen"),
     (data_object_type_id["sequence"], "22bc2577-883a-4408-bba9-fcace20c0fc8", "sequence"),
     (data_object_type_id["multiple-sequence-alignment"], "e80a7d27-3ec8-4aa1-b49c-5498e0f85bee",
      "multiple-sequence-alignment"),
@@ -813,7 +814,6 @@ tm_code_list_base_maps = [
     (h_base_maps_name, "07c7512b-d7ce-4162-85c4-cda2503f290c", "Grafcan Alta Resolución - https://idecan2.grafcan.es/ServicioWMS/Gigapan")
 ]
 
-# 95fd8186-927c-4712-8dbc-7fe9dbef35bb
 # 848b46b0-8602-42a2-a3fd-1b9be728d729
 # 79668ea7-80fa-4327-a433-721a69582542
 # 35313fd1-484e-48af-b6e2-e4b7464abb64

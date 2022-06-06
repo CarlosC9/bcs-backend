@@ -248,6 +248,12 @@ class Service(BosService):
     def aux_filter(self, filter):
         clauses = []
 
+        if 'stock_id' in filter:
+            from ....db_models.chado import StockFeature
+            _ids = self.db.query(StockFeature.feature_id)\
+                .filter(filter_parse(StockFeature, [{'stock_id': filter.get('stock_id')}]))
+            clauses.append(self.orm.feature_id.in_(_ids))
+
         if 'analysis_id' in filter:
             from ....db_models.chado import AnalysisFeature
             _ids = self.db.query(AnalysisFeature.feature_id)\
