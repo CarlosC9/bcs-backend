@@ -1,3 +1,5 @@
+from ..services.bio.meta.ontologies import get_type_id
+
 datetime_filter_fields = [{
     'key': 'added-from',
     'type': 'input',
@@ -168,13 +170,16 @@ def __getJSONFilter(type, value):
     return filter
 
 
-def getJSONFilterSchema(**kwargs):
+def getJSONFilterSchema(subject=None, **kwargs):
     schema = []
     for key in kwargs:
         # if there are values for the filter and the filter itself
         if key not in formly:
             schema.append(kwargs[key])
         elif kwargs.get(key):
-            schema.append(__getJSONFilter(key, kwargs[key]))
+            _ = __getJSONFilter(key, kwargs[key])
+            if subject.startswith('sequence') and key == 'types':
+                _['defaultValue'] = [get_type_id('sequence')]
+            schema.append(_)
     return [x for x in schema if x] + datetime_filter_fields
 
