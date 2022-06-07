@@ -77,10 +77,10 @@ class Service(MetaService):
     # GET SQLALCHEMY QUERY
     ##
 
-    def get_query(self, **kwargs):
-        query = None
+    def get_query(self, query=None, **kwargs):
+        query = query or self.db.query(self.orm)
         from ....db_models.chado import Dbxref
-        query = self.db.query(self.orm).filter(self.orm.dbxref_id.in_(
+        query = query.filter(self.orm.dbxref_id.in_(
             self.db.query(Dbxref.dbxref_id).filter(Dbxref.accession.like('taxonomy:%')).subquery()))
         return super(Service, self).get_query(query=query, **kwargs)
 

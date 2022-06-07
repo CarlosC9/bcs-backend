@@ -76,7 +76,6 @@ class Service(BosService):
 
         phylo = get_or_create(DBSession, PhylogeneticTree,
                               native_id=new_object.phylotree_id,
-                              native_table='phylotree',
                               name=new_object.name)
 
         return values

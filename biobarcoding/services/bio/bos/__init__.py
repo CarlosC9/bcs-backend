@@ -9,6 +9,10 @@ from ....db_models.core import data_object_type_id, FunctionalObject
 ##
 
 class BosService(BioService):
+    
+    def __init__(self):
+        super(BosService, self).__init__()
+        self.bos = ''
 
     def prepare_values(self, **values):
 
@@ -19,8 +23,9 @@ class BosService(BioService):
     def pre_query(self, purpose='delete'):
         from ....db_models.sysadmin import PermissionType
         purpose_id = DBSession.query(PermissionType).filter(PermissionType.name == purpose).one().id
+        _ = data_object_type_id.get(self.bos)
         bos_clause = DBSession.query(FunctionalObject.native_id) \
-            .filter(auth_filter(FunctionalObject, purpose_id, [data_object_type_id[self.bos]]))
+            .filter(auth_filter(FunctionalObject, purpose_id, _ if not _ or isinstance(_, (tuple, list, set)) else [_]))
         bos_clause = [i for i, in bos_clause.all()]  # Cannot use .subquery(), because we have two -separate- databases
 
         from sqlalchemy import inspect

@@ -91,7 +91,6 @@ class Service(BosService):
         # seq to bcs
         fos_seq = get_or_create(DBSession, Sequence,   # specimen_id=fos_specimen.id
                                 native_id=new_object.feature_id,
-                                native_table='feature',
                                 name=new_object.uniquename)
 
         return values

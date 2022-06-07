@@ -249,9 +249,10 @@ def import_file(infile, _format=None, data=None, analysis_id=None, **kwargs):
                     ansis_rl_rows.append(get_or_create(DBSessionChado, AnalysisFeature,
                                                        analysis_id=analysis_id, feature_id=feature.feature_id))
                 # STEP 2: sequence (sysadmin)
+                SPECIMEN_ENTRIES.get(_ind).native_id = STOCK_ENTRIES.get(_ind).stock_id
                 seq_entries[_id] = get_or_create(DBSession, Sequence, name=_id,
                                                  specimen_id=SPECIMEN_ENTRIES.get(_ind).id,
-                                                 native_id=feature.feature_id, native_table='feature')
+                                                 native_id=feature.feature_id)
                 seq_batch.append(seq_entries[_id])
                 # STEP 3: stock relationship (individual)
                 stock_rl_rows.append(get_or_create(DBSessionChado, StockFeature,

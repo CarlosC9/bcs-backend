@@ -43,7 +43,6 @@ class FunctionalObject(ORMBase):
 
     obj_type_id = Column("do_type_id", Integer, ForeignKey(ObjectType.id))
     native_id = Column(BigInteger, nullable=True, primary_key=False)
-    native_table = Column(String(80))
 
     owner_id = Column(Integer, ForeignKey(Identity.id))
     creation_time = Column(DateTime, default=datetime.datetime.utcnow())
@@ -59,7 +58,7 @@ class FunctionalObject(ORMBase):
     is_deleted = Column(Boolean, default=False)
 
     __table_args__ = (
-        UniqueConstraint(native_table, native_id, name=__tablename__ + '_c1'),
+        UniqueConstraint(obj_type_id, native_id, name=__tablename__ + '_c1'),
         Index('ix_fobj__ts_vector__', ts_vector, postgresql_using='gin'),
     )
 

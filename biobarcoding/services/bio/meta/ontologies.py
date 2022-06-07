@@ -104,6 +104,7 @@ def get_rl_cvterm(type='relationship'):
     return {
         'relationship': {'cv': 'relationship', 'name': 'part_of'},
         'derives_from': {'cv': 'relationship', 'name': 'derives_from'},
+        'derives_into': {'cv': 'relationship', 'name': 'derives_into'},
     }.get(type)
 
 

@@ -63,7 +63,7 @@ class FormItemService(BasicService):
         return values
 
     def read(self, **kwargs):
-        content, count = self.get_query(**kwargs)
+        content, count = self.get_query(purpose='read', **kwargs)
         if kwargs.get('id') or kwargs.get('cvterm_id') or kwargs.get('dbxref_id') \
                 or (kwargs.get('cv') and kwargs.get('cvterm')) \
                 or (kwargs.get('db') and kwargs.get('dbxref')):
