@@ -75,13 +75,13 @@ def get_service(entity):
         from .bio.bos.discriminant_matrices import Service
     elif entity == 'supermatrices':
         from .bio.bos.supermatrices import Service
+    elif entity == 'analyses':
+        from .bio.bos.analyses import Service
     elif entity == 'collections':
         from .bio.meta.collections import Service
     # BIO META SERVICES
     elif entity == 'individuals':
         from .bio.meta.individuals import Service
-    elif entity == 'analyses':
-        from .bio.meta.analyses import Service
     elif entity == 'taxonomies':
         from .bio.meta.taxonomies import Service
     elif entity == 'organisms':

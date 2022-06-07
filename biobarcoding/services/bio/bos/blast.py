@@ -1,4 +1,4 @@
-from . import BosService
+from .analyses import Service as AnsisService
 from ...main import get_orm
 from ....db_models import DBSession
 
@@ -6,7 +6,7 @@ from ....db_models import DBSession
 ##
 # BLAST SERVICE
 ##
-class Service(BosService):
+class Service(AnsisService):
 
     def __init__(self):
         super(Service, self).__init__()

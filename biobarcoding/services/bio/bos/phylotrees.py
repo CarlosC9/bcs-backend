@@ -40,7 +40,7 @@ class Service(BosService):
         # Analysis row could exist for jobs, so get or create
         ansis_trigger = ('job_id', 'program', 'programversion', 'sourcename')
         if not values.get('analysis_id') and any(key in values.keys() for key in ansis_trigger):
-            from ..meta.analyses import Service as AnsisService
+            from .analyses import Service as AnsisService
             ansis_service = AnsisService()
             try:
                 unique_keys = ['job_id'] if values.get('job_id') else ('program', 'programversion', 'sourcename')

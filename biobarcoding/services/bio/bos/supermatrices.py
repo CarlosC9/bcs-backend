@@ -1,12 +1,12 @@
-from . import BosService
 from ...main import get_orm
 from ....db_models import DBSession
+from .alignments import Service as AlgnService
 
 
 ##
 # BLAST SERVICE
 ##
-class Service(BosService):
+class Service(AlgnService):
 
     def __init__(self):
         super(Service, self).__init__()

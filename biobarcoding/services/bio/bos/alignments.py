@@ -2,7 +2,6 @@ import os.path
 
 from Bio import AlignIO
 
-from . import BosService
 from ...main import get_orm
 from ....db_models import DBSession
 from ....db_models import DBSessionChado
@@ -10,16 +9,15 @@ from ....db_models.chado import Organism, Feature, AnalysisFeature
 from ....db_models.bioinformatics import MultipleSequenceAlignment
 from ... import get_or_create, log_exception
 from .sequences import Service as SeqService
-from ..meta.analyses import Service as AnsisService
+from .analyses import Service as AnsisService
 
 seq_service = SeqService()
-# ansis_service = AnsisService()  # TODO keep an eye on the BOS and Analysis services, they might be needed
 
 
 ##
 # ALIGNMENT SERVICE
 ##
-class Service(BosService, AnsisService):
+class Service(AnsisService):
 
     def __init__(self):
         super(Service, self).__init__()
@@ -33,7 +31,6 @@ class Service(BosService, AnsisService):
     ##
 
     def prepare_values(self, **values):
-        # values.update(AnsisService.prepare_values(self, **values))
         return super(Service, self).prepare_values(**values)
 
     def check_values(self, **values) -> dict:
@@ -41,7 +38,6 @@ class Service(BosService, AnsisService):
         if not values.get('program'):
             values['program'] = 'Multiple sequence alignment'
 
-        # values.update(super(Service, self).check_values(**values))
         return super(Service, self).check_values(**values)
 
     def after_create(self, new_object, **values):
@@ -49,7 +45,6 @@ class Service(BosService, AnsisService):
 
         fos_msa = get_or_create(DBSession, MultipleSequenceAlignment,
                                 native_id=new_object.analysis_id,
-                                native_table='analysis',
                                 name=new_object.name)
 
         return values
@@ -185,14 +180,3 @@ class Service(BosService, AnsisService):
             from ....common.helpers import zip_files
             zip_files(outfile, files)
         return count
-
-    ##
-    # GETTER AND OTHERS
-    ##
-
-    def get_query(self, **kwargs):
-        # return AnsisService.get_query(query=BosService.get_query(**kwargs)[0], **kwargs)
-        return super(Service, self).get_query(**kwargs)
-
-    # def aux_filter(self, filter):
-    #     return ansis_service.aux_filter(filter) + super(Service, self).aux_filter(filter)
