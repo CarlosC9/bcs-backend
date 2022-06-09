@@ -110,17 +110,9 @@ class Service(BosService):
             clauses.append(self.orm.analysis_id.in_(_ids))
 
         if filter.get('organism_id'):
-            from ....db_models.chado import Feature
-            _ids = self.db.query(Feature.feature_id) \
+            from ....db_models.chado import AnalysisFeature, Feature
+            _ids = self.db.query(AnalysisFeature.analysis_id).join(Feature) \
                 .filter(filter_parse(Feature, {'organism_id': filter.get('organism_id')}))
-            from ....db_models.chado import AnalysisFeature
-            _ids = self.db.query(AnalysisFeature.analysis_id) \
-                .filter(AnalysisFeature.feature_id.in_(_ids))
-            clauses.append(self.orm.analysis_id.in_(_ids))
-
-        if filter.get('alignment_id'):
-            _ids = self.db.query(self.orm.analysis_id) \
-                .filter(filter_parse(self.orm, [{'analysis_id': filter.get('alignment_id')}]))
             clauses.append(self.orm.analysis_id.in_(_ids))
 
         if filter.get('phylotree_id'):

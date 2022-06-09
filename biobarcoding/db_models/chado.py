@@ -1,3 +1,5 @@
+from sqlalchemy import Column, Integer, ForeignKey
+from sqlalchemy.orm import relationship, backref
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.sql.functions import coalesce
 
@@ -13,6 +15,18 @@ class Organism(ORMBaseChado):
         return self.genus + ' ' + self.species + coalesce(' ' + self.infraspecific_name, '')
 
 
+class Analysis(ORMBaseChado):
+    __tablename__ = "analysis"
+    __table_args__ = {'autoload': True}
+
+
+class Phylotree(ORMBaseChado):
+    __tablename__ = "phylotree"
+    __table_args__ = {'autoload': True}
+
+    analysis = relationship(Analysis, backref=backref("phylotree"))
+
+
 class Acquisition(ORMBaseChado):
     __tablename__ = "acquisition"
     __table_args__ = {'autoload': True}
@@ -25,11 +39,6 @@ class AcquisitionRelationship(ORMBaseChado):
 
 class Acquisitionprop(ORMBaseChado):
     __tablename__ = "acquisitionprop"
-    __table_args__ = {'autoload': True}
-
-
-class Analysis(ORMBaseChado):
-    __tablename__ = "analysis"
     __table_args__ = {'autoload': True}
 
 
@@ -780,11 +789,6 @@ class PhylonodeRelationship(ORMBaseChado):
 
 class Phylonodeprop(ORMBaseChado):
     __tablename__ = "phylonodeprop"
-    __table_args__ = {'autoload': True}
-
-
-class Phylotree(ORMBaseChado):
-    __tablename__ = "phylotree"
     __table_args__ = {'autoload': True}
 
 

@@ -143,15 +143,7 @@ class Service(AnsisService):
         # Set missing default values
         kwargs['programversion'] = kwargs.get('programversion') or '(Imported file)'
         kwargs['sourcename'] = kwargs.get('sourcename') or os.path.basename(infile)
-        # Analysis row could exist for jobs, so get or create
-        try:
-            unique_keys = ['job_id'] if kwargs.get('job_id') else ('program', 'programversion', 'sourcename')
-            content, count = self.get_query(purpose='annotate', **{k: kwargs[k] for k in unique_keys if k in kwargs})
-            content = content.one()
-            # Analysis row could be created by importing the results of other jobs, and without register as msa in bcs
-            self.after_create(content, **kwargs)
-        except:
-            content, count = self.create(**kwargs)
+        content, count = self.create(**kwargs)
         # Read and import file content
         from ....io.sequences import import_file
         return import_file(infile, _format, data=content_file, analysis_id=content.analysis_id)

@@ -20,12 +20,12 @@ class BosService(BioService):
 
         return super(BosService, self).prepare_values(**values)
 
-    def pre_query(self, purpose='delete'):
+    def pre_query(self, purpose, fos=FunctionalObject) -> object:
         from ....db_models.sysadmin import PermissionType
         purpose_id = DBSession.query(PermissionType).filter(PermissionType.name == purpose).one().id
         _ = data_object_type_id.get(self.bos)
-        bos_clause = DBSession.query(FunctionalObject.native_id) \
-            .filter(auth_filter(FunctionalObject, purpose_id, _ if not _ or isinstance(_, (tuple, list, set)) else [_]))
+        bos_clause = DBSession.query(fos.native_id) \
+            .filter(auth_filter(fos, purpose_id, _ if not _ or isinstance(_, (tuple, list, set)) else [_]))
         bos_clause = [i for i, in bos_clause.all()]  # Cannot use .subquery(), because we have two -separate- databases
 
         from sqlalchemy import inspect

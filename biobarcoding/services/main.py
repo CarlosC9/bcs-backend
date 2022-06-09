@@ -281,7 +281,7 @@ class BasicService:
                          aux_filter=self.aux_filter, aux_order=self.aux_order, **kwargs)
 
     # method to filter by acl and more particular issues when querying
-    def pre_query(self, purpose):
+    def pre_query(self, purpose) -> object:
         return None
 
     # method to filter by external values when querying
