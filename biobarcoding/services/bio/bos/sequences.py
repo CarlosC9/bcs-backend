@@ -7,10 +7,9 @@ from ..meta.ontologies import get_type_id
 from ..meta.organisms import Service as OrgService
 from ... import get_orm_params, get_or_create, force_underscored, log_exception
 from ...main import get_orm
-from ....db_models import DBSession
-from ....db_models import DBSessionChado
+from ....db_models import DBSession, DBSessionChado
 from ....db_models.chado import Organism, StockFeature
-from ....db_models.bioinformatics import Sequence
+from ....db_models.bioinformatics import Sequence, Specimen
 from ....rest import filter_parse
 
 org_service = OrgService()
@@ -25,7 +24,8 @@ class Service(BosService):
         super(Service, self).__init__()
         self.db = DBSessionChado
         self.orm = get_orm('sequences')
-        self.bos = 'sequence'
+        self.obj_type = 'sequence'
+        self.fos = Sequence
         self.formats = ['clustal', 'embl', 'fasta', 'genbank', 'gb', 'nexus', 'phylip', 'seqxml', 'abi', 'abi-trim', 'ace', 'cif-atom', 'cif-seqres', 'fasta-2line', 'fastq-sanger', 'fastq', 'fastq-solexa', 'fastq-illumina', 'gck', 'ig', 'imgt', 'pdb-seqres', 'pdb-atom', 'phd', 'pir', 'sff', 'sff-trim', 'snapgene', 'stockholm', 'swiss', 'tab', 'qual', 'uniprot-xml', 'xdna']
         # only write in 'clustal', 'embl', 'fasta', 'fasta-2line', 'fastq-sanger', 'fastq', 'fastq-solexa', 'fastq-illumina', 'genbank', 'gb', 'imgt', 'nexus', 'phd', 'phylip', 'pir', 'seqxml', 'sff', 'stockholm', 'tab', 'qual', 'xdna'
 
@@ -89,9 +89,13 @@ class Service(BosService):
 
         stock = self.seq_stock(new_object, **values)
         # seq to bcs
-        fos_seq = get_or_create(DBSession, Sequence,   # specimen_id=fos_specimen.id
-                                native_id=new_object.feature_id,
-                                name=new_object.uniquename)
+        from ....db_models.core import data_object_type_id
+        fos = get_or_create(DBSession, self.fos,
+                            specimen_id=DBSession.query(Specimen.id).filter(
+                                Specimen.obj_type_id == data_object_type_id.get(self.obj_type),
+                                Specimen.native_id == stock.stock_id).one(),
+                            native_id=new_object.feature_id,
+                            name=new_object.uniquename)
 
         return values
 
@@ -107,9 +111,9 @@ class Service(BosService):
         try:
             # from sqlalchemy.sql.expression import case
             # _ord = case({_id: index for index, _id in enumerate(_ids)},
-            #             value=Sequence.native_id)   # TODO test order
-            seqs = dict(DBSession.query(Sequence.native_id, Sequence.uuid)
-                        .filter(Sequence.native_id.in_(_ids)).all())
+            #             value=self.fos.native_id)   # TODO test order
+            seqs = dict(DBSession.query(self.fos.native_id, self.fos.uuid)
+                        .filter(self.fos.native_id.in_(_ids)).all())
         except Exception as e:
             print('Error: Additional data could not be attached.')
             log_exception(e)
@@ -124,7 +128,7 @@ class Service(BosService):
 
     def delete_related(self, *content, **kwargs):
         ids = [seq.feature_id for seq in content]
-        query = DBSession.query(Sequence).filter(Sequence.native_id.in_(ids))
+        query = DBSession.query(self.fos).filter(self.fos.native_id.in_(ids))
         return len([DBSession.delete(row) for row in query.all()])
 
     ##

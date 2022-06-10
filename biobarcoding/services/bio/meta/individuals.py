@@ -44,6 +44,7 @@ class Service(MetaService):
     ##
 
     def delete_related(self, *content, **kwargs):
+        # TODO: delete Sequence and Feature ?
         names = [s.uniquename for s in content]
         query = DBSession.query(Specimen).filter(Specimen.name.in_(names))
         return len([DBSession.delete(row) for row in query.all()])

@@ -23,7 +23,8 @@ class Service(AnsisService):
         super(Service, self).__init__()
         self.db = DBSessionChado
         self.orm = get_orm('alignments')
-        self.bos = 'multiple-sequence-alignment'
+        self.obj_type = 'multiple-sequence-alignment'
+        self.fos = MultipleSequenceAlignment
         self.formats = ['fasta', 'clustal', 'nexus', 'phylip', 'emboss', 'fasta-m10', 'ig', 'maf', 'mauve', 'msf', 'phylip-sequential', 'phylip-relaxed', 'stockholm']
 
     ##
@@ -40,24 +41,15 @@ class Service(AnsisService):
 
         return super(Service, self).check_values(**values)
 
-    def after_create(self, new_object, **values):
-        values = super(Service, self).after_create(new_object, **values)
-
-        fos_msa = get_or_create(DBSession, MultipleSequenceAlignment,
-                                native_id=new_object.analysis_id,
-                                name=new_object.name)
-
-        return values
-
     ##
     # READ
     ##
-    
+
     def attach_data(self, *content):
         new = super(Service, self).attach_data(*content)
 
         _ids = [_['analysis_id'] for _ in new]
-        info = [None, None, []] * len(new)
+        info = [(None, None, [])] * len(new)
         try:
             from sqlalchemy.sql.expression import case, func, distinct
             _ord = case({_id: index for index, _id in enumerate(_ids)},
@@ -83,12 +75,12 @@ class Service(AnsisService):
     def delete_related(self, *content, **kwargs):
         ids = [a.analysis_id for a in content]
 
-        from .phylotrees import Service as PhyService
-        PhyService().delete(filter={'analysis_id': ids})
+        # from .phylotrees import Service as PhyService
+        # PhyService().delete(filter={'derives_from': ids})
+        # AnsisService().delete(filter={'derives_from': ids})
         seq_service.delete(filter={'analysis_id': ids})
 
-        query = DBSession.query(MultipleSequenceAlignment).filter(MultipleSequenceAlignment.native_id.in_(ids))
-        return len([DBSession.delete(row) for row in query.all()])
+        return super(Service, self).delete_related(*content, **kwargs)
 
     ##
     # DEPRECATED IMPORT

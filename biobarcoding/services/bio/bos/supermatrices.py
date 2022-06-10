@@ -1,6 +1,7 @@
 from ...main import get_orm
 from ....db_models import DBSession
 from .alignments import Service as AlgnService
+from ....db_models.bioinformatics import Supermatrix
 
 
 ##
@@ -12,4 +13,5 @@ class Service(AlgnService):
         super(Service, self).__init__()
         self.db = DBSession
         self.orm = get_orm('supermatrices')
-        self.bos = 'supermatrix'
+        self.obj_type = 'supermatrix'
+        self.fos = Supermatrix

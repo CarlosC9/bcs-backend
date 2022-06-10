@@ -1,6 +1,7 @@
 from .analyses import Service as AnsisService
 from ...main import get_orm
 from ....db_models import DBSession
+from ....db_models.bioinformatics import SequenceSimilarity
 
 
 ##
@@ -12,4 +13,5 @@ class Service(AnsisService):
         super(Service, self).__init__()
         self.db = DBSession
         self.orm = get_orm('blasts')
-        self.bos = 'sequence-similarity'
+        self.obj_type = 'sequence-similarity'
+        self.fos = SequenceSimilarity

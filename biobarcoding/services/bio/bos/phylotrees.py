@@ -20,7 +20,8 @@ class Service(AnsisService):
 
     def __init__(self):
         super(Service, self).__init__()
-        self.bos = 'phylogenetic-tree'
+        self.obj_type = 'phylogenetic-tree'
+        self.fos = PhylogeneticTree
         self.formats = ['newick', 'nexus', 'nexml', 'phyloxml']
 
     ##
@@ -50,24 +51,15 @@ class Service(AnsisService):
 
         return super(Service, self).prepare_external_values(**values)
 
-    def after_create(self, new_object, **values):
-        values = super(Service, self).after_create(new_object, **values)
-
-        phylo = get_or_create(DBSession, PhylogeneticTree,
-                              native_id=new_object.analysis_id,
-                              name=new_object.name)
-
-        return values
-
     ##
     # DELETE
     ##
 
     def delete_related(self, *content, **kwargs):
-        # TODO: delete from phylotree ? check cascade with analysis
         ids = [t.analysis_id for t in content]
-        query = DBSession.query(PhylogeneticTree).filter(PhylogeneticTree.native_id.in_(ids))
-        return len([DBSession.delete(row) for row in query.all()])
+        query = DBSession.query(Phylotree).filter(Phylotree.analysis_id.in_(ids))
+        len([DBSession.delete(row) for row in query.all()])
+        return super(Service, self).delete_related(*content, **kwargs)
 
     ##
     # IMPORT
@@ -194,9 +186,6 @@ class Service(AnsisService):
     ##
     # GETTER AND OTHERS
     ##
-
-    def pre_query(self, purpose) -> object:
-        return super(Service, self).pre_query(purpose, PhylogeneticTree)
 
     def aux_filter(self, filter):
         clauses = []

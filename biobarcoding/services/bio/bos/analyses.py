@@ -15,7 +15,7 @@ class Service(BosService):
         super(Service, self).__init__()
         self.db = DBSessionChado
         self.orm = get_orm('analyses')
-        self.bos = 'analysis'
+        self.obj_type = 'analysis'
 
     ##
     # CREATE
@@ -58,6 +58,10 @@ class Service(BosService):
     def after_create(self, new_object, **values):
         values = super(Service, self).after_create(new_object, **values)
 
+        fos = get_or_create(DBSession, self.fos,
+                            native_id=new_object.analysis_id,
+                            name=new_object.name)
+
         if values.get('derives_from'):
             _ = values.get('derives_from')
             _ = _ if isinstance(_, (tuple, list, set)) else [_]
@@ -74,6 +78,16 @@ class Service(BosService):
                           type_id=get_type_id(type='relationship', subtype='derives_into'))
 
         return values
+
+    ##
+    # DELETE
+    ##
+
+    def delete_related(self, *content, **kwargs):
+        # TODO: delete from Phylotree ? check cascade with Analysis
+        ids = [t.analysis_id for t in content]
+        query = DBSession.query(self.fos).filter(self.fos.native_id.in_(ids))
+        return len([DBSession.delete(row) for row in query.all()])
 
     ##
     # GETTER AND OTHERS
