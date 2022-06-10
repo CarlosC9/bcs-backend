@@ -191,46 +191,46 @@ class Service(AnsisService):
         clauses = []
         from ....rest import filter_parse
 
-        if 'feature_id' in filter:
+        if filter.get('feature_id'):
             _ids = self.db.query(Phylotree.analysis_id).join(Phylonode) \
                 .filter(filter_parse(Phylonode, [{'feature_id': filter.get('feature_id')}]))
             clauses.append(self.orm.analysis_id.in_(_ids))
 
-        if 'organism_id' in filter:
+        if filter.get('organism_id'):
             from ....db_models.chado import Feature
             _ids = self.db.query(Phylotree.analysis_id).join(Phylonode).join(Feature) \
                 .filter(filter_parse(Feature, [{'organism_id': filter.get('organism_id')}]))
             clauses.append(self.orm.analysis_id.in_(_ids))
 
-        if "prop_cvterm_id" in filter:
+        if filter.get("prop_cvterm_id"):
             from ....db_models.chado import Phylotreeprop
             _ids = self.db.query(Phylotree.analysis_id).join(Phylotreeprop) \
                 .filter(filter_parse(Phylotreeprop, [{'type_id': filter.get('prop_cvterm_id')}]))
             clauses.append(self.orm.analysis_id.in_(_ids))
 
         from ....db_models.chado import Analysis
-        if "program" in filter:
+        if filter.get("program"):
             _ids = self.db.query(Analysis.analysis_id) \
                 .filter(filter_parse(Analysis, [{'program': filter.get('program')}]))
             clauses.append(self.orm.analysis_id.in_(_ids))
 
-        if "programversion" in filter:
+        if filter.get("programversion"):
             _ids = self.db.query(Analysis.analysis_id) \
                 .filter(filter_parse(Analysis, [{'programversion': filter.get('programversion')}]))
             clauses.append(self.orm.analysis_id.in_(_ids))
 
-        if "algorithm" in filter:
+        if filter.get("algorithm"):
             _ids = self.db.query(Analysis.analysis_id) \
                 .filter(filter_parse(Analysis, [{'algorithm': filter.get('algorithm')}]))
             clauses.append(self.orm.analysis_id.in_(_ids))
 
         from datetime import datetime
-        if "added-from" in filter:
+        if filter.get("added-from"):
             filter["added-from"]['unary'] = datetime.strptime(filter.get("added-from")['unary'], '%Y-%m-%d')
             _ids = self.db.query(Analysis.analysis_id) \
                 .filter(filter_parse(Analysis, {'timeexecuted': filter.get("added-from")}))
             clauses.append(self.orm.analysis_id.in_(_ids))
-        if "added-to" in filter:
+        if filter.get("added-to"):
             filter["added-to"]['unary'] = datetime.strptime(filter.get("added-to")['unary'], '%Y-%m-%d')
             _ids = self.db.query(Analysis.analysis_id) \
                 .filter(filter_parse(Analysis, {'timeexecuted': filter.get("added-to")}))

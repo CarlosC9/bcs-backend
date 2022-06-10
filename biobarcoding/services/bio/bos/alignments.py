@@ -3,7 +3,6 @@ import os.path
 from Bio import AlignIO
 
 from ...main import get_orm
-from ....db_models import DBSession
 from ....db_models import DBSessionChado
 from ....db_models.chado import Organism, Feature, AnalysisFeature
 from ....db_models.bioinformatics import MultipleSequenceAlignment
