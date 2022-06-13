@@ -1,6 +1,6 @@
 from . import BosService
 from ..meta.ontologies import get_type_id
-from ... import get_or_create
+from ... import get_or_create, listify
 from ...main import get_orm
 from ....db_models import DBSessionChado, DBSession
 from ....db_models.chado import AnalysisRelationship
@@ -62,20 +62,22 @@ class Service(BosService):
                             native_id=new_object.analysis_id,
                             name=new_object.name)
 
+        def to_triples(term: str) -> list:
+            return [(new_object.analysis_id, term, i) for i in listify(values.get(term))]
+
+        triples = []
         if values.get('derives_from'):
-            _ = values.get('derives_from')
-            _ = _ if isinstance(_, (tuple, list, set)) else [_]
-            rls = [(i, new_object.analysis_id) for i in _]
-        elif values.get('derives_into'):
-            _ = values.get('derives_into')
-            _ = _ if isinstance(_, (tuple, list, set)) else [_]
-            rls = [(new_object.analysis_id, i) for i in _]
-        else:
-            return values
-        for sbj, obj in rls:
+            _ = listify(values.get('derives_from'))
+            triples += [(i, 'derives_into', new_object.analysis_id) for i in _]
+        if values.get('derives_into'):
+            triples += to_triples('derives_into')
+        if values.get('relationships'):
+            for rl in listify(values.get('relationships')):
+                triples += to_triples(rl)
+        for sbj, pre, obj in triples:
             get_or_create(self.db, AnalysisRelationship,
                           subject_id=sbj, object_id=obj,
-                          type_id=get_type_id(type='relationship', subtype='derives_into'))
+                          type_id=get_type_id(type='relationship', subtype=pre))
 
         return values
 
@@ -87,7 +89,8 @@ class Service(BosService):
         # TODO: delete from Phylotree ? check cascade with Analysis
         ids = [t.analysis_id for t in content]
         query = DBSession.query(self.fos).filter(self.fos.native_id.in_(ids))
-        return len([DBSession.delete(row) for row in query.all()])
+        return super(Service, self).delete_related(*content, **kwargs) \
+               + len([DBSession.delete(row) for row in query.all()])
 
     ##
     # GETTER AND OTHERS
@@ -116,6 +119,8 @@ class Service(BosService):
                                      {'object_id': filter.get('derives_into'),
                                       'type_id': get_type_id(type='relationship', subtype='derives_into')}))
             clauses.append(self.orm.analysis_id.in_(_ids))
+
+        # if filter.get('relationships'): # TODO: how ?
 
         if filter.get('feature_id'):
             from ....db_models.chado import AnalysisFeature

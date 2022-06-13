@@ -8,7 +8,6 @@ from .analyses import Service as AnsisService
 from ..meta.ontologies import get_type_id
 from ... import get_bioformat, get_or_create, log_exception, get_orm_params
 from ....common.helpers import zip_files
-from ....db_models import DBSession
 from ....db_models.bioinformatics import PhylogeneticTree
 from ....db_models.chado import Phylotree, Phylonode, Feature
 
@@ -50,16 +49,6 @@ class Service(AnsisService):
                                                 version=time.strftime("%Y %b %d %H:%M:%S")).dbxref_id
 
         return super(Service, self).prepare_external_values(**values)
-
-    ##
-    # DELETE
-    ##
-
-    def delete_related(self, *content, **kwargs):
-        ids = [t.analysis_id for t in content]
-        query = DBSession.query(Phylotree).filter(Phylotree.analysis_id.in_(ids))
-        len([DBSession.delete(row) for row in query.all()])
-        return super(Service, self).delete_related(*content, **kwargs)
 
     ##
     # IMPORT
@@ -140,8 +129,8 @@ class Service(AnsisService):
         files = []
         for ans in _phys:
             _ = kwargs.get('phylotree_id')
-            pts = ans.phylotree if not _ \
-                else [t for t in ans.phylotree if t.phylotree_id in _ or t.phylotree_id == _]
+            pts = ans.phylotrees if not _ \
+                else [t for t in ans.phylotrees if t.phylotree_id in _ or t.phylotree_id == _]
             for pt in pts:
                 root = self.db.query(Phylonode).filter(Phylonode.phylotree_id == pt.phylotree_id,
                                                        Phylonode.parent_phylonode_id.is_(None)).one()

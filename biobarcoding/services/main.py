@@ -330,7 +330,7 @@ class BasicService:
 
     # any additional delete if any
     def delete_related(self, *content, **kwargs):
-        return content
+        return 0
 
     # TODO: generic import/export in progress
     ##

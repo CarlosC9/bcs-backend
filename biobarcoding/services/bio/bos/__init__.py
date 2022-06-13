@@ -1,4 +1,5 @@
 from .. import BioService
+from ... import listify
 from ....rest import auth_filter, filter_parse
 from ....db_models import DBSession
 from ....db_models.core import data_object_type_id, FunctionalObject
@@ -26,7 +27,7 @@ class BosService(BioService):
         purpose_id = DBSession.query(PermissionType).filter(PermissionType.name == purpose).one().id
         _ = data_object_type_id.get(self.obj_type)
         bos_clause = DBSession.query(self.fos.native_id) \
-            .filter(auth_filter(self.fos, purpose_id, _ if not _ or isinstance(_, (tuple, list, set)) else [_]))
+            .filter(auth_filter(self.fos, purpose_id, _ if not _ else listify(_)))
         bos_clause = [i for i, in bos_clause.all()]  # Cannot use .subquery(), because we have two -separate- databases
 
         from sqlalchemy import inspect

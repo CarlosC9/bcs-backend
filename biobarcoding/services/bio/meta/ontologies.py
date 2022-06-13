@@ -126,7 +126,9 @@ def get_used_cvterm(type, subtype=None):
 
 
 def get_type_id(type=None, subtype=None):
-    return CvtermService().get_query(purpose='read', **get_used_cvterm(type=type, subtype=subtype))[0].one().cvterm_id
+    _ = get_used_cvterm(type=type, subtype=subtype)
+    _ = _ if _ else {'cv': type, 'cvterm': subtype}
+    return CvtermService().get_query(purpose='read', **_)[0].one().cvterm_id
 
 
 ##

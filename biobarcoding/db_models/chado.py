@@ -20,11 +20,21 @@ class Analysis(ORMBaseChado):
     __table_args__ = {'autoload': True}
 
 
+class AnalysisRelationship(ORMBaseChado):
+    __tablename__ = "analysis_relationship"
+    __table_args__ = {'extend_existing': True, 'autoload': True}
+
+    subject_id = Column(Integer, ForeignKey(Analysis.analysis_id))
+    subject = relationship(Analysis, foreign_keys=[subject_id], backref=backref("related_objects"))
+    object_id = Column(Integer, ForeignKey(Analysis.analysis_id))
+    object = relationship(Analysis, foreign_keys=[object_id], backref=backref("related_subjects"))
+
+
 class Phylotree(ORMBaseChado):
     __tablename__ = "phylotree"
     __table_args__ = {'autoload': True}
 
-    analysis = relationship(Analysis, backref=backref("phylotree"))
+    analysis = relationship(Analysis, backref=backref("phylotrees", cascade="all, delete-orphan"))
 
 
 class Acquisition(ORMBaseChado):
@@ -59,11 +69,6 @@ class AnalysisFeature(ORMBaseChado):
 
 class AnalysisPub(ORMBaseChado):
     __tablename__ = "analysis_pub"
-    __table_args__ = {'autoload': True}
-
-
-class AnalysisRelationship(ORMBaseChado):
-    __tablename__ = "analysis_relationship"
     __table_args__ = {'autoload': True}
 
 
