@@ -7,10 +7,9 @@ from ..meta.ontologies import get_type_id
 from ..meta.organisms import Service as OrgService
 from ... import get_orm_params, get_or_create, force_underscored, log_exception
 from ...main import get_orm
-from ....db_models import DBSession
-from ....db_models import DBSessionChado
+from ....db_models import DBSession, DBSessionChado
 from ....db_models.chado import Organism, StockFeature
-from ....db_models.bioinformatics import Sequence
+from ....db_models.bioinformatics import Sequence, Specimen
 from ....rest import filter_parse
 
 org_service = OrgService()
@@ -25,7 +24,8 @@ class Service(BosService):
         super(Service, self).__init__()
         self.db = DBSessionChado
         self.orm = get_orm('sequences')
-        self.bos = 'sequence'
+        self.obj_type = 'sequence'
+        self.fos = Sequence
         self.formats = ['clustal', 'embl', 'fasta', 'genbank', 'gb', 'nexus', 'phylip', 'seqxml', 'abi', 'abi-trim', 'ace', 'cif-atom', 'cif-seqres', 'fasta-2line', 'fastq-sanger', 'fastq', 'fastq-solexa', 'fastq-illumina', 'gck', 'ig', 'imgt', 'pdb-seqres', 'pdb-atom', 'phd', 'pir', 'sff', 'sff-trim', 'snapgene', 'stockholm', 'swiss', 'tab', 'qual', 'uniprot-xml', 'xdna']
         # only write in 'clustal', 'embl', 'fasta', 'fasta-2line', 'fastq-sanger', 'fastq', 'fastq-solexa', 'fastq-illumina', 'genbank', 'gb', 'imgt', 'nexus', 'phd', 'phylip', 'pir', 'seqxml', 'sff', 'stockholm', 'tab', 'qual', 'xdna'
 
@@ -89,10 +89,11 @@ class Service(BosService):
 
         stock = self.seq_stock(new_object, **values)
         # seq to bcs
-        fos_seq = get_or_create(DBSession, Sequence,   # specimen_id=fos_specimen.id
-                                native_id=new_object.feature_id,
-                                native_table='feature',
-                                name=new_object.uniquename)
+        fos = get_or_create(DBSession, self.fos,
+                            specimen_id=DBSession.query(Specimen.id).filter(
+                                Specimen.native_id == stock.stock_id).one(),
+                            native_id=new_object.feature_id,
+                            name=new_object.uniquename)
 
         return values
 
@@ -108,9 +109,9 @@ class Service(BosService):
         try:
             # from sqlalchemy.sql.expression import case
             # _ord = case({_id: index for index, _id in enumerate(_ids)},
-            #             value=Sequence.native_id)   # TODO test order
-            seqs = dict(DBSession.query(Sequence.native_id, Sequence.uuid)
-                        .filter(Sequence.native_id.in_(_ids)).all())
+            #             value=self.fos.native_id)   # TODO test order
+            seqs = dict(DBSession.query(self.fos.native_id, self.fos.uuid)
+                        .filter(self.fos.native_id.in_(_ids)).all())
         except Exception as e:
             print('Error: Additional data could not be attached.')
             log_exception(e)
@@ -125,7 +126,7 @@ class Service(BosService):
 
     def delete_related(self, *content, **kwargs):
         ids = [seq.feature_id for seq in content]
-        query = DBSession.query(Sequence).filter(Sequence.native_id.in_(ids))
+        query = DBSession.query(self.fos).filter(self.fos.native_id.in_(ids))
         return len([DBSession.delete(row) for row in query.all()])
 
     ##
@@ -248,68 +249,65 @@ class Service(BosService):
     def aux_filter(self, filter):
         clauses = []
 
-        if 'analysis_id' in filter:
+        if filter.get('stock_id'):
+            from ....db_models.chado import StockFeature
+            _ids = self.db.query(StockFeature.feature_id)\
+                .filter(filter_parse(StockFeature, [{'stock_id': filter.get('stock_id')}]))
+            clauses.append(self.orm.feature_id.in_(_ids))
+
+        if filter.get('analysis_id'):
             from ....db_models.chado import AnalysisFeature
             _ids = self.db.query(AnalysisFeature.feature_id)\
                 .filter(filter_parse(AnalysisFeature, [{'analysis_id': filter.get('analysis_id')}]))
             clauses.append(self.orm.feature_id.in_(_ids))
 
-        if 'phylotree_id' in filter:
+        if filter.get('phylotree_id'):
             from ....db_models.chado import Phylonode
             _ids = self.db.query(Phylonode.feature_id)\
                 .filter(filter_parse(Phylonode, [{'phylotree_id': filter.get('phylotree_id')}]))
             clauses.append(self.orm.feature_id.in_(_ids))
 
-        if "prop_cvterm_id" in filter:
+        if filter.get("prop_cvterm_id"):
             from ....db_models.chado import Featureprop
             _ids = self.db.query(Featureprop.feature_id)\
                 .filter(filter_parse(Featureprop, [{'type_id': filter.get('prop_cvterm_id')}]))
             clauses.append(self.orm.feature_id.in_(_ids))
 
-        if "program" in filter:
-            from ....db_models.chado import Analysis
-            _ids = self.db.query(Analysis.analysis_id) \
+        if filter.get("program"):
+            from ....db_models.chado import Analysis, AnalysisFeature
+            _ids = self.db.query(AnalysisFeature.feature_id).join(Analysis) \
                 .filter(filter_parse(Analysis, [{'program': filter.get('program')}]))
-            from ....db_models.chado import AnalysisFeature
-            _ids = self.db.query(AnalysisFeature.feature_id) \
-                .filter(AnalysisFeature.analysis_id.in_(_ids))
             clauses.append(self.orm.feature_id.in_(_ids))
 
-        if "programversion" in filter:
-            from ....db_models.chado import Analysis
-            _ids = self.db.query(Analysis.analysis_id) \
+        if filter.get("programversion"):
+            from ....db_models.chado import Analysis, AnalysisFeature
+            _ids = self.db.query(AnalysisFeature.feature_id).join(Analysis) \
                 .filter(filter_parse(Analysis, [{'programversion': filter.get('programversion')}]))
-            from ....db_models.chado import AnalysisFeature
-            _ids = self.db.query(AnalysisFeature.feature_id) \
-                .filter(AnalysisFeature.analysis_id.in_(_ids))
             clauses.append(self.orm.feature_id.in_(_ids))
 
-        if "algorithm" in filter:
-            from ....db_models.chado import Analysis
-            _ids = self.db.query(Analysis.analysis_id) \
+        if filter.get("algorithm"):
+            from ....db_models.chado import Analysis, AnalysisFeature
+            _ids = self.db.query(AnalysisFeature.feature_id).join(Analysis) \
                 .filter(filter_parse(Analysis, [{'algorithm': filter.get('algorithm')}]))
-            from ....db_models.chado import AnalysisFeature
-            _ids = self.db.query(AnalysisFeature.feature_id) \
-                .filter(AnalysisFeature.analysis_id.in_(_ids))
             clauses.append(self.orm.feature_id.in_(_ids))
 
         from datetime import datetime
-        if "added-from" in filter:
+        if filter.get("added-from"):
             filter["added-from"]['unary'] = datetime.strptime(filter.get("added-from")['unary'], '%Y-%m-%d')
             _ids = self.db.query(self.orm.feature_id) \
                 .filter(filter_parse(self.orm, {'timeaccessioned':filter.get("added-from")}))
             clauses.append(self.orm.feature_id.in_(_ids))
-        if "added-to" in filter:
+        if filter.get("added-to"):
             filter["added-to"]['unary'] = datetime.strptime(filter.get("added-to")['unary'], '%Y-%m-%d')
             _ids = self.db.query(self.orm.feature_id) \
                 .filter(filter_parse(self.orm, {'timeaccessioned':filter.get("added-to")}))
             clauses.append(self.orm.feature_id.in_(_ids))
-        if "lastmodified-from" in filter:
+        if filter.get("lastmodified-from"):
             filter["lastmodified-from"]['unary'] = datetime.strptime(filter.get("lastmodified-from")['unary'], '%Y-%m-%d')
             _ids = self.db.query(self.orm.feature_id) \
                 .filter(filter_parse(self.orm, {'timelastmodified':filter.get("lastmodified-from")}))
             clauses.append(self.orm.feature_id.in_(_ids))
-        if "lastmodified-to" in filter:
+        if filter.get("lastmodified-to"):
             filter["lastmodified-to"]['unary'] = datetime.strptime(filter.get("lastmodified-to")['unary'], '%Y-%m-%d')
             _ids = self.db.query(self.orm.feature_id) \
                 .filter(filter_parse(self.orm, {'timelastmodified':filter.get("lastmodified-to")}))
