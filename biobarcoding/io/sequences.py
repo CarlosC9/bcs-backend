@@ -183,10 +183,11 @@ def import_file(infile, _format=None, data=None, analysis_id=None, **kwargs):
             for seq in batch:
                 # STEP 1: stock/specimen
                 _org = seq.annotations.get('organism')
+                _org_id = ORG_ENTRIES[_org].organism_id
                 _ind, _ind_v = seq_name2ind(seq.id)
                 if _ind not in STOCK_ENTRIES:
                     _ = get_or_create(DBSessionChado, Stock, uniquename=_ind, type_id=ind_type_id)
-                    _.organism_id = ORG_ENTRIES.get(_org).organism_id,
+                    _.organism_id = _org_id
                     STOCK_ENTRIES[_ind] = _
                     stock_batch.append(_)
                 if _ind not in SPECIMEN_ENTRIES:
@@ -196,10 +197,10 @@ def import_file(infile, _format=None, data=None, analysis_id=None, **kwargs):
                 _id = f'{seq.id}.a{analysis_id}' if analysis_id else seq.id
                 if analysis_id:
                     feat_src_batch[_id] = seq.id
-                feat_batch.append(Feature(uniquename=_id, name=seq.name if seq.name and seq.name != '<unknown name>'
-                                          else seq.description or seq.id,
+                _name = seq.name if seq.name and seq.name != '<unknown name>' \
+                            else seq.description or seq.id
+                feat_batch.append(Feature(uniquename=_id, name=_name, organism_id=_org_id,
                                           type_id=seq_type_id, is_analysis=bool(analysis_id),
-                                          organism_id=ORG_ENTRIES.get(_org).organism_id,
                                           residues=str(seq.seq), seqlen=len(seq.seq)))
                 # STEP 3: annotations (gene/region)
                 for f in seq.features:
@@ -219,7 +220,7 @@ def import_file(infile, _format=None, data=None, analysis_id=None, **kwargs):
                                 params['value'] = ann
                                 instance = AnnotationField(**params)
                             ANN_ENTRIES[ann] = instance
-                            ann_batch.append(ANN_ENTRIES[ann])
+                            ann_batch.append(instance)
                 # ann = set_annotation(s)     # TODO: bulk annotations ?
 
             # # BATCH_READING 3: the rows that require chado:feature
@@ -241,24 +242,20 @@ def import_file(infile, _format=None, data=None, analysis_id=None, **kwargs):
                 if analysis_id:
                     try:
                         src = DBSessionChado.query(Feature).filter(Feature.uniquename == feat_src_batch.get(_id)).one()
-                        ansis_src_rows.append(get_or_create(DBSessionChado, Featureloc,
-                                                            feature_id=feature.feature_id,
-                                                            srcfeature_id=src.feature_id))
+                        ansis_src_rows.append(Featureloc(feature_id=feature.feature_id, srcfeature_id=src.feature_id))
                     except Exception as e:
                         print('Warning: Feature source could not be found.')
-                    ansis_rl_rows.append(get_or_create(DBSessionChado, AnalysisFeature,
-                                                       analysis_id=analysis_id, feature_id=feature.feature_id))
+                    ansis_rl_rows.append(AnalysisFeature(analysis_id=analysis_id, feature_id=feature.feature_id))
                 # STEP 2: sequence (sysadmin)
-                SPECIMEN_ENTRIES.get(_ind).native_id = STOCK_ENTRIES.get(_ind).stock_id
-                seq_entries[_id] = get_or_create(DBSession, Sequence, name=_id,
-                                                 specimen_id=SPECIMEN_ENTRIES.get(_ind).id,
-                                                 native_id=feature.feature_id)
+                _stock_id = STOCK_ENTRIES[_ind].stock_id
+                _spec = SPECIMEN_ENTRIES[_ind]
+                _spec.native_id = _stock_id
+                seq_entries[_id] = Sequence(name=_id, specimen_id=_spec.id, native_id=feature.feature_id)
                 seq_batch.append(seq_entries[_id])
                 # STEP 3: stock relationship (individual)
-                stock_rl_rows.append(get_or_create(DBSessionChado, StockFeature,
-                                                   stock_id=STOCK_ENTRIES.get(_ind).stock_id,
-                                                   feature_id=feature.feature_id,
-                                                   type_id=feature.type_id))
+                stock_rl_rows.append(StockFeature(stock_id=_stock_id,
+                                                  feature_id=feature.feature_id,
+                                                  type_id=feature.type_id))
 
             # # BATCH_READING 4: the rows that require sysadmin:sequence
             # STEP 0: add the required rows to the session and flush
@@ -279,8 +276,7 @@ def import_file(infile, _format=None, data=None, analysis_id=None, **kwargs):
                     if not seq:
                         print(f'ANN_SEQ NOT FOUND: {s} - {a}')
                         continue
-                    ann_rl_rows.append(get_or_create(DBSession, AnnotationItemFunctionalObject,
-                                                     annotation_id=ann.id, object_uuid=seq.uuid))
+                    ann_rl_rows.append(AnnotationItemFunctionalObject(annotation_id=ann.id, object_uuid=seq.uuid))
             print('ANNOTATED:', len(seq_batch))
 
         print('BATCHES DONE')

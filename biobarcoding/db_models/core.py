@@ -42,7 +42,7 @@ class FunctionalObject(ORMBase):
     uuid = Column(GUID, unique=True, default=uuid.uuid4)
 
     obj_type_id = Column("do_type_id", Integer, ForeignKey(ObjectType.id))
-    native_id = Column(BigInteger, nullable=True, primary_key=False)
+    native_id = Column(BigInteger)
 
     owner_id = Column(Integer, ForeignKey(Identity.id))
     creation_time = Column(DateTime, default=datetime.datetime.utcnow())
@@ -60,6 +60,7 @@ class FunctionalObject(ORMBase):
     __table_args__ = (
         UniqueConstraint(obj_type_id, native_id, name=__tablename__ + '_c1'),
         Index('ix_fobj__ts_vector__', ts_vector, postgresql_using='gin'),
+        Index(__tablename__ + '_idx1', name),
     )
 
     __mapper_args__ = {

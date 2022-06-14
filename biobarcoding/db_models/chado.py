@@ -25,9 +25,11 @@ class AnalysisRelationship(ORMBaseChado):
     __table_args__ = {'extend_existing': True, 'autoload': True}
 
     subject_id = Column(Integer, ForeignKey(Analysis.analysis_id))
-    subject = relationship(Analysis, foreign_keys=[subject_id], backref=backref("related_objects"))
+    subject = relationship(Analysis, foreign_keys=[subject_id],
+                           backref=backref("related_objects", cascade="all, delete-orphan"))
     object_id = Column(Integer, ForeignKey(Analysis.analysis_id))
-    object = relationship(Analysis, foreign_keys=[object_id], backref=backref("related_subjects"))
+    object = relationship(Analysis, foreign_keys=[object_id],
+                          backref=backref("related_subjects", cascade="all, delete-orphan"))
 
 
 class Phylotree(ORMBaseChado):
