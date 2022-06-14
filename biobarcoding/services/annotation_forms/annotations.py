@@ -134,7 +134,7 @@ class Service(BasicService):
         if object_uuid:
             query = query.join(AnnotationItemFunctionalObject).filter(
                 AnnotationItemFunctionalObject.object_uuid == object_uuid).order_by(AnnotationItemFunctionalObject.rank)
-        return super(Service, self).get_query(query, **kwargs)
+        return super(Service, self).get_query(query=query, **kwargs)
 
     def aux_filter(self, filter):
         clauses = []

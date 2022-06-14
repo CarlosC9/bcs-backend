@@ -47,46 +47,35 @@ class StockCollService(MetaService):
 
         if filter.get('feature_id'):
             from ....db_models.chado import Stock, StockcollectionStock
-            _ids = self.db.query(Stock.stock_id) \
+            _ids = self.db.query(StockcollectionStock.stockcollection_id).join(Stock) \
                 .filter(filter_parse(Stock, {'feature_id': filter.get('feature_id')}))
-            _ids = self.db.query(StockcollectionStock.stockcollection_id) \
-                .filter(StockcollectionStock.stock_id.in_(_ids))
             clauses.append(self.orm.stockcollection_id.in_(_ids))
 
         if filter.get('organism_id'):
             from ....db_models.chado import Stock, StockcollectionStock
-            _ids = self.db.query(Stock.stock_id) \
+            _ids = self.db.query(StockcollectionStock.stockcollection_id).join(Stock) \
                 .filter(filter_parse(Stock, {'organism_id': filter.get('organism_id')}))
-            _ids = self.db.query(StockcollectionStock.stockcollection_id) \
-                .filter(StockcollectionStock.stock_id.in_(_ids))
             clauses.append(self.orm.stockcollection_id.in_(_ids))
 
-        if 'phylotree_id' in filter:
-            # from ....db_models.chado import Phylotree
-            # _ids = self.db.query(Phylotree.analysis_id) \
-            #     .filter(filter_parse(Phylotree, [{'phylotree_id': filter.get('phylotree_id')}]))
-            # clauses.append(self.orm.stockcollection_id.in_(_ids))
-            pass
-
-        if "cvterm_id" in filter:
+        if filter.get("cvterm_id"):
             from ....db_models.chado import StockcollectionCvterm
             _ids = self.db.query(StockcollectionCvterm.stockcollection_id) \
                 .filter(filter_parse(StockcollectionCvterm, [{'cvterm_id': filter.get('cvterm_id')}]))
             clauses.append(self.orm.stockcollection_id.in_(_ids))
 
-        if "prop_cvterm_id" in filter:
+        if filter.get("prop_cvterm_id"):
             from ....db_models.chado import Stockcollectionprop
             _ids = self.db.query(Stockcollectionprop.stockcollection_id) \
                 .filter(filter_parse(Stockcollectionprop, [{'type_id': filter.get('prop_cvterm_id')}]))
             clauses.append(self.orm.stockcollection_id.in_(_ids))
 
         # from datetime import datetime
-        # if "added-from" in filter:
+        # if filter.get("added-from"):
         #     filter["added-from"]['unary'] = datetime.strptime(filter.get("added-from")['unary'], '%Y-%m-%d')
         #     _ids = self.db.query(self.orm.stockcollection_id) \
         #         .filter(filter_parse(self.orm, {'timeexecuted':filter.get("added-from")}))
         #     clauses.append(self.orm.stockcollection_id.in_(_ids))
-        # if "added-to" in filter:
+        # if filter.get("added-to"):
         #     filter["added-to"]['unary'] = datetime.strptime(filter.get("added-to")['unary'], '%Y-%m-%d')
         #     _ids = self.db.query(self.orm.stockcollection_id) \
         #         .filter(filter_parse(self.orm, {'timeexecuted':filter.get("added-to")}))

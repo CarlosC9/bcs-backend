@@ -5,12 +5,12 @@ from ..rest import h_subjects_name, h_sources_name, h_crs_name
 from ..db_models import DBSession, DBSessionChado
 
 
-def __getTypes(type):
-    if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
+def __getTypes(subject):
+    if subject == 'sequence' or subject == 'sequences' or subject == 'feature' or subject == 'features':
         from ..db_models.chado import Feature as ORM
-    elif type == 'phylotree' or type == 'phylotrees':
+    elif subject == 'phylotree' or subject == 'phylotrees':
         from ..db_models.chado import Phylotree as ORM
-    elif type == 'individual' or type == 'individuals' or type == 'stock' or type == 'stocks':
+    elif subject == 'individual' or subject == 'individuals' or subject == 'stock' or subject == 'stocks':
         from ..db_models.chado import Stock as ORM
     else:
         return None
@@ -18,27 +18,32 @@ def __getTypes(type):
     return DBSessionChado.query(Cvterm).filter(Cvterm.cvterm_id.in_(ids)).all()
 
 
-def __getCvterms(type):
-    if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
+def __getCvterms(subject):
+    if subject == 'sequence' or subject == 'sequences' or subject == 'feature' or subject == 'features':
         from ..db_models.chado import FeatureCvterm as ORM
-    elif type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
+    elif subject == 'alignment' or subject == 'analysis' or subject == 'alignments' or subject == 'analyses':
         from ..db_models.chado import AnalysisCvterm as ORM
-    elif type == 'individual' or type == 'individuals' or type == 'stock' or type == 'stocks':
+    elif subject == 'individual' or subject == 'individuals' or subject == 'stock' or subject == 'stocks':
         from ..db_models.chado import StockCvterm as ORM
+    elif subject == 'annotation_form_template' or subject == 'annotation_form_templates' \
+            or subject == 'annotation_form_field' or subject == 'annotation_form_fields':
+        from ..db_models.sa_annotations import AnnotationFormItem as ORM
+        ids = DBSession.query(ORM.cvterm_id).distinct(ORM.cvterm_id).all()
+        return DBSessionChado.query(Cvterm).filter(Cvterm.cvterm_id.in_(ids)).all()
     else:
         return None
     ids = DBSessionChado.query(ORM.cvterm_id).distinct(ORM.cvterm_id).subquery()
     return DBSessionChado.query(Cvterm).filter(Cvterm.cvterm_id.in_(ids)).all()
 
 
-def __getProps(type):
-    if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
+def __getProps(subject):
+    if subject == 'sequence' or subject == 'sequences' or subject == 'feature' or subject == 'features':
         from ..db_models.chado import Featureprop as ORM
-    elif type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
+    elif subject == 'alignment' or subject == 'analysis' or subject == 'alignments' or subject == 'analyses':
         from ..db_models.chado import Analysisprop as ORM
-    elif type == 'phylotree' or type == 'phylotrees':
+    elif subject == 'phylotree' or subject == 'phylotrees':
         from ..db_models.chado import Phylotreeprop as ORM
-    elif type == 'individual' or type == 'individuals' or type == 'stock' or type == 'stocks':
+    elif subject == 'individual' or subject == 'individuals' or subject == 'stock' or subject == 'stocks':
         from ..db_models.chado import Stockprop as ORM
     else:
         return None
@@ -46,40 +51,45 @@ def __getProps(type):
     return DBSessionChado.query(Cvterm).filter(Cvterm.cvterm_id.in_(ids)).all()
 
 
-def __getDbxref(type):
-    if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
+def __getDbxref(subject):
+    from ..db_models.chado import Dbxref
+    if subject == 'sequence' or subject == 'sequences' or subject == 'feature' or subject == 'features':
         from ..db_models.chado import Feature as ORM
-    elif type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
+    elif subject == 'alignment' or subject == 'analysis' or subject == 'alignments' or subject == 'analyses':
         from ..db_models.chado import AnalysisDbxref as ORM
-    elif type == 'phylotree' or type == 'phylotrees':
+    elif subject == 'phylotree' or subject == 'phylotrees':
         from ..db_models.chado import Phylotree as ORM
-    elif type == 'individual' or type == 'individuals' or type == 'stock' or type == 'stocks':
+    elif subject == 'individual' or subject == 'individuals' or subject == 'stock' or subject == 'stocks':
         from ..db_models.chado import Stock as ORM
+    elif subject == 'annotation_form_template' or subject == 'annotation_form_templates' \
+            or subject == 'annotation_form_field' or subject == 'annotation_form_fields':
+        from ..db_models.sa_annotations import AnnotationFormItem as ORM
+        ids = DBSession.query(ORM.dbxref_id).distinct(ORM.dbxref_id).all()
+        return DBSessionChado.query(Dbxref).filter(Dbxref.dbxref_id.in_(ids)).all()
     else:
         return None
     ids = DBSessionChado.query(ORM.dbxref_id).distinct(ORM.dbxref_id).subquery()
-    from ..db_models.chado import Dbxref
     return DBSessionChado.query(Dbxref).filter(Dbxref.dbxref_id.in_(ids)).all()
 
 
-def __getOrganisms(type):
+def __getOrganisms(subject):
     from ..db_models.chado import Feature as ORM
-    if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
+    if subject == 'sequence' or subject == 'sequences' or subject == 'feature' or subject == 'features':
         ids = DBSessionChado.query(ORM.organism_id)
-    elif type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
+    elif subject == 'alignment' or subject == 'analysis' or subject == 'alignments' or subject == 'analyses':
         # AnalysisFeature > Feature
         from ..db_models.chado import AnalysisFeature
         ids = DBSessionChado.query(AnalysisFeature.feature_id).subquery()
         ids = DBSessionChado.query(ORM.organism_id).filter(ORM.feature_id.in_(ids))
-    elif type == 'phylotree' or type == 'phylotrees':
+    elif subject == 'phylotree' or subject == 'phylotrees':
         # Phylonode > Feature
         from ..db_models.chado import Phylonode
         ids = DBSessionChado.query(Phylonode.feature_id).subquery()
         ids = DBSessionChado.query(ORM.organism_id).filter(ORM.feature_id.in_(ids))
-    elif type == 'individual' or type == 'individuals' or type == 'stock' or type == 'stocks':
+    elif subject == 'individual' or subject == 'individuals' or subject == 'stock' or subject == 'stocks':
         from ..db_models.chado import Stock as ORM
         ids = DBSessionChado.query(ORM.organism_id)
-    elif type == 'taxonomy' or type == 'taxonomies':
+    elif subject == 'taxonomy' or subject == 'taxonomies':
         from ..db_models.chado import PhylonodeOrganism as ORM
         ids = DBSessionChado.query(ORM.organism_id)
     else:
@@ -89,12 +99,12 @@ def __getOrganisms(type):
     return OrgService().read(filter={'organism_id': ids})[0]    # info attachment needed
 
 
-def __getAnalyses(type):
-    if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
+def __getAnalyses(subject):
+    if subject == 'sequence' or subject == 'sequences' or subject == 'feature' or subject == 'features':
         from ..db_models.chado import AnalysisFeature as ORM
-    elif type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
+    elif subject == 'alignment' or subject == 'analysis' or subject == 'alignments' or subject == 'analyses':
         from ..db_models.chado import Analysis as ORM
-    elif type == 'phylotree' or type == 'phylotrees':
+    elif subject == 'phylotree' or subject == 'phylotrees':
         from ..db_models.chado import Phylotree as ORM
     else:
         return None
@@ -103,66 +113,73 @@ def __getAnalyses(type):
     return DBSessionChado.query(Analysis).filter(Analysis.analysis_id.in_(ids)).all()
 
 
-def __getAnnotationFormTemplates(type):
-    if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
+def __getAnnotationFormTemplates(subject):
+    if subject == 'sequence' or subject == 'sequences' or subject == 'feature' or subject == 'features':
         from ..db_models.bioinformatics import Sequence as ORM
-    elif type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
+    elif subject == 'alignment' or subject == 'analysis' or subject == 'alignments' or subject == 'analyses':
         from ..db_models.bioinformatics import MultipleSequenceAlignment as ORM
-    elif type == 'phylotree' or type == 'phylotrees':
+    elif subject == 'phylotree' or subject == 'phylotrees':
         from ..db_models.bioinformatics import PhylogeneticTree as ORM
+    elif subject == 'annotation_form_field' or subject == 'annotation_form_fields':
+        from ..db_models.sa_annotations import AnnotationFormTemplate, AnnotationFormTemplateField as ORM
+        return DBSession.query(AnnotationFormTemplate).join(ORM).all()
     else:
         return None
     from ..db_models.sa_annotations import AnnotationFormTemplate, AnnotationTemplate, AnnotationItemFunctionalObject
     return DBSession.query(AnnotationFormTemplate).join(AnnotationTemplate).join(AnnotationItemFunctionalObject).join(ORM).all()
 
 
-def __getAnnotationFormFields(type):
-    if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
+def __getAnnotationFormFields(subject):
+    if subject == 'sequence' or subject == 'sequences' or subject == 'feature' or subject == 'features':
         from ..db_models.bioinformatics import Sequence as ORM
-    elif type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
+    elif subject == 'alignment' or subject == 'analysis' or subject == 'alignments' or subject == 'analyses':
         from ..db_models.bioinformatics import MultipleSequenceAlignment as ORM
-    elif type == 'phylotree' or type == 'phylotrees':
+    elif subject == 'phylotree' or subject == 'phylotrees':
         from ..db_models.bioinformatics import PhylogeneticTree as ORM
+    elif subject == 'annotation_form_template' or subject == 'annotation_form_templates':
+        from ..db_models.sa_annotations import AnnotationFormField, AnnotationFormTemplateField as ORM
+        return DBSession.query(AnnotationFormField).join(ORM).all()
     else:
         return None
     from ..db_models.sa_annotations import AnnotationFormField, AnnotationField, AnnotationItemFunctionalObject
     return DBSession.query(AnnotationFormField).join(AnnotationField).join(AnnotationItemFunctionalObject).join(ORM).all()
 
 
-def __getAnnotationFields(type):
-    if type == 'sequence' or type == 'sequences' or type == 'feature' or type == 'features':
+def __getAnnotationFields(subject):
+    if subject == 'sequence' or subject == 'sequences' or subject == 'feature' or subject == 'features':
         from ..db_models.bioinformatics import Sequence as ORM
-    elif type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
+    elif subject == 'alignment' or subject == 'analysis' or subject == 'alignments' or subject == 'analyses':
         from ..db_models.bioinformatics import MultipleSequenceAlignment as ORM
-    elif type == 'phylotree' or type == 'phylotrees':
+    elif subject == 'phylotree' or subject == 'phylotrees':
         from ..db_models.bioinformatics import PhylogeneticTree as ORM
     else:
         return None
     from ..db_models.sa_annotations import AnnotationField, AnnotationItemFunctionalObject
+    _all = DBSession.query(AnnotationField).join(AnnotationItemFunctionalObject).join(ORM).all()
+    form_fields = dict((i.form_field_id, i.form_field.name) for i in _all)
+
     import json
     from ..common import generate_json
-    all = DBSession.query(AnnotationField).join(AnnotationItemFunctionalObject).join(ORM).all()
-    form_fields = dict((i.form_field_id, i.form_field.name) for i in all)
 
     def _f(x):
         d = json.loads(generate_json(x))
         d['form_field'] = form_fields.get(x.form_field_id, '')
         return d
 
-    return [_f(i) for i in all]
+    return [_f(i) for i in _all]
 
 
-def getFilterSchema(type, session):
+def getFilterSchema(subject, session):
     kwargs = {}
-    kwargs['types'] = __getTypes(type)
-    kwargs['cvterms'] = __getCvterms(type)
-    kwargs['props'] = __getProps(type)
-    kwargs['annotation_form_templates'] = __getAnnotationFormTemplates(type)
-    kwargs['annotation_form_fields'] = __getAnnotationFormFields(type)
-    kwargs['annotation_fields'] = __getAnnotationFields(type)
-    kwargs['dbxref'] = __getDbxref(type)
-    kwargs['organisms'] = __getOrganisms(type)
-    kwargs['analyses'] = __getAnalyses(type)
+    kwargs['types'] = __getTypes(subject)
+    kwargs['cvterms'] = __getCvterms(subject)
+    kwargs['props'] = __getProps(subject)
+    kwargs['annotation_form_templates'] = __getAnnotationFormTemplates(subject)
+    kwargs['annotation_form_fields'] = __getAnnotationFormFields(subject)
+    kwargs['annotation_fields'] = __getAnnotationFields(subject)
+    kwargs['dbxref'] = __getDbxref(subject)
+    kwargs['organisms'] = __getOrganisms(subject)
+    kwargs['analyses'] = __getAnalyses(subject)
     if kwargs.get('analyses'):
         kwargs['programs'] = [{'program': a.program} for a in kwargs.get('analyses')]
         kwargs['programs'] = [dict(t) for t in {tuple(p.items()) for p in kwargs['programs']}]
@@ -171,9 +188,13 @@ def getFilterSchema(type, session):
         kwargs['programversions'] = [dict(t) for t in {tuple(p.items()) for p in kwargs['programversions']}]
         kwargs['algorithms'] = [{'algorithm': a.algorithm} for a in kwargs.get('analyses')]
         kwargs['algorithms'] = [dict(t) for t in {tuple(p.items()) for p in kwargs['algorithms']}]
-        if type == 'alignment' or type == 'analysis' or type == 'alignments' or type == 'analyses':
+        if subject == 'alignment' or subject == 'analysis' or subject == 'alignments' or subject == 'analyses':
             kwargs['analyses'] = []
-    elif type == "geoprocesses_instances":  # Process instances
+    elif subject.startswith("annotation_form_"):
+        from ..db_models.sa_annotations import AnnotationFormItem
+        kwargs['standards'] = [{'label': i, 'value': i} for i, in
+                               DBSession.query(AnnotationFormItem.standard).distinct(AnnotationFormItem.standard).all()]
+    elif subject == "geoprocesses_instances":  # Process instances
         kwargs["status"] = {
             'key': 'status',
             'type': 'customSelect',
@@ -217,7 +238,7 @@ def getFilterSchema(type, session):
                 'options': [dict(label=f"{i.name}", value=f"{i.id}") for i in geoprocesses]
             }
         }
-    elif type == "layers":  # Geographic Layers
+    elif subject == "layers":  # Geographic Layers
         subjects = session.query(HierarchyNode).join(Hierarchy).\
             filter(Hierarchy.name == h_subjects_name).all()
         kwargs["subjects"] = {
@@ -300,4 +321,4 @@ def getFilterSchema(type, session):
         }
 
     from ..forms.filter_json import getJSONFilterSchema
-    return getJSONFilterSchema(**kwargs)
+    return getJSONFilterSchema(subject, **kwargs)

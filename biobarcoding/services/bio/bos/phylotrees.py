@@ -4,32 +4,30 @@ import time
 from Bio import Phylo
 from Bio.Phylo.BaseTree import Tree, Clade
 
-from . import BosService
+from .analyses import Service as AnsisService
 from ..meta.ontologies import get_type_id
-from ...main import get_orm
-from ....db_models import DBSessionChado, DBSession
+from ... import get_bioformat, get_or_create, log_exception, get_orm_params
+from ....common.helpers import zip_files
 from ....db_models.bioinformatics import PhylogeneticTree
-from ....db_models.chado import Phylonode, Feature
-from ... import get_bioformat, get_or_create, log_exception
+from ....db_models.chado import Phylotree, Phylonode, Feature
 
 
 ##
 # PHYLOTREE SERVICE
 ##
-class Service(BosService):
+class Service(AnsisService):
 
     def __init__(self):
         super(Service, self).__init__()
-        self.db = DBSessionChado
-        self.orm = get_orm('phylotrees')
-        self.bos = 'phylogenetic-tree'
+        self.obj_type = 'phylogenetic-tree'
+        self.fos = PhylogeneticTree
         self.formats = ['newick', 'nexus', 'nexml', 'phyloxml']
 
     ##
     # CREATE
     ##
 
-    def prepare_values(self, **values):
+    def prepare_external_values(self, **values) -> dict:
 
         if not values.get('type_id') and values.get('type'):
             try:
@@ -37,24 +35,11 @@ class Service(BosService):
             except:
                 pass
 
-        # Analysis row could exist for jobs, so get or create
-        ansis_trigger = ('job_id', 'program', 'programversion', 'sourcename')
-        if not values.get('analysis_id') and any(key in values.keys() for key in ansis_trigger):
-            from ..meta.analyses import Service as AnsisService
-            ansis_service = AnsisService()
+        if not values.get('type_id'):
             try:
-                unique_keys = ['job_id'] if values.get('job_id') else ('program', 'programversion', 'sourcename')
-                content, count = ansis_service.get_query(purpose='annotate', **{k: values[k] for k in unique_keys if k in values})
-                content = content.one()
+                values['type_id'] = get_type_id(type='phylotree')
             except:
-                t_name = values.pop('name')   # Avoid to spread the treename to analysis
-                content, count = ansis_service.create(**values)
-                values['name'] = t_name
-            values['analysis_id'] = content.analysis_id
-
-        return super(Service, self).prepare_values(**values)
-
-    def check_values(self, **values):
+                pass
 
         if not values.get('dbxref_id'):
             from ....db_models.chado import Db, Dbxref
@@ -63,32 +48,7 @@ class Service(BosService):
                                                 accession=f'phylotree:{values.get("name")}',
                                                 version=time.strftime("%Y %b %d %H:%M:%S")).dbxref_id
 
-        if not values.get('type_id'):
-            try:
-                values['type_id'] = get_type_id(type='phylotree')
-            except:
-                pass
-
-        return super(Service, self).check_values(**values)
-
-    def after_create(self, new_object, **values):
-        values = super(Service, self).after_create(new_object, **values)
-
-        phylo = get_or_create(DBSession, PhylogeneticTree,
-                              native_id=new_object.phylotree_id,
-                              native_table='phylotree',
-                              name=new_object.name)
-
-        return values
-
-    ##
-    # DELETE
-    ##
-
-    def delete_related(self, *content, **kwargs):
-        ids = [t.phylotree_id for t in content]
-        query = DBSession.query(PhylogeneticTree).filter(PhylogeneticTree.native_id.in_(ids))
-        return len([DBSession.delete(row) for row in query.all()])
+        return super(Service, self).prepare_external_values(**values)
 
     ##
     # IMPORT
@@ -119,12 +79,17 @@ class Service(BosService):
         except:
             raise Exception(f'IMPORT phylotress: The file {os.path.basename(infile)} could not be imported. (unknown format)')
         try:
+            # Set missing default values
+            kwargs['programversion'] = kwargs.get('programversion') or '(Imported file)'
+            kwargs['sourcename'] = kwargs.get('sourcename') or os.path.basename(infile)
             if not kwargs.get('name'):
                 kwargs['name'] = os.path.basename(infile)
             # Create the new phylotree
             content, count = self.create(**kwargs)
+            pt = get_or_create(self.db, Phylotree, analysis_id=content.analysis_id,
+                               **get_orm_params(Phylotree, **self.prepare_external_values(**kwargs)))
             # Get phylonodes insertion
-            phylonodes = self.tree2phylonodes(content.phylotree_id, tree.root, None, [0])
+            phylonodes = self.tree2phylonodes(pt.phylotree_id, tree.root, None, [0])
         except Exception as e:
             log_exception(e)
             raise Exception(f'IMPORT phylotress: The file {os.path.basename(infile)} could not be imported. (unmanageable)')
@@ -156,87 +121,46 @@ class Service(BosService):
         return [phylonode] + phylonodes
 
     ##
-    # DEPRECATED EXPORT
-    ##
-
-    def _data2file(self, trees: list, outfile, format: str, **kwargs) -> int:
-        files, count = [], 0
-        for t in trees:
-            # dump to newick
-            root = self.db.query(Phylonode).filter(Phylonode.phylotree_id == t.phylotree_id,
-                                                   Phylonode.parent_phylonode_id == None).one()
-            result = self.tree2newick(root)
-            with open("%s.newick" % outfile, "w") as file:
-                file.write(result)
-            file = outfile
-            if len(trees) > 1:
-                file = f'{file}_{t.name}'
-            # convert from newick to another format
-            if format in ["nexus", "nexml"]:
-                from dendropy import Tree as DenTree
-                tree = DenTree.get(path="%s.newick" % outfile, schema="newick")
-                tree.write(path=file, schema=format)
-            elif format != "newick":
-                Phylo.convert("%s.newick" % outfile, "newick", file, format)
-            else:
-                os.rename("%s.newick" % outfile, file)
-            files.append(file)
-            count += 1
-        if len(trees) > 1:
-            from ....common.helpers import zip_files
-            zip_files(outfile, files)
-        return count
-
-    def tree2newick(self, node, is_root=True) -> str:
-        result = ''
-        children = self.db.query(Phylonode).filter(Phylonode.parent_phylonode_id == node.phylonode_id)
-        if children.count() > 0:
-            result += '(' if is_root else '('
-            i = 1
-            for n in children.all():
-                result += self.tree2newick(n, False)
-                result += ',' if i < children.count() else ')'
-                i += 1
-        if not is_root and node.label or node.distance:
-            label = node.label if node.label else ''
-            distance = node.distance if node.distance else '0.00000'
-            result += f'{label}:{distance}'
-        result += ';' if is_root else ''
-        return result
-
-    ##
     # EXPORT
     ##
 
     def data2file(self, _phys: list, outfile, format: str, **kwargs) -> int:
         trees, count = [], 0
-        for t in _phys:
-            root = self.db.query(Phylonode).filter(Phylonode.phylotree_id == t.phylotree_id,
-                                                   Phylonode.parent_phylonode_id.is_(None)).one()
-            rooted = bool(root.feature_id or root.label)
-            trees.append(Tree(root=self.tree2biopy(root), rooted=rooted, id=t.name, name=t.name))
-            count += 1
-        try:
-            Phylo.write(trees, outfile, format)
-            # if format not in ["nexus", "nexml"]:
-            #     Phylo.write(trees, "%s.newick" % outfile, 'newick')
-            #     from dendropy import Tree as DenTree
-            #     tree = DenTree.get(path="%s.newick" % outfile, schema="newick")
-            #     tree.write(path=file, schema=format)
-        except Exception as e:
-            if format not in self.formats:
-                raise Exception('The specified format is not available.\n'
-                                + 'The supported formats for phylogenetic trees are: ' + str(self.formats))
-            if len(trees) > 1 and format not in ["nexus", "nexml"]:
-                files = []
-                for t in trees:
-                    file = f'{outfile}_{t.name}'
-                    Phylo.write(t, file, format)
-                    files.append(file)
-                from ....common.helpers import zip_files
-                zip_files(outfile, files)
-            else:
-                raise e
+        files = []
+        for ans in _phys:
+            _ = kwargs.get('phylotree_id')
+            pts = ans.phylotrees if not _ \
+                else [t for t in ans.phylotrees if t.phylotree_id in _ or t.phylotree_id == _]
+            for pt in pts:
+                root = self.db.query(Phylonode).filter(Phylonode.phylotree_id == pt.phylotree_id,
+                                                       Phylonode.parent_phylonode_id.is_(None)).one()
+                rooted = bool(root.feature_id or root.label)
+                trees.append(Tree(root=self.tree2biopy(root), rooted=rooted, id=pt.name, name=pt.name))
+                count += 1
+            _file = outfile if len(_phys) < 2 else f'{ans.name or outfile}_{ans.analysis_id}'
+            try:
+                Phylo.write(trees, _file, format)
+                # if format not in ["nexus", "nexml"]:
+                #     Phylo.write(trees, "%s.newick" % outfile, 'newick')
+                #     from dendropy import Tree as DenTree
+                #     tree = DenTree.get(path="%s.newick" % outfile, schema="newick")
+                #     tree.write(path=file, schema=format)
+            except Exception as e:
+                if format not in self.formats:
+                    raise Exception('The specified format is not available.\n'
+                                    + 'The supported formats for phylogenetic trees are: ' + str(self.formats))
+                if len(trees) > 1:
+                    _fs = []
+                    for t in trees:
+                        _f = f'{t.name or _file}_{t.phylotree_id}'
+                        Phylo.write(t, _f, format)
+                        _fs.append(_f)
+                    zip_files(_file, _fs)
+                else:
+                    raise e
+            files.append(_file)
+        if len(files) > 1:
+            zip_files(outfile, files)
         return count
 
     def tree2biopy(self, node, label_type=None) -> Clade:
@@ -256,48 +180,46 @@ class Service(BosService):
         clauses = []
         from ....rest import filter_parse
 
-        if 'feature_id' in filter:
-            _ids = self.db.query(Phylonode.phylotree_id) \
+        if filter.get('feature_id'):
+            _ids = self.db.query(Phylotree.analysis_id).join(Phylonode) \
                 .filter(filter_parse(Phylonode, [{'feature_id': filter.get('feature_id')}]))
-            clauses.append(self.orm.phylotree_id.in_(_ids))
+            clauses.append(self.orm.analysis_id.in_(_ids))
 
-        if 'organism_id' in filter:
+        if filter.get('organism_id'):
             from ....db_models.chado import Feature
-            _ids = self.db.query(Feature.feature_id) \
+            _ids = self.db.query(Phylotree.analysis_id).join(Phylonode).join(Feature) \
                 .filter(filter_parse(Feature, [{'organism_id': filter.get('organism_id')}]))
-            _ids = self.db.query(Phylonode.phylotree_id) \
-                .filter(Phylonode.feature_id.in_(_ids))
-            clauses.append(self.orm.phylotree_id.in_(_ids))
+            clauses.append(self.orm.analysis_id.in_(_ids))
 
-        if "prop_cvterm_id" in filter:
+        if filter.get("prop_cvterm_id"):
             from ....db_models.chado import Phylotreeprop
-            _ids = self.db.query(Phylotreeprop.phylotree_id) \
+            _ids = self.db.query(Phylotree.analysis_id).join(Phylotreeprop) \
                 .filter(filter_parse(Phylotreeprop, [{'type_id': filter.get('prop_cvterm_id')}]))
-            clauses.append(self.orm.phylotree_id.in_(_ids))
+            clauses.append(self.orm.analysis_id.in_(_ids))
 
         from ....db_models.chado import Analysis
-        if "program" in filter:
+        if filter.get("program"):
             _ids = self.db.query(Analysis.analysis_id) \
                 .filter(filter_parse(Analysis, [{'program': filter.get('program')}]))
             clauses.append(self.orm.analysis_id.in_(_ids))
 
-        if "programversion" in filter:
+        if filter.get("programversion"):
             _ids = self.db.query(Analysis.analysis_id) \
                 .filter(filter_parse(Analysis, [{'programversion': filter.get('programversion')}]))
             clauses.append(self.orm.analysis_id.in_(_ids))
 
-        if "algorithm" in filter:
+        if filter.get("algorithm"):
             _ids = self.db.query(Analysis.analysis_id) \
                 .filter(filter_parse(Analysis, [{'algorithm': filter.get('algorithm')}]))
             clauses.append(self.orm.analysis_id.in_(_ids))
 
         from datetime import datetime
-        if "added-from" in filter:
+        if filter.get("added-from"):
             filter["added-from"]['unary'] = datetime.strptime(filter.get("added-from")['unary'], '%Y-%m-%d')
             _ids = self.db.query(Analysis.analysis_id) \
                 .filter(filter_parse(Analysis, {'timeexecuted': filter.get("added-from")}))
             clauses.append(self.orm.analysis_id.in_(_ids))
-        if "added-to" in filter:
+        if filter.get("added-to"):
             filter["added-to"]['unary'] = datetime.strptime(filter.get("added-to")['unary'], '%Y-%m-%d')
             _ids = self.db.query(Analysis.analysis_id) \
                 .filter(filter_parse(Analysis, {'timeexecuted': filter.get("added-to")}))

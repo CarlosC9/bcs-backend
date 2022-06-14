@@ -7,6 +7,7 @@ How to manage file Inputs and Outputs NOT in the App, but in other places
 """
 
 # ALGORITHMS
+from enum import Enum
 import uuid
 import os
 import json
@@ -14,7 +15,7 @@ from datetime import datetime
 
 from sqlalchemy import Integer, Column, String, Text, ForeignKey, JSON, Boolean, DateTime, \
     UniqueConstraint, CheckConstraint
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import JSONB, ENUM
 from sqlalchemy.orm import relationship, backref
 
 from . import ORMBase, GUID
@@ -250,51 +251,67 @@ class Job(ORMBase):
 prefix = "sa_status_"
 
 
+class StatusEnum(Enum):
+    working = 'This system works.'
+    failing = 'This system does not work.'
+    undefined = 'System status is unknown.'
+
+    def __str__(self):
+        return json.dumps(self, default=lambda x: x.value)
+
+
 class StatusChecker(ORMBase):
     __tablename__ = f"{prefix}checkers"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
     uuid = Column(GUID, unique=True, default=uuid.uuid4)
-    name = Column(String(32), nullable=False)
+    name = Column(String(50), nullable=False)
     type = Column(String(32), nullable=False)   # pg, redis, ssh, compute-resources
     url = Column(String(80))
     resource_id = Column(Integer, ForeignKey(ComputeResource.id), nullable=True, primary_key=False)
     resource = relationship(ComputeResource)
-    status = Column(JSON)
+    status = Column(ENUM(StatusEnum))
+    details = Column(JSON)
     last_check = Column(DateTime, default=datetime.utcnow())
 
     __table_args__ = (
-        UniqueConstraint(name, type, url, name=__tablename__ + '_c1'),
-        UniqueConstraint(name, type, resource_id, name=__tablename__ + '_c2'),
+        UniqueConstraint(type, url, name=__tablename__ + '_c1'),
+        UniqueConstraint(type, resource_id, name=__tablename__ + '_c2'),
         CheckConstraint('COALESCE(url , resource_id::text) IS NOT NULL', name=__tablename__ + '_c3'),
     )
 
     def check_status(self):
         from urllib.parse import urlparse
         u = urlparse(self.url)
-        if self.type == 'pg' or u.scheme == 'postgres' or u.scheme == 'postgresql':
-            opt = '-h %s' % u.hostname
-            opt += ' -p %s' % u.port if u.port else ''
-            opt += ' -U %s' % u.username if u.username else ''
-            opt += ' -d %s' % u.path[1:] if u.path[1:] else ''
-            self.status = not os.system('pg_isready ' + opt)
-        elif self.type == 'compute-resource':
+        if self.type == 'compute-resource':
             from ..jobs.ssh_resource import JobExecutorWithSSH
             je = JobExecutorWithSSH('0', create_local_workspace=False, initialize_loop=False)
             je.set_resource(json.loads(generate_json(self.resource)))
-            self.status = je.check()
+            self.details = _status = je.check()
         elif self.type == 'redis' or self.type == 'redis-cli':
-            # self.status = not os.system('redis-cli -h %s -p %s ping' % (u.hostname, u.port))
+            # cmd = 'redis-cli -h %s -p %s ping' % (u.hostname, u.port)
             from redis import Redis, ConnectionError
             try:
-                self.status = Redis(u.hostname, u.port).ping()
-                self.status = True
+                self.details = Redis(u.hostname, u.port).ping()
+                _status = True
             except ConnectionError:
-                self.status = False
-        # elif self.type == 'curl' or u.scheme == 'http' or u.scheme == 'https':
-        else:
-            from ..services import secure_url
-            self.status = not os.system('curl --fail -s %s || exit 1' % secure_url(self.url))
+                _status = False
+        else:   # cmd with subprocess
+            if self.type == 'pg' or u.scheme == 'postgres' or u.scheme == 'postgresql':
+                cmd = 'pg_isready'
+                cmd += ' -h %s' % u.hostname
+                cmd += ' -p %s' % u.port if u.port else ''
+                cmd += ' -U %s' % u.username if u.username else ''
+                cmd += ' -d %s' % u.path[1:] if u.path[1:] else ''
+            else:   # elif self.type == 'curl' or u.scheme == 'http' or u.scheme == 'https':
+                from ..services import secure_url
+                cmd = 'curl --fail -s %s || exit 1' % secure_url(self.url)
+            import subprocess
+            process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True)
+            out, err = process.communicate()
+            self.details = {'stdout': out.decode('utf-8'), 'stderr': err.decode('utf-8')}
+            _status = not process.returncode
+        self.status = StatusEnum.undefined if _status is None else StatusEnum.working if _status else StatusEnum.failing
         self.last_check = datetime.utcnow()
-        return self.status
+        return _status
 

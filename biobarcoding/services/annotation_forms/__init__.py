@@ -14,8 +14,12 @@ class FormItemService(BasicService):
 
     def prepare_values(self, cv=None, cvterm=None, db=None, dbxref=None, **values):
         if cv and cvterm and not values.get('cvterm_id'):
-            values['cvterm_id'] = DBSessionChado.query(Cvterm).join(Cv) \
-                .filter(Cv.name == cv, Cvterm.name == cvterm).one().cvterm_id
+            from sqlalchemy.orm.exc import NoResultFound
+            try:
+                values['cvterm_id'] = DBSessionChado.query(Cvterm).join(Cv) \
+                    .filter(Cv.name == cv, Cvterm.name == cvterm).one().cvterm_id
+            except NoResultFound as e:
+                pass
 
         if db and dbxref and not values.get('dbxref_id'):
             values['dbxref_id'] = DBSessionChado.query(Dbxref).join(Db) \
@@ -59,7 +63,7 @@ class FormItemService(BasicService):
         return values
 
     def read(self, **kwargs):
-        content, count = self.get_query(**kwargs)
+        content, count = self.get_query(purpose='read', **kwargs)
         if kwargs.get('id') or kwargs.get('cvterm_id') or kwargs.get('dbxref_id') \
                 or (kwargs.get('cv') and kwargs.get('cvterm')) \
                 or (kwargs.get('db') and kwargs.get('dbxref')):

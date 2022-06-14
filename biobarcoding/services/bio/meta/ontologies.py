@@ -104,6 +104,7 @@ def get_rl_cvterm(type='relationship'):
     return {
         'relationship': {'cv': 'relationship', 'name': 'part_of'},
         'derives_from': {'cv': 'relationship', 'name': 'derives_from'},
+        'derives_into': {'cv': 'relationship', 'name': 'derives_into'},
     }.get(type)
 
 
@@ -125,7 +126,9 @@ def get_used_cvterm(type, subtype=None):
 
 
 def get_type_id(type=None, subtype=None):
-    return CvtermService().get_query(purpose='read', **get_used_cvterm(type=type, subtype=subtype))[0].one().cvterm_id
+    _ = get_used_cvterm(type=type, subtype=subtype)
+    _ = _ if _ else {'cv': type, 'cvterm': subtype}
+    return CvtermService().get_query(purpose='read', **_)[0].one().cvterm_id
 
 
 ##
@@ -205,27 +208,31 @@ class CvtermService(MetaService):
         if filter.get('feature_id'):
             from ....db_models.chado import Feature, Featureprop, FeatureCvterm
             _ids = self.db.query(Feature.type_id) \
-                .filter(Feature.feature_id == filter.get('feature_id')).all()
-            _ids += self.db.query(Featureprop.type_id) \
-                .filter(Featureprop.feature_id == filter.get('feature_id')).all()
-            _ids += self.db.query(FeatureCvterm.cvterm_id) \
-                .filter(FeatureCvterm.feature_id == filter.get('feature_id')).all()
+                .filter(Feature.feature_id == filter.get('feature_id'))
             clauses.append(self.orm.cvterm_id.in_(_ids))
-        
+            _ids = self.db.query(Featureprop.type_id) \
+                .filter(Featureprop.feature_id == filter.get('feature_id'))
+            clauses.append(self.orm.cvterm_id.in_(_ids))
+            _ids = self.db.query(FeatureCvterm.cvterm_id) \
+                .filter(FeatureCvterm.feature_id == filter.get('feature_id'))
+            clauses.append(self.orm.cvterm_id.in_(_ids))
+
         if filter.get('analysis_id'):
             from ....db_models.chado import Analysisprop, AnalysisCvterm
             _ids = self.db.query(Analysisprop.type_id) \
-                .filter(Analysisprop.analysis_id == filter.get('analysis_id')).all()
-            _ids += self.db.query(AnalysisCvterm.cvterm_id) \
-                .filter(AnalysisCvterm.analysis_id == filter.get('analysis_id')).all()
+                .filter(Analysisprop.analysis_id == filter.get('analysis_id'))
             clauses.append(self.orm.cvterm_id.in_(_ids))
-        
+            _ids = self.db.query(AnalysisCvterm.cvterm_id) \
+                .filter(AnalysisCvterm.analysis_id == filter.get('analysis_id'))
+            clauses.append(self.orm.cvterm_id.in_(_ids))
+
         if filter.get('phylotree_id'):
             from ....db_models.chado import Phylotree, Phylotreeprop
             _ids = self.db.query(Phylotree.type_id) \
-                .filter(Phylotree.phylotree_id == filter.get('phylotree_id')).all()
-            _ids += self.db.query(Phylotreeprop.type_id) \
-                .filter(Phylotreeprop.phylotree_id == filter.get('phylotree_id')).all()
+                .filter(Phylotree.phylotree_id == filter.get('phylotree_id'))
+            clauses.append(self.orm.cvterm_id.in_(_ids))
+            _ids = self.db.query(Phylotreeprop.type_id) \
+                .filter(Phylotreeprop.phylotree_id == filter.get('phylotree_id'))
             clauses.append(self.orm.cvterm_id.in_(_ids))
 
         return clauses + super(CvtermService, self).aux_filter(filter)

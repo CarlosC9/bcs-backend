@@ -11,6 +11,7 @@ NAMES = {
     'biota': 'BIOTA taxonomy tree',
 }
 
+
 ##
 # TAXONOMY SERVICE
 ##
@@ -77,10 +78,10 @@ class Service(MetaService):
     # GET SQLALCHEMY QUERY
     ##
 
-    def get_query(self, **kwargs):
-        query = None
+    def get_query(self, query=None, **kwargs):
+        query = query or self.db.query(self.orm)
         from ....db_models.chado import Dbxref
-        query = self.db.query(self.orm).filter(self.orm.dbxref_id.in_(
+        query = query.filter(self.orm.dbxref_id.in_(
             self.db.query(Dbxref.dbxref_id).filter(Dbxref.accession.like('taxonomy:%')).subquery()))
         return super(Service, self).get_query(query=query, **kwargs)
 
@@ -90,10 +91,8 @@ class Service(MetaService):
 
         if filter.get('organism_id'):
             from ....db_models.chado import Phylonode, PhylonodeOrganism
-            _ids = self.db.query(Phylonode.phylotree_id).filter(Phylonode.phylonode_id.in_(
-                self.db.query(PhylonodeOrganism.phylonode_id).filter(
-                    filter_parse(PhylonodeOrganism, [{'organism_id': filter.get('organism_id')}])).subquery())
-            ).subquery()
+            _ids = self.db.query(Phylonode.phylotree_id).join(PhylonodeOrganism).filter(
+                    filter_parse(PhylonodeOrganism, [{'organism_id': filter.get('organism_id')}]))
             clauses.append(self.orm.phylotree_id.in_(_ids))
 
         return clauses + super(Service, self).aux_filter(filter)

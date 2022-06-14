@@ -548,6 +548,8 @@ def obtain_dataset_properties(dataset_name: str, gdf: gpd.GeoDataFrame, lc_attri
             except:
                 p_type = "string"
             # TODO Find style: dynamic or static
+        elif str(gdf.dtypes[i]) == "geometry":
+            p_type = "geometry"
         else:
             # String column, do not create style
             p_type = "string"
@@ -1005,24 +1007,32 @@ class LayersAPI(MethodView):
             return {l.id: l.geoserver_name for l in layers}
 
         def get_table_field(fld):
-            _ = fld.split("$")
+            _ = str(fld).split("$")
             table = layer_names_dict[int(_[0])]
-            field = _[1]
-            return table, field, f"{table}.{field}"
+            if len(_) == 2:
+                field = _[1]
+                return table, field, f"{table}.{field}"
+            else:
+                return table, None, f"{table}"
 
         def select_clause(select_):
             select_a = []
-            for r in select_["rules"].values():
+            for r in select_["rules"]:  # .values()
+                if r["field"] == "*":
+                    select_a = ["*"]
+                    break
+
                 tab, fld, fld_sql = get_table_field(r["field"])
                 if r["operator"] == "not_function":
                     _ = f"{fld_sql}"
                 else:
                     params = ', '.join(r["value"])
                     _ = f"{r['operator']}({fld_sql}{params})"
-                if r["alias"]:
+                if r.get("alias"):
                     _ += f" AS {r['alias']}"
                 select_a.append(_)
-            else:
+
+            if len(select_a) == 0:
                 select_a.append("*")
 
             return ", ".join(select_a)
@@ -1064,7 +1074,8 @@ class LayersAPI(MethodView):
             :return:
             """
             if len(t) == 1:
-                return t[0]
+                table, fld, sql_name = get_table_field(t[0])
+                return table
 
             already_joined = set()
             from_join_str = ""
@@ -1091,7 +1102,7 @@ class LayersAPI(MethodView):
             params = set()
             where_str = ""
             # Boolean operators
-            if where_["condition"].lower() in ("and", "or", "not"):
+            if "condition" in where_ and where_["condition"].lower() in ("and", "or", "not"):
                 subs = []
                 for rule in where_["rules"]:
                     _, p2 = where_clause(rule)
@@ -1101,11 +1112,12 @@ class LayersAPI(MethodView):
                     where_str = f"NOT ({subs[0]})"
                 else:
                     where_str += "(" + f") {where_['condition']} (".join(subs) + ")"
-            elif where_["operator"].lower() in ("equals", "equals_ignore_case",
-                                                "=", ">", "<", ">=", "<=", "!=",
-                                                "like", "ilike"):
-                if where_["value"].startswith("$"):
-                    params.add(where_["value"][1:])
+            elif "operator" in where_ and where_["operator"].lower() in ("equals", "equals_ignore_case",
+                                                                         "=", ">", "<", ">=", "<=", "!=",
+                                                                         "like", "ilike"):
+                v = where_["value"]
+                if isinstance(v, str) and v.startswith("$"):
+                    params.add(v[1:])
                 operator = where_["operator"].lower()
                 if operator in ("equals_ignore_case", "equals"):
                     operator = "="
@@ -1114,13 +1126,14 @@ class LayersAPI(MethodView):
                 else:
                     function = "("
                 tab, fld, fld_sql = get_table_field(where_["field"])
-                value = f"'{where_['value']}'" if where_["type"] == "string" else where_["value"]
+                value = f"'{v}'" if where_["type"] == "string" else v
                 where_str += f"{function}{fld_sql}) {operator} {value}"
             elif where_["operator"].lower() == "in":
-                if where_["value"].startswith("$"):
-                    params.add(where_["value"][1:])
+                v = where_["value"]
+                if isinstance(v, str) and v.startswith("$"):
+                    params.add(v[1:])
                 tab, fld, fld_sql = get_table_field(where_["field"])
-                values = ','.join([f"'{v}'" if where_["type"] == "string" else v for v in where_["value"]])
+                values = ','.join([f"'{v_}'" if where_["type"] == "string" else v for v_ in v])
                 where_str += f"{fld_sql} IN ({values})"
 
             return where_str, params
@@ -1128,9 +1141,9 @@ class LayersAPI(MethodView):
         # ---------------------------------------------------------------------
 
         layer_names_dict = get_table_names(query_json["layers"])
-        select = select_clause(layer_names_dict, query_json["select"])
-        from_ = from_join_clause(layer_names_dict, query_json["layers"], query_json["join"])
-        where = where_clause(layer_names_dict, query_json["where"])
+        select = select_clause(query_json["select"])
+        from_ = from_join_clause(query_json["layers"], query_json.get("join", []))
+        where, where_params = where_clause(query_json["where"])
 
         return f"SELECT {select} FROM {from_} WHERE {where}"
 
@@ -1149,16 +1162,24 @@ class LayersAPI(MethodView):
         cached = True
         materialized = "MATERIALIZED" if cached else ""
         postgis_engine.execute(f"DROP {materialized} VIEW IF EXISTS {layer_name}")
-        s = f'CREATE {materialized} VIEW "{layer_name}" AS sql'
-        postgis_engine.execute(sql)
+        s = f'CREATE {materialized} VIEW "{layer_name}" AS {sql}'
+        postgis_engine.execute(s)
         self.issues.append(Issue(IType.INFO, f"layer created and stored in geo database"))
         self.status = 200
         if read:
             # Read the data
             df = pd.read_sql(f"SELECT * FROM {layer_name}", postgis_engine)
             # TODO Try to convert to GeoPandas
+            try:
+                df = gpd.GeoDataFrame(df)
+            except Exception as e:
+                pass
+                # self.issues.append(Issue(IType.WARNING, f"could not convert to GeoPandas: {e}"))
         else:
             df = None
+
+        # "add geoserver layer" function looks for any value in "data" to create a layer that is stored in PostGIS
+        self.kwargs["data"] = "dummy"
 
         return self.status, df
 
@@ -1191,7 +1212,7 @@ class LayersAPI(MethodView):
         Then, do the POST, like
         curl --cookie app-cookies.txt -XPOST "$API_BASE_URL/geo/layers/?filesAPI=%2Ff1%2Ff2%2Ff3%2Fplantas.zip&job_id=6"
         """
-        def create_geographic_layer_entity(session, kwargs):
+        def create_geographic_layer_entity(session):
             geographic_layer_schema = getattr(GeographicLayer, "Schema")()
             geographic_layer_data = get_json_from_schema(GeographicLayer, self.kwargs)
             geographic_layer_data["id"] = 0
@@ -1204,14 +1225,20 @@ class LayersAPI(MethodView):
 
         session = g.n_session.db_session
         self.issues = []
-        self.kwargs = self._build_args_from_request_data()
         system_layer = True  # or user layer
+
+        # Prepare kwargs
+        self.kwargs = self._build_args_from_request_data()
         self.kwargs["wks"] = workspace_names[0] if system_layer else workspace_names[1]
 
         # Create layer entity, and persist it
-        geographic_layer = create_geographic_layer_entity(session, self.kwargs)
+        geographic_layer = create_geographic_layer_entity(session)
         session.add(geographic_layer)
         session.flush()
+
+        # Assign name automatically
+        if not geographic_layer.name:
+            geographic_layer.name = f"Layer {geographic_layer.id}, ir a detalle para renombrar"
 
         # Set URL
         tmp = urlparse(request.base_url)
@@ -1229,8 +1256,10 @@ class LayersAPI(MethodView):
             # Store file in PostGIS
             status, gdf, has_geom_column = self._read_and_store_into_postgis(layer_name, lower_case_attributes)
         else:  # An SQL to create a new layer
-            sql, has_geom_column = self._create_sql_from_request(session, self.kwargs["layer_from_query"])
-            status, _ = self._create_postgis_view_and_read(sql, layer_name, lower_case_attributes)
+            sql = self._create_sql_from_request(session, self.kwargs["layer_from_query"])
+            status, gdf = self._create_postgis_view_and_read(sql, layer_name, lower_case_attributes, read=True)
+            geographic_layer.provenance = dict(sql=sql)
+            has_geom_column = gdf.geometry.dropna().shape[0] > 0
 
         # Geometry type
         if not geographic_layer.attributes:
@@ -1241,8 +1270,10 @@ class LayersAPI(MethodView):
         else:
             geographic_layer.attributes["geom_type"] = "Polygon"  # Not known yet...
 
-        # Delete temporary file
-        os.remove(self.kwargs["path"])
+        # Delete temporary file (if file submitted, does not apply to SQL layers)
+        if "path" in self.kwargs:
+            os.remove(self.kwargs["path"])
+
         if status == 200:
             geographic_layer.in_postgis = True
 
@@ -1617,7 +1648,7 @@ class LayersAPI(MethodView):
             if "job_id" in args["attributes"]:
                 args["name"] = f'Capa salida del job {args["attributes"]["job_id"]}'
             else:
-                args["name"] = "Nombre no definido, ir a detalle para renombrar"
+                args["name"] = None
         return args
 
     def _file_posted(self):
@@ -1778,8 +1809,16 @@ def put_property_attributes(id_, property_):
                 break
     # Modify the property
     if property_dict:
+        # Autodetect categories?
+        if req.get("autodetect_categories", True):
+            # Read the data, and obtain the set of unique values for the property
+            gdf = read_geolayer(layer.geoserver_name)
+            uniq = gdf[property_].unique()
+            req["categories"] = sorted(list(uniq))
+
         some_change = False
-        for a in ["colormap", "data_type", "cat_type", "bins", "categories",
+        for a in ["colormap", "data_type", "cat_type", "bins",
+                  "min", "max", "categories",
                   "col_type", "representable", "nature", "unit"]:
             if a in req:
                 property_dict[a] = req[a]
@@ -1789,10 +1828,15 @@ def put_property_attributes(id_, property_):
             # Trick to mark "layer.properties" updatable for the session
             flag_modified(layer, "properties")
 
-    # Check if the specified style exists
-    if layer and property_dict and palette in get_styles():
+    # Change style if
+    #  * layer defined,
+    #  * property_dict defined,
+    #  * palette defined,
+    #  * palette is a valid style
+    #  * Also, if the palette is compatible with the data_type (continuous style for numeric, categoric style for category)
+    if layer and property_dict and palette and palette in get_styles():
         if p["data_type"] == "numeric" and not get_styles()[palette] or p["data_type"] == "category" and get_styles()[palette]:
-            issues.append(Issue(IType.ERROR, f"The palette {palette} is not compatible with the property type {p['type']}"))
+            issues.append(Issue(IType.ERROR, f"The palette {palette} is not compatible with the property type {p['type']}. 'numeric' variables need continuous palette, 'category' variables need categoric palette."))
             status = 400
         else:
             style_name = f"layer_{id_}_{property_}"
@@ -1811,15 +1855,16 @@ def put_property_attributes(id_, property_):
                                      color_ramp=palette,
                                      overwrite=True,
                                      geom_type=geom_type)
-    else:
+    else:  # NOT Layer, NOT property_dict, NOT palette, NOT palette in get_styles()
         if not layer:
             issues.append(Issue(IType.ERROR, f"Layer {id_} does not exist"))
-        else:
-            issues.append(Issue(IType.ERROR, f"Property {property_} does not exist or it is not 'numeric'"))
-        if palette not in get_styles():
+            status = 400
+        if palette and palette not in get_styles():
             issues.append(Issue(IType.ERROR, f"Palette {palette} does not exist"))
-
-        status = 400
+            status = 400
+        if not property_dict:
+            issues.append(Issue(IType.ERROR, f"Property {property_dict} does not exist"))
+            status = 400
 
     return ResponseObject(issues=issues, status=status, content=resp, count=0).get_response()
 

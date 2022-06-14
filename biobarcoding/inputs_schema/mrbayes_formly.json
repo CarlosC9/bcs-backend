@@ -34,33 +34,6 @@
         "hideExpression": "!model.alignment_selector"
       },
       {
-          "key": "start_phylotree",
-          "type": "checkbox",
-          "templateOptions": {
-            "label": "Start with a given Phylogenetic Tree?",
-            "required": true
-          },
-          "defaultValue": false
-      },
-      {
-        "key": "phylotree_selector",
-        "type": "phylotree-selector",
-        "validators": {
-          "validation": [
-            "phylotree-selector"
-          ]
-        },
-        "templateOptions": {
-          "filename": "start_phylotree",
-          "label": "Phylogenetic Tree Selector",
-          "extension": "nexus"
-        },
-        "expressionProperties": {
-          "templateOptions.required": "model.start_phylotree==true"
-        },
-        "hideExpression": "model.start_phylotree==false"
-      },
-      {
         "key": "nst",
         "type": "select",
         "templateOptions": {

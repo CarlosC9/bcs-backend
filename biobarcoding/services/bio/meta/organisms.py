@@ -232,42 +232,34 @@ class Service(MetaService):
 
         if filter.get('feature_id'):
             from ....db_models.chado import Feature
-            _organism_ids = self.db.query(Feature.organism_id)\
-                .filter(filter_parse(Feature, [{'feature_id': filter.get('feature_id')}])).subquery()
-            clauses.append(self.orm.organism_id.in_(_organism_ids))
+            _ids = self.db.query(Feature.organism_id)\
+                .filter(filter_parse(Feature, [{'feature_id': filter.get('feature_id')}]))
+            clauses.append(self.orm.organism_id.in_(_ids))
 
         if filter.get('analysis_id'):
             from ....db_models.chado import AnalysisFeature, Feature
-            _feature_ids = self.db.query(AnalysisFeature.feature_id)\
-                .filter(filter_parse(AnalysisFeature, [{'analysis_id': filter.get('analysis_id')}])).subquery()
-            _organism_ids = self.db.query(Feature.organism_id)\
-                .filter(Feature.feature_id.in_(_feature_ids)).subquery()
-            clauses.append(self.orm.organism_id.in_(_organism_ids))
+            _ids = self.db.query(Feature.organism_id).join(AnalysisFeature) \
+                .filter(filter_parse(AnalysisFeature, [{'analysis_id': filter.get('analysis_id')}]))
+            clauses.append(self.orm.organism_id.in_(_ids))
 
         if filter.get('phylonode_id'):
             from ....db_models.chado import PhylonodeOrganism
-            _organism_ids = self.db.query(PhylonodeOrganism.organism_id)\
-                .filter(PhylonodeOrganism.phylonode_id == filter.get('phylonode_id')).subquery()
-            clauses.append(self.orm.organism_id.in_(_organism_ids))
+            _ids = self.db.query(PhylonodeOrganism.organism_id)\
+                .filter(PhylonodeOrganism.phylonode_id == filter.get('phylonode_id'))
+            clauses.append(self.orm.organism_id.in_(_ids))
 
         if filter.get('phylotree_id'):
             from ....db_models.chado import Phylonode, PhylonodeOrganism
-            _phylonode_ids = self.db.query(Phylonode.phylonode_id)\
-                .filter(filter_parse(Phylonode, [{'phylotree_id': filter.get('phylotree_id')}])).subquery()
-            _organism_ids = self.db.query(PhylonodeOrganism.organism_id)\
-                .filter(PhylonodeOrganism.phylonode_id.in_(_phylonode_ids)).subquery()
-            clauses.append(self.orm.organism_id.in_(_organism_ids))
+            _ids = self.db.query(PhylonodeOrganism.organism_id).join(Phylonode) \
+                .filter(filter_parse(Phylonode, [{'phylotree_id': filter.get('phylotree_id')}]))
+            clauses.append(self.orm.organism_id.in_(_ids))
 
         if filter.get('rank'):
             # TODO: organism.type_id ?
             from ....db_models.chado import Phylonode, PhylonodeOrganism, Cv, Cvterm
-            _rank_cvterm_ids = self.db.query(Cvterm.cvterm_id)\
+            _ids = self.db.query(PhylonodeOrganism.organism_id).join(Phylonode).join(Cvterm) \
                 .join(Cv).filter(Cv.name=='taxonomy')\
-                .filter(filter_parse(Cvterm, [{'name':filter.get('rank')}])).subquery()
-            _phylonode_ids = self.db.query(Phylonode.phylonode_id)\
-                .filter(Phylonode.type_id.in_(_rank_cvterm_ids)).subquery()
-            _ids = self.db.query(PhylonodeOrganism.organism_id)\
-                .filter(PhylonodeOrganism.phylonode_id.in_(_phylonode_ids)).subquery()
+                .filter(filter_parse(Cvterm, [{'name':filter.get('rank')}]))
             clauses.append(self.orm.organism_id.in_(_ids))
 
         return clauses + super(Service, self).aux_filter(filter)

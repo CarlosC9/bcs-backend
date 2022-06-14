@@ -1,6 +1,6 @@
 import asyncio
 import os
-import subprocess
+import psutil
 from shutil import rmtree
 
 import asyncssh
@@ -36,7 +36,6 @@ class RemoteSSHClient:
         self.client = None
         self.sftp = None
         self.conn = None
-        self.last_job_remotely = None
 
     async def connect(self):
         """
@@ -84,7 +83,6 @@ class RemoteSSHClient:
         print(repr(cmd))
         popen_pipe = os.popen(cmd)
         pid = popen_pipe.readline().rstrip()
-        self.last_job_remotely = True
         print(f"PID: {pid}")
         return pid
 
@@ -151,10 +149,14 @@ class RemoteSSHClient:
         @param pid: PID of the process to kill
         """
         if pid is not None and pid != "":
-            if self.last_job_remotely:
-                os.system(f"ssh {self.SSH_OPTIONS} -p {self.port} {self.username}@{self.host} 'kill -9 {pid}'")
+            last_job_remotely = not psutil.pid_exists(int(pid))
+            if last_job_remotely:
+                print(f"Cancel command: ssh {self.SSH_OPTIONS} -p {self.port} {self.username}@{self.host} 'kill -9 -- -$(ps -p {pid} -o pgid=)'")
+                os.system(f"ssh {self.SSH_OPTIONS} -p {self.port} {self.username}@{self.host} 'kill -9 -- -$(ps -p {pid} -o pgid=)'")
             else:
-                os.system(f"kill -9 {pid}")
+                print(
+                    f"Cancel command: kill -9 -- -$(ps -p {pid} -o pgid=)")
+                os.system(f"kill -9 -- -$(ps -p {pid} -o pgid=)")
         else:
             print("No command has been executed")
 
@@ -172,7 +174,6 @@ class RemoteSSHClient:
                    f"& echo $!; wait $!; echo $? >> {self.local_workspace}/$!.exit_status)")
         print(cmd)
         popen_pipe = os.popen(cmd)
-        self.last_job_remotely = False
         pid = popen_pipe.readline().rstrip()
         print(f"PID: {pid}")
         return pid
@@ -193,7 +194,6 @@ class RemoteSSHClient:
 
                 print(cmd)
                 popen_pipe = os.popen(cmd)
-                self.last_job_remotely = False
                 pid = popen_pipe.readline().rstrip()
                 print(f"PID: {pid}")
             else:

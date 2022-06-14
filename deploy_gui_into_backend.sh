@@ -3,7 +3,7 @@
 if [ "$(whoami)" == "rnebot" ] ; then
   ngddir=~/GoogleDrive/AA_NEXTGENDEM
 elif [ "$(whoami)" == "acurbelo" ] ; then
-  ngddir=~/Proyectos/NEXTGENDEM
+  ngddir=~/Proyectos/nextgendem
 elif [ "$(whoami)" == "pmoreno" ] ; then
   ngddir=~/pmoreno/NEXTGENDEM
 elif [ "$(whoami)" == "dreyes" ] ; then
@@ -19,7 +19,7 @@ npm install
 rm dist -fr
 # Compile
 # ng build --prod --aot -c production_local --base-href /nis_client/
-ng build --prod --aot --base-href /gui/
+ng build --configuration production --aot --base-href /gui/
 
 # Delete GUI files in the "bcs-backend" project
 rm $ngddir/bcs-backend/biobarcoding/static_gui/* -fr

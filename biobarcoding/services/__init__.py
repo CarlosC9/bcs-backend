@@ -96,6 +96,10 @@ def orm2json(row):
     return d
 
 
+def listify(arg):
+    return arg if isinstance(arg, (tuple, list, set)) else [arg]
+
+
 ##
 # LOGS
 ##

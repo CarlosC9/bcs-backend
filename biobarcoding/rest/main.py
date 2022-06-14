@@ -35,7 +35,7 @@ from ..services.geoprocesses import update_geoprocesses
 from .auth import bp_auth, bp_api_key
 from .browser_filters import bp_bfilters
 from .files import bp_files
-from .geo_rest import bp_geo
+from .geo import bp_geo
 from .geoprocesses_and_case_studies import bp_case_studies, bp_geoprocesses, bp_geoprocesses_ports, bp_geoprocess_instances, \
     bp_geoprocess_port_types, bp_case_studies_fos
 from .gui_static import bp_gui
@@ -107,8 +107,16 @@ def create_app(debug, start_socket=True, cfg_dict=None):
         initialize_chado_edam(app)
 
         # Insert BibTeX annotation forms
-        from ..forms import initialize_bibtex_forms
+        from biobarcoding.forms import initialize_bibtex_forms
+        print("Initializing BibTex annotation forms")
         initialize_bibtex_forms()
+        print("Initializing BibTex annotation forms - DONE")
+
+        # Insert BibTeX annotation forms
+        from biobarcoding.forms import initialize_dwc_forms
+        print("Initializing Darwin Core annotation forms")
+        initialize_dwc_forms()
+        print("Initializing Darwin Core annotation forms - DONE")
 
         # PostGIS Database
         initialize_postgis(app)

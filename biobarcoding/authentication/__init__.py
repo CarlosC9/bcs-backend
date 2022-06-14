@@ -306,6 +306,10 @@ class n_session(object):
 
     def __call__(self, f):
         def wrapped_f(*args, **kwargs):
+
+            def identity_can_impersonate(iden: Identity):
+                return iden.name in ["celery_user", "test_user"]
+
             sess = deserialize_session(flask_session.get("session"))
             if isinstance(sess, AppSession):
                 try:
@@ -313,6 +317,17 @@ class n_session(object):
                     db_session = DBSession()
                     g.n_session.db_session = db_session
                     ident = db_session.query(Identity).get(g.n_session.identity_id)
+                    # Impersonate if:
+                    # - Impersonate header is set
+                    # - Current user can impersonate (e.g. celery_user)
+                    # - Operation is read-only
+                    # Example:
+                    #   curl --cookie-jar app-cookies.txt -X PUT "$API_BASE_URL/authn?user=celery_user"
+                    #   curl --cookie app-cookies.txt "$API_BASE_URL/geo/layers/" -H "Impersonated-id: 30"
+                    if 'Impersonated-id' in request.headers and identity_can_impersonate(ident) and self.read_only:
+                        g.n_session.original_identity_id = g.n_session.identity_id
+                        g.n_session.identity_id = request.headers['Impersonated-id']
+                        ident = db_session.query(Identity).get(g.n_session.identity_id)
                     g.n_session.identity = ident
                     chado_db_session = DBSessionChado()  # Chado test
                     g.n_session.chado_db_session = chado_db_session  # Chado test
@@ -376,6 +391,11 @@ class n_session(object):
                 except:
                     res = None
                 finally:
+                    # Restore impersonating identity
+                    if hasattr(g.n_session, "original_identity_id") and g.n_session.original_identity_id:
+                        g.n_session.identity_id = g.n_session.original_identity_id
+                        g.n_session.original_identity_id = None
+
                     if not self.read_only:
                         g.n_session.identity = None
                         g.n_session.db_session = None

@@ -75,13 +75,13 @@ def get_service(entity):
         from .bio.bos.discriminant_matrices import Service
     elif entity == 'supermatrices':
         from .bio.bos.supermatrices import Service
+    elif entity == 'analyses':
+        from .bio.bos.analyses import Service
     elif entity == 'collections':
         from .bio.meta.collections import Service
     # BIO META SERVICES
     elif entity == 'individuals':
         from .bio.meta.individuals import Service
-    elif entity == 'analyses':
-        from .bio.meta.analyses import Service
     elif entity == 'taxonomies':
         from .bio.meta.taxonomies import Service
     elif entity == 'organisms':
@@ -281,7 +281,7 @@ class BasicService:
                          aux_filter=self.aux_filter, aux_order=self.aux_order, **kwargs)
 
     # method to filter by acl and more particular issues when querying
-    def pre_query(self, purpose):
+    def pre_query(self, purpose) -> object:
         return None
 
     # method to filter by external values when querying
@@ -330,7 +330,7 @@ class BasicService:
 
     # any additional delete if any
     def delete_related(self, *content, **kwargs):
-        return content
+        return 0
 
     # TODO: generic import/export in progress
     ##
