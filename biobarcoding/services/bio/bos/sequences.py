@@ -89,10 +89,8 @@ class Service(BosService):
 
         stock = self.seq_stock(new_object, **values)
         # seq to bcs
-        from ....db_models.core import data_object_type_id
         fos = get_or_create(DBSession, self.fos,
                             specimen_id=DBSession.query(Specimen.id).filter(
-                                Specimen.obj_type_id == data_object_type_id.get(self.obj_type),
                                 Specimen.native_id == stock.stock_id).one(),
                             native_id=new_object.feature_id,
                             name=new_object.uniquename)

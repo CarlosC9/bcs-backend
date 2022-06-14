@@ -122,12 +122,12 @@ def find_org(seq) -> any:  # try to find out the organism from db
         return DBSessionChado.query(Organism).join(Feature).distinct(Organism.organism_id) \
             .filter(Feature.uniquename.like(_ind + '%')).one()
     except Exception as e:
-        print('Warning: Organism information missing. Stock not found.')
+        print('Warning: Organism information missing for %s. Stock not found.' % seq.id)
     try:
         return DBSessionChado.query(Organism).join(Stock).distinct(Organism.organism_id) \
             .filter(Stock.uniquename.like(_ind + '%')).one()
     except Exception as e:
-        print('Warning: Organism information missing. Related Features not found.')
+        print('Warning: Organism information missing for %s. Related Features not found.' % seq.id)
     return None
 
 
@@ -167,7 +167,8 @@ def import_file(infile, _format=None, data=None, analysis_id=None, **kwargs):
                 else:
                     _row = find_org(seq)
                     if _row and _row.organism_id:
-                        _org = seq.annotations['organism'] = _row.organism_id
+                        seq.annotations = seq.annotations.copy()
+                        seq.annotations['organism'] = _org = _row.organism_id
                     else:
                         print('Warning: Unknown organism for', seq.id)
                         _row = get_or_create(DBSessionChado, Organism, genus='unknown', species='organism')
