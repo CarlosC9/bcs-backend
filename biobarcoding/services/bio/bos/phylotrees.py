@@ -6,7 +6,7 @@ from Bio.Phylo.BaseTree import Tree, Clade
 
 from .analyses import Service as AnsisService
 from ..meta.ontologies import get_type_id
-from ... import get_bioformat, get_or_create, log_exception, get_orm_params
+from ... import get_or_create, log_exception, get_orm_params
 from ....common.helpers import zip_files
 from ....db_models.bioinformatics import PhylogeneticTree
 from ....db_models.chado import Phylotree, Phylonode, Feature
@@ -21,7 +21,7 @@ class Service(AnsisService):
         super(Service, self).__init__()
         self.obj_type = 'phylogenetic-tree'
         self.fos = PhylogeneticTree
-        self.formats = ['newick', 'nexus', 'nexml', 'phyloxml']
+        self.formats = ['fasta', 'nexus', 'nexml', 'phylip', 'phyloxml', 'newick']     # newick at the end because it swallows everything
 
     ##
     # CREATE
@@ -54,30 +54,16 @@ class Service(AnsisService):
     # IMPORT
     ##
 
+    def read_infile(self, file, _format) -> any:
+        from dendropy import Tree
+        _ty = Tree.yield_from_files(files=[file], schema=_format)
+        for _ in _ty:
+            return Tree.yield_from_files(files=[file], schema=_format)
+            # return Phylo.parse(file, _format)
+
     def import_file(self, infile, format=None, **kwargs):
         # TODO ? phylonode:type_id (root,leaf,internal) ?
-        format = get_bioformat(infile, format)
-        try:
-            # try every available format
-            fs = [format] + self.formats if format else self.formats
-            tree = None
-            for f in fs:
-                try:
-                    # check phylotree file format
-                    if f == 'nexus':
-                        from dendropy import TreeList
-                        from io import StringIO
-                        trees = TreeList.get_from_path(infile, schema=f)
-                        tree = Phylo.read(StringIO(trees[-1].as_string(f)), f)
-                    else:
-                        tree = Phylo.read(infile, f)
-                except:
-                    continue
-                break
-            if not tree:
-                raise Exception()
-        except:
-            raise Exception(f'IMPORT phylotress: The file {os.path.basename(infile)} could not be imported. (unknown format)')
+        content_file, _format = self.check_infile(infile, format)
         try:
             # Set missing default values
             kwargs['programversion'] = kwargs.get('programversion') or '(Imported file)'
@@ -86,10 +72,15 @@ class Service(AnsisService):
                 kwargs['name'] = os.path.basename(infile)
             # Create the new phylotree
             content, count = self.create(**kwargs)
-            pt = get_or_create(self.db, Phylotree, analysis_id=content.analysis_id,
-                               **get_orm_params(Phylotree, **self.prepare_external_values(**kwargs)))
-            # Get phylonodes insertion
-            phylonodes = self.tree2phylonodes(pt.phylotree_id, tree.root, None, [0])
+            _name = kwargs.pop('name')
+            for tree in content_file:
+                pt = get_or_create(self.db, Phylotree, analysis_id=content.analysis_id,
+                                   name=tree.label or _name,
+                                   # name=tree.id or tree.name or _name,
+                                   **get_orm_params(Phylotree, **self.prepare_external_values(**kwargs)))
+                # Get phylonodes insertion
+                phylonodes = self.tree2phylonodes(pt.phylotree_id, tree.seed_node, None, [0])
+                # phylonodes = self.tree2phylonodes(pt.phylotree_id, tree.root, None, [0])
         except Exception as e:
             log_exception(e)
             raise Exception(f'IMPORT phylotress: The file {os.path.basename(infile)} could not be imported. (unmanageable)')
@@ -97,23 +88,29 @@ class Service(AnsisService):
 
     def tree2phylonodes(self, phylotree_id, node, parent_id=None, index=[0]):
         phylonodes = []
-        f = self.db.query(Feature).filter(Feature.uniquename == node.name).first()
         try:
-            feature_id = f.feature_id
+            n_name = node.label or node.taxon.label
+            # n_name = node.name or node.id
+            feature_id = self.db.query(Feature).filter(
+                Feature.uniquename == n_name).one().feature_id
         except:
-            feature_id = None
+            n_name = feature_id = None
         phylonode = get_or_create(self.db, Phylonode,
                                   phylotree_id=phylotree_id,
                                   parent_phylonode_id=parent_id,
                                   feature_id=feature_id,
-                                  label=node.name,
-                                  distance=node.branch_length,
+                                  label=n_name,
+                                  # label=node.id or node.name,
+                                  distance=node.edge_length,
+                                  # distance=node.branch_length,
                                   left_idx=index[0],
                                   right_idx=index[0] + 1)
         # Check for children
         index[0] += 1
-        if len(node.clades) > 0:
-            for clade in node.clades:
+        _ = node.child_nodes()
+        # _ = node.clades
+        if len(_) > 0:
+            for clade in _:
                 phylonodes += self.tree2phylonodes(phylotree_id, clade, phylonode.phylonode_id, index)
             phylonode.right_idx = index[0]
             self.db.merge(phylonode)
