@@ -4,6 +4,7 @@ import time
 from Bio import Phylo
 from Bio.Phylo.BaseTree import Tree, Clade
 
+from .sequences import Service as SeqService
 from .analyses import Service as AnsisService
 from ..meta.ontologies import get_type_id
 from ... import get_or_create, log_exception, get_orm_params
@@ -79,39 +80,38 @@ class Service(AnsisService):
                                    # name=tree.id or tree.name or _name,
                                    **get_orm_params(Phylotree, **self.prepare_external_values(**kwargs)))
                 # Get phylonodes insertion
-                phylonodes = self.tree2phylonodes(pt.phylotree_id, tree.seed_node, None, [0])
+                _ = [node.label or node.taxon.label if node.taxon else node.label for node in tree]
+                feats = dict(self.db.query(Feature.uniquename, Feature.feature_id)
+                             .distinct(Feature.feature_id).filter(Feature.uniquename.in_(_)).all())
+                phylonodes = self.tree2phylonodes(pt.phylotree_id, tree.seed_node, None, [0], feats)
                 # phylonodes = self.tree2phylonodes(pt.phylotree_id, tree.root, None, [0])
         except Exception as e:
             log_exception(e)
             raise Exception(f'IMPORT phylotress: The file {os.path.basename(infile)} could not be imported. (unmanageable)')
         return content, count
 
-    def tree2phylonodes(self, phylotree_id, node, parent_id=None, index=[0]):
+    def tree2phylonodes(self, phylotree_id, node, parent_id=None, index=[0], features={}):
         phylonodes = []
-        try:
-            n_name = node.label or node.taxon.label
-            # n_name = node.name or node.id
-            feature_id = self.db.query(Feature).filter(
-                Feature.uniquename == n_name).one().feature_id
-        except:
-            n_name = feature_id = None
-        phylonode = get_or_create(self.db, Phylonode,
-                                  phylotree_id=phylotree_id,
-                                  parent_phylonode_id=parent_id,
-                                  feature_id=feature_id,
-                                  label=n_name,
-                                  # label=node.id or node.name,
-                                  distance=node.edge_length,
-                                  # distance=node.branch_length,
-                                  left_idx=index[0],
-                                  right_idx=index[0] + 1)
+        n_name = node.label or node.taxon.label if node.taxon else node.label
+        # n_name = node.name or node.id
+        phylonode = Phylonode(phylotree_id=phylotree_id,
+                              parent_phylonode_id=parent_id,
+                              feature_id=features.get(n_name, None),
+                              label=n_name,
+                              # label=node.id or node.name,
+                              distance=node.edge_length,
+                              # distance=node.branch_length,
+                              left_idx=index[0],
+                              right_idx=index[0] + 1)
+        self.db.add(phylonode)
         # Check for children
         index[0] += 1
         _ = node.child_nodes()
         # _ = node.clades
         if len(_) > 0:
+            self.db.flush()
             for clade in _:
-                phylonodes += self.tree2phylonodes(phylotree_id, clade, phylonode.phylonode_id, index)
+                phylonodes += self.tree2phylonodes(phylotree_id, clade, phylonode.phylonode_id, index, features)
             phylonode.right_idx = index[0]
             self.db.merge(phylonode)
         index[0] += 1
@@ -121,7 +121,7 @@ class Service(AnsisService):
     # EXPORT
     ##
 
-    def data2file(self, _phys: list, outfile, format: str, **kwargs) -> int:
+    def data2file(self, _phys: list, outfile, format: str, values={}, **kwargs) -> int:
         trees, count = [], 0
         files = []
         for ans in _phys:
@@ -132,7 +132,7 @@ class Service(AnsisService):
                 root = self.db.query(Phylonode).filter(Phylonode.phylotree_id == pt.phylotree_id,
                                                        Phylonode.parent_phylonode_id.is_(None)).one()
                 rooted = bool(root.feature_id or root.label)
-                trees.append(Tree(root=self.tree2biopy(root), rooted=rooted, id=pt.name, name=pt.name))
+                trees.append(Tree(root=self.chado2biopy(root, values.get('header')), rooted=rooted, id=pt.name, name=pt.name))
                 count += 1
             _file = outfile if len(_phys) < 2 else f'{ans.name or outfile}_{ans.analysis_id}'
             try:
@@ -160,13 +160,15 @@ class Service(AnsisService):
             zip_files(outfile, files)
         return count
 
-    def tree2biopy(self, node, label_type=None) -> Clade:
-        if label_type:
-            # TODO: retrieve and change the label
-            pass
-        clade = Clade(branch_length=node.distance, name=node.label or '')
+    def chado2biopy(self, node, header: str = None) -> Clade:
+        _label = node.label
+        if header and node.feature_id:
+            # retrieve and load the label
+            _ = self.db.query(Feature).filter(Feature.feature_id == node.feature_id).one()
+            _label = SeqService().seqs_header_parser([_], header).get(_label, _label)
+        clade = Clade(branch_length=node.distance, name=_label or '')
         children = self.db.query(Phylonode).filter(Phylonode.parent_phylonode_id == node.phylonode_id)
-        clade.clades = [self.tree2biopy(n) for n in children.all()]
+        clade.clades = [self.chado2biopy(n, header) for n in children.all()]
         return clade
 
     ##
