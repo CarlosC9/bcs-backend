@@ -147,18 +147,18 @@ class Service(AnsisService):
         query, count = seq_service.get_query(purpose='export', filter={'analysis_id': aln.analysis_id})
         return seq_service.chado2biopy(query.all(), header)
 
-    def data2file(self, alns: list, outfile, format: str, values={}, **kwargs) -> int:
+    def data2file(self, data: list, outfile, format: str, values={}, **kwargs) -> int:
         files, count = [], 0
-        for a in alns:
+        for a in data:
             file = outfile
-            if len(alns) > 1:
+            if len(data) > 1:
                 file = f'{file}_{a.analysis_id}'
             from Bio.Align import MultipleSeqAlignment
             aln = MultipleSeqAlignment(self.chado2biopy(a, values.get('header')))
             AlignIO.write(aln, file, format)
             files.append(file)
             count += 1
-        if len(alns) > 1:
+        if len(data) > 1:
             from ....common.helpers import zip_files
             zip_files(outfile, files)
         return count
