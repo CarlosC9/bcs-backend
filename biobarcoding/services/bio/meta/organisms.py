@@ -166,9 +166,9 @@ class Service(MetaService):
     # EXPORT
     ##
 
-    def data2file(self, orgs: list, outfile, format: str, **kwargs) -> int:
+    def data2file(self, data: list, outfile, format: str, **kwargs) -> int:
         from Bio import SeqIO
-        return SeqIO.write(self.chado2biopy(orgs), outfile, format)
+        return SeqIO.write(self.chado2biopy(data), outfile, format)
 
     def chado2biopy(self, orgs: list) -> list:
         from ..meta.ontologies import CvtermService

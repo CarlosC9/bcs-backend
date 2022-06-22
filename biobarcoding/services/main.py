@@ -347,7 +347,7 @@ class BasicService:
 
     def import_file(self, infile, format=None, **kwargs) -> (any, int):
         """
-        content_file, _format = self.check_infile(file, format)
+        content_file, _format = self.check_infile(infile, format)
         # values = self.prepare_values(**kwargs)
         content = self.create(**kwargs)
         c, count = self.file2data(content_file, **kwargs)

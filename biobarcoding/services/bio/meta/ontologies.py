@@ -128,7 +128,7 @@ def get_used_cvterm(type, subtype=None):
 def get_type_id(type=None, subtype=None):
     _ = get_used_cvterm(type=type, subtype=subtype)
     _ = _ if _ else {'cv': type, 'cvterm': subtype}
-    return CvtermService().get_query(purpose='read', **_)[0].one().cvterm_id
+    return CvtermService().read(**_)[0][0]['cvterm_id']     # TODO check that query returns just one row ?
 
 
 ##

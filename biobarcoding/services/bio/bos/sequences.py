@@ -228,8 +228,8 @@ class Service(BosService):
                                      annotations=annotations))
         return records
 
-    def data2file(self, seqs: list, outfile, format: str, values={}, **kwargs) -> int:
-        records = self.chado2biopy(seqs, values.pop('header', ''))
+    def data2file(self, data: list, outfile, format: str, values={}, **kwargs) -> int:
+        records = self.chado2biopy(data, values.pop('header', ''))
         res = SeqIO.write(records, outfile, format=format)
         if format == "nexus":
             # format datatype=dna missing=? gap=- matchchar=.;
@@ -240,7 +240,7 @@ class Service(BosService):
             aln.gap = '-'
             aln.matchchar = '.'
             res = aln.write_nexus_data(outfile)
-        return len(seqs)
+        return len(data)
 
     ##
     # GETTER AND OTHERS

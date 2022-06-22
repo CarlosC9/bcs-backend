@@ -219,8 +219,9 @@ def read_yaml(file_name):
     d = yaml.load(contents, Loader=yaml.FullLoader)
     return d
 
-def zip_files(zip_name: str, files: list):
+
+def zip_files(zip_name: str, files: list, fullpath: bool = False):
     with ZipFile(zip_name, 'w', ZIP_DEFLATED) as zf:
         for file in files:
-            zf.write(file)
+            zf.write(file) if fullpath else zf.write(file, os.path.basename(file))
     return zip_name

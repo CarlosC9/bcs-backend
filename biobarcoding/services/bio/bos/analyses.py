@@ -53,6 +53,9 @@ class Service(BosService):
         if not values.get('sourcename'):
             values['sourcename'] = 'unknown'
 
+        if not values.get('algorithm') and self.obj_type:
+            values['algorithm'] = self.obj_type
+
         return super(Service, self).check_values(**values)
 
     def after_create(self, new_object, **values):
