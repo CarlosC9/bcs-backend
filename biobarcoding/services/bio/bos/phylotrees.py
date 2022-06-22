@@ -172,7 +172,11 @@ class Service(AnsisService):
             # retrieve and load the label
             _ = self.db.query(Feature).filter(Feature.feature_id == node.feature_id).one()
             _label = SeqService().seqs_header_parser([_], header).get(_label, _label)
-        clade = Node(edge_length=node.distance, label=_label or '', taxon=Taxon(label=_label or ''))    # TODO add notes
+        clade = Node(edge_length=node.distance, label=_label or '', taxon=Taxon(label=_label or ''))
+        _ann = [_.value.split(':', 1) for _ in self.db.query(Phylonodeprop)
+            .filter(Phylonodeprop.phylonode_id == node.phylonode_id).all()]
+        if _ann:
+            [clade.annotations.add_new(_[0], _[-1]) for _ in _ann]
         # clade = Clade(branch_length=node.distance, name=_label or '')
         children = self.db.query(Phylonode).filter(Phylonode.parent_phylonode_id == node.phylonode_id)
         clade.set_child_nodes([self.chado2biopy(n, header) for n in children.all()])
