@@ -1,6 +1,6 @@
 from . import MetaService
 from ...main import get_orm
-from ....db_models import DBSessionChado, DBSession
+from ....db_models import DBSession
 
 
 ##
@@ -21,8 +21,10 @@ class StockCollService(MetaService):
 
     def __init__(self):
         super(StockCollService, self).__init__()
+        from ....db_models import DBSessionChado
         self.db = DBSessionChado
-        self.orm = get_orm('collections')
+        from ....db_models.chado import Stockcollection
+        self.orm = Stockcollection
 
     def check_values(self, **values):
 

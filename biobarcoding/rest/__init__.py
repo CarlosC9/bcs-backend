@@ -1618,20 +1618,30 @@ def initialize_database_chado(flask_app):
         db_connection_string = cfg["CHADO_CONNECTION_STRING"]
     elif 'CHADO_DATABASE' in flask_app.config:
         db_connection_string = f'postgresql://{cfg["CHADO_USER"]}:{cfg["CHADO_PASSWORD"]}@{cfg["CHADO_HOST"]}:{cfg["CHADO_PORT"]}/{cfg["CHADO_DATABASE"]}'
-        print("Connecting to Chado database server")
-        print(db_connection_string)
-        print("-----------------------------")
-        base_app_pkg.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=False)
-        # global DBSessionChado # global DBSessionChado registry to get the scoped_session
-        DBSessionChado.configure(
-            bind=base_app_pkg.chado_engine)  # reconfigure the sessionmaker used by this scoped_session
-        orm.configure_mappers()  # Important for SQLAlchemy-Continuum
-        ORMBaseChado.metadata.bind = base_app_pkg.chado_engine
-        ORMBaseChado.metadata.reflect()
     else:
         print("No CHADO connection defined (CHADO_CONNECTION_STRING), exiting now!")
         print(flask_app.config)
         sys.exit(1)
+    print("Connecting to Chado database server")
+    print(db_connection_string)
+    print("-----------------------------")
+    base_app_pkg.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=False)
+    # global DBSessionChado # global DBSessionChado registry to get the scoped_session
+    DBSessionChado.configure(bind=base_app_pkg.chado_engine)  # reconfigure the sessionmaker used by this scoped_session
+    ORMBaseChado.metadata.bind = base_app_pkg.chado_engine
+    ORMBaseChado.metadata.reflect()
+    orm.configure_mappers()  # Important for SQLAlchemy-Continuum
+    try:
+        from ..db_models import chado
+        orm.configure_mappers()  # Important for SQLAlchemy-Continuum
+    except Exception as e:
+        print('Exception when versioning Chado, it may be already be done.')
+    tables = ORMBaseChado.metadata.tables
+    connection = base_app_pkg.chado_engine.connect()
+    table_existence = [base_app_pkg.chado_engine.dialect.has_table(connection, tables[t].name) for t in tables]
+    connection.close()
+    if False in table_existence:
+        ORMBaseChado.metadata.create_all()
 
 
 def initialize_chado_edam(flask_app):

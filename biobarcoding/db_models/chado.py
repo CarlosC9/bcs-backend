@@ -6,21 +6,18 @@ from sqlalchemy.sql.functions import coalesce
 from . import ORMBaseChado
 
 
-class Organism(ORMBaseChado):
-    __tablename__ = "organism"
-    __table_args__ = {'autoload': True}
-
-    @hybrid_property
-    def name(self):
-        return self.genus + ' ' + self.species + coalesce(' ' + self.infraspecific_name, '')
-
+##
+# EXTENDED
+##
 
 class Analysis(ORMBaseChado):
+    __versioned__ = {}
     __tablename__ = "analysis"
-    __table_args__ = {'autoload': True}
+    __table_args__ = {'extend_existing': True, 'autoload': True}
 
 
 class AnalysisRelationship(ORMBaseChado):
+    __versioned__ = {}
     __tablename__ = "analysis_relationship"
     __table_args__ = {'extend_existing': True, 'autoload': True}
 
@@ -32,12 +29,117 @@ class AnalysisRelationship(ORMBaseChado):
                           backref=backref("related_subjects", cascade="all, delete-orphan"))
 
 
+class Organism(ORMBaseChado):
+    __versioned__ = {}
+    __tablename__ = "organism"
+    __table_args__ = {'extend_existing': True, 'autoload': True}
+
+    @hybrid_property
+    def name(self):
+        return self.genus + ' ' + self.species + coalesce(' ' + self.infraspecific_name, '')
+
+
 class Phylotree(ORMBaseChado):
+    __versioned__ = {}
     __tablename__ = "phylotree"
-    __table_args__ = {'autoload': True}
+    __table_args__ = {'extend_existing': True, 'autoload': True}
 
     analysis = relationship(Analysis, backref=backref("phylotrees", cascade="all, delete-orphan"))
 
+
+class AnalysisFeature(ORMBaseChado):
+    __versioned__ = {}
+    __tablename__ = "analysisfeature"
+    __table_args__ = {'extend_existing': True, 'autoload': True}
+
+
+
+class Cv(ORMBaseChado):
+    __versioned__ = {}
+    __tablename__ = "cv"
+    __table_args__ = {'extend_existing': True, 'autoload': True}
+
+
+
+class Cvterm(ORMBaseChado):
+    __versioned__ = {}
+    __tablename__ = "cvterm"
+    __table_args__ = {'extend_existing': True, 'autoload': True}
+
+
+
+class Db(ORMBaseChado):
+    __versioned__ = {}
+    __tablename__ = "db"
+    __table_args__ = {'extend_existing': True, 'autoload': True}
+
+
+
+class Dbxref(ORMBaseChado):
+    __versioned__ = {}
+    __tablename__ = "dbxref"
+    __table_args__ = {'extend_existing': True, 'autoload': True}
+
+
+
+class Feature(ORMBaseChado):
+    __versioned__ = {}
+    __tablename__ = "feature"
+    __table_args__ = {'extend_existing': True, 'autoload': True}
+
+
+
+class Featureloc(ORMBaseChado):
+    __versioned__ = {}
+    __tablename__ = "featureloc"
+    __table_args__ = {'extend_existing': True, 'autoload': True}
+
+
+
+class Phylonode(ORMBaseChado):
+    __versioned__ = {}
+    __tablename__ = "phylonode"
+    __table_args__ = {'extend_existing': True, 'autoload': True}
+
+
+
+class PhylonodeOrganism(ORMBaseChado):
+    __versioned__ = {}
+    __tablename__ = "phylonode_organism"
+    __table_args__ = {'extend_existing': True, 'autoload': True}
+
+
+
+class Phylonodeprop(ORMBaseChado):
+    __versioned__ = {}
+    __tablename__ = "phylonodeprop"
+    __table_args__ = {'extend_existing': True, 'autoload': True}
+
+
+
+class Stock(ORMBaseChado):
+    __versioned__ = {}
+    __tablename__ = "stock"
+    __table_args__ = {'extend_existing': True, 'autoload': True}
+
+
+
+class StockFeature(ORMBaseChado):
+    __versioned__ = {}
+    __tablename__ = "stock_feature"
+    __table_args__ = {'extend_existing': True, 'autoload': True}
+
+
+
+class Stockcollection(ORMBaseChado):
+    __versioned__ = {}
+    __tablename__ = "stockcollection"
+    __table_args__ = {'extend_existing': True, 'autoload': True}
+
+
+##
+# AUTOLOADED
+##
 
 class Acquisition(ORMBaseChado):
     __tablename__ = "acquisition"
@@ -61,11 +163,6 @@ class AnalysisCvterm(ORMBaseChado):
 
 class AnalysisDbxref(ORMBaseChado):
     __tablename__ = "analysis_dbxref"
-    __table_args__ = {'autoload': True}
-
-
-class AnalysisFeature(ORMBaseChado):
-    __tablename__ = "analysisfeature"
     __table_args__ = {'autoload': True}
 
 
@@ -224,18 +321,8 @@ class Control(ORMBaseChado):
     __table_args__ = {'autoload': True}
 
 
-class Cv(ORMBaseChado):
-    __tablename__ = "cv"
-    __table_args__ = {'autoload': True}
-
-
 class Cvprop(ORMBaseChado):
     __tablename__ = "cvprop"
-    __table_args__ = {'autoload': True}
-
-
-class Cvterm(ORMBaseChado):
-    __tablename__ = "cvterm"
     __table_args__ = {'autoload': True}
 
 
@@ -264,18 +351,8 @@ class Cvtermsynonym(ORMBaseChado):
     __table_args__ = {'autoload': True}
 
 
-class Db(ORMBaseChado):
-    __tablename__ = "db"
-    __table_args__ = {'autoload': True}
-
-
 class Dbprop(ORMBaseChado):
     __tablename__ = "dbprop"
-    __table_args__ = {'autoload': True}
-
-
-class Dbxref(ORMBaseChado):
-    __tablename__ = "dbxref"
     __table_args__ = {'autoload': True}
 
 
@@ -346,11 +423,6 @@ class ExpressionPub(ORMBaseChado):
 
 class Expressionprop(ORMBaseChado):
     __tablename__ = "expressionprop"
-    __table_args__ = {'autoload': True}
-
-
-class Feature(ORMBaseChado):
-    __tablename__ = "feature"
     __table_args__ = {'autoload': True}
 
 
@@ -436,11 +508,6 @@ class FeatureRelationshippropPub(ORMBaseChado):
 
 class FeatureSynonym(ORMBaseChado):
     __tablename__ = "feature_synonym"
-    __table_args__ = {'autoload': True}
-
-
-class Featureloc(ORMBaseChado):
-    __tablename__ = "featureloc"
     __table_args__ = {'autoload': True}
 
 
@@ -769,18 +836,8 @@ class Phenstatement(ORMBaseChado):
     __table_args__ = {'autoload': True}
 
 
-class Phylonode(ORMBaseChado):
-    __tablename__ = "phylonode"
-    __table_args__ = {'autoload': True}
-
-
 class PhylonodeDbxref(ORMBaseChado):
     __tablename__ = "phylonode_dbxref"
-    __table_args__ = {'autoload': True}
-
-
-class PhylonodeOrganism(ORMBaseChado):
-    __tablename__ = "phylonode_organism"
     __table_args__ = {'autoload': True}
 
 
@@ -791,11 +848,6 @@ class PhylonodePub(ORMBaseChado):
 
 class PhylonodeRelationship(ORMBaseChado):
     __tablename__ = "phylonode_relationship"
-    __table_args__ = {'autoload': True}
-
-
-class Phylonodeprop(ORMBaseChado):
-    __tablename__ = "phylonodeprop"
     __table_args__ = {'autoload': True}
 
 
@@ -909,11 +961,6 @@ class Quantificationprop(ORMBaseChado):
     __table_args__ = {'autoload': True}
 
 
-class Stock(ORMBaseChado):
-    __tablename__ = "stock"
-    __table_args__ = {'autoload': True}
-
-
 class StockCvterm(ORMBaseChado):
     __tablename__ = "stock_cvterm"
     __table_args__ = {'autoload': True}
@@ -931,11 +978,6 @@ class StockDbxref(ORMBaseChado):
 
 class StockDbxrefprop(ORMBaseChado):
     __tablename__ = "stock_dbxrefprop"
-    __table_args__ = {'autoload': True}
-
-
-class StockFeature(ORMBaseChado):
-    __tablename__ = "stock_feature"
     __table_args__ = {'autoload': True}
 
 
@@ -971,11 +1013,6 @@ class StockRelationshipCvterm(ORMBaseChado):
 
 class StockRelationshipPub(ORMBaseChado):
     __tablename__ = "stock_relationship_pub"
-    __table_args__ = {'autoload': True}
-
-
-class Stockcollection(ORMBaseChado):
-    __tablename__ = "stockcollection"
     __table_args__ = {'autoload': True}
 
 
