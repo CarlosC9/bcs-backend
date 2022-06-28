@@ -1629,13 +1629,13 @@ def initialize_database_chado(flask_app):
     # global DBSessionChado # global DBSessionChado registry to get the scoped_session
     DBSessionChado.configure(bind=base_app_pkg.chado_engine)  # reconfigure the sessionmaker used by this scoped_session
     ORMBaseChado.metadata.bind = base_app_pkg.chado_engine
-    ORMBaseChado.metadata.reflect()
-    orm.configure_mappers()  # Important for SQLAlchemy-Continuum
     try:
+        # to force the load and versioning of chado orm
         from ..db_models import chado
         orm.configure_mappers()  # Important for SQLAlchemy-Continuum
     except Exception as e:
         print('Exception when versioning Chado, it may be already be done.')
+    ORMBaseChado.metadata.reflect()
     tables = ORMBaseChado.metadata.tables
     connection = base_app_pkg.chado_engine.connect()
     table_existence = [base_app_pkg.chado_engine.dialect.has_table(connection, tables[t].name) for t in tables]
