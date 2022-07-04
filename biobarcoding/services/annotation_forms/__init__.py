@@ -87,17 +87,17 @@ class FormItemService(BasicService):
                               form_item_id=new_object.id, object_type_id=i)
         return values
 
-    def aux_filter(self, filter):
+    def aux_filter(self, _filter: dict) -> list:
         clauses = []
 
-        if filter.get('object_type') and not filter.get('object_type_id'):
+        if _filter.get('object_type') and not _filter.get('object_type_id'):
             _aux = DBSession.query(ObjectType.id).filter(
-                filter_parse(ObjectType, {'name': filter.get('object_type')}))
-            filter['object_type_id'] = {'op': 'in', 'unary': _aux}
+                filter_parse(ObjectType, {'name': _filter.get('object_type')}))
+            _filter['object_type_id'] = {'op': 'in', 'unary': _aux}
 
-        if filter.get('object_type_id'):
+        if _filter.get('object_type_id'):
             _aux = self.db.query(AnnotationFormItemObjectType.form_item_id).filter(
-                filter_parse(AnnotationFormItemObjectType, {'object_type_id': filter.get('object_type_id')}))
+                filter_parse(AnnotationFormItemObjectType, {'object_type_id': _filter.get('object_type_id')}))
             clauses.append(self.orm.id.in_(_aux.subquery()))
 
-        return clauses + super(FormItemService, self).aux_filter(filter)
+        return clauses + super(FormItemService, self).aux_filter(_filter)

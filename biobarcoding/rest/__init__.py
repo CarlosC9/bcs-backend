@@ -1616,8 +1616,8 @@ def initialize_database_chado(flask_app):
     cfg = flask_app.config
     if 'CHADO_CONNECTION_STRING' in flask_app.config:
         db_connection_string = cfg["CHADO_CONNECTION_STRING"]
-    elif 'CHADO_DATABASE' in flask_app.config:
-        db_connection_string = f'postgresql://{cfg["CHADO_USER"]}:{cfg["CHADO_PASSWORD"]}@{cfg["CHADO_HOST"]}:{cfg["CHADO_PORT"]}/{cfg["CHADO_DATABASE"]}'
+    elif 'CHADO_HOST' in flask_app.config:
+        db_connection_string = f'postgresql://{cfg["CHADO_USER"]}:{cfg["CHADO_PASSWORD"]}@{cfg["CHADO_HOST"]}:{cfg["CHADO_PORT"]}/'
     else:
         print("No CHADO connection defined (CHADO_CONNECTION_STRING), exiting now!")
         print(flask_app.config)
@@ -1625,7 +1625,8 @@ def initialize_database_chado(flask_app):
     print("Connecting to Chado database server")
     print(db_connection_string)
     print("-----------------------------")
-    base_app_pkg.chado_engine = sqlalchemy.create_engine(db_connection_string, echo=False)
+    base_app_pkg.chado_engine = create_pg_database_engine(db_connection_string,
+                                                          cfg.get("CHADO_DATABASE") or app_acronym + '_chado')
     # global DBSessionChado # global DBSessionChado registry to get the scoped_session
     DBSessionChado.configure(bind=base_app_pkg.chado_engine)  # reconfigure the sessionmaker used by this scoped_session
     ORMBaseChado.metadata.bind = base_app_pkg.chado_engine

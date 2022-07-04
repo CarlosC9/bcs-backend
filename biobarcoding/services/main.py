@@ -3,7 +3,7 @@ import os.path
 
 from flask import g
 
-from . import log_exception, get_orm_params, get_query
+from . import log_exception, get_orm_params, get_query, get_filtering
 from ..rest import Issue, IType
 from ..db_models import ORMBase, DBSession
 
@@ -13,6 +13,8 @@ def get_orm(entity):
     # SYS ORMS
     if entity == 'status_checkers':
         from ..db_models.jobs import StatusChecker as orm
+    if entity == 'transactions':
+        from ..db_models.chado import Transaction as orm
     # BOS ORMS
     elif entity == 'sequences':
         from ..db_models.chado import Feature as orm
@@ -62,6 +64,8 @@ def get_service(entity):
     # SYS SERVICES
     if entity == 'status_checkers':
         from .sys.status_checkers import Service
+    if entity == 'transactions':
+        from .sys.transactions import Service
     # BOS SERVICES
     elif entity == 'sequences':
         from .bio.bos.sequences import Service
@@ -102,7 +106,6 @@ def get_service(entity):
 
 def getCRUDIE(entity):
 
-    ORM = get_orm(entity)
     Service = get_service(entity)
 
     class CRUDIE:
@@ -277,7 +280,11 @@ class BasicService:
     # provide a sqlalchemy query (might be paged) and the total_count
     # @return: Query, total_count
     def get_query(self, query=None, id=None, purpose='delete', **kwargs) -> (object, int):
-        return get_query(self.db, self.orm, query or self.pre_query(purpose), id,
+        _orm = self.orm
+        if get_filtering('version_history', kwargs):
+            from sqlalchemy_continuum import version_class
+            _orm = version_class(self.orm)
+        return get_query(self.db, _orm, query or self.pre_query(purpose), id,
                          aux_filter=self.aux_filter, aux_order=self.aux_order, **kwargs)
 
     # method to filter by acl and more particular issues when querying
@@ -285,7 +292,7 @@ class BasicService:
         return None
 
     # method to filter by external values when querying
-    def aux_filter(self, filter) -> list:
+    def aux_filter(self, _filter: dict) -> list:
         return []
 
     # method to order by external values when querying

@@ -1,7 +1,8 @@
-from sqlalchemy import Column, Integer, ForeignKey
+from sqlalchemy import Column, Integer, ForeignKey, BigInteger, Sequence, String
 from sqlalchemy.orm import relationship, backref
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy.sql.functions import coalesce
+from sqlalchemy_continuum.transaction import TransactionBase
 
 from . import ORMBaseChado
 
@@ -189,3 +190,35 @@ class Stockcollectionprop(ORMBaseChado):
 class Stockprop(ORMBaseChado):
     __tablename__ = "stockprop"
     __table_args__ = {'autoload': True}
+
+
+class Transaction(ORMBaseChado, TransactionBase):
+    """
+    Credits to SQLAlchemy-Continuum
+    @source: https://github.com/kvesteri/sqlalchemy-continuum/blob/master/sqlalchemy_continuum/transaction.py#L128
+    """
+    __tablename__ = 'transaction'
+
+    id = Column(BigInteger, Sequence('transaction_id_seq'), primary_key=True, autoincrement=True)
+    remote_addr = Column(String(50))
+
+    def __repr__(self):
+        fields = ['id', 'issued_at', 'user']
+        from collections import OrderedDict
+        field_values = OrderedDict(
+            (field, getattr(self, field))
+            for field in fields
+            if hasattr(self, field)
+        )
+        import six
+        return '<Transaction %s>' % ', '.join(
+            (
+                '%s=%r' % (field, value)
+                if not isinstance(value, six.integer_types)
+                # We want the following line to ensure that longs get
+                # shown without the ugly L suffix on python 2.x
+                # versions
+                else '%s=%d' % (field, value)
+                for field, value in field_values.items()
+            )
+        )

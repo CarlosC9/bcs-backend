@@ -20,7 +20,6 @@ class Service(AnsisService):
 
     def __init__(self):
         super(Service, self).__init__()
-        self.db = DBSessionChado
         self.orm = get_orm('alignments')
         self.obj_type = 'multiple-sequence-alignment'
         self.fos = MultipleSequenceAlignment
