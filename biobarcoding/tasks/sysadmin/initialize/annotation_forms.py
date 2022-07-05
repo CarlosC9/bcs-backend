@@ -1,24 +1,23 @@
-from sqlalchemy.exc import SQLAlchemyError
+import json
 from urllib.error import URLError
-from ..db_models import DBSession, ObjectType
-from ..services.annotation_forms.templates import Service as templatesService
-from ..services.annotation_forms.fields import Service as fieldsService
+
+from .. import REQUEST_URL
+from ...system import SA_TASK_SESSION
+from ....services import log_exception
 
 
-def __create_by_service(service, **kwargs):
+def _create_request(service, **kwargs):
 	try:
-		c = service.create(**kwargs)[0]
-		service.db.commit()
-		return c
-	except SQLAlchemyError as e:
-		service.db.rollback()
+		url = f"{REQUEST_URL}/annotation_form_{service}/"
+		print('POST ' + url)
+		return SA_TASK_SESSION.post(url, json=kwargs, headers={'Content-Type': 'application/json'})
+	except Exception as e:
 		print(f'Something went wrong when creating the {kwargs.get("name")}. It may already exist.')
-	return None
+		log_exception(e)
+		return None
 
 
-template_service = templatesService()
-field_service = fieldsService()
-object_type_id = [i.id for i in DBSession.query(ObjectType).all()]
+object_type_id = []
 
 
 ##
@@ -247,7 +246,7 @@ def initialize_bibtex_forms():
 		},
 	]
 	for i in bibtex_fields:
-		__create_by_service(field_service, **i, cv='bibtex', standard='BibTex', object_type_id=object_type_id)
+		_create_request('fields', **i, cv='bibtex', standard='BibTex', object_type_id=object_type_id)
 
 	print(' > Creating BibTex templates')
 	bibtex_entities = [
@@ -421,7 +420,7 @@ def initialize_bibtex_forms():
 		},
 	]
 	for i in bibtex_entities:
-		__create_by_service(template_service, **i, cv='bibtex', standard='BibTex', object_type_id=object_type_id)
+		_create_request('templates', **i, cv='bibtex', standard='BibTex', object_type_id=object_type_id)
 
 
 ##
@@ -501,7 +500,7 @@ def initialize_dwc_forms():
 			data_url = githubBaseUri + namespace.get('database', '') + '/' + namespace.get('database', '') + '.csv'
 			frame = pd.read_csv(data_url, na_filter=False)
 		except URLError as e:
-			print(namespace.get('database'), 'could not be found')
+			print(namespace.get('database') + ' could not be found')
 			continue
 		for index, row in frame.iterrows():
 			term_list = [
@@ -540,11 +539,11 @@ def initialize_dwc_forms():
 	#  not_templates = classes.difference(groups)
 	#  free_fields = groups.difference(classes)
 	for row_index, row in groups_df.iterrows():
-		print('creating template', row.get('label'))
+		print('creating template ' + row.get('label'))
 		uri = row['vann_preferredNamespaceUri'] + row['term_localName']
 		curie = row['vann_preferredNamespacePrefix'] + ":" + row['term_localName']
 		print('[' + curie + '](#' + curie.replace(':', '_') + ')\n' + uri)
-		__create_by_service(template_service, **__dwc_term2annotation(**row))
+		_create_request('templates', **__dwc_term2annotation(**row))
 
 	print('\n > Creating Darwin Core fields')
 
@@ -561,8 +560,14 @@ def initialize_dwc_forms():
 			values = __dwc_term2annotation(**row)
 			if category_label[i] not in templates:
 				values.pop('tdwgutility_organizedInClass', '')
-			__create_by_service(field_service, **values)
+			_create_request('fields', **values)
 
 
-if __name__ == '__main__':
+def run():
+	url = f"{REQUEST_URL}/object_types/"
+	global object_type_id
+	print('GET ' + url)
+	object_type_id = [i['id'] for i in json.loads(SA_TASK_SESSION.get(url).text)['content']]
+	initialize_bibtex_forms()
 	initialize_dwc_forms()
+	return 'DONE'

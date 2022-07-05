@@ -1,4 +1,4 @@
-import subprocess
+import requests
 
 from . import celery_app
 from .. import get_global_configuration_variable
@@ -8,7 +8,9 @@ from ..services import log_exception
 SA_PROC_PATH = 'biobarcoding.tasks.sysadmin.'
 CELERY_USER = "celery_user"
 ENDPOINT = get_global_configuration_variable("ENDPOINT_URL")
-COOKIES_FILE_PATH = get_global_configuration_variable("COOKIES_FILE_PATH")
+
+if 'SA_TASK_SESSION' not in globals():
+    SA_TASK_SESSION = requests.Session()
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -20,19 +22,21 @@ def setup_periodic_tasks(sender, **kwargs):
     sender.add_periodic_task(30.0, sa_task.s('status_checkers'), name='check subsystem status')
 
 
-def api_login():
-    url = f"{ENDPOINT}{app_api_base}/authn?user={CELERY_USER}"
-    cmd = ["curl", "--cookie", COOKIES_FILE_PATH, "--cookie-jar", COOKIES_FILE_PATH, "-X", "PUT", url]
-    subprocess.run(cmd)
+def sa_task_login():
+    SA_TASK_SESSION.put(f"{ENDPOINT}{app_api_base}/authn?user={CELERY_USER}")
 
 
-def api_logout():
-    url = f"{ENDPOINT}{app_api_base}/authn?user={CELERY_USER}"
-    cmd = ["curl", "--cookie", COOKIES_FILE_PATH, "--cookie-jar", COOKIES_FILE_PATH, "-X", "DELETE", url]
-    subprocess.run(cmd)
+def sa_task_logout():
+    SA_TASK_SESSION.delete(f"{ENDPOINT}{app_api_base}/authn?user={CELERY_USER}")
+    SA_TASK_SESSION.close()
 
 
-@celery_app.task(name="sa_task", acks_late=True)
+@celery_app.task(name="sa_task", acks_late=True,
+                 # default_retry_delay=10,
+                 # autoretry_for=(Exception,),
+                 # retry_kwargs={'max_retries': 5},
+                 # retry_backoff=True,
+                 )
 def sa_task(process: str):
     """
     Launch a specific sysadmin task
@@ -41,13 +45,12 @@ def sa_task(process: str):
     """
 
     try:
-        api_login()
-        print('sa_task: ' + process)
+        sa_task_login()
+        print('SA_TASK: ' + process)
         from importlib import import_module
-        process_module = import_module(SA_PROC_PATH + process)
-        _ = process_module.run()
-        api_logout()
-        return _
+        print(import_module(SA_PROC_PATH + process).run())
+        sa_task_logout()
+        return None
     except Exception as e:
         log_exception(e)
         return None
