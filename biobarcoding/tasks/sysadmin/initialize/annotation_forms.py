@@ -1,21 +1,8 @@
 import json
 from urllib.error import URLError
 
-from .. import REQUEST_URL
+from .. import REQUEST_URL, create_request
 from ...system import SA_TASK_SESSION
-from ....services import log_exception
-
-
-def _create_request(service, **kwargs):
-	try:
-		url = f"{REQUEST_URL}/annotation_form_{service}/"
-		print('POST ' + url)
-		return SA_TASK_SESSION.post(url, json=kwargs, headers={'Content-Type': 'application/json'})
-	except Exception as e:
-		print(f'Something went wrong when creating the {kwargs.get("name")}. It may already exist.')
-		log_exception(e)
-		return None
-
 
 object_type_id = []
 
@@ -246,7 +233,7 @@ def initialize_bibtex_forms():
 		},
 	]
 	for i in bibtex_fields:
-		_create_request('fields', **i, cv='bibtex', standard='BibTex', object_type_id=object_type_id)
+		create_request('/annotation_form_fields/', **i, cv='bibtex', standard='BibTex', object_type_id=object_type_id)
 
 	print(' > Creating BibTex templates')
 	bibtex_entities = [
@@ -420,7 +407,7 @@ def initialize_bibtex_forms():
 		},
 	]
 	for i in bibtex_entities:
-		_create_request('templates', **i, cv='bibtex', standard='BibTex', object_type_id=object_type_id)
+		create_request('/annotation_form_templates/', **i, cv='bibtex', standard='BibTex', object_type_id=object_type_id)
 
 
 ##
@@ -543,7 +530,7 @@ def initialize_dwc_forms():
 		uri = row['vann_preferredNamespaceUri'] + row['term_localName']
 		curie = row['vann_preferredNamespacePrefix'] + ":" + row['term_localName']
 		print('[' + curie + '](#' + curie.replace(':', '_') + ')\n' + uri)
-		_create_request('templates', **__dwc_term2annotation(**row))
+		create_request('/annotation_form_templates/', **__dwc_term2annotation(**row))
 
 	print('\n > Creating Darwin Core fields')
 
@@ -560,7 +547,7 @@ def initialize_dwc_forms():
 			values = __dwc_term2annotation(**row)
 			if category_label[i] not in templates:
 				values.pop('tdwgutility_organizedInClass', '')
-			_create_request('fields', **values)
+			create_request('/annotation_form_fields/', **values)
 
 
 def run():

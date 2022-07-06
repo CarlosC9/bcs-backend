@@ -11,8 +11,23 @@ from ....rest import filter_parse
 ##
 
 def get_taxonomic_ranks(rank):
-    from .ontologies import CvtermService
-    return CvtermService().read(cv='taxonomic_rank', cvterm=rank)[0]
+    from ....db_models.chado import Cv, Cvterm
+    try:
+        return DBSessionChado.query(Cvterm.cvterm_id).join(Cv) \
+            .filter(Cv.name == 'taxonomic_rank', Cvterm.name == rank).one()
+    except Exception as e:
+        pass
+    try:
+        return DBSessionChado.query(Cvterm.cvterm_id).join(Cv) \
+            .filter(Cv.name == 'taxonomic', Cvterm.name == rank).one()
+    except Exception as e:
+        pass
+    try:
+        return DBSessionChado.query(Cvterm.cvterm_id).join(Cv) \
+            .filter(Cv.name == 'taxonomic_rank', Cvterm.name == 'no_rank').one()
+    except Exception as e:
+        pass
+    return 1
 
 
 def split_org_name(name: str) -> (str, str, str):
@@ -69,25 +84,27 @@ class Service(MetaService):
         genus, species, ssp = split_org_name(
             values.get('organism') or values.get('name') or values.get('species') or '')
         values['genus'] = values.get('genus') or genus
-        values['species'] = values.get('species') or species
+        values['species'] = species or values.get('species')
         values['infraspecific_name'] = values.get('infraspecific_name') \
                                        or values.get('ssp./var.') or values.get('ssp') or ssp
 
         values['type_id'] = values.get('type_id') or values.get('cvterm_id')
         _type = values.get('type') or values.get('rank') or values.get('cvterm')
         if _type and not values.get('type_id'):
-            values['type_id'] = get_taxonomic_ranks(_type)[0].cvterm_id
+            values['type_id'] = get_taxonomic_ranks(_type)
 
         return super(Service, self).prepare_values(**values)
 
     def check_values(self, **values) -> dict:
-        values = self.check_with_gbif(**values)
+        # values = self.check_with_gbif(**values)   # TODO think if it's worth what it slows down
 
         if not values.get('genus'):
             values['genus'] = ''
             # raise Exception('Missing the field "genus" for organisms.')
         if not values.get('species'):
             raise Exception('Missing the field "species" for organisms.')
+        if not values.get('type_id'):
+            values['type_id'] = get_taxonomic_ranks('no_rank')
 
         return super(Service, self).check_values(**values)
 
@@ -102,7 +119,7 @@ class Service(MetaService):
             if not values.get('infraspecific_name') and gbif.get('scientificName'):
                 values['infraspecific_name'] = ' '.join(gbif.get('scientificName').split()[2:]).strip()
             try:
-                values['type_id'] = values.get('type_id') or get_taxonomic_ranks(rank)[0].cvterm_id
+                values['type_id'] = values.get('type_id') or get_taxonomic_ranks(rank)
             except:
                 pass
 

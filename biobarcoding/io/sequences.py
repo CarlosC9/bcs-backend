@@ -169,6 +169,9 @@ def import_file(infile, _format=None, data=None, analysis_id=None, **kwargs):
                     if _row and _row.organism_id:
                         seq.annotations = seq.annotations.copy()
                         seq.annotations['organism'] = _org = _row.organism_id
+                    elif _org in ORG_ENTRIES:
+                        print('Warning: Unknown organism for', seq.id)
+                        continue
                     else:
                         print('Warning: Unknown organism for', seq.id)
                         _row = get_or_create(DBSessionChado, Organism, genus='unknown', species='organism')

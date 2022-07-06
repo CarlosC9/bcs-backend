@@ -240,6 +240,7 @@ def after_app_init():
     print("Initializing BibTex and Darwin Core annotation forms")
     from ..tasks import system
     system.sa_task.delay('initialize.annotation_forms')
+    system.sa_task.delay('initialize.taxa')
     return None
 
 
