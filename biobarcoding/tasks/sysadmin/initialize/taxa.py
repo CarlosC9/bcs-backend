@@ -1,10 +1,11 @@
+import json
 import re
 import os.path
 import pandas as pd
 from Bio import Entrez
 import requests
 
-from .. import create_request
+from .. import create_request, read_request
 from .... import app_acronym
 from ....services import get_encoding
 from ....services.species_names import get_taxon_from_gbif
@@ -46,7 +47,7 @@ BIOTA_COLUMNS = {
 class TaxaTaskTools:
 
 	@staticmethod
-	def biota_get_csv(file="/tmp/biota_species.csv", overwrite=False) -> str:
+	def biota_get_csv(file="/tmp/biota_species.csv", overwrite=True) -> str:
 		"""
 		Download and store the Biota taxa file
 		:param file: pathfile to store the data
@@ -87,7 +88,7 @@ class TaxaTaskTools:
 		# 	except Exception as e:
 		# 		pass
 		try:
-			_file = TaxaTaskTools.biota_get_csv(overwrite=True)
+			_file = TaxaTaskTools.biota_get_csv(overwrite=False)
 			frame = pd.read_csv(_file, encoding=get_encoding(_file), sep=';')
 			frame.rename(columns=BIOTA_COLUMNS, inplace=True)
 			return frame
@@ -104,6 +105,20 @@ class TaxaTaskTools:
 		if not df:
 			df = TaxaTaskTools.biota_get_df()
 		return df['species'].values
+
+	@staticmethod
+	def biota_get_by_rank(df, rank):
+		"""
+		Get the list of taxa
+		:param df: a Biota Dataframe
+		:param rank: the desired rank
+		:return: a list of taxa
+		"""
+		if df is None:
+			df = TaxaTaskTools.biota_get_df()
+		for taxa in df[rank].unique():
+			if taxa:
+				yield taxa
 
 	@staticmethod
 	def gbif_get_df(*orgs):
@@ -165,6 +180,14 @@ class TaxaTaskTools:
 
 
 def run():
-	for i, org in TaxaTaskTools.biota_get_df().iterrows():
+	print('Getting Biota species')
+	df = TaxaTaskTools.biota_get_df()
+	for i, org in df.iterrows():
 		print(create_request('/organisms/', **org))
+	ranks = read_request('/ontologies/terms/', filter={'cv': 'taxonomic_rank'})
+	for rank in [_.get('name') for _ in json.loads(ranks.text).get('content')
+					if _.get('name') and _['name'] != 'species' and _['name'] in BIOTA_COLUMNS.values()]:
+		print('Getting Biota ' + rank)
+		for org in TaxaTaskTools.biota_get_by_rank(df, rank):
+			print(create_request('/organisms/', species=org, rank=rank))
 	return 'DONE'

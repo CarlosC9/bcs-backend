@@ -12,6 +12,8 @@ def __getTypes(subject):
         from ..db_models.chado import Phylotree as ORM
     elif subject == 'individual' or subject == 'individuals' or subject == 'stock' or subject == 'stocks':
         from ..db_models.chado import Stock as ORM
+    elif subject == 'organism' or subject == 'organisms':
+        from ..db_models.chado import Organism as ORM
     else:
         return None
     ids = DBSessionChado.query(ORM.type_id).distinct(ORM.type_id).subquery()

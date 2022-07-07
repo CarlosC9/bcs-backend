@@ -17,3 +17,14 @@ def create_request(url_suffix, **kwargs):
         print(f'Something went wrong when creating the {kwargs.get("name")}. It may already exist.')
         log_exception(e)
         return None
+
+
+def read_request(url_suffix, **kwargs):
+    try:
+        url = f"{REQUEST_URL}{url_suffix}"
+        print('GET ' + url)
+        return SA_TASK_SESSION.get(url, json=kwargs)
+    except Exception as e:
+        print(f'Something went wrong when reading the {kwargs.get("name")}.')
+        log_exception(e)
+        return None
