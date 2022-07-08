@@ -81,8 +81,10 @@ class Service(MetaService):
 
     def prepare_values(self, **values) -> dict:
 
-        genus, species, ssp = split_org_name(
-            values.get('organism') or values.get('name') or values.get('species') or '')
+        genus = species = ssp = ''
+        if values.get('split_name'):
+            genus, species, ssp = split_org_name(
+                values.get('organism') or values.get('name') or values.get('species') or '')
         values['genus'] = values.get('genus') or genus
         values['species'] = species or values.get('species')
         values['infraspecific_name'] = values.get('infraspecific_name') \
@@ -272,11 +274,14 @@ class Service(MetaService):
             clauses.append(self.orm.organism_id.in_(_ids))
 
         if filter.get('rank'):
-            # TODO: organism.type_id ?
             from ....db_models.chado import Phylonode, PhylonodeOrganism, Cv, Cvterm
-            _ids = self.db.query(PhylonodeOrganism.organism_id).join(Phylonode).join(Cvterm) \
-                .join(Cv).filter(Cv.name=='taxonomy')\
-                .filter(filter_parse(Cvterm, [{'name':filter.get('rank')}]))
-            clauses.append(self.orm.organism_id.in_(_ids))
+            _org_ids = self.db.query(PhylonodeOrganism.organism_id).join(Phylonode).join(Cvterm).join(Cv) \
+                .filter(Cv.name == 'taxonomy' or Cv.name == 'taxonomic_rank') \
+                .filter(filter_parse(Cvterm, [{'name': filter.get('rank')}]))
+            _type_ids = self.db.query(Cvterm.cvterm_id).join(Cv) \
+                .filter(Cv.name == 'taxonomy' or Cv.name == 'taxonomic_rank') \
+                .filter(filter_parse(Cvterm, [{'name': filter.get('rank')}]))
+            from sqlalchemy import or_
+            clauses.append(or_(self.orm.organism_id.in_(_org_ids), self.orm.type_id.in_(_type_ids)))
 
         return clauses + super(Service, self).aux_filter(filter)

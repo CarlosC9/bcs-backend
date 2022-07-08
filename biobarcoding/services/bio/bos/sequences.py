@@ -39,7 +39,7 @@ class Service(BosService):
                 orgs = org_service.read(filter={'name': values.get('organism')})[0]
                 values['organism_id'] = orgs[0].organism_id
             except Exception as e:
-                values['organism_id'] = org_service.create(organism=values.get('organism'))[0].organism_id
+                values['organism_id'] = org_service.create(organism=values.get('organism'), split_name=1)[0].organism_id
 
         if not values.get('type_id') and values.get('type'):
             try:

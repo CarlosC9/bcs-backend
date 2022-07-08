@@ -94,6 +94,9 @@ def __getOrganisms(subject):
     elif subject == 'taxonomy' or subject == 'taxonomies':
         from ..db_models.chado import PhylonodeOrganism as ORM
         ids = DBSessionChado.query(ORM.organism_id)
+    elif subject == 'organism' or subject == 'organisms':
+        from ..db_models.chado import Organism as ORM
+        return DBSessionChado.query(ORM.genus).distinct(ORM.genus).all()
     else:
         return None
     ids = ids.distinct(ORM.organism_id).all()
@@ -185,13 +188,21 @@ def getFilterSchema(subject, session):
     if kwargs.get('analyses'):
         kwargs['programs'] = [{'program': a.program} for a in kwargs.get('analyses')]
         kwargs['programs'] = [dict(t) for t in {tuple(p.items()) for p in kwargs['programs']}]
-        kwargs['programversions'] = [{'program': a.program, 'programversion': a.programversion} for a in
-                                     kwargs.get('analyses')]
+        kwargs['programversions'] = [{'program': a.program, 'programversion': a.programversion}
+                                     for a in kwargs.get('analyses')]
         kwargs['programversions'] = [dict(t) for t in {tuple(p.items()) for p in kwargs['programversions']}]
         kwargs['algorithms'] = [{'algorithm': a.algorithm} for a in kwargs.get('analyses')]
         kwargs['algorithms'] = [dict(t) for t in {tuple(p.items()) for p in kwargs['algorithms']}]
         if subject == 'alignment' or subject == 'analysis' or subject == 'alignments' or subject == 'analyses':
             kwargs['analyses'] = []
+    if kwargs.get('organisms'):
+        if subject.startswith('organism'):
+            kwargs['genus'] = [a.genus for a in kwargs.get('organisms')]
+        else:
+            kwargs['genus'] = [a['genus'] for a in kwargs.get('organisms')]
+        kwargs['genus'] = list({'genus': v} for v in set(kwargs['genus']))
+        if subject == 'organism' or subject == 'organisms':
+            kwargs['organisms'] = []
     elif subject.startswith("annotation_form_"):
         from ..db_models.sa_annotations import AnnotationFormItem
         kwargs['standards'] = [{'label': i, 'value': i} for i, in

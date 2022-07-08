@@ -551,8 +551,9 @@ def initialize_dwc_forms():
 
 
 def run():
-	url = f"{REQUEST_URL}/object_types/"
+	print("Initializing BibTex and Darwin Core annotation forms")
 	global object_type_id
+	url = f"{REQUEST_URL}/object_types/"
 	print('GET ' + url)
 	object_type_id = [i['id'] for i in json.loads(SA_TASK_SESSION.get(url).text)['content']]
 	initialize_bibtex_forms()

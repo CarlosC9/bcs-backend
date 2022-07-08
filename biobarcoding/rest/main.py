@@ -236,8 +236,6 @@ def after_a_request(response):
 
 @base_app_pkg.flask_app.before_first_request
 def after_app_init():
-    # Insert BibTeX and Darwin Core annotation forms
-    print("Initializing BibTex and Darwin Core annotation forms")
     from ..tasks import system
     system.sa_task.delay('initialize.annotation_forms')
     system.sa_task.delay('initialize.taxa')

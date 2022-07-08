@@ -1,6 +1,7 @@
 import json
 import re
 import os.path
+import threading
 import pandas as pd
 from Bio import Entrez
 import requests
@@ -180,14 +181,21 @@ class TaxaTaskTools:
 
 
 def run():
-	print('Getting Biota species')
+	print("Initializing organism entries with Biota taxa")
+	print(' > Getting Biota species')
 	df = TaxaTaskTools.biota_get_df()
 	for i, org in df.iterrows():
-		print(create_request('/organisms/', **org))
+		print(create_request('/organisms/', split_name=1, **org))
+	_th = threading.Thread(target=read_request, name='Look for canonical names',
+							args=['/organisms/'], kwargs={'filter': {'rank': 'no_rank'}})
+	_th.start()
 	ranks = read_request('/ontologies/terms/', filter={'cv': 'taxonomic_rank'})
 	for rank in [_.get('name') for _ in json.loads(ranks.text).get('content')
 					if _.get('name') and _['name'] != 'species' and _['name'] in BIOTA_COLUMNS.values()]:
-		print('Getting Biota ' + rank)
+		print(' > Getting Biota ' + rank)
 		for org in TaxaTaskTools.biota_get_by_rank(df, rank):
 			print(create_request('/organisms/', species=org, rank=rank))
+		_th = threading.Thread(target=read_request, name='Look for canonical names',
+								args=['/organisms/'], kwargs={'filter': {'rank': rank}})
+		_th.start()
 	return 'DONE'
