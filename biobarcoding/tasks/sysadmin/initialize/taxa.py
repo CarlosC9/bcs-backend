@@ -92,7 +92,7 @@ class TaxaTaskTools:
 			_file = TaxaTaskTools.biota_get_csv(overwrite=False)
 			frame = pd.read_csv(_file, encoding=get_encoding(_file), sep=';')
 			frame.rename(columns=BIOTA_COLUMNS, inplace=True)
-			return frame
+			return frame.where(frame.notnull(), None)
 		except Exception as e:
 			return []
 
@@ -184,6 +184,7 @@ def run():
 	print("Initializing organism entries with Biota taxa")
 	print(' > Getting Biota species')
 	df = TaxaTaskTools.biota_get_df()
+	df = df[df.kingdom == 'Plantae']		# only Plantae kingdom (species: 3791 instead of 25161)
 	for i, org in df.iterrows():
 		print(create_request('/organisms/', split_name=1, **org))
 	_th = threading.Thread(target=read_request, name='Look for canonical names',
