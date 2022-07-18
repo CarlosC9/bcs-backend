@@ -34,6 +34,7 @@ class BarCodingRegions(ORMBase):
 
 
 class Gene(ORMBase):
+    __versioned__ = {}
     __tablename__ = f"{prefix}genes"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -43,6 +44,7 @@ class Gene(ORMBase):
 
 
 class GeneSynonym(ORMBase):
+    __versioned__ = {}
     __tablename__ = f"{prefix}gene_synonyms"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -52,6 +54,7 @@ class GeneSynonym(ORMBase):
 
 
 class Locus(ORMBase):
+    __versioned__ = {}
     __tablename__ = f"{prefix}loci"
 
     # TODO:
@@ -74,6 +77,7 @@ class Locus(ORMBase):
 
 
 class Loci(ORMBase):
+    __versioned__ = {}
     __tablename__ = f"{prefix}locis"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -82,6 +86,7 @@ class Loci(ORMBase):
 
 
 class LociLocus(ORMBase):
+    __versioned__ = {}
     __tablename__ = f"{prefix}loci_locus"
 
     loci_id = Column(BigInteger, ForeignKey(Loci.id), nullable=False, primary_key=True)

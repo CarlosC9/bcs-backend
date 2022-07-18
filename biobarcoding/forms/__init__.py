@@ -562,7 +562,3 @@ def initialize_dwc_forms():
 			if category_label[i] not in templates:
 				values.pop('tdwgutility_organizedInClass', '')
 			__create_by_service(field_service, **values)
-
-
-if __name__ == '__main__':
-	initialize_dwc_forms()

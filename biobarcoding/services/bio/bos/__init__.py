@@ -23,6 +23,8 @@ class BosService(BioService):
         return super(BosService, self).prepare_values(**values)
 
     def pre_query(self, purpose) -> object:
+        query = super(BosService, self).pre_query(purpose) or self.db.query(self.orm)
+
         from ....db_models.sysadmin import PermissionType
         purpose_id = DBSession.query(PermissionType).filter(PermissionType.name == purpose).one().id
         _ = data_object_type_id.get(self.obj_type)
@@ -32,39 +34,39 @@ class BosService(BioService):
 
         from sqlalchemy import inspect
         bos_clause = inspect(self.orm).primary_key[0].in_(bos_clause)
-        query = self.db.query(self.orm).filter(bos_clause)
+        query = query.filter(bos_clause)
         return query
 
-    def aux_filter(self, filter):
+    def aux_filter(self, _filter: dict) -> list:
         clauses = []
 
-        if filter.get('annotation_field_id'):
+        if _filter.get('annotation_field_id'):
             from ....db_models.sa_annotations import AnnotationItem, AnnotationItemFunctionalObject
             _ids = DBSession.query(self.fos.native_id) \
                 .join(AnnotationItemFunctionalObject).join(AnnotationItem) \
-                .filter(filter_parse(AnnotationItem, {'id': filter.get('annotation_field_id')}),
+                .filter(filter_parse(AnnotationItem, {'id': _filter.get('annotation_field_id')}),
                         self.fos.obj_type_id == data_object_type_id[self.obj_type]).all()
             from sqlalchemy import inspect
             clauses.append(inspect(self.orm).primary_key[0].in_(_ids))
 
-        if filter.get('annotation_form_template_id'):
+        if _filter.get('annotation_form_template_id'):
             from ....db_models.sa_annotations import AnnotationFormTemplate, AnnotationTemplate, \
                 AnnotationItemFunctionalObject
             _ids = DBSession.query(self.fos.native_id) \
                 .join(AnnotationItemFunctionalObject).join(AnnotationTemplate).join(AnnotationFormTemplate) \
-                .filter(filter_parse(AnnotationFormTemplate, {'id': filter.get('annotation_form_template_id')}),
+                .filter(filter_parse(AnnotationFormTemplate, {'id': _filter.get('annotation_form_template_id')}),
                         self.fos.obj_type_id == data_object_type_id[self.obj_type]).all()
             from sqlalchemy import inspect
             clauses.append(inspect(self.orm).primary_key[0].in_(_ids))
 
-        if filter.get('annotation_form_field_id'):
+        if _filter.get('annotation_form_field_id'):
             from ....db_models.sa_annotations import AnnotationFormField, AnnotationField, \
                 AnnotationItemFunctionalObject
             _ids = DBSession.query(self.fos.native_id) \
                 .join(AnnotationItemFunctionalObject).join(AnnotationField).join(AnnotationFormField) \
-                .filter(filter_parse(AnnotationFormField, {'id': filter.get('annotation_form_field_id')}),
+                .filter(filter_parse(AnnotationFormField, {'id': _filter.get('annotation_form_field_id')}),
                         self.fos.obj_type_id == data_object_type_id[self.obj_type]).all()
             from sqlalchemy import inspect
             clauses.append(inspect(self.orm).primary_key[0].in_(_ids))
 
-        return clauses + super(BosService, self).aux_filter(filter)
+        return clauses + super(BosService, self).aux_filter(_filter)

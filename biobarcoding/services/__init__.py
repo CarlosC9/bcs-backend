@@ -160,6 +160,12 @@ def tsv_pd_parser(file) -> dict:   # with pandas lib
 # SQLALCHEMY OPS
 ##
 
+def get_filtering(key: str, params: dict):
+    _filter = listify(params.get('filter'))
+    return params.get(key) or params.get('values').get(key) \
+           or next(iter([_f.get(key) for _f in _filter if _f.get(key)]), None)
+
+
 def get_orm_params(orm, **params):
     schema = orm.Schema._declared_fields or orm.__table__.columns
     return dict([(k, v) for k, v in params.items() if k in schema])

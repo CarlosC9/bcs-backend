@@ -22,7 +22,6 @@ class Service(BosService):
 
     def __init__(self):
         super(Service, self).__init__()
-        self.db = DBSessionChado
         self.orm = get_orm('sequences')
         self.obj_type = 'sequence'
         self.fos = Sequence
@@ -246,71 +245,71 @@ class Service(BosService):
     # GETTER AND OTHERS
     ##
 
-    def aux_filter(self, filter):
+    def aux_filter(self, _filter: dict) -> list:
         clauses = []
 
-        if filter.get('stock_id'):
+        if _filter.get('stock_id'):
             from ....db_models.chado import StockFeature
             _ids = self.db.query(StockFeature.feature_id)\
-                .filter(filter_parse(StockFeature, [{'stock_id': filter.get('stock_id')}]))
+                .filter(filter_parse(StockFeature, [{'stock_id': _filter.get('stock_id')}]))
             clauses.append(self.orm.feature_id.in_(_ids))
 
-        if filter.get('analysis_id'):
+        if _filter.get('analysis_id'):
             from ....db_models.chado import AnalysisFeature
             _ids = self.db.query(AnalysisFeature.feature_id)\
-                .filter(filter_parse(AnalysisFeature, [{'analysis_id': filter.get('analysis_id')}]))
+                .filter(filter_parse(AnalysisFeature, [{'analysis_id': _filter.get('analysis_id')}]))
             clauses.append(self.orm.feature_id.in_(_ids))
 
-        if filter.get('phylotree_id'):
+        if _filter.get('phylotree_id'):
             from ....db_models.chado import Phylonode
             _ids = self.db.query(Phylonode.feature_id)\
-                .filter(filter_parse(Phylonode, [{'phylotree_id': filter.get('phylotree_id')}]))
+                .filter(filter_parse(Phylonode, [{'phylotree_id': _filter.get('phylotree_id')}]))
             clauses.append(self.orm.feature_id.in_(_ids))
 
-        if filter.get("prop_cvterm_id"):
+        if _filter.get("prop_cvterm_id"):
             from ....db_models.chado import Featureprop
             _ids = self.db.query(Featureprop.feature_id)\
-                .filter(filter_parse(Featureprop, [{'type_id': filter.get('prop_cvterm_id')}]))
+                .filter(filter_parse(Featureprop, [{'type_id': _filter.get('prop_cvterm_id')}]))
             clauses.append(self.orm.feature_id.in_(_ids))
 
-        if filter.get("program"):
+        if _filter.get("program"):
             from ....db_models.chado import Analysis, AnalysisFeature
             _ids = self.db.query(AnalysisFeature.feature_id).join(Analysis) \
-                .filter(filter_parse(Analysis, [{'program': filter.get('program')}]))
+                .filter(filter_parse(Analysis, [{'program': _filter.get('program')}]))
             clauses.append(self.orm.feature_id.in_(_ids))
 
-        if filter.get("programversion"):
+        if _filter.get("programversion"):
             from ....db_models.chado import Analysis, AnalysisFeature
             _ids = self.db.query(AnalysisFeature.feature_id).join(Analysis) \
-                .filter(filter_parse(Analysis, [{'programversion': filter.get('programversion')}]))
+                .filter(filter_parse(Analysis, [{'programversion': _filter.get('programversion')}]))
             clauses.append(self.orm.feature_id.in_(_ids))
 
-        if filter.get("algorithm"):
+        if _filter.get("algorithm"):
             from ....db_models.chado import Analysis, AnalysisFeature
             _ids = self.db.query(AnalysisFeature.feature_id).join(Analysis) \
-                .filter(filter_parse(Analysis, [{'algorithm': filter.get('algorithm')}]))
+                .filter(filter_parse(Analysis, [{'algorithm': _filter.get('algorithm')}]))
             clauses.append(self.orm.feature_id.in_(_ids))
 
         from datetime import datetime
-        if filter.get("added-from"):
-            filter["added-from"]['unary'] = datetime.strptime(filter.get("added-from")['unary'], '%Y-%m-%d')
+        if _filter.get("added-from"):
+            _filter["added-from"]['unary'] = datetime.strptime(_filter.get("added-from")['unary'], '%Y-%m-%d')
             _ids = self.db.query(self.orm.feature_id) \
-                .filter(filter_parse(self.orm, {'timeaccessioned':filter.get("added-from")}))
+                .filter(filter_parse(self.orm, {'timeaccessioned':_filter.get("added-from")}))
             clauses.append(self.orm.feature_id.in_(_ids))
-        if filter.get("added-to"):
-            filter["added-to"]['unary'] = datetime.strptime(filter.get("added-to")['unary'], '%Y-%m-%d')
+        if _filter.get("added-to"):
+            _filter["added-to"]['unary'] = datetime.strptime(_filter.get("added-to")['unary'], '%Y-%m-%d')
             _ids = self.db.query(self.orm.feature_id) \
-                .filter(filter_parse(self.orm, {'timeaccessioned':filter.get("added-to")}))
+                .filter(filter_parse(self.orm, {'timeaccessioned':_filter.get("added-to")}))
             clauses.append(self.orm.feature_id.in_(_ids))
-        if filter.get("lastmodified-from"):
-            filter["lastmodified-from"]['unary'] = datetime.strptime(filter.get("lastmodified-from")['unary'], '%Y-%m-%d')
+        if _filter.get("lastmodified-from"):
+            _filter["lastmodified-from"]['unary'] = datetime.strptime(_filter.get("lastmodified-from")['unary'], '%Y-%m-%d')
             _ids = self.db.query(self.orm.feature_id) \
-                .filter(filter_parse(self.orm, {'timelastmodified':filter.get("lastmodified-from")}))
+                .filter(filter_parse(self.orm, {'timelastmodified':_filter.get("lastmodified-from")}))
             clauses.append(self.orm.feature_id.in_(_ids))
-        if filter.get("lastmodified-to"):
-            filter["lastmodified-to"]['unary'] = datetime.strptime(filter.get("lastmodified-to")['unary'], '%Y-%m-%d')
+        if _filter.get("lastmodified-to"):
+            _filter["lastmodified-to"]['unary'] = datetime.strptime(_filter.get("lastmodified-to")['unary'], '%Y-%m-%d')
             _ids = self.db.query(self.orm.feature_id) \
-                .filter(filter_parse(self.orm, {'timelastmodified':filter.get("lastmodified-to")}))
+                .filter(filter_parse(self.orm, {'timelastmodified':_filter.get("lastmodified-to")}))
             clauses.append(self.orm.feature_id.in_(_ids))
 
-        return clauses + super(Service, self).aux_filter(filter)
+        return clauses + super(Service, self).aux_filter(_filter)
