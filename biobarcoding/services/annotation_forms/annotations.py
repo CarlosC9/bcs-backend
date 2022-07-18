@@ -136,13 +136,13 @@ class Service(BasicService):
                 AnnotationItemFunctionalObject.object_uuid == object_uuid).order_by(AnnotationItemFunctionalObject.rank)
         return super(Service, self).get_query(query=query, **kwargs)
 
-    def aux_filter(self, filter):
+    def aux_filter(self, _filter: dict) -> list:
         clauses = []
 
-        if filter.get('object_uuid'):
+        if _filter.get('object_uuid'):
             from ...rest import filter_parse
             _aux = self.db.query(AnnotationItemFunctionalObject.annotation_id).filter(
-                filter_parse(AnnotationItemFunctionalObject, {'object_uuid': filter.get('object_uuid')}))
+                filter_parse(AnnotationItemFunctionalObject, {'object_uuid': _filter.get('object_uuid')}))
             clauses.append(self.orm.id.in_(_aux.subquery()))
 
-        return clauses + super(Service, self).aux_filter(filter)
+        return clauses + super(Service, self).aux_filter(_filter)

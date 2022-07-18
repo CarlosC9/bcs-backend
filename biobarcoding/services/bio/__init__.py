@@ -1,5 +1,9 @@
+from sqlalchemy import inspect
+
 from .. import get_bioformat
 from ..main import BasicService
+from ...db_models import DBSessionChado
+from ...rest import filter_parse
 
 
 ##
@@ -7,6 +11,10 @@ from ..main import BasicService
 ##
 
 class BioService(BasicService):
+
+	def __init__(self):
+		super(BioService, self).__init__()
+		self.db = DBSessionChado
 
 	def prepare_values(self, cv=None, cvterm=None, db=None, dbxref=None, **values):
 
@@ -32,6 +40,27 @@ class BioService(BasicService):
 				.first().cvterm_id
 
 		return super(BioService, self).prepare_values(**values)
+
+	def aux_filter(self, _filter: dict) -> list:
+		clauses = []
+
+		_v = _filter.get('transaction_id') or _filter.get('version') or _filter.get('version_id')
+		if _v:
+			from sqlalchemy_continuum import version_class
+			Version = version_class(self.orm)
+			_ids = self.db.query(inspect(Version).primary_key[0]).filter(filter_parse(Version, {'transaction_id': _v}))
+			clauses.append(inspect(self.orm).primary_key[0].in_(_ids))
+
+		if _filter.get('issued_at'):
+			from sqlalchemy_continuum import transaction_class
+			Transaction = transaction_class(self.orm)
+			_ids = self.db.query(Transaction.id).filter(filter_parse(Transaction, {'issued_at': _filter.get('issued_at')}))
+			from sqlalchemy_continuum import version_class
+			Version = version_class(self.orm)
+			_ids = self.db.query(inspect(Version).primary_key[0]).filter(Version.transaction_id.in_(_ids))
+			clauses.append(inspect(self.orm).primary_key[0].in_(_ids))
+
+		return clauses + super(BioService, self).aux_filter(_filter)
 
 	def check_infile(self, file, _format):
 		_format = get_bioformat(file, _format)

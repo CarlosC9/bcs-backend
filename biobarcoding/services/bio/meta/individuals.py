@@ -12,7 +12,6 @@ class Service(MetaService):
 
     def __init__(self):
         super(Service, self).__init__()
-        self.db = DBSessionChado
         self.orm = get_orm('individuals')
 
     ##
@@ -53,33 +52,33 @@ class Service(MetaService):
     # GET SQLALCHEMY QUERY
     ##
 
-    def aux_filter(self, filter):
+    def aux_filter(self, _filter: dict) -> list:
         from ....rest import filter_parse
         clauses = []
 
-        if filter.get('feature_id'):
+        if _filter.get('feature_id'):
             from ....db_models.chado import StockFeature
             _ids = self.db.query(StockFeature.stock_id) \
-                .filter(filter_parse(StockFeature, {'feature_id': filter.get('feature_id')}))
+                .filter(filter_parse(StockFeature, {'feature_id': _filter.get('feature_id')}))
             clauses.append(self.orm.stock_id.in_(_ids))
 
-        if filter.get('phylotree_id'):
+        if _filter.get('phylotree_id'):
             from ....db_models.chado import Phylonode, StockFeature
             _ids = self.db.query(StockFeature.stock_id).join(Phylonode) \
-                .filter(filter_parse(Phylonode, [{'phylotree_id': filter.get('phylotree_id')}])) \
-                .filter(filter_parse(StockFeature, {'feature_id': filter.get('feature_id')}))
+                .filter(filter_parse(Phylonode, [{'phylotree_id': _filter.get('phylotree_id')}])) \
+                .filter(filter_parse(StockFeature, {'feature_id': _filter.get('feature_id')}))
             clauses.append(self.orm.stock_id.in_(_ids))
 
-        if filter.get("cvterm_id"):
+        if _filter.get("cvterm_id"):
             from ....db_models.chado import StockCvterm
             _ids = self.db.query(StockCvterm.stock_id) \
-                .filter(filter_parse(StockCvterm, [{'cvterm_id': filter.get('cvterm_id')}]))
+                .filter(filter_parse(StockCvterm, [{'cvterm_id': _filter.get('cvterm_id')}]))
             clauses.append(self.orm.stock_id.in_(_ids))
 
-        if filter.get("prop_cvterm_id"):
+        if _filter.get("prop_cvterm_id"):
             from ....db_models.chado import Stockprop
             _ids = self.db.query(Stockprop.stock_id) \
-                .filter(filter_parse(Stockprop, [{'type_id': filter.get('prop_cvterm_id')}]))
+                .filter(filter_parse(Stockprop, [{'type_id': _filter.get('prop_cvterm_id')}]))
             clauses.append(self.orm.stock_id.in_(_ids))
 
         # from datetime import datetime
@@ -94,4 +93,4 @@ class Service(MetaService):
         #         .filter(filter_parse(self.orm, {'timeexecuted':filter.get("added-to")}))
         #     clauses.append(self.orm.stock_id.in_(_ids))
 
-        return clauses + super(Service, self).aux_filter(filter)
+        return clauses + super(Service, self).aux_filter(_filter)

@@ -916,7 +916,11 @@ class LayersAPI(MethodView):
             self.issues, layer, count, self.status = get_content(db_sess, GeographicLayer, self.issues,
                                                                  aux_filter=custom_geolayers_filter,
                                                                  query=query)
-            if layer:
+            if request.args.get('only_ids') or request.args.get('values', {}).get('only_ids'):
+                from sqlalchemy import inspect
+                id_name = inspect(GeographicLayer).primary_key[0].name
+                layer = [getattr(c, id_name) for c in layer]
+            elif layer:
                 # Modify "wms_url" for local layers
                 tmp = urlparse(request.base_url)
                 # WORKAROUND - tmp.scheme is always "http" in spite the request being https. So assume "https"

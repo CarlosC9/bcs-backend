@@ -65,7 +65,6 @@ class Service(MetaService):
 
     def __init__(self):
         super(Service, self).__init__()
-        self.db = DBSessionChado
         self.orm = get_orm('organisms')
 
     def get_org_name(self, organism_id=None, **values) -> str:
@@ -239,49 +238,49 @@ class Service(MetaService):
     # GET SQLALCHEMY QUERY
     ##
 
-    def aux_filter(self, filter):
+    def aux_filter(self, _filter: dict) -> list:
         clauses = []
 
-        name = filter.get('organism') or filter.get('name')
+        name = _filter.get('organism') or _filter.get('name')
         if name:
             genus, species, ssp = split_org_name(name)
             clauses += [self.orm.genus == genus, self.orm.species == species, self.orm.infraspecific_name == ssp]
 
         # TODO: ask by lineage: ancestor/predecessor or descendant
 
-        if filter.get('feature_id'):
+        if _filter.get('feature_id'):
             from ....db_models.chado import Feature
             _ids = self.db.query(Feature.organism_id)\
-                .filter(filter_parse(Feature, [{'feature_id': filter.get('feature_id')}]))
+                .filter(filter_parse(Feature, [{'feature_id': _filter.get('feature_id')}]))
             clauses.append(self.orm.organism_id.in_(_ids))
 
-        if filter.get('analysis_id'):
+        if _filter.get('analysis_id'):
             from ....db_models.chado import AnalysisFeature, Feature
             _ids = self.db.query(Feature.organism_id).join(AnalysisFeature) \
-                .filter(filter_parse(AnalysisFeature, [{'analysis_id': filter.get('analysis_id')}]))
+                .filter(filter_parse(AnalysisFeature, [{'analysis_id': _filter.get('analysis_id')}]))
             clauses.append(self.orm.organism_id.in_(_ids))
 
-        if filter.get('phylonode_id'):
+        if _filter.get('phylonode_id'):
             from ....db_models.chado import PhylonodeOrganism
             _ids = self.db.query(PhylonodeOrganism.organism_id)\
-                .filter(PhylonodeOrganism.phylonode_id == filter.get('phylonode_id'))
+                .filter(PhylonodeOrganism.phylonode_id == _filter.get('phylonode_id'))
             clauses.append(self.orm.organism_id.in_(_ids))
 
-        if filter.get('phylotree_id'):
+        if _filter.get('phylotree_id'):
             from ....db_models.chado import Phylonode, PhylonodeOrganism
             _ids = self.db.query(PhylonodeOrganism.organism_id).join(Phylonode) \
-                .filter(filter_parse(Phylonode, [{'phylotree_id': filter.get('phylotree_id')}]))
+                .filter(filter_parse(Phylonode, [{'phylotree_id': _filter.get('phylotree_id')}]))
             clauses.append(self.orm.organism_id.in_(_ids))
 
-        if filter.get('rank'):
+        if _filter.get('rank'):
             from ....db_models.chado import Phylonode, PhylonodeOrganism, Cv, Cvterm
             _org_ids = self.db.query(PhylonodeOrganism.organism_id).join(Phylonode).join(Cvterm).join(Cv) \
                 .filter(Cv.name == 'taxonomy' or Cv.name == 'taxonomic_rank') \
-                .filter(filter_parse(Cvterm, [{'name': filter.get('rank')}]))
+                .filter(filter_parse(Cvterm, [{'name': _filter.get('rank')}]))
             _type_ids = self.db.query(Cvterm.cvterm_id).join(Cv) \
                 .filter(Cv.name == 'taxonomy' or Cv.name == 'taxonomic_rank') \
-                .filter(filter_parse(Cvterm, [{'name': filter.get('rank')}]))
+                .filter(filter_parse(Cvterm, [{'name': _filter.get('rank')}]))
             from sqlalchemy import or_
             clauses.append(or_(self.orm.organism_id.in_(_org_ids), self.orm.type_id.in_(_type_ids)))
 
-        return clauses + super(Service, self).aux_filter(filter)
+        return clauses + super(Service, self).aux_filter(_filter)

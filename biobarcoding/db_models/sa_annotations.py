@@ -13,6 +13,7 @@ prefix = "sa_annotation_"
 
 
 class AnnotationFormItem(ORMBase):
+    __versioned__ = {}
     __tablename__ = f"{prefix}form_item"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -31,6 +32,7 @@ class AnnotationFormItem(ORMBase):
 
 
 class AnnotationFormItemObjectType(ORMBase):
+    __versioned__ = {}
     __tablename__ = f"{prefix}form_item_object_type"
 
     form_item_id = Column(Integer, ForeignKey(AnnotationFormItem.id), primary_key=True)
@@ -44,6 +46,7 @@ class AnnotationFormItemObjectType(ORMBase):
 
 
 class AnnotationFormField(AnnotationFormItem):
+    __versioned__ = {}
     __tablename__ = f"{prefix}form_field"
     __mapper_args__ = {
         'polymorphic_identity': 'field',
@@ -54,6 +57,7 @@ class AnnotationFormField(AnnotationFormItem):
 
 
 class AnnotationFormTemplate(AnnotationFormItem):
+    __versioned__ = {}
     __tablename__ = f"{prefix}form_template"
     __mapper_args__ = {
         'polymorphic_identity': 'template',
@@ -62,6 +66,7 @@ class AnnotationFormTemplate(AnnotationFormItem):
 
 
 class AnnotationFormTemplateField(ORMBase):
+    __versioned__ = {}
     __tablename__ = f"{prefix}form_template_field"
 
     form_template_id = Column(Integer, ForeignKey(AnnotationFormTemplate.id), primary_key=True)
@@ -97,6 +102,7 @@ class AnnotationFormTemplateField(ORMBase):
 
 
 class AnnotationItem(ORMBase):
+    __versioned__ = {}
     __tablename__ = f"{prefix}item"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
@@ -112,6 +118,7 @@ class AnnotationItem(ORMBase):
 
 
 class AnnotationItemFunctionalObject(ORMBase):
+    __versioned__ = {}
     __tablename__ = f"{prefix}item_functional_object"
 
     annotation_id = Column(Integer, ForeignKey(AnnotationItem.id), primary_key=True)
@@ -128,6 +135,7 @@ class AnnotationItemFunctionalObject(ORMBase):
 
 
 class AnnotationText(AnnotationItem):
+    __versioned__ = {}
     __tablename__ = f"{prefix}text"
     __mapper_args__ = {
         'polymorphic_identity': 'text',
@@ -137,6 +145,7 @@ class AnnotationText(AnnotationItem):
 
 
 class AnnotationTemplate(AnnotationItem):
+    __versioned__ = {}
     __tablename__ = f"{prefix}template"
     __mapper_args__ = {
         'polymorphic_identity': 'template',
@@ -152,6 +161,7 @@ class AnnotationTemplate(AnnotationItem):
 
 
 class AnnotationField(AnnotationItem):
+    __versioned__ = {}
     __tablename__ = f"{prefix}field"
     __mapper_args__ = {
         'polymorphic_identity': 'field',
