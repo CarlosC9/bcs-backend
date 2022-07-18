@@ -181,15 +181,25 @@ class TaxaTaskTools:
 
 
 def run():
+
 	print("Initializing organism entries with Biota taxa")
-	print(' > Getting Biota species')
 	df = TaxaTaskTools.biota_get_df()
-	df = df[df.kingdom == 'Plantae']		# only Plantae kingdom (species: 3791 instead of 25161)
-	for i, org in df.iterrows():
-		print(create_request('/organisms/', split_name=1, **org))
+	df = df[df.kingdom == 'Plantae']		# only the Plantae kingdom (species: 3791 instead of 25161)
+
+	print(' > Getting Biota species')
+	for i, org in df[~df.species.str.contains('ssp.') | ~df.species.str.contains('subsp.')].iterrows():
+		print(create_request('/organisms/', split_name=1, **org, rank='species'))
 	_th = threading.Thread(target=read_request, name='Look for canonical names',
-							args=['/organisms/'], kwargs={'filter': {'rank': 'no_rank'}})
+							args=['/organisms/'], kwargs={'filter': {'rank': 'species'}})
 	_th.start()
+
+	print(' > Getting Biota subspecies')
+	for i, org in df[df.species.str.contains('ssp.') | df.species.str.contains('subsp.')].iterrows():
+		print(create_request('/organisms/', split_name=1, **org, rank='subspecies'))
+	_th = threading.Thread(target=read_request, name='Look for canonical names',
+							args=['/organisms/'], kwargs={'filter': {'rank': 'subspecies'}})
+	_th.start()
+
 	ranks = read_request('/ontologies/terms/', filter={'cv': 'taxonomic_rank'})
 	for rank in [_.get('name') for _ in json.loads(ranks.text).get('content')
 					if _.get('name') and _['name'] != 'species' and _['name'] in BIOTA_COLUMNS.values()]:
@@ -199,4 +209,5 @@ def run():
 		_th = threading.Thread(target=read_request, name='Look for canonical names',
 								args=['/organisms/'], kwargs={'filter': {'rank': rank}})
 		_th.start()
+
 	return 'DONE'
