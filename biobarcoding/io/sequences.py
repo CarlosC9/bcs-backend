@@ -12,8 +12,7 @@ from ..db_models.sa_annotations import AnnotationFormField, AnnotationField, Ann
     AnnotationFormItemObjectType
 from ..services import log_exception, get_encoding, tsv_pd_parser, csv_pd_parser
 from ..services.bio.meta.ontologies import get_type_id
-from ..services.bio.meta.organisms import split_org_name
-
+from ..services.bio.meta.organisms import split_org_name, get_taxonomic_ranks
 
 BATCH_SIZE = 500
 ORG_ENTRIES = {}
@@ -141,6 +140,7 @@ def import_file(infile, _format=None, data=None, analysis_id=None, **kwargs):
         ind_type_id = get_type_id(type='stock')
         seq_type_id = get_type_id(type='sequence', subtype='aligned' if analysis_id else None)
         gene_field_id = get_gene_field_id()
+        org_no_rank_id = get_taxonomic_ranks('no_rank')
         taxa_rows, stock_rl_rows, ann_rl_rows, ansis_rl_rows, ansis_src_rows = [], [], [], [], []
 
         try:
@@ -163,15 +163,22 @@ def import_file(infile, _format=None, data=None, analysis_id=None, **kwargs):
                     taxa_rows.append(get_or_create(DBSession, Taxon, name=_org))
                     _ = dict(zip(('genus', 'species', 'infraspecific_name'), split_org_name(_org)))
                     _row = get_or_create(DBSessionChado, Organism, **_)
+                    if not _row.type_id:
+                        _row.type_id = org_no_rank_id
                     org_batch.append(_row)
                 else:
                     _row = find_org(seq)
                     if _row and _row.organism_id:
                         seq.annotations = seq.annotations.copy()
                         seq.annotations['organism'] = _org = _row.organism_id
+                    elif _org in ORG_ENTRIES:
+                        print('Warning: Unknown organism for', seq.id)
+                        continue
                     else:
                         print('Warning: Unknown organism for', seq.id)
                         _row = get_or_create(DBSessionChado, Organism, genus='unknown', species='organism')
+                        if not _row.type_id:
+                            _row.type_id = org_no_rank_id
                         org_batch.append(_row)
                 ORG_ENTRIES[_org] = _row
 

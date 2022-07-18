@@ -113,6 +113,17 @@ formly = {'types':
                    'valueProp': 'organism_id',
                    'labelProp': 'canonical_name',
                }},
+          'genus':
+              {'key': 'genus',
+               'type': 'select',
+               'templateOptions': {
+                   'label': 'Género',
+                   'placeholder': 'Géneros de interés',
+                   'multiple': True,
+                   'options': [],
+                   'valueProp': 'genus',
+                   'labelProp': 'genus',
+               }},
           'analyses':
               {'key': 'analysis_id',
                'type': 'select',
