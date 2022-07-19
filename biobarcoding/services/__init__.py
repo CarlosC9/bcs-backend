@@ -97,6 +97,8 @@ def orm2json(row):
 
 
 def listify(arg):
+    if arg is None:
+        return []
     return arg if isinstance(arg, (tuple, list, set)) else [arg]
 
 
@@ -161,7 +163,7 @@ def tsv_pd_parser(file) -> dict:   # with pandas lib
 ##
 
 def get_filtering(key: str, params: dict):
-    _filter = listify(params.get('filter'))
+    _filter = listify(params.get('filter', []))
     return params.get(key) or params.get('values', {}).get(key) \
            or next(iter([_f.get(key) for _f in _filter if _f.get(key)]), None)
 
