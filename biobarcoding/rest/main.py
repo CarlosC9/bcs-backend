@@ -106,18 +106,6 @@ def create_app(debug, start_socket=True, cfg_dict=None):
         # Insert EDAM Ontology in chado
         initialize_chado_edam(app)
 
-        # Insert BibTeX annotation forms
-        from biobarcoding.forms import initialize_bibtex_forms
-        print("Initializing BibTex annotation forms")
-        initialize_bibtex_forms()
-        print("Initializing BibTex annotation forms - DONE")
-
-        # Insert BibTeX annotation forms
-        from biobarcoding.forms import initialize_dwc_forms
-        print("Initializing Darwin Core annotation forms")
-        initialize_dwc_forms()
-        print("Initializing Darwin Core annotation forms - DONE")
-
         # PostGIS Database
         initialize_postgis(app)
 
@@ -244,6 +232,14 @@ def after_a_request(response):
                     response.headers[i] = (h[0], f"{h[1]}; SameSite=None")
 
     return response
+
+
+@base_app_pkg.flask_app.before_first_request
+def after_app_init():
+    from ..tasks import system
+    system.sa_task.delay('initialize.annotation_forms')
+    system.sa_task.delay('initialize.taxa')
+    return None
 
 
 if __name__ == "__main__":

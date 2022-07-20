@@ -260,6 +260,9 @@ class BasicService:
             content = self.attach_data(content.one())[0]
         else:
             content = self.attach_data(*content.all())
+            if kwargs.get('only_ids') or kwargs.get('values', {}).get('only_ids'):
+                from sqlalchemy import inspect
+                content = [c[inspect(self.orm).primary_key[0].name] for c in content]
         return content, count
 
     # any additional read if any
