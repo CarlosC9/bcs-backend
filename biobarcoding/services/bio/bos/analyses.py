@@ -156,12 +156,10 @@ class Service(BosService):
 
         from datetime import datetime
         if _filter.get("added-from"):
-            _filter["added-from"]['unary'] = datetime.strptime(_filter.get("added-from")['unary'], '%Y-%m-%d')
             _ids = self.db.query(self.orm.analysis_id) \
                 .filter(filter_parse(self.orm, {'timeexecuted': _filter.get("added-from")}))
             clauses.append(self.orm.analysis_id.in_(_ids))
         if _filter.get("added-to"):
-            _filter["added-to"]['unary'] = datetime.strptime(_filter.get("added-to")['unary'], '%Y-%m-%d')
             _ids = self.db.query(self.orm.analysis_id) \
                 .filter(filter_parse(self.orm, {'timeexecuted': _filter.get("added-to")}))
             clauses.append(self.orm.analysis_id.in_(_ids))

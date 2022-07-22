@@ -1402,27 +1402,48 @@ def filter_parse(orm, filter, aux_filter=None, session=None):
     def get_condition(orm, field, condition):
         obj = getattr(orm, field)
 
+        def datefy(arg):
+            if isinstance(obj.type, DateTime):
+                _t = (' %H:%M', ':%S', '.%f')
+                for _f in ('%Y-%m-%d', '%m-%d-%Y', '%d-%m-%Y',
+                           '%Y/%m/%d', '%m/%d/%Y', '%d/%m/%Y',
+                           '%y-%m-%d', '%m-%d-%y', '%d-%m-%y',
+                           '%y/%m/%d', '%m/%d/%y', '%d/%m/%y', ):
+                    try:
+                        return datetime.strptime(arg, _f)
+                    except:
+                        for i in range(len(_t)):
+                            try:
+                                return datetime.strptime(arg, _f + ''.join(_t[:i+1]))
+                            except:
+                                continue
+            return arg
+
         if not isinstance(condition, dict):
             if isinstance(condition, (list, tuple)):
-                return obj.in_(condition)
-            return obj == condition
+                return obj.in_(datefy(condition))
+            return obj == datefy(condition)
 
         op = condition["op"]
         value, left, right = condition.get("unary"), condition.get("left"), condition.get("right")
         if op == "out":
-            return obj.notin_(value)
+            return obj.notin_(datefy(value))
         if op == "in":
-            return obj.in_(value)
+            return obj.in_(datefy(value))
         if op == "eq":
-            return obj == value
+            return obj == datefy(value)
         if op == "between":
-            return obj.between_(left, right)
+            return obj.between_(datefy(left), datefy(right))
         if op == "le":
-            return obj <= value
+            return obj <= datefy(value)
         if op == "ge":
-            return obj >= value
+            return obj >= datefy(value)
+        if op == "lt":
+            return obj < datefy(value)
+        if op == "gt":
+            return obj > datefy(value)
         if op == "contains":
-            return value.in_(obj)
+            return datefy(value).in_(obj)
         # TODO: excludes?
 
         return True

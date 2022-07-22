@@ -2,6 +2,7 @@ import json
 import os.path
 
 from flask import g
+from sqlalchemy_continuum import transaction_class
 
 from . import log_exception, get_orm_params, get_query, get_filtering
 from ..rest import Issue, IType, filter_parse
@@ -308,6 +309,22 @@ class BasicService:
         _v = _filter.get('version') or _filter.get('version_id')
         if _v:
             clauses.append(filter_parse(self.orm, {'transaction_id': _v}))
+
+        _t = transaction_class(self.orm)
+        if _filter.get("issued_at"):
+            _ids = self.db.query(_t.id) \
+                .filter(filter_parse(_t, {'issued_at': _filter.get("issued_at")}))
+            clauses.append(self.orm.transaction_id.in_(_ids))
+
+        if _filter.get("issued_at-from"):
+            _ids = self.db.query(_t.id) \
+                .filter(filter_parse(_t, {'issued_at': _filter.get("issued_at-from")}))
+            clauses.append(self.orm.transaction_id.in_(_ids))
+
+        if _filter.get("issued_at-to"):
+            _ids = self.db.query(_t.id) \
+                .filter(filter_parse(_t, {'issued_at': _filter.get("issued_at-to")}))
+            clauses.append(self.orm.transaction_id.in_(_ids))
 
         return clauses
 
