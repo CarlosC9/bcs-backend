@@ -15,7 +15,7 @@ from sqlalchemy import event, TypeDecorator, CHAR, Column, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import scoped_session, sessionmaker, class_mapper, ColumnProperty, RelationshipProperty, mapper
-from sqlalchemy_continuum import make_versioned
+from sqlalchemy_continuum import make_versioned, version_class
 
 # make_versioned(user_cls=None, options={'native_versioning': True})
 make_versioned(user_cls=None)
@@ -194,6 +194,23 @@ def setup_schema(Base, session):
                     schema_class = type(schema_class_name, (ModelSchema,), {"Meta": Meta})
 
                 setattr(class_, "Schema", schema_class)
+
+                try:
+                    version_ = version_class(class_)
+
+                    class Meta(object):
+                        include_fk = True
+                        if hasattr(version_, "ts_vector"):
+                            exclude = ("ts_vector",)
+                        model = version_
+                        sqla_session = session
+                        generate_polymorphic_schemas = True
+
+                    schema_version_name = "%sSchema" % version_.__name__
+                    schema_version = type(schema_version_name, (ModelSchema,), {"Meta": Meta})
+                    setattr(version_, "Schema", schema_version)
+                except Exception as e:
+                    pass
 
     return setup_schema_fn
 

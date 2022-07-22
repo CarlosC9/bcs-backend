@@ -54,12 +54,10 @@ class AnalysisFeature(ORMBaseChado):
     __table_args__ = {'extend_existing': True, 'autoload': True}
 
 
-
 class Cv(ORMBaseChado):
     __versioned__ = {}
     __tablename__ = "cv"
     __table_args__ = {'extend_existing': True, 'autoload': True}
-
 
 
 class Cvterm(ORMBaseChado):
@@ -68,12 +66,10 @@ class Cvterm(ORMBaseChado):
     __table_args__ = {'extend_existing': True, 'autoload': True}
 
 
-
 class Db(ORMBaseChado):
     __versioned__ = {}
     __tablename__ = "db"
     __table_args__ = {'extend_existing': True, 'autoload': True}
-
 
 
 class Dbxref(ORMBaseChado):
@@ -82,12 +78,10 @@ class Dbxref(ORMBaseChado):
     __table_args__ = {'extend_existing': True, 'autoload': True}
 
 
-
 class Feature(ORMBaseChado):
     __versioned__ = {}
     __tablename__ = "feature"
     __table_args__ = {'extend_existing': True, 'autoload': True}
-
 
 
 class Featureloc(ORMBaseChado):
@@ -96,12 +90,10 @@ class Featureloc(ORMBaseChado):
     __table_args__ = {'extend_existing': True, 'autoload': True}
 
 
-
 class Phylonode(ORMBaseChado):
     __versioned__ = {}
     __tablename__ = "phylonode"
     __table_args__ = {'extend_existing': True, 'autoload': True}
-
 
 
 class PhylonodeOrganism(ORMBaseChado):
@@ -110,12 +102,10 @@ class PhylonodeOrganism(ORMBaseChado):
     __table_args__ = {'extend_existing': True, 'autoload': True}
 
 
-
 class Phylonodeprop(ORMBaseChado):
     __versioned__ = {}
     __tablename__ = "phylonodeprop"
     __table_args__ = {'extend_existing': True, 'autoload': True}
-
 
 
 class Stock(ORMBaseChado):
@@ -124,12 +114,10 @@ class Stock(ORMBaseChado):
     __table_args__ = {'extend_existing': True, 'autoload': True}
 
 
-
 class StockFeature(ORMBaseChado):
     __versioned__ = {}
     __tablename__ = "stock_feature"
     __table_args__ = {'extend_existing': True, 'autoload': True}
-
 
 
 class Stockcollection(ORMBaseChado):
