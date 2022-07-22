@@ -2,9 +2,10 @@ import json
 import os.path
 
 from flask import g
+from sqlalchemy_continuum import transaction_class
 
 from . import log_exception, get_orm_params, get_query, get_filtering
-from ..rest import Issue, IType
+from ..rest import Issue, IType, filter_parse
 from ..db_models import ORMBase, DBSession
 
 
@@ -257,12 +258,15 @@ class BasicService:
     def read(self, **kwargs) -> (any, int):
         content, count = self.get_query(purpose='read', **kwargs)
         if kwargs.get('id'):
-            content = self.attach_data(content.one())[0]
-        else:
-            content = self.attach_data(*content.all())
-            if kwargs.get('only_ids') or kwargs.get('values', {}).get('only_ids'):
-                from sqlalchemy import inspect
-                content = [c[inspect(self.orm).primary_key[0].name] for c in content]
+            try:
+                content = self.attach_data(content.one())[0]
+                return content, count
+            except Exception as e:
+                pass
+        content = self.attach_data(*content.all())
+        if kwargs.get('only_ids') or kwargs.get('values', {}).get('only_ids'):
+            from sqlalchemy import inspect
+            content = [c[inspect(self.orm).primary_key[0].name] for c in content]
         return content, count
 
     # any additional read if any
@@ -284,11 +288,15 @@ class BasicService:
     # @return: Query, total_count
     def get_query(self, query=None, id=None, purpose='delete', **kwargs) -> (object, int):
         _orm = self.orm
-        if get_filtering('version_history', kwargs):
+        if get_filtering('version_history', kwargs) or get_filtering('transaction_id', kwargs) \
+                or get_filtering('version', kwargs) or get_filtering('version_id', kwargs) \
+                or get_filtering('issued_at', kwargs):
             from sqlalchemy_continuum import version_class
-            _orm = version_class(self.orm)
-        return get_query(self.db, _orm, query or self.pre_query(purpose), id,
-                         aux_filter=self.aux_filter, aux_order=self.aux_order, **kwargs)
+            self.orm = version_class(self.orm)
+        _resp = get_query(self.db, self.orm, query or self.pre_query(purpose), id,
+                          aux_filter=self.aux_filter, aux_order=self.aux_order, **kwargs)
+        self.orm = _orm
+        return _resp
 
     # method to filter by acl and more particular issues when querying
     def pre_query(self, purpose) -> object:
@@ -296,7 +304,29 @@ class BasicService:
 
     # method to filter by external values when querying
     def aux_filter(self, _filter: dict) -> list:
-        return []
+        clauses = []
+
+        _v = _filter.get('version') or _filter.get('version_id')
+        if _v:
+            clauses.append(filter_parse(self.orm, {'transaction_id': _v}))
+
+        _t = transaction_class(self.orm)
+        if _filter.get("issued_at"):
+            _ids = self.db.query(_t.id) \
+                .filter(filter_parse(_t, {'issued_at': _filter.get("issued_at")}))
+            clauses.append(self.orm.transaction_id.in_(_ids))
+
+        if _filter.get("issued_at-from"):
+            _ids = self.db.query(_t.id) \
+                .filter(filter_parse(_t, {'issued_at': _filter.get("issued_at-from")}))
+            clauses.append(self.orm.transaction_id.in_(_ids))
+
+        if _filter.get("issued_at-to"):
+            _ids = self.db.query(_t.id) \
+                .filter(filter_parse(_t, {'issued_at': _filter.get("issued_at-to")}))
+            clauses.append(self.orm.transaction_id.in_(_ids))
+
+        return clauses
 
     # method to order by external values when querying
     def aux_order(self, order) -> list:

@@ -292,24 +292,20 @@ class Service(BosService):
 
         from datetime import datetime
         if _filter.get("added-from"):
-            _filter["added-from"]['unary'] = datetime.strptime(_filter.get("added-from")['unary'], '%Y-%m-%d')
             _ids = self.db.query(self.orm.feature_id) \
-                .filter(filter_parse(self.orm, {'timeaccessioned':_filter.get("added-from")}))
+                .filter(filter_parse(self.orm, {'timeaccessioned': _filter.get("added-from")}))
             clauses.append(self.orm.feature_id.in_(_ids))
         if _filter.get("added-to"):
-            _filter["added-to"]['unary'] = datetime.strptime(_filter.get("added-to")['unary'], '%Y-%m-%d')
             _ids = self.db.query(self.orm.feature_id) \
-                .filter(filter_parse(self.orm, {'timeaccessioned':_filter.get("added-to")}))
+                .filter(filter_parse(self.orm, {'timeaccessioned': _filter.get("added-to")}))
             clauses.append(self.orm.feature_id.in_(_ids))
         if _filter.get("lastmodified-from"):
-            _filter["lastmodified-from"]['unary'] = datetime.strptime(_filter.get("lastmodified-from")['unary'], '%Y-%m-%d')
             _ids = self.db.query(self.orm.feature_id) \
-                .filter(filter_parse(self.orm, {'timelastmodified':_filter.get("lastmodified-from")}))
+                .filter(filter_parse(self.orm, {'timelastmodified': _filter.get("lastmodified-from")}))
             clauses.append(self.orm.feature_id.in_(_ids))
         if _filter.get("lastmodified-to"):
-            _filter["lastmodified-to"]['unary'] = datetime.strptime(_filter.get("lastmodified-to")['unary'], '%Y-%m-%d')
             _ids = self.db.query(self.orm.feature_id) \
-                .filter(filter_parse(self.orm, {'timelastmodified':_filter.get("lastmodified-to")}))
+                .filter(filter_parse(self.orm, {'timelastmodified': _filter.get("lastmodified-to")}))
             clauses.append(self.orm.feature_id.in_(_ids))
 
         return clauses + super(Service, self).aux_filter(_filter)

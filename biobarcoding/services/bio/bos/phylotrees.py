@@ -224,16 +224,4 @@ class Service(AnsisService):
                 .filter(filter_parse(Analysis, [{'algorithm': _filter.get('algorithm')}]))
             clauses.append(self.orm.analysis_id.in_(_ids))
 
-        from datetime import datetime
-        if _filter.get("added-from"):
-            _filter["added-from"]['unary'] = datetime.strptime(_filter.get("added-from")['unary'], '%Y-%m-%d')
-            _ids = self.db.query(Analysis.analysis_id) \
-                .filter(filter_parse(Analysis, {'timeexecuted': _filter.get("added-from")}))
-            clauses.append(self.orm.analysis_id.in_(_ids))
-        if _filter.get("added-to"):
-            _filter["added-to"]['unary'] = datetime.strptime(_filter.get("added-to")['unary'], '%Y-%m-%d')
-            _ids = self.db.query(Analysis.analysis_id) \
-                .filter(filter_parse(Analysis, {'timeexecuted': _filter.get("added-to")}))
-            clauses.append(self.orm.analysis_id.in_(_ids))
-
         return clauses + super(Service, self).aux_filter(_filter)

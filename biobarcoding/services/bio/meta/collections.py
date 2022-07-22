@@ -69,16 +69,4 @@ class StockCollService(MetaService):
                 .filter(filter_parse(Stockcollectionprop, [{'type_id': _filter.get('prop_cvterm_id')}]))
             clauses.append(self.orm.stockcollection_id.in_(_ids))
 
-        # from datetime import datetime
-        # if filter.get("added-from"):
-        #     filter["added-from"]['unary'] = datetime.strptime(filter.get("added-from")['unary'], '%Y-%m-%d')
-        #     _ids = self.db.query(self.orm.stockcollection_id) \
-        #         .filter(filter_parse(self.orm, {'timeexecuted':filter.get("added-from")}))
-        #     clauses.append(self.orm.stockcollection_id.in_(_ids))
-        # if filter.get("added-to"):
-        #     filter["added-to"]['unary'] = datetime.strptime(filter.get("added-to")['unary'], '%Y-%m-%d')
-        #     _ids = self.db.query(self.orm.stockcollection_id) \
-        #         .filter(filter_parse(self.orm, {'timeexecuted':filter.get("added-to")}))
-        #     clauses.append(self.orm.stockcollection_id.in_(_ids))
-
         return clauses + super(StockCollService, self).aux_filter(_filter)
