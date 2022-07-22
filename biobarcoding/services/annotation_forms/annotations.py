@@ -129,9 +129,9 @@ class Service(BasicService):
                               annotation_id=new_object.id, object_uuid=i)
         return values
 
-    def get_query(self, query=None, object_uuid=None, **kwargs):
-        query = query or self.db.query(self.orm)
+    def get_query(self, query=None, purpose='delete', object_uuid=None, **kwargs) -> (object, int):
         if object_uuid:
+            query = query or self.pre_query(purpose) or self.db.query(self.orm)
             query = query.join(AnnotationItemFunctionalObject).filter(
                 AnnotationItemFunctionalObject.object_uuid == object_uuid).order_by(AnnotationItemFunctionalObject.rank)
         return super(Service, self).get_query(query=query, **kwargs)

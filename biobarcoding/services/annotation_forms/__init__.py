@@ -1,8 +1,7 @@
 from .. import get_or_create
 from ..main import BasicService, get_orm
 from ...rest import filter_parse
-from ...db_models import DBSession, DBSessionChado, ObjectType
-from ...db_models.chado import Cv, Cvterm, Db, Dbxref
+from ...db_models import DBSession, ObjectType
 from ...db_models.sa_annotations import AnnotationFormItemObjectType
 
 
@@ -12,28 +11,7 @@ from ...db_models.sa_annotations import AnnotationFormItemObjectType
 
 class FormItemService(BasicService):
 
-    def prepare_values(self, cv=None, cvterm=None, db=None, dbxref=None, **values):
-        if cv and cvterm and not values.get('cvterm_id'):
-            from sqlalchemy.orm.exc import NoResultFound
-            try:
-                values['cvterm_id'] = DBSessionChado.query(Cvterm).join(Cv) \
-                    .filter(Cv.name == cv, Cvterm.name == cvterm).one().cvterm_id
-            except NoResultFound as e:
-                pass
-
-        if db and dbxref and not values.get('dbxref_id'):
-            values['dbxref_id'] = DBSessionChado.query(Dbxref).join(Db) \
-                .filter(Db.name == db, Dbxref.accession == dbxref).one().dbxref_id
-
-        if values.get('cvterm_id') and not values.get('dbxref_id'):
-            values['dbxref_id'] = DBSessionChado.query(Cvterm) \
-                .filter(Cvterm.cvterm_id == values.get('cvterm_id')) \
-                .first().dbxref_id
-
-        if values.get('dbxref_id') and not values.get('cvterm_id'):
-            values['cvterm_id'] = DBSessionChado.query(Cvterm) \
-                .filter(Cvterm.dbxref_id == values.get('dbxref_id')) \
-                .first().cvterm_id
+    def prepare_values(self, **values):
 
         if values.get("type"):
             self.orm = get_orm(f'{values.get("type")}') or self.orm

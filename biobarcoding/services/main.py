@@ -218,7 +218,29 @@ class BasicService:
     ##
 
     # filter and deduce values (mostly ids) for creation or update
-    def prepare_values(self, **values) -> dict:
+    def prepare_values(self, cv=None, cvterm=None, db=None, dbxref=None, **values):
+
+        from ..db_models import DBSessionChado
+        from ..db_models.chado import Cv, Cvterm, Db, Dbxref
+
+        if cv and cvterm and not values.get('cvterm_id'):
+            values['cvterm_id'] = DBSessionChado.query(Cvterm).join(Cv) \
+                .filter(Cv.name == cv, Cvterm.name == cvterm).one().cvterm_id
+
+        if db and dbxref and not values.get('dbxref_id'):
+            values['dbxref_id'] = DBSessionChado.query(Dbxref).join(Db) \
+                .filter(Db.name == db, Dbxref.accession == dbxref).one().dbxref_id
+
+        if values.get('cvterm_id') and not values.get('dbxref_id'):
+            values['dbxref_id'] = DBSessionChado.query(Cvterm) \
+                .filter(Cvterm.cvterm_id == values.get('cvterm_id')) \
+                .first().dbxref_id
+
+        if values.get('dbxref_id') and not values.get('cvterm_id'):
+            values['cvterm_id'] = DBSessionChado.query(Cvterm) \
+                .filter(Cvterm.dbxref_id == values.get('dbxref_id')) \
+                .first().cvterm_id
+
         return values
 
     # filter and deduce values (mostly ids) for creation or update
@@ -274,7 +296,7 @@ class BasicService:
         try:
             import json
             from ..common import generate_json
-            return [json.loads(generate_json(c)) for c in content]
+            return [json.loads(generate_json(c)) for c in content]      # TODO move to the place attachment happens
         except Exception as e:
             print('Error: The row could not be jsonify for attachment.')
             log_exception(e)
