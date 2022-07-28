@@ -35,7 +35,7 @@ class AnnotationFormItemObjectType(ORMBase):
     __versioned__ = {}
     __tablename__ = f"{prefix}form_item_object_type"
 
-    form_item_id = Column(Integer, ForeignKey(AnnotationFormItem.id), primary_key=True)
+    form_item_id = Column(BigInteger, ForeignKey(AnnotationFormItem.id), primary_key=True)
     object_type_id = Column(Integer, ForeignKey(ObjectType.id), primary_key=True)
     form_item = relationship(AnnotationFormItem, backref=backref("object_types", cascade="all, delete-orphan"))
     object_type = relationship(ObjectType, backref=backref("annotation_forms", cascade="all, delete-orphan"))
@@ -69,8 +69,8 @@ class AnnotationFormTemplateField(ORMBase):
     __versioned__ = {}
     __tablename__ = f"{prefix}form_template_field"
 
-    form_template_id = Column(Integer, ForeignKey(AnnotationFormTemplate.id), primary_key=True)
-    form_field_id = Column(Integer, ForeignKey(AnnotationFormField.id), primary_key=True)
+    form_template_id = Column(BigInteger, ForeignKey(AnnotationFormTemplate.id), primary_key=True)
+    form_field_id = Column(BigInteger, ForeignKey(AnnotationFormField.id), primary_key=True)
     form_template = relationship(AnnotationFormTemplate,    # foreign_keys=[form_template_id],
                                  backref=backref("annotation_form_fields", cascade="all, delete-orphan"))
     form_field = relationship(AnnotationFormField,  # foreign_keys=[form_field_id],
@@ -151,7 +151,7 @@ class AnnotationTemplate(AnnotationItem):
         'polymorphic_identity': 'template',
     }
     id = Column(BigInteger, ForeignKey(AnnotationItem.id, ondelete="CASCADE"), primary_key=True)
-    form_template_id = Column(Integer, ForeignKey(AnnotationFormTemplate.id), nullable=False)
+    form_template_id = Column(BigInteger, ForeignKey(AnnotationFormTemplate.id), nullable=False)
     form_template = relationship(AnnotationFormTemplate, backref=backref("annotations", cascade="all, delete-orphan"))
     value = Column(JSONB)
 
@@ -167,7 +167,7 @@ class AnnotationField(AnnotationItem):
         'polymorphic_identity': 'field',
     }
     id = Column(BigInteger, ForeignKey(AnnotationItem.id, ondelete="CASCADE"), primary_key=True)
-    form_field_id = Column(Integer, ForeignKey(AnnotationFormField.id), nullable=False)
+    form_field_id = Column(BigInteger, ForeignKey(AnnotationFormField.id), nullable=False)
     form_field = relationship(AnnotationFormField, backref=backref("annotations", cascade="all, delete-orphan"))
     value = Column(JSONB)
 

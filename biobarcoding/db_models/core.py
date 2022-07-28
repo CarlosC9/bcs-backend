@@ -144,7 +144,7 @@ class NullObject(FunctionalObject):
     __mapper_args__ = {
         'polymorphic_identity': 1000001,
     }
-    id = Column(BigInteger, ForeignKey(FunctionalObject.id), nullable=True)
+    id = Column(BigInteger, ForeignKey(FunctionalObject.id), primary_key=True)
 
 
 class CaseStudy(FunctionalObject):

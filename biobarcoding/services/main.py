@@ -3,6 +3,7 @@ import os.path
 import traceback
 
 from flask import g
+from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy_continuum import transaction_class
 
 from . import log_exception, get_orm_params, get_query, get_filtering
@@ -226,8 +227,11 @@ class BasicService:
         from ..db_models.chado import Cv, Cvterm, Db, Dbxref
 
         if cv and cvterm and not values.get('cvterm_id'):
-            values['cvterm_id'] = DBSessionChado.query(Cvterm).join(Cv) \
-                .filter(Cv.name == cv, Cvterm.name == cvterm).one().cvterm_id
+            try:
+                values['cvterm_id'] = DBSessionChado.query(Cvterm).join(Cv) \
+                    .filter(Cv.name == cv, Cvterm.name == cvterm).one().cvterm_id
+            except NoResultFound as e:
+                pass
 
         if db and dbxref and not values.get('dbxref_id'):
             values['dbxref_id'] = DBSessionChado.query(Dbxref).join(Db) \
@@ -324,7 +328,7 @@ class BasicService:
 
     # method to filter by acl and more particular issues when querying
     def pre_query(self, purpose) -> object:
-        return None
+        return None     # TODO: missing implementations
 
     # method to filter by external values when querying
     def aux_filter(self, _filter: dict) -> list:

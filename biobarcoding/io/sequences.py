@@ -202,7 +202,7 @@ def import_file(infile, _format=None, data=None, analysis_id=None, **kwargs):
                     SPECIMEN_ENTRIES[_ind] = get_or_create(DBSession, Specimen, name=_ind)
                     specimen_batch.append(SPECIMEN_ENTRIES[_ind])
                 # STEP 2: feature (sequence)
-                _id = f'{seq.id}.a{analysis_id}' if analysis_id else seq.id
+                _id = f'{seq.id}.a{analysis_id}' if analysis_id else seq.id     # TODO: add gene
                 if analysis_id:
                     feat_src_batch[_id] = seq.id
                 _name = seq.name if seq.name and seq.name != '<unknown name>' \

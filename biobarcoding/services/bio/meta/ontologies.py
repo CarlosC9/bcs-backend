@@ -2,7 +2,6 @@ from . import MetaService
 from ... import log_exception
 from ...main import get_orm
 from ....rest import filter_parse
-from ....db_models import DBSessionChado
 
 
 ##

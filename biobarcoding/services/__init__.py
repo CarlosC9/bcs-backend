@@ -229,7 +229,7 @@ def get_query(session, orm, query=None, id=None, aux_filter=None, default_filter
      otherwise it will be treated as 'values'
     """
     query = query or session.query(orm)
-    count = 0
+    # TODO: filter with or without id
     if id:
         if hasattr(orm, 'id'):
             query = query.filter(orm.id == id)
