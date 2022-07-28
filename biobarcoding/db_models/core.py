@@ -42,7 +42,8 @@ class FunctionalObject(ORMBase):
     uuid = Column(GUID, unique=True, default=uuid.uuid4)
 
     obj_type_id = Column("do_type_id", Integer, ForeignKey(ObjectType.id))
-    native_id = Column(BigInteger)
+    native_id = Column(BigInteger, nullable=True, primary_key=False)
+    native_table = Column(String(80))
 
     owner_id = Column(Integer, ForeignKey(Identity.id))
     creation_time = Column(DateTime, default=datetime.datetime.utcnow())

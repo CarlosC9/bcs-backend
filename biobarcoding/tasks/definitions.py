@@ -587,7 +587,6 @@ def wf1_prepare_workspace(job_context):
                                             job_executor.log_filenames_dict["universal_log"])
         return "manage_error", d2s(jc)
     elif n_attempts >= MAX_ATTEMPTS:  # Maximum number of
-        print("aqui 8")
         jc.error = f"It was impossible to prepare the working directory of Job {jc.job_id}." + \
                    f"Maybe it could be due to some disk space or credentials issue."
         write_to_file(job_executor.log_filenames_dict["prepare_stderr"], jc.error)

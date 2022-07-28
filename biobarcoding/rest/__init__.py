@@ -1077,6 +1077,9 @@ def make_simple_rest_crud(entity, entity_name: str, execution_rules: Dict[str, s
                     query, count = get_query(db, entity, aux_filter=aux_filter, default_filter=default_filter, **kwargs)
                     r.count = count
                     r.content = query.all()
+                    if kwargs.get('only_ids') or kwargs.get('values', {}).get('only_ids'):
+                        from sqlalchemy import inspect
+                        r.content = [c[inspect(self.orm).primary_key[0].name] for c in r.content]
                 else:
                     # Detail
                     r.content = db.query(entity).filter(entity.id == int(_id)).first()

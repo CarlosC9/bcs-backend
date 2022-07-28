@@ -12,7 +12,7 @@ def inflate(data):
     decompress = zlib.decompressobj()
     inflated = decompress.decompress(data)
     inflated += decompress.flush()
-    return inflated  #.decode("utf-8")
+    return inflated  # .decode("utf-8")
 
 
 def dump_matrices(conn_string: str, md_path: str):

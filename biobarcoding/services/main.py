@@ -1,5 +1,6 @@
 import json
 import os.path
+import traceback
 
 from flask import g
 from sqlalchemy_continuum import transaction_class
@@ -140,6 +141,7 @@ def getCRUDIE(entity):
                                       f'READ {entity}: The {entity} were read successfully.')]
                 self.status = 200
             except Exception as e:
+                traceback.print_exc()
                 log_exception(e)
                 g.commit_after = False
                 self.issues += [Issue(IType.ERROR,
