@@ -47,18 +47,22 @@ def get_orm(entity):
     elif entity == 'cvterms':
         from ..db_models.chado import Cvterm as orm
     # ANNOTATION ORMS
-    elif entity in ('template', 'templates'):
+    elif entity.startswith('form_template'):
         from ..db_models.sa_annotations import AnnotationFormTemplate as orm
-    elif entity in ('field', 'fields'):
+    elif entity.startswith('form_field'):
         from ..db_models.sa_annotations import AnnotationFormField as orm
-    elif entity in ('annotation', 'annotations'):
-        from ..db_models.sa_annotations import AnnotationItem as orm
-    elif entity == 'annotation_template':
+    elif entity.startswith('annotation_template'):
         from ..db_models.sa_annotations import AnnotationTemplate as orm
-    elif entity == 'annotation_field':
+    elif entity.startswith('annotation_field'):
         from ..db_models.sa_annotations import AnnotationField as orm
-    elif entity == 'annotation_text':
+    elif entity.startswith('annotation_text'):
         from ..db_models.sa_annotations import AnnotationText as orm
+    elif entity.startswith('annotation'):
+        from ..db_models.sa_annotations import AnnotationItem as orm
+    elif entity.startswith('form_relationship'):
+        from ..db_models.sa_annotations import AnnotationFormTemplateField as orm
+    elif entity.startswith('relationship'):
+        from ..db_models.sa_annotations import AnnotationRelationship as orm
     return orm
 
 
@@ -98,12 +102,16 @@ def get_service(entity):
     elif entity == 'cvterms':
         from .bio.meta.ontologies import CvtermService as Service
     # ANNOTATION SERVICES
-    elif entity == 'templates':
+    elif entity.startswith('form_template'):
         from .annotation_forms.templates import Service
-    elif entity == 'fields':
+    elif entity.startswith('form_field'):
         from .annotation_forms.fields import Service
-    elif entity == 'annotations':
+    elif entity.startswith('annotation'):
         from .annotation_forms.annotations import Service
+    elif entity.startswith('form_relationship'):
+        from .annotation_forms.relationships import FormRelationshipService as Service
+    elif entity.startswith('relationship'):
+        from .annotation_forms.relationships import RelationshipService as Service
     return Service()
 
 

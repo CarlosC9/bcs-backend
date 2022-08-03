@@ -72,6 +72,7 @@ class CrudieAPI(MethodView):
         print(f'PUT {request.path}\nUpdating {self.entity} {id}')
         self.pre_request(id=id, **kwargs)
 
+        # TODO update from files
         issues, content, count, status = self.service.update(**self.params)
 
         return ResponseObject(content=content, count=count, issues=issues, status=status).get_response()

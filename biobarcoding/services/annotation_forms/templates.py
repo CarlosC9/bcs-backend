@@ -13,7 +13,7 @@ class Service(FormItemService):
 
     def __init__(self):
         super(Service, self).__init__()
-        self.orm = get_orm('templates')
+        self.orm = get_orm('form_templates')
 
     def prepare_external_values(self, field=None, required_field=None, **values):
 

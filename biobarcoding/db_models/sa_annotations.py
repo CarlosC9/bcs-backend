@@ -32,6 +32,7 @@ class AnnotationFormItem(ORMBase):
     dbxref_id = Column(Integer)
     type = Column(String(32), nullable=False)   # template, field
     unique = Column(Boolean, nullable=False, default=False)   # TODO: validation
+    object_types = relationship("AnnotationFormItemObjectType", back_populates="form_item")
 
     __mapper_args__ = {
         'polymorphic_identity': 'annotation_form_item',
@@ -45,12 +46,7 @@ class AnnotationFormItemObjectType(ORMBase):
 
     form_item_id = Column(BigInteger, ForeignKey(AnnotationFormItem.id), primary_key=True)
     object_type_id = Column(Integer, ForeignKey(ObjectType.id), primary_key=True)
-    form_item = relationship(AnnotationFormItem, backref=backref("object_types", cascade="all, delete-orphan"))
-    object_type = relationship(ObjectType, backref=backref("annotation_forms", cascade="all, delete-orphan"))
-
-    __table_args__ = (
-        UniqueConstraint(form_item_id, object_type_id, name=__tablename__ + '_c1'),
-    )
+    form_item = relationship(AnnotationFormItem, back_populates="object_types")
 
 
 class AnnotationFormField(AnnotationFormItem):
@@ -64,6 +60,7 @@ class AnnotationFormField(AnnotationFormItem):
     view_type = Column(String(32), default='annotation-text')  # check, radio, date, etc.
     schema = Column(JSONB)  # Schema of the data defined by the relationship
     annotation_form_templates = relationship("AnnotationFormTemplateField", back_populates="form_field")
+    annotation_items = relationship("AnnotationField", back_populates="form_field")
 
 
 class AnnotationFormTemplate(AnnotationFormItem):
@@ -74,13 +71,14 @@ class AnnotationFormTemplate(AnnotationFormItem):
     }
     id = Column(BigInteger, ForeignKey(AnnotationFormItem.id, ondelete="CASCADE"), primary_key=True)
     annotation_form_fields = relationship("AnnotationFormTemplateField", back_populates="form_template")
+    annotation_items = relationship("AnnotationTemplate", back_populates="form_template")
 
 
 class AnnotationFormTemplateField(ORMBase):
     __versioned__ = {}
     __tablename__ = f"{prefix}form_template_field"
 
-    id = Column(BigInteger, unique=True, nullable=False, autoincrement=True, primary_key=False)
+    id = Column(BigInteger, primary_key=True, unique=True, autoincrement=True)
     form_template_id = Column(BigInteger, ForeignKey(AnnotationFormTemplate.id), primary_key=True)
     form_field_id = Column(BigInteger, ForeignKey(AnnotationFormField.id), primary_key=True)
     form_template = relationship(AnnotationFormTemplate, back_populates="annotation_form_fields")
@@ -90,6 +88,8 @@ class AnnotationFormTemplateField(ORMBase):
     rank = Column(Integer, Sequence('annotation_form_rank_seq'), primary_key=True)
     # rank = Column(Integer, nullable=False, default=select([func.max(1, func.max(rank))]))
     required = Column(Boolean, nullable=False, default=False)   # TODO: validation
+    # relationships = relationship("AnnotationRelationship", back_populates="form_rl")
+    # rev_relationships = relationship("AnnotationRelationship", back_populates="form_rev_rl")
 
     @validates('form_field')
     def validate_field(self, key, field):
@@ -121,6 +121,7 @@ class AnnotationItem(FunctionalObject):
     # name = Column(String(80), nullable=False)
     file_id = Column(BigInteger, ForeignKey(File.id))
     file = relationship(File)
+    objects = relationship("AnnotationItemFunctionalObject", back_populates="annotation")
 
     __mapper_args__ = {
         'polymorphic_identity': data_object_type_id['annotation_item'],
@@ -135,8 +136,7 @@ class AnnotationItemFunctionalObject(ORMBase):
     annotation_id = Column(Integer, ForeignKey(AnnotationItem.id), primary_key=True)
     object = relationship(FunctionalObject, foreign_keys=[object_uuid],
                           backref=backref("annotations", cascade="all, delete-orphan"))
-    annotation = relationship(AnnotationItem, foreign_keys=[annotation_id],
-                              backref=backref("objects", cascade="all, delete-orphan"))
+    annotation = relationship(AnnotationItem, foreign_keys=[annotation_id], back_populates="objects")
     rank = Column(Integer, Sequence('annotation_rank_seq'), nullable=False)
     # rank = Column(Integer, nullable=False, default=select([func.max(1, func.max(rank))]))
 
@@ -179,7 +179,7 @@ class AnnotationTemplate(AnnotationItem):
 
     id = Column(BigInteger, ForeignKey(AnnotationItem.id, ondelete="CASCADE"), primary_key=True)
     form_template_id = Column(BigInteger, ForeignKey(AnnotationFormTemplate.id), nullable=False)
-    form_template = relationship(AnnotationFormTemplate, backref=backref("annotations", cascade="all, delete-orphan"))
+    form_template = relationship(AnnotationFormTemplate, back_populates="annotation_items")
     value = Column(JSONB)
 
     __table_args__ = (
@@ -200,7 +200,7 @@ class AnnotationField(AnnotationItem):
 
     id = Column(BigInteger, ForeignKey(AnnotationItem.id, ondelete="CASCADE"), primary_key=True)
     form_field_id = Column(BigInteger, ForeignKey(AnnotationFormField.id), nullable=False)
-    form_field = relationship(AnnotationFormField, backref=backref("annotations", cascade="all, delete-orphan"))
+    form_field = relationship(AnnotationFormField, back_populates="annotation_items")
     value = Column(JSONB)
 
     __table_args__ = (
@@ -224,11 +224,11 @@ class AnnotationRelationship(ORMBase):
     object = relationship(FunctionalObject, foreign_keys=[object_id],
                           backref=backref("related_subjects", cascade="all, delete-orphan"))
     form_rl_id = Column(BigInteger, ForeignKey(AnnotationFormTemplateField.id), nullable=False)
-    form_rl = relationship(AnnotationFormTemplateField, foreign_keys=[form_rl_id],
-                           backref=backref("relationships", cascade="all, delete-orphan"))
+    form_rl = relationship(AnnotationFormTemplateField, foreign_keys=[form_rl_id])
+        # , back_populates="relationships")
     form_rev_rl_id = Column(BigInteger, ForeignKey(AnnotationFormTemplateField.id))
-    form_rev_rl = relationship(AnnotationFormTemplateField, foreign_keys=[form_rev_rl_id],
-                               backref=backref("rev_relationships", cascade="all, delete-orphan"))
+    form_rev_rl = relationship(AnnotationFormTemplateField, foreign_keys=[form_rev_rl_id])
+        # , back_populates="rev_relationships")
     value = Column(JSONB)
 
     __table_args__ = (
