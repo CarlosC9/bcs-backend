@@ -103,17 +103,22 @@ class AnnotationItemAPI(MethodView):
 
 annotation_item_view = AnnotationItemAPI.as_view('api_annotation_item')
 bp_annotations.add_url_rule(
+    app_api_base + '/annotations',
+    view_func=annotation_item_view,
+    methods=['GET', 'POST', 'DELETE']
+)
+bp_annotations.add_url_rule(
     app_api_base + '/annotations/',
     view_func=annotation_item_view,
-    methods=['GET','POST']
+    methods=['GET', 'POST', 'DELETE']
 )
 bp_annotations.add_url_rule(
     app_api_base + '/annotations/<int:id>',
     view_func=annotation_item_view,
-    methods=['GET','PUT','DELETE']
+    methods=['GET', 'PUT', 'DELETE']
 )
 bp_annotations.add_url_rule(
     app_api_base + '/annotations/<string:object_uuid>',
     view_func=annotation_item_view,
-    methods=['GET','POST','PUT','DELETE']
+    methods=['GET', 'POST', 'PUT', 'DELETE']
 )

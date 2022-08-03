@@ -323,7 +323,11 @@ tm_object_types = [  # ObjectType
     (data_object_type_id["sys-functions"], "ad83dcb0-e479-4a44-acf5-387b9731e8da", "sys-functions"),
     (data_object_type_id["compute-resource"], "aa97ddad-8937-4590-afc9-dc00c5601f2a", "compute-resource"),
     (data_object_type_id["algorithms"], "a4b4a7d2-732f-4db9-9a32-c57c00881eb7", "process"),  # Algorithms
-    (data_object_type_id["none"], "b5371878-582a-4758-9c7c-9e536c477992", "none")  # Nulled items
+    (data_object_type_id["none"], "b5371878-582a-4758-9c7c-9e536c477992", "none"),  # Nulled items
+    (data_object_type_id["annotation_item"], "848b46b0-8602-42a2-a3fd-1b9be728d729", "annotation_item"),
+    (data_object_type_id["annotation_template"], "79668ea7-80fa-4327-a433-721a69582542", "annotation_template"),
+    (data_object_type_id["annotation_field"], "35313fd1-484e-48af-b6e2-e4b7464abb64", "annotation_field"),
+    (data_object_type_id["annotation_text"], "dc50990e-f4ad-4ef3-80c8-f68fd0b1a412", "annotation_text"),
 ]
 
 tm_permissions_fields = ["uuid", "name", "rank"]
@@ -814,10 +818,6 @@ tm_code_list_base_maps = [
     (h_base_maps_name, "07c7512b-d7ce-4162-85c4-cda2503f290c", "Grafcan Alta Resolución - https://idecan2.grafcan.es/ServicioWMS/Gigapan")
 ]
 
-# 848b46b0-8602-42a2-a3fd-1b9be728d729
-# 79668ea7-80fa-4327-a433-721a69582542
-# 35313fd1-484e-48af-b6e2-e4b7464abb64
-# dc50990e-f4ad-4ef3-80c8-f68fd0b1a412
 # cd9e5139-8f9b-495f-955d-61577f8531a4
 # 611465a5-e57e-4cf7-907f-345b5760d235
 # bcaaf1ef-abbf-4b99-8638-5d2bc604998d
