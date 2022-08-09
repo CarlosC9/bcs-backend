@@ -3,23 +3,57 @@ import unittest
 import requests
 
 session = requests.Session()
+response = session.put("http://localhost:5000/api/authn?user=test_user")
+while response.status_code >= 300:
+    response = session.put("http://localhost:5000/api/authn?user=test_user")
+
+OBJECT_UUIDS = ["652882bd-1cdc-4b94-a5ad-361fadedee28", "a3885d83-365c-41b8-a413-f6aeef14445d"]
 
 
-def test_log_in():
-    url = "http://localhost:5000/api/authn?user=test_user"
+class AnnotationSystemTest(unittest.TestCase):
 
-    response = session.put(url)
-    print(response.text)
+    def basic_cycle(self, api):
+        self.assertTrue(api.get().status_code < 300)
+        self.assertTrue(api.get_by_id().status_code < 300)
+        self.assertTrue(api.create().status_code < 300)
+        self.assertTrue(api.get_by_id().status_code < 300)
+        self.assertTrue(api.modify().status_code < 300)
+        self.assertTrue(api.get_by_id().status_code < 300)
 
-    return response
+    def full_cycle(self, api):
+        self.basic_cycle(api)
+        self.assertTrue(api.remove().status_code < 300)
+        self.assertTrue(api.get_by_id().status_code < 300)
+        self.assertTrue(api.get().status_code < 300)
+
+    def test_form_templates(self):
+        self.full_cycle(TemplatesAPI())
+
+    def test_form_fields(self):
+        self.full_cycle(FieldsAPI())
+
+    def test_annotations(self):
+        self.basic_cycle(TemplatesAPI())
+        self.basic_cycle(FieldsAPI())
+        self.full_cycle(AnnotationsAPI())
+
+    def test_form_relationships(self):
+        self.basic_cycle(TemplatesAPI())
+        self.basic_cycle(FieldsAPI())
+        self.full_cycle(FormRelationshipsAPI())
+
+    def test_relationships(self):
+        self.basic_cycle(TemplatesAPI())
+        self.basic_cycle(FieldsAPI())
+        self.basic_cycle(FormRelationshipsAPI())
+        self.full_cycle(RelationshipsAPI())
 
 
-class TemplatesAPITest(unittest.TestCase):
+class TemplatesAPI:
 
     url = "http://localhost:5000/api/annotation_form_templates/"
 
     post_req = {
-        # "attributes": {"tags": ["test", "testing"]},
         "name": "new_template",
         "cvterm_id": "",
         "dbxref_id": "",
@@ -33,206 +67,287 @@ class TemplatesAPITest(unittest.TestCase):
         "object_type": "sequence",
     }
 
-    def test_create_template(self):
+    def create(self):
         response = session.post(self.url, data=self.post_req)
         print(response.text)
+        return response
 
-        self.assertEqual(response.status_code, 201)
-        return None
-
-    def test_get_template_by_id(self):
+    def get_by_id(self):
         response = session.get(f"{self.url}{self.post_req.get('db')}:{self.post_req.get('dbxref')}")
         print(response.text)
+        return response
 
-        self.assertEqual(response.status_code, 200)
-
-        return None
-
-    def test_get_templates(self):
+    def get(self):
         response = session.get(self.url)
-        print(response.text)
+        return response
 
-        self.assertEqual(response.status_code, 200)
-        return None
-
-    def test_modify_template(self):
+    def modify(self):
         response = session.put(f"{self.url}{self.post_req.get('db')}:{self.post_req.get('dbxref')}", data=self.put_req)
         print(response.text)
+        return response
 
-        self.assertEqual(response.status_code, 200)
-        return None
-
-    # def test_detele_template(self):
-    #     response = session.delete(f"{self.url}{self.post_req.get('db')}:{self.post_req.get('dbxref')}")
-    #     print(response.text)
-    #
-    #     self.assertEqual(response.status_code, 200)
-    #     return None
+    def remove(self):
+        response = session.delete(f"{self.url}{self.post_req.get('db')}:{self.post_req.get('dbxref')}")
+        print(response.text)
+        return response
 
 
-class FieldsAPITest(unittest.TestCase):
+class FieldsAPI:
 
     url = "http://localhost:5000/api/annotation_form_fields/"
 
     post_req = {
         "name": "new_field",
-        "cvterm_id": "",
-        "dbxref_id": "",
         "db": "SO",
         "dbxref": "0000001",
         "object_type": '["sequence", "multiple-sequence-alignment"]',
-        "type": "tag",
-        "range": "",
         "view_type": "select",
-        "multiple": "0",
-        "template": TemplatesAPITest.post_req.get('name'),
+        "range": '["matk", "rbcl", "its"]'
     }
 
     put_req = {
-        "template": '[]',
+        "template": TemplatesAPI.post_req.get('name'),
         "description": "modified",
         "object_type": "sequence",
     }
 
-    def test_create_field(self):
+    def create(self):
         response = session.post(self.url, data=self.post_req)
         print(response.text)
+        return response
 
-        self.assertEqual(response.status_code, 201)
-        return None
-
-    def test_get_field_by_id(self):
+    def get_by_id(self):
         response = session.get(f"{self.url}{self.post_req.get('db')}:{self.post_req.get('dbxref')}")
         print(response.text)
+        return response
 
-        self.assertEqual(response.status_code, 200)
-        return None
-
-    def test_get_fields(self):
+    def get(self):
         response = session.get(self.url)
-        print(response.text)
+        return response
 
-        self.assertEqual(response.status_code, 200)
-        return None
-
-    def test_modify_field(self):
+    def modify(self):
         response = session.put(f"{self.url}{self.post_req.get('db')}:{self.post_req.get('dbxref')}", data=self.put_req)
         print(response.text)
+        return response
 
-        self.assertEqual(response.status_code, 200)
-        return None
-
-    # def test_detele_field(self):
-    #     response = session.delete(f"{self.url}{self.post_req.get('db')}:{self.post_req.get('dbxref')}")
-    #     print(response.text)
-    #
-    #     self.assertEqual(response.status_code, 200)
-    #     return None
+    def remove(self):
+        response = session.delete(f"{self.url}{self.post_req.get('db')}:{self.post_req.get('dbxref')}")
+        print(response.text)
+        return response
 
 
-class AnnotationsAPITest(unittest.TestCase):
+class AnnotationsAPI:
 
     url = "http://localhost:5000/api/annotations/"
-    object_uuids = ["0bae8453-fdd5-42fa-9f89-6a1af2771183", "4a2b5bb0-452c-452e-b5c3-a00b7a644351"]
 
-    post_req_template = {
+    template_post_req = {
         "name": "new_annotation_template",
-        "type": "template",
-        "template": TemplatesAPITest.post_req.get('name'),
+        "template": TemplatesAPI.post_req.get('name'),
         "value": "matk",
     }
 
-    post_req_field = {
+    field_post_req = {
         "name": "new_annotation_field",
-        "type": "field",
-        "field": FieldsAPITest.post_req.get('name'),
+        "field": FieldsAPI.post_req.get('name'),
         "value": "matk",
     }
 
     post_req_text = {
         "name": "new_annotation_text",
-        "type": "text",
         "value": "maturase k",
     }
 
     put_req = json.dumps({
         "value": "modified",
-        "object_uuid": object_uuids,
+        "object_uuid": OBJECT_UUIDS,
     })
 
-    put_req_batch_1 = json.dumps([post_req_template, post_req_field, post_req_text])
+    put_req_batch_1 = json.dumps([template_post_req, field_post_req, post_req_text])
     put_req_batch_2 = json.dumps([
         {
             "value": "<p>Hola, ¿qué tal?</p>",
-            "type": "text",
             "name": "modified",
             "id": 1
         },
         {
             "value": "<p>Hey</p>",
-            "type": "text",
             "name": "append",
         },
     ])
 
-    def test_create_annotations_by_uuid(self):
-
-        data = [self.post_req_template, self.post_req_field, self.post_req_text]
-        response = session.post(self.url + self.object_uuids[0], data=str(data))
+    def create(self):
+        # for payload in (self.template_post_req, self.field_post_req, self.post_req_text):
+        #     response = session.post(self.url, data=payload)
+        #     print(response.text)
+        data = [self.template_post_req, self.field_post_req, self.post_req_text]
+        response = session.post(self.url + OBJECT_UUIDS[0], data=str(data))
         print(response.text)
+        return response
 
-        self.assertEqual(response.status_code, 201)
-        return None
-
-    # def test_create_annotation(self):
-    #
-    #     for payload in (self.post_req_template, self.post_req_field, self.post_req_text):
-    #         response = session.post(self.url, data=payload)
-    #         print(response.text)
-    #
-    #         self.assertEqual(response.status_code, 201)
-    #
-    #     return None
-
-    def test_get_annotation_by_id(self):
-        response = session.get(f"{self.url}{self.object_uuids[0]}")
+    def get_by_id(self):
+        response = session.get(f"{self.url}{OBJECT_UUIDS[0]}")
         print(response.text)
+        return response
 
-        self.assertEqual(response.status_code, 200)
-        return None
-
-    def test_get_annotations(self):
+    def get(self):
         response = session.get(self.url)
-        print(response.text)
+        return response
 
-        self.assertEqual(response.status_code, 200)
-        return None
+    def modify(self):
 
-    def test_modify_annotation(self):
         response = session.put(f"{self.url}1", data=self.put_req)
+        print('PUT: single modification')
         print(response.text)
+        if response.status_code >= 300:
+            return response
 
-        self.assertEqual(response.status_code, 200)
-        return None
-
-    def test_modify_annotation_by_batch(self):
-        response = session.put(f"{self.url}{self.object_uuids[1]}", data=self.put_req_batch_1)
+        response = session.put(f"{self.url}{OBJECT_UUIDS[1]}", data=self.put_req_batch_1)
         print('PUT: create')
         print(response.text)
+        if response.status_code >= 300:
+            return response
 
-        self.assertEqual(response.status_code, 200)
-
-        response = session.put(f"{self.url}{self.object_uuids[1]}", data=self.put_req_batch_2)
+        response = session.put(f"{self.url}{OBJECT_UUIDS[1]}", data=self.put_req_batch_2)
         print('PUT: modified and append')
         print(response.text)
+        if response.status_code >= 300:
+            return response
 
-        self.assertEqual(response.status_code, 200)
-        return None
+        return response
 
-    # def test_detele_annotation(self):
-    #     response = session.delete(f"{self.url}{self.object_uuids[0]}")
-    #     print(response.text)
-    #
-    #     self.assertEqual(response.status_code, 200)
-    #     return None
+    def remove(self):
+        response = session.delete(f"{self.url}{OBJECT_UUIDS[0]}")
+        print(response.text)
+        return response
 
+
+##
+# Relationship annotations
+##
+
+class FormRelationshipsAPI:
+
+    url = "http://localhost:5000/api/annotation_form_relationships/"
+
+    post_req = {
+        "template": "new_template",
+        "field": "new_field",
+        "name": "gene",
+    }
+
+    put_req = {
+        "rev_name": "locus",
+    }
+
+    def create(self):
+        response = session.post(self.url, data=self.post_req)
+        print(response.text)
+        return response
+
+    def get_by_id(self):
+        response = session.get(self.url)
+        content = json.loads(response.text)['content']
+        _id = content[-1].get('id')
+
+        response = session.get(f"{self.url}{_id}")
+        print(response.text)
+        return response
+
+    def get(self):
+        response = session.get(self.url)
+        return response
+
+    def modify(self):
+        response = session.get(self.url)
+        content = json.loads(response.text)['content']
+        _id = content[-1].get('id')
+
+        response = session.put(f"{self.url}{_id}", data=self.put_req)
+        print(response.text)
+        return response
+
+    def remove(self):
+        response = session.get(self.url)
+        content = json.loads(response.text)['content']
+        _id = content[-1].get('id')
+
+        response = session.delete(f"{self.url}{_id}")
+        print(response.text)
+        return response
+
+
+class RelationshipsAPI:
+
+    url = "http://localhost:5000/api/relationships/"
+
+    post_req = {
+        "name": "new_relationship",
+        "template": TemplatesAPI.post_req.get('name'),
+        "value": "matk",
+    }
+
+    put_req = json.dumps({
+        "value": "modified",
+        "object_uuid": OBJECT_UUIDS,
+    })
+
+    put_req_batch_1 = json.dumps([post_req])
+    put_req_batch_2 = json.dumps([
+        {
+            "value": "<p>Hola, ¿qué tal?</p>",
+            "name": "modified",
+            "id": 1
+        },
+        {
+            "value": "<p>Hey</p>",
+            "name": "append",
+        },
+    ])
+
+    def create_by_uuid(self):
+
+        data = [self.post_req]
+        response = session.post(self.url + OBJECT_UUIDS[0], data=str(data))
+        print(response.text)
+        return response
+
+    def create(self):
+        for payload in (self.post_req, FieldsAPI.post_req, self.post_req_text):
+            response = session.post(self.url, data=payload)
+            print(response.text)
+        return response
+
+    def get_by_id(self):
+        response = session.get(f"{self.url}{OBJECT_UUIDS[0]}")
+        print(response.text)
+        return response
+
+    def get(self):
+        response = session.get(self.url)
+        return response
+
+    def modify(self):
+        response = session.put(f"{self.url}1", data=self.put_req)
+        print(response.text)
+        if response.status_code >= 300:
+            return response
+
+        response = session.put(f"{self.url}{OBJECT_UUIDS[1]}", data=self.put_req_batch_1)
+        print('PUT: create')
+        print(response.text)
+        if response.status_code >= 300:
+            return response
+
+        response = session.put(f"{self.url}{OBJECT_UUIDS[1]}", data=self.put_req_batch_2)
+        print('PUT: modified and append')
+        print(response.text)
+        return response
+
+    def remove(self):
+        response = session.get(self.url)
+        content = json.loads(response.text)['content']
+        _id = content[-1].get('id')
+
+        response = session.delete(f"{self.url}{_id}")
+        print(response.text)
+        return response
