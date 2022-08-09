@@ -1,7 +1,7 @@
 from . import FormItemService
 from ..main import get_orm
 from ...rest import filter_parse
-from ...services import get_or_create
+from ...services import get_or_create, listify
 from ...db_models.sa_annotations import AnnotationFormTemplate, AnnotationFormTemplateField
 
 
@@ -29,10 +29,7 @@ class Service(FormItemService):
         values = super(Service, self).after_create(new_object, **values)
 
         if values.get('template_id'):
-            if isinstance(values['template_id'], (tuple, list, set)):
-                ids = values.get('template_id')
-            else:
-                ids = [values.get('template_id')]
+            ids = listify(values.get('template_id'))
             for i in ids:
                 get_or_create(self.db, AnnotationFormTemplateField,
                               form_field_id=new_object.id, form_template_id=i)
@@ -43,10 +40,7 @@ class Service(FormItemService):
         values = super(Service, self).after_update(new_object, **values)
 
         if values.get('template_id') is not None:
-            if isinstance(values['template_id'], (tuple, list, set)):
-                ids = values.get('template_id')
-            else:
-                ids = [values.get('template_id')]
+            ids = listify(values.get('template_id'))
             rl = self.db.query(AnnotationFormTemplateField) \
                 .filter(AnnotationFormTemplateField.form_field_id == new_object.id)
             rl.filter(AnnotationFormTemplateField.form_template_id.notin_(ids)) \

@@ -1,7 +1,7 @@
-from .. import get_or_create
+from .. import get_or_create, listify
 from ..main import BasicService, get_orm
 from ...rest import filter_parse
-from ...db_models import DBSession, ObjectType
+from ...db_models import DBSession, ObjectType, DBSessionChado
 from ...db_models.sa_annotations import AnnotationFormItemObjectType
 
 
@@ -20,10 +20,7 @@ class FormItemService(BasicService):
 
     def prepare_external_values(self, object_type=[], **values):
         if object_type and not values.get('object_type_id'):
-            if isinstance(object_type, (tuple, list, set)):
-                object_types = object_type
-            else:
-                object_types = [object_type]
+            object_types = listify(object_type)
             values['object_type_id'] = DBSession.query(ObjectType.id) \
                 .filter(ObjectType.name.in_(object_types)).all()
             # kwargs['object_type_id'] = [i for i, in kwargs['object_type_id']]
@@ -31,10 +28,7 @@ class FormItemService(BasicService):
 
     def after_create(self, new_object, **values):
         if values.get('object_type_id'):
-            if isinstance(values['object_type_id'], (tuple, list, set)):
-                ids = values.get('object_type_id')
-            else:
-                ids = [values.get('object_type_id')]
+            ids = listify(values.get('object_type_id'))
             for i in ids:
                 get_or_create(self.db, AnnotationFormItemObjectType,
                               form_item_id=new_object.id, object_type_id=i)
@@ -52,10 +46,7 @@ class FormItemService(BasicService):
 
     def after_update(self, new_object, **values):
         if values.get('object_type_id'):
-            if isinstance(values['object_type_id'], (tuple, list, set)):
-                ids = values.get('object_type_id')
-            else:
-                ids = [values.get('object_type_id')]
+            ids = listify(values.get('object_type_id'))
             rl = self.db.query(AnnotationFormItemObjectType) \
                 .filter(AnnotationFormItemObjectType.form_item_id == new_object.id)
             rl.filter(AnnotationFormItemObjectType.object_type_id.notin_(ids)) \
@@ -64,6 +55,13 @@ class FormItemService(BasicService):
                 get_or_create(self.db, AnnotationFormItemObjectType,
                               form_item_id=new_object.id, object_type_id=i)
         return values
+
+    def get_query(self, query=None, id=None, purpose='delete', **kwargs) -> (object, int):
+        if kwargs.get('db') and kwargs.get('dbxref'):
+            from ...db_models.chado import Db, Dbxref
+            kwargs['dbxref_id'] = kwargs.get('dbxref_id') or DBSessionChado.query(Dbxref.dbxref_id).join(Db) \
+                .filter(Db.name == kwargs.get('db'), Dbxref.accession == kwargs.get('dbxref')).one()
+        return super(FormItemService, self).get_query(query, id, purpose, **kwargs)
 
     def aux_filter(self, _filter: dict) -> list:
         clauses = []
