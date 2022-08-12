@@ -3,10 +3,11 @@ import os.path
 import traceback
 
 from flask import g
-from sqlalchemy.orm.exc import NoResultFound
+from sqlalchemy.orm.exc import NoResultFound, ObjectDeletedError
 from sqlalchemy_continuum import transaction_class
 
 from . import log_exception, get_orm_params, get_query, get_filtering
+from ..common import generate_json
 from ..rest import Issue, IType, filter_parse
 from ..db_models import ORMBase, DBSession
 
@@ -402,6 +403,10 @@ class BasicService:
         self.delete_related(*content, **kwargs)
         for row in content:
             self.db.delete(row)
+        try:
+            content = generate_json(content)
+        except ObjectDeletedError as e:
+            content = None
         return content, count
 
     # any additional delete if any

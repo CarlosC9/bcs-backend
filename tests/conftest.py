@@ -27,6 +27,9 @@ def testful():
                REDIS_HOST="filesystem:local_session",
                TESTING="True",
                SELF_SCHEMA="")
+    # TODO: use an alternative db? p.e. {app_acronym}_testful
+    # from biobarcoding.rest import get_default_configuration_dict
+    # cfg = get_default_configuration_dict()
     app = create_app(True, cfg)
     testing_client = app.test_client()
     ctx = app.app_context()

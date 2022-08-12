@@ -101,7 +101,7 @@ class Specimen(FunctionalObject):
     __mapper_args__ = {
         'polymorphic_identity': data_object_type_id['specimen'],
     }
-    id = Column(BigInteger, ForeignKey(FunctionalObject.id), primary_key=True)
+    id = Column(BigInteger, ForeignKey(FunctionalObject.id, ondelete='CASCADE'), primary_key=True)
 
 
 class Sequence(FunctionalObject):
@@ -110,7 +110,7 @@ class Sequence(FunctionalObject):
     __mapper_args__ = {
         'polymorphic_identity': data_object_type_id['sequence'],
     }
-    id = Column(BigInteger, ForeignKey(FunctionalObject.id), primary_key=True)
+    id = Column(BigInteger, ForeignKey(FunctionalObject.id, ondelete='CASCADE'), primary_key=True)
     specimen_id = Column(BigInteger, ForeignKey(Specimen.id), nullable=True, primary_key=False)
     specimen = relationship(Specimen, backref=backref("sequences", cascade="all, delete-orphan"),
                             foreign_keys=[specimen_id])
@@ -122,7 +122,7 @@ class MultipleSequenceAlignment(FunctionalObject):
     __mapper_args__ = {
         'polymorphic_identity': data_object_type_id['multiple-sequence-alignment'],
     }
-    id = Column(BigInteger, ForeignKey(FunctionalObject.id), primary_key=True)
+    id = Column(BigInteger, ForeignKey(FunctionalObject.id, ondelete='CASCADE'), primary_key=True)
 
 
 class PhylogeneticTree(FunctionalObject):
@@ -131,7 +131,7 @@ class PhylogeneticTree(FunctionalObject):
     __mapper_args__ = {
         'polymorphic_identity': data_object_type_id['phylogenetic-tree'],
     }
-    id = Column(BigInteger, ForeignKey(FunctionalObject.id), primary_key=True)
+    id = Column(BigInteger, ForeignKey(FunctionalObject.id, ondelete='CASCADE'), primary_key=True)
 
 
 class SequenceSimilarity(FunctionalObject):
@@ -140,7 +140,7 @@ class SequenceSimilarity(FunctionalObject):
     __mapper_args__ = {
         'polymorphic_identity': data_object_type_id['sequence-similarity'],
     }
-    id = Column(BigInteger, ForeignKey(FunctionalObject.id), primary_key=True)
+    id = Column(BigInteger, ForeignKey(FunctionalObject.id, ondelete='CASCADE'), primary_key=True)
 
 
 class DiscriminantMatrix(FunctionalObject):
@@ -149,7 +149,7 @@ class DiscriminantMatrix(FunctionalObject):
     __mapper_args__ = {
         'polymorphic_identity': data_object_type_id['discriminant-matrix'],
     }
-    id = Column(BigInteger, ForeignKey(FunctionalObject.id), primary_key=True)
+    id = Column(BigInteger, ForeignKey(FunctionalObject.id, ondelete='CASCADE'), primary_key=True)
 
 
 class Supermatrix(FunctionalObject):
@@ -158,4 +158,4 @@ class Supermatrix(FunctionalObject):
     __mapper_args__ = {
         'polymorphic_identity': data_object_type_id['supermatrix'],
     }
-    id = Column(BigInteger, ForeignKey(FunctionalObject.id), primary_key=True)
+    id = Column(BigInteger, ForeignKey(FunctionalObject.id, ondelete='CASCADE'), primary_key=True)

@@ -54,20 +54,6 @@ class Service(BasicService):
             # kwargs['object_uuid'] = [i for i, in kwargs['object_uuid']]
         return super(Service, self).prepare_external_values(**values)
 
-    def create(self, object_uuid=None, **kwargs):
-        values = kwargs.get('values')
-        if isinstance(values, (list, tuple)):
-            content, count = [], 0
-            for v in values:
-                v['object_uuid'] = v.get('object_uuid', object_uuid)
-                c, cc = super(Service, self).create(**v)
-                content.append(c)
-                count += cc
-            return content, count
-        else:
-            values['object_uuid'] = values.get('object_uuid', object_uuid)
-            return super(Service, self).create(**values)
-
     def after_create(self, new_object, **values):
         if values.get('object_uuid'):
             ids = listify(values.get('object_uuid'))
