@@ -25,14 +25,18 @@ class AnnotationFormItem(ORMBase):
     __tablename__ = f"{prefix}form_item"
 
     id = Column(BigInteger, primary_key=True, autoincrement=True)
-    name = Column(String(80), nullable=False, unique=True)
+    name = Column(String(80), nullable=False)
     description = Column(String(1024))
-    standard = Column(String(32))   # 'bibtex', 'darwin core', 'dublin core', ...
+    standard = Column(String(32), nullable=False, default='')   # 'bibtex', 'darwin core', 'dublin core', ...
     cvterm_id = Column(Integer, unique=True)
     dbxref_id = Column(Integer)
     type = Column(String(32), nullable=False)   # template, field
     unique = Column(Boolean, nullable=False, default=False)   # TODO: validation
     object_types = relationship("AnnotationFormItemObjectType", back_populates="form_item", cascade="all, delete-orphan")
+
+    __table_args__ = (
+        UniqueConstraint(name, standard, type, name=__tablename__ + '_c1'),
+    )
 
     __mapper_args__ = {
         'polymorphic_identity': 'annotation_form_item',
@@ -94,12 +98,14 @@ class AnnotationFormTemplateField(ORMBase):
                                  primaryjoin="AnnotationRelationship.form_rl_id == AnnotationFormTemplateField.id",
                                  back_populates="form_rl", cascade="all, delete-orphan")
 
-    @validates('form_field')
-    def validate_field(self, key, field):
+    @validates('form_template', 'form_field')
+    def validate_field(self, key, value):
         # doesn't work when assignment
-        if field.unique:
-            assert field.id not in [f.id for f in self.form_field]
-        return field
+        if key == 'form_template' and self.form_field and self.form_field.unique:
+            assert self.form_field.id not in [f.form_field_id for f in value.form_fields]
+        elif key == 'form_field' and value.unique:
+            assert value.id not in [f.form_field_id for f in value.form_templates]
+        return value
 
     __table_args__ = (
         UniqueConstraint(form_template_id, rank, name=__tablename__ + '_c1'),

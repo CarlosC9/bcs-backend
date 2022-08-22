@@ -7,10 +7,11 @@ from . import batch_iterator
 from ..db_models import DBSessionChado, DBSession, ObjectType
 from ..db_models.bioinformatics import Sequence, Specimen
 from ..db_models.chado import Organism, Stock, Feature, StockFeature, Featureloc, AnalysisFeature
+from ..db_models.core import data_object_type_id
 from ..db_models.metadata import Taxon
-from ..db_models.sa_annotations import AnnotationFormField, AnnotationField, AnnotationItemFunctionalObject, \
-    AnnotationFormItemObjectType
-from ..services import log_exception, get_encoding, tsv_pd_parser, csv_pd_parser
+from ..db_models.sa_annotations import AnnotationFormField, AnnotationFormTemplate, AnnotationFormItemObjectType, \
+    AnnotationTemplate, AnnotationField, AnnotationItemFunctionalObject, AnnotationFormTemplateField
+from ..services import log_exception, get_encoding, tsv_pd_parser, csv_pd_parser, get_filtering
 from ..services.bio.meta.ontologies import get_type_id
 from ..services.bio.meta.organisms import split_org_name, get_taxonomic_ranks
 
@@ -19,6 +20,8 @@ ORG_ENTRIES = {}
 STOCK_ENTRIES = {}
 SPECIMEN_ENTRIES = {}
 ANN_ENTRIES = {}
+taxa_rows, stock_rl_rows, ann_rl_rows, ansis_rl_rows, ansis_src_rows = [], [], [], [], []
+org_batch, stock_batch, specimen_batch, feat_batch, seq_batch, ann_batch = [], [], [], [], [], []
 
 
 def clear_entries():
@@ -26,6 +29,9 @@ def clear_entries():
     STOCK_ENTRIES.clear()
     SPECIMEN_ENTRIES.clear()
     ANN_ENTRIES.clear()
+    for _ in (taxa_rows, stock_rl_rows, ann_rl_rows, ansis_rl_rows, ansis_src_rows,
+              org_batch, stock_batch, specimen_batch, feat_batch, ann_batch):
+        _.clear()
 
 
 def get_or_create(session, model, **params):
@@ -82,19 +88,84 @@ def seqs_parser(file, _format='fasta') -> SeqRecord:
             yield rec
 
 
-# def set_annotation(s):
-#     # bibtex = s.annotations.pop('references')
-#     # ann = [{'field': k, 'value': v} for k, v in s.annotations.items()]
-#     # feat = [{'field': f.type, 'value': f.qualifiers} for f in s.features]
-#     for f in s.features:
-#         if f.type == 'gene':
-#             form_field = get_or_create(DBSession, AnnotationFormField,
-#                                        name='gene')
-#             field = get_or_create(DBSession, AnnotationField,
-#                                   form_field_id=form_field.id,
-#                                   value=json.dumps(f.qualifiers.get('gene')))
-#             return [form_field, field]
-#     return []
+def set_annotation(seq):
+
+    ann = []
+
+    def get_or_create_ann_form(name: str, standard: str = '', fields: list = []):
+        form_template = get_or_create(DBSession, AnnotationFormTemplate, name=name)
+        if not form_template.id:
+            DBSession.add(form_template)
+            form_template.standard = form_template.standard or standard
+            get_or_create(DBSession, AnnotationFormItemObjectType,
+                          form_item=form_template, object_type_id=data_object_type_id['sequence'])
+            for field in fields:
+                form_field = get_or_create(DBSession, AnnotationFormField, name=field)
+                DBSession.add(form_field)
+                form_field.standard = form_field.standard or standard
+                get_or_create(DBSession, AnnotationFormItemObjectType,
+                              form_item=form_field, object_type_id=data_object_type_id['sequence'])
+                get_or_create(DBSession, AnnotationFormTemplateField,
+                              form_template=form_template, form_field=form_field)
+        return form_template
+
+    def encode_template_value(value: dict, standard: str = ''):
+        form_value = value.copy()
+        for k, v in value.items():
+            form_field = get_or_create(DBSession, AnnotationFormField, standard=standard, name=k)
+            form_value[form_field.id] = form_value.get(form_field.id, form_value.pop(form_field.name, None))
+        return form_value
+
+    def to_json(arg):
+        try:
+            return json.dumps(arg)
+        except:
+            if isinstance(arg, (tuple, list, set)):
+                return [to_json(_) for _ in arg]
+            try:
+                return to_json(arg.__dict__)
+            except:
+                return str(arg)
+
+    def get_or_create_ann_template(value: dict, standard: str = '', **kwargs):
+        # get_or_create for value(JSONB)
+        form_value = encode_template_value(value, standard)
+        instance = DBSession.query(AnnotationTemplate).filter_by(value=to_json(form_value), **kwargs).first()
+        if not instance:
+            instance = AnnotationTemplate(value=json.loads(to_json(form_value)), **kwargs)
+        if instance not in ANN_ENTRIES:
+            ANN_ENTRIES[instance] = instance
+            ann_batch.append(instance)
+        return instance
+
+    # bibtex
+    for ref in seq.annotations.pop('references', []):
+        # TODO figure out bibtex type ?
+        form_values = ref.__dict__
+        loc = form_values.pop('location', None)     # TODO what for location ?
+        form_values['author'] = form_values.get('author', form_values.pop('authors', None))
+        form_template = get_or_create_ann_form(name='article', standard='BibTex', fields=form_values.keys())
+        ann.append(get_or_create_ann_template(value=dict([(k, v) for k, v in form_values.items() if v]),
+                                              form_template=form_template, standard='BibTex'))
+
+    # annotations
+    if seq.annotations:
+        form_template = get_or_create_ann_form(name='annotations', standard='features', fields=seq.annotations.keys())
+        ann.append(get_or_create_ann_template(value=dict([(k, v) for k, v in seq.annotations.items() if v]),
+                                              form_template=form_template, standard='features'))
+
+    # features
+    if seq.features:
+        form_template = get_or_create_ann_form(name='features', standard='features',
+                                               fields=seq.features[0].__dict__.keys())
+        for feat in seq.features:
+            _ = []
+            for k, v in feat.__dict__.items():
+                if v:
+                    _.append((k, to_json(v)))
+            ann.append(get_or_create_ann_template(value=dict(_), form_template=form_template, standard='features'))
+
+    return ann
 
 
 def get_gene_field_id():
@@ -137,6 +208,8 @@ def import_file(infile, _format=None, data=None, analysis_id=None, **kwargs):
     #  use bulk_save_objects ?
     try:
 
+        clear_entries()
+        gene = get_filtering('gene', kwargs)        # TODO import only this region ?
         ind_type_id = get_type_id(type='stock')
         seq_type_id = get_type_id(type='sequence', subtype='aligned' if analysis_id else None)
         gene_field_id = get_gene_field_id()
@@ -229,7 +302,11 @@ def import_file(infile, _format=None, data=None, analysis_id=None, **kwargs):
                                 instance = AnnotationField(**params)
                             ANN_ENTRIES[ann] = instance
                             ann_batch.append(instance)
-                # ann = set_annotation(s)     # TODO: bulk annotations ?
+                for ann in set_annotation(seq):     # TODO: bulk annotations ?
+                    if seq4ann_batch.get(ann):
+                        seq4ann_batch[ann].add(seq.id)
+                    else:
+                        seq4ann_batch[ann] = set([seq.id])
 
             # # BATCH_READING 3: the rows that require chado:feature
             # STEP 0: add the required rows to the session and flush
@@ -302,6 +379,8 @@ def import_file(infile, _format=None, data=None, analysis_id=None, **kwargs):
     except Exception as e:
         clear_entries()
         log_exception(e)
+        DBSession.rollback()
+        DBSessionChado.rollback()
         raise Exception(f'IMPORT sequences: file {os.path.basename(infile)} could not be imported.')
     return None, len(seq_batch)
 

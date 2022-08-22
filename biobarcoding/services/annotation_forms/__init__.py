@@ -69,7 +69,7 @@ class FormItemService(BasicService):
         if _filter.get('object_type') and not _filter.get('object_type_id'):
             _aux = DBSession.query(ObjectType.id).filter(
                 filter_parse(ObjectType, {'name': _filter.get('object_type')}))
-            _filter['object_type_id'] = {'op': 'in', 'unary': _aux}
+            _filter['object_type_id'] = {'op': 'in', 'unary': _aux.subquery()}
 
         if _filter.get('object_type_id'):
             _aux = self.db.query(AnnotationFormItemObjectType.form_item_id).filter(
