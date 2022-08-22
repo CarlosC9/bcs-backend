@@ -131,7 +131,8 @@ def __getAnnotationFormTemplates(subject):
     else:
         return None
     from ..db_models.sa_annotations import AnnotationFormTemplate, AnnotationTemplate, AnnotationItemFunctionalObject
-    return DBSession.query(AnnotationFormTemplate).join(AnnotationTemplate).join(AnnotationItemFunctionalObject).join(ORM).all()
+    return DBSession.query(AnnotationFormTemplate).join(AnnotationTemplate) \
+        .join(AnnotationItemFunctionalObject, AnnotationTemplate.objects).join(ORM).all()
 
 
 def __getAnnotationFormFields(subject):
@@ -147,7 +148,8 @@ def __getAnnotationFormFields(subject):
     else:
         return None
     from ..db_models.sa_annotations import AnnotationFormField, AnnotationField, AnnotationItemFunctionalObject
-    return DBSession.query(AnnotationFormField).join(AnnotationField).join(AnnotationItemFunctionalObject).join(ORM).all()
+    return DBSession.query(AnnotationFormField).join(AnnotationField) \
+        .join(AnnotationItemFunctionalObject, AnnotationField.objects).join(ORM).all()
 
 
 def __getAnnotationFields(subject):
@@ -160,7 +162,8 @@ def __getAnnotationFields(subject):
     else:
         return None
     from ..db_models.sa_annotations import AnnotationField, AnnotationItemFunctionalObject
-    _all = DBSession.query(AnnotationField).join(AnnotationItemFunctionalObject).join(ORM).all()
+    _all = DBSession.query(AnnotationField) \
+        .join(AnnotationItemFunctionalObject, AnnotationField.objects).join(ORM).all()
     form_fields = dict((i.form_field_id, i.form_field.name) for i in _all)
 
     import json

@@ -89,8 +89,8 @@ class Service(BosService):
         stock = self.seq_stock(new_object, **values)
         # seq to bcs
         fos = get_or_create(DBSession, self.fos,
-                            specimen_id=DBSession.query(Specimen.id).filter(
-                                Specimen.native_id == stock.stock_id).one(),
+                            specimen_id=None if not stock else
+                                DBSession.query(Specimen.id).filter(Specimen.native_id == stock.stock_id).one(),
                             native_id=new_object.feature_id,
                             name=new_object.uniquename)
 
@@ -220,10 +220,10 @@ class Service(BosService):
                 'molecule_type': 'DNA',
                 'organism': org_service.get_org_name(seq.organism_id)
             }
-            records.append(SeqRecord(Seq(seq.residues),
+            records.append(SeqRecord(Seq(seq.residues or ''),
                                      headers.get(seq.uniquename, seq.uniquename),
                                      seq.uniquename,
-                                     '' if headers else seq.name,
+                                     '' if headers else seq.name or '',
                                      annotations=annotations))
         return records
 

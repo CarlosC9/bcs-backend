@@ -6,7 +6,7 @@ from werkzeug.utils import secure_filename
 
 from . import parse_request_params, ResponseObject, Issue, IType
 from ..authentication import n_session
-from ..services import log_exception
+from ..services import log_exception, listify
 from ..services.main import getCRUDIE
 
 
@@ -58,10 +58,22 @@ class CrudieAPI(MethodView):
         print(f'POST {request.path}\nCreating {self.entity}')
         self.pre_request(**kwargs)
 
-        if self.params.get('values', {}).get('filesAPI'):
+        try:
+            _ = self.params.get('values', {}).get('filesAPI')
+        except Exception as e:
+            _ = None
+        if _:
             issues, content, count, status = self._import_filesAPI(**self.params.get('values'))
         elif request.files:
             issues, content, count, status = self._import_request_files(**self.params.get('values'))
+        elif isinstance(self.params.get('values'), (tuple, list, set)):
+            issues, content, count = [], [], 0
+            for v in self.params.get('values'):
+                i, c, cc, status = self.service.create(**v)
+                issues += i
+                content.append(c)
+                count += cc
+            return ResponseObject(content=content, count=count, issues=issues, status=207).get_response()
         else:
             issues, content, count, status = self.service.create(**self.params.get('values'))
 
@@ -72,6 +84,7 @@ class CrudieAPI(MethodView):
         print(f'PUT {request.path}\nUpdating {self.entity} {id}')
         self.pre_request(id=id, **kwargs)
 
+        # TODO update from files
         issues, content, count, status = self.service.update(**self.params)
 
         return ResponseObject(content=content, count=count, issues=issues, status=status).get_response()

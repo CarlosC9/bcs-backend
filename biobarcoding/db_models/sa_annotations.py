@@ -1,12 +1,20 @@
 from sqlalchemy import Column, ForeignKey, UniqueConstraint, Boolean, Integer, BigInteger, String, Sequence, Text
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import relationship, backref, validates
+from sqlalchemy.orm import relationship, validates, backref
 
 from . import ORMBase, GUID, ObjectType
-from .core import FunctionalObject
+from .core import FunctionalObject, data_object_type_id
 from .files import File
 
 prefix = "sa_annotation_"
+
+data_object_type_id.update({
+    "annotation_item": 20,
+    "annotation_template": 21,
+    "annotation_field": 22,
+    "annotation_text": 23,
+    # "relationship": 24,
+})
 
 
 # ANNOTATION FORM DEFINITION
@@ -24,6 +32,7 @@ class AnnotationFormItem(ORMBase):
     dbxref_id = Column(Integer)
     type = Column(String(32), nullable=False)   # template, field
     unique = Column(Boolean, nullable=False, default=False)   # TODO: validation
+    object_types = relationship("AnnotationFormItemObjectType", back_populates="form_item", cascade="all, delete-orphan")
 
     __mapper_args__ = {
         'polymorphic_identity': 'annotation_form_item',
@@ -35,14 +44,9 @@ class AnnotationFormItemObjectType(ORMBase):
     __versioned__ = {}
     __tablename__ = f"{prefix}form_item_object_type"
 
-    form_item_id = Column(BigInteger, ForeignKey(AnnotationFormItem.id), primary_key=True)
-    object_type_id = Column(Integer, ForeignKey(ObjectType.id), primary_key=True)
-    form_item = relationship(AnnotationFormItem, backref=backref("object_types", cascade="all, delete-orphan"))
-    object_type = relationship(ObjectType, backref=backref("annotation_forms", cascade="all, delete-orphan"))
-
-    __table_args__ = (
-        UniqueConstraint(form_item_id, object_type_id, name=__tablename__ + '_c1'),
-    )
+    form_item_id = Column(BigInteger, ForeignKey(AnnotationFormItem.id, ondelete="CASCADE"), primary_key=True)
+    object_type_id = Column(Integer, ForeignKey(ObjectType.id, ondelete="CASCADE"), primary_key=True)
+    form_item = relationship(AnnotationFormItem, back_populates="object_types")
 
 
 class AnnotationFormField(AnnotationFormItem):
@@ -54,6 +58,10 @@ class AnnotationFormField(AnnotationFormItem):
     id = Column(BigInteger, ForeignKey(AnnotationFormItem.id, ondelete="CASCADE"), primary_key=True)
     range = Column(JSONB)
     view_type = Column(String(32), default='annotation-text')  # check, radio, date, etc.
+    schema = Column(JSONB)  # Schema of the data defined by the relationship
+    annotation_form_templates = relationship("AnnotationFormTemplateField", back_populates="form_field",
+                                             cascade="all, delete-orphan")
+    annotation_items = relationship("AnnotationField", back_populates="form_field", cascade="all, delete-orphan")
 
 
 class AnnotationFormTemplate(AnnotationFormItem):
@@ -63,22 +71,28 @@ class AnnotationFormTemplate(AnnotationFormItem):
         'polymorphic_identity': 'template',
     }
     id = Column(BigInteger, ForeignKey(AnnotationFormItem.id, ondelete="CASCADE"), primary_key=True)
+    annotation_form_fields = relationship("AnnotationFormTemplateField", back_populates="form_template",
+                                          cascade="all, delete-orphan")
+    annotation_items = relationship("AnnotationTemplate", back_populates="form_template", cascade="all, delete-orphan")
 
 
 class AnnotationFormTemplateField(ORMBase):
     __versioned__ = {}
     __tablename__ = f"{prefix}form_template_field"
 
-    form_template_id = Column(BigInteger, ForeignKey(AnnotationFormTemplate.id), primary_key=True)
-    form_field_id = Column(BigInteger, ForeignKey(AnnotationFormField.id), primary_key=True)
-    form_template = relationship(AnnotationFormTemplate,    # foreign_keys=[form_template_id],
-                                 backref=backref("annotation_form_fields", cascade="all, delete-orphan"))
-    form_field = relationship(AnnotationFormField,  # foreign_keys=[form_field_id],
-                              backref=backref("annotation_form_templates", cascade="all, delete-orphan"))
+    id = Column(BigInteger, primary_key=True, unique=True, autoincrement=True)
+    form_template_id = Column(BigInteger, ForeignKey(AnnotationFormTemplate.id, ondelete="CASCADE"), primary_key=True)
+    form_field_id = Column(BigInteger, ForeignKey(AnnotationFormField.id, ondelete="CASCADE"), primary_key=True)
+    form_template = relationship(AnnotationFormTemplate, back_populates="annotation_form_fields")
+    form_field = relationship(AnnotationFormField, back_populates="annotation_form_templates")
     name = Column(String(80))
+    rev_name = Column(String(80))
     rank = Column(Integer, Sequence('annotation_form_rank_seq'), primary_key=True)
     # rank = Column(Integer, nullable=False, default=select([func.max(1, func.max(rank))]))
     required = Column(Boolean, nullable=False, default=False)   # TODO: validation
+    relationships = relationship("AnnotationRelationship",
+                                 primaryjoin="AnnotationRelationship.form_rl_id == AnnotationFormTemplateField.id",
+                                 back_populates="form_rl", cascade="all, delete-orphan")
 
     @validates('form_field')
     def validate_field(self, key, field):
@@ -101,19 +115,19 @@ class AnnotationFormTemplateField(ORMBase):
 # ANNOTATION INSTANCE
 
 
-class AnnotationItem(ORMBase):
+class AnnotationItem(FunctionalObject):
     __versioned__ = {}
     __tablename__ = f"{prefix}item"
 
-    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    id = Column(BigInteger, ForeignKey(FunctionalObject.id, ondelete="CASCADE"), primary_key=True)
     type = Column(String(80), nullable=False)    # text, form, field
     # name = Column(String(80), nullable=False)
     file_id = Column(BigInteger, ForeignKey(File.id))
     file = relationship(File)
+    objects = relationship("AnnotationItemFunctionalObject", back_populates="annotation", cascade="all, delete-orphan")
 
     __mapper_args__ = {
-        'polymorphic_identity': 'annotation_item',
-        'polymorphic_on': type
+        'polymorphic_identity': data_object_type_id['annotation_item'],
     }
 
 
@@ -121,10 +135,10 @@ class AnnotationItemFunctionalObject(ORMBase):
     __versioned__ = {}
     __tablename__ = f"{prefix}item_functional_object"
 
-    annotation_id = Column(Integer, ForeignKey(AnnotationItem.id), primary_key=True)
-    object_uuid = Column(GUID, ForeignKey(FunctionalObject.uuid), primary_key=True)
-    annotation = relationship(AnnotationItem, backref=backref("objects", cascade="all, delete-orphan"))
-    object = relationship(FunctionalObject, backref=backref("annotations", cascade="all, delete-orphan"))
+    object_uuid = Column(GUID, ForeignKey(FunctionalObject.uuid, ondelete="CASCADE"), primary_key=True)
+    annotation_id = Column(Integer, ForeignKey(AnnotationItem.id, ondelete="CASCADE"), primary_key=True)
+    object = relationship(FunctionalObject, foreign_keys=[object_uuid], backref=backref("annotations", cascade="all, delete-orphan"))
+    annotation = relationship(AnnotationItem, foreign_keys=[annotation_id], back_populates="objects")
     rank = Column(Integer, Sequence('annotation_rank_seq'), nullable=False)
     # rank = Column(Integer, nullable=False, default=select([func.max(1, func.max(rank))]))
 
@@ -133,44 +147,90 @@ class AnnotationItemFunctionalObject(ORMBase):
         UniqueConstraint(object_uuid, rank, name=__tablename__ + '_c2'),
     )
 
+    # @validates('annotation')
+    # def validate_field(self, key, annotation):
+    #     # doesn't work when assignment
+    #     if hasattr(annotation, 'form_field') and annotation.form_field.unique:
+    #         assert annotation.id not in [f.id for f in self.annotation]
+    #     if hasattr(annotation, 'form_template') and annotation.form_template.unique:
+    #         assert annotation.id not in [f.id for f in self.annotation]
+    #     return annotation
+
 
 class AnnotationText(AnnotationItem):
     __versioned__ = {}
     __tablename__ = f"{prefix}text"
     __mapper_args__ = {
-        'polymorphic_identity': 'text',
+        'polymorphic_identity': data_object_type_id['annotation_text'],
     }
+
     id = Column(BigInteger, ForeignKey(AnnotationItem.id, ondelete="CASCADE"), primary_key=True)
     value = Column(Text, unique=True)
+
+    def __init__(self, **kwargs):
+        super(AnnotationText, self).__init__(**kwargs)
+        self.type = 'text'
 
 
 class AnnotationTemplate(AnnotationItem):
     __versioned__ = {}
     __tablename__ = f"{prefix}template"
     __mapper_args__ = {
-        'polymorphic_identity': 'template',
+        'polymorphic_identity': data_object_type_id['annotation_template'],
     }
+
     id = Column(BigInteger, ForeignKey(AnnotationItem.id, ondelete="CASCADE"), primary_key=True)
-    form_template_id = Column(BigInteger, ForeignKey(AnnotationFormTemplate.id), nullable=False)
-    form_template = relationship(AnnotationFormTemplate, backref=backref("annotations", cascade="all, delete-orphan"))
+    form_template_id = Column(BigInteger, ForeignKey(AnnotationFormTemplate.id, ondelete="CASCADE"), nullable=False)
+    form_template = relationship(AnnotationFormTemplate, back_populates="annotation_items")
     value = Column(JSONB)
 
     __table_args__ = (
         UniqueConstraint(form_template_id, value, name=__tablename__ + '_c1'),
     )
 
+    def __init__(self, **kwargs):
+        super(AnnotationTemplate, self).__init__(**kwargs)
+        self.type = 'template'
+
 
 class AnnotationField(AnnotationItem):
     __versioned__ = {}
     __tablename__ = f"{prefix}field"
     __mapper_args__ = {
-        'polymorphic_identity': 'field',
+        'polymorphic_identity': data_object_type_id['annotation_field'],
     }
+
     id = Column(BigInteger, ForeignKey(AnnotationItem.id, ondelete="CASCADE"), primary_key=True)
-    form_field_id = Column(BigInteger, ForeignKey(AnnotationFormField.id), nullable=False)
-    form_field = relationship(AnnotationFormField, backref=backref("annotations", cascade="all, delete-orphan"))
+    form_field_id = Column(BigInteger, ForeignKey(AnnotationFormField.id, ondelete="CASCADE"), nullable=False)
+    form_field = relationship(AnnotationFormField, back_populates="annotation_items")
     value = Column(JSONB)
 
     __table_args__ = (
         UniqueConstraint(form_field_id, value, name=__tablename__ + '_c1'),
+    )
+
+    def __init__(self, **kwargs):
+        super(AnnotationField, self).__init__(**kwargs)
+        self.type = 'field'
+
+
+class AnnotationRelationship(ORMBase):
+    __versioned__ = {}
+    __tablename__ = f"{prefix}relationship"
+
+    id = Column(BigInteger, primary_key=True, autoincrement=True)
+    subject_id = Column(BigInteger, ForeignKey(FunctionalObject.id, ondelete="CASCADE"), nullable=False)
+    subject = relationship(FunctionalObject, foreign_keys=[subject_id], backref=backref("related_objects", cascade="all, delete-orphan"))
+    object_id = Column(BigInteger, ForeignKey(FunctionalObject.id, ondelete="CASCADE"), nullable=False)
+    object = relationship(FunctionalObject, foreign_keys=[object_id], backref=backref("related_subjects", cascade="all, delete-orphan"))
+    form_rl_id = Column(BigInteger, ForeignKey(AnnotationFormTemplateField.id, ondelete="CASCADE"), nullable=False)
+    form_rl = relationship(AnnotationFormTemplateField, foreign_keys=[form_rl_id])
+        # , back_populates="relationships")
+    form_rev_rl_id = Column(BigInteger, ForeignKey(AnnotationFormTemplateField.id))
+    form_rev_rl = relationship(AnnotationFormTemplateField, foreign_keys=[form_rev_rl_id])
+        # , back_populates="rev_relationships")
+    value = Column(JSONB)
+
+    __table_args__ = (
+        UniqueConstraint(subject_id, object_id, form_rl_id, name=__tablename__ + '_c1'),
     )

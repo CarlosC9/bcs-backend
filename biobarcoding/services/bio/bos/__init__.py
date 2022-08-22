@@ -43,7 +43,8 @@ class BosService(BioService):
         if _filter.get('annotation_field_id'):
             from ....db_models.sa_annotations import AnnotationItem, AnnotationItemFunctionalObject
             _ids = DBSession.query(self.fos.native_id) \
-                .join(AnnotationItemFunctionalObject).join(AnnotationItem) \
+                .join(AnnotationItemFunctionalObject, AnnotationItemFunctionalObject.object_uuid == self.fos.uuid) \
+                .join(AnnotationItem, AnnotationItemFunctionalObject.annotation_id == AnnotationItem.id) \
                 .filter(filter_parse(AnnotationItem, {'id': _filter.get('annotation_field_id')}),
                         self.fos.obj_type_id == data_object_type_id[self.obj_type]).all()
             from sqlalchemy import inspect
@@ -53,7 +54,8 @@ class BosService(BioService):
             from ....db_models.sa_annotations import AnnotationFormTemplate, AnnotationTemplate, \
                 AnnotationItemFunctionalObject
             _ids = DBSession.query(self.fos.native_id) \
-                .join(AnnotationItemFunctionalObject).join(AnnotationTemplate).join(AnnotationFormTemplate) \
+                .join(AnnotationItemFunctionalObject, AnnotationItemFunctionalObject.object_uuid == self.fos.uuid) \
+                .join(AnnotationTemplate, AnnotationItemFunctionalObject.annotation_id == AnnotationTemplate.id).join(AnnotationFormTemplate) \
                 .filter(filter_parse(AnnotationFormTemplate, {'id': _filter.get('annotation_form_template_id')}),
                         self.fos.obj_type_id == data_object_type_id[self.obj_type]).all()
             from sqlalchemy import inspect
@@ -63,7 +65,8 @@ class BosService(BioService):
             from ....db_models.sa_annotations import AnnotationFormField, AnnotationField, \
                 AnnotationItemFunctionalObject
             _ids = DBSession.query(self.fos.native_id) \
-                .join(AnnotationItemFunctionalObject).join(AnnotationField).join(AnnotationFormField) \
+                .join(AnnotationItemFunctionalObject, AnnotationItemFunctionalObject.object_uuid == self.fos.uuid) \
+                .join(AnnotationField, AnnotationItemFunctionalObject.annotation_id == AnnotationField.id).join(AnnotationFormField) \
                 .filter(filter_parse(AnnotationFormField, {'id': _filter.get('annotation_form_field_id')}),
                         self.fos.obj_type_id == data_object_type_id[self.obj_type]).all()
             from sqlalchemy import inspect

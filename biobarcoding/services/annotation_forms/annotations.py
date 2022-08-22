@@ -1,4 +1,4 @@
-from .. import get_or_create
+from .. import get_or_create, listify
 from ..main import BasicService, get_orm
 from ...db_models import DBSession
 from ...db_models.core import FunctionalObject
@@ -48,35 +48,15 @@ class Service(BasicService):
 
     def prepare_external_values(self, object_id=None, **values):
         if object_id is not None and not values.get('object_uuid'):
-            if isinstance(object_id, (tuple, list, set)):
-                ids = object_id
-            else:
-                ids = [object_id]
+            ids = listify(object_id)
             values['object_uuid'] = DBSession.query(FunctionalObject.uuid) \
                 .filter(FunctionalObject.id.in_(ids)).all()
             # kwargs['object_uuid'] = [i for i, in kwargs['object_uuid']]
         return super(Service, self).prepare_external_values(**values)
 
-    def create(self, object_uuid=None, **kwargs):
-        values = kwargs.get('values')
-        if isinstance(values, (list, tuple)):
-            content, count = [], 0
-            for v in values:
-                v['object_uuid'] = v.get('object_uuid', object_uuid)
-                c, cc = super(Service, self).create(**v)
-                content.append(c)
-                count += cc
-            return content, count
-        else:
-            values['object_uuid'] = values.get('object_uuid', object_uuid)
-            return super(Service, self).create(**values)
-
     def after_create(self, new_object, **values):
         if values.get('object_uuid'):
-            if isinstance(values['object_uuid'], (tuple, list, set)):
-                ids = values.get('object_uuid')
-            else:
-                ids = [values.get('object_uuid')]
+            ids = listify(values.get('object_uuid'))
             for i in ids:
                 rl = get_or_create(self.db, AnnotationItemFunctionalObject,
                                    annotation_id=new_object.id, object_uuid=i)
@@ -116,10 +96,7 @@ class Service(BasicService):
 
     def after_update(self, new_object, **values):
         if values.get('object_uuid'):
-            if isinstance(values['object_uuid'], (tuple, list, set)):
-                ids = values.get('object_uuid')
-            else:
-                ids = [values.get('object_uuid')]
+            ids = listify(values.get('object_uuid'))
             rl = self.db.query(AnnotationItemFunctionalObject) \
                 .filter(AnnotationItemFunctionalObject.annotation_id == new_object.id)
             rl.filter(AnnotationItemFunctionalObject.object_uuid.notin_(ids)) \

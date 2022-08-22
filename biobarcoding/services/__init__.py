@@ -173,6 +173,7 @@ def get_orm_params(orm, **params):
     return dict([(k, v) for k, v in params.items() if k in schema])
 
 
+# TODO: optional flush ?
 def get_or_create(session, model, **params):
     # params = get_orm_params(model, **kwargs)
     instance = session.query(model).filter_by(**params).first()

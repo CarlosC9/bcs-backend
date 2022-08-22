@@ -1,7 +1,7 @@
 from . import FormItemService
 from ..main import get_orm
 from ...rest import filter_parse
-from ...services import get_or_create
+from ...services import get_or_create, listify
 from ...db_models.sa_annotations import AnnotationFormField, AnnotationFormTemplateField
 
 
@@ -13,7 +13,7 @@ class Service(FormItemService):
 
     def __init__(self):
         super(Service, self).__init__()
-        self.orm = get_orm('templates')
+        self.orm = get_orm('form_templates')
 
     def prepare_external_values(self, field=None, required_field=None, **values):
 
@@ -39,19 +39,13 @@ class Service(FormItemService):
         values = super(Service, self).after_create(new_object, **values)
 
         if values.get('field_id'):
-            if isinstance(values['field_id'], (tuple, list, set)):
-                ids = values.get('field_id')
-            else:
-                ids = [values.get('field_id')]
+            ids = listify(values.get('field_id'))
             for i in ids:
                 get_or_create(self.db, AnnotationFormTemplateField,
                               form_template=new_object, form_field_id=i)
 
         if values.get('required_field_id'):
-            if isinstance(values['required_field_id'], (tuple, list, set)):
-                ids = values.get('required_field_id')
-            else:
-                ids = [values.get('required_field_id')]
+            ids = listify(values.get('required_field_id'))
             for i in ids:
                 get_or_create(self.db, AnnotationFormTemplateField,
                               form_template=new_object, form_field_id=i, required=True)
@@ -62,10 +56,7 @@ class Service(FormItemService):
         values = super(Service, self).after_update(new_object, **values)
 
         if values.get('field_id') is not None:
-            if isinstance(values['field_id'], (tuple, list, set)):
-                ids = values.get('field_id')
-            else:
-                ids = [values.get('field_id')]
+            ids = listify(values.get('field_id'))
             rl = self.db.query(AnnotationFormTemplateField) \
                 .filter(AnnotationFormTemplateField.form_template_id == new_object.id,
                         AnnotationFormTemplateField.required is False)
@@ -76,10 +67,7 @@ class Service(FormItemService):
                               form_template_id=new_object.id, form_field_id=i)
 
         if values.get('required_field_id') is not None:
-            if isinstance(values['required_field_id'], (tuple, list, set)):
-                ids = values.get('required_field_id')
-            else:
-                ids = [values.get('required_field_id')]
+            ids = listify(values.get('required_field_id'))
             rl = self.db.query(AnnotationFormTemplateField) \
                 .filter(AnnotationFormTemplateField.form_template_id == new_object.id,
                         AnnotationFormTemplateField.required is True)
