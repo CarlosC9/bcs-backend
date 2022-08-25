@@ -85,7 +85,16 @@ class CrudieAPI(MethodView):
         self.pre_request(id=id, **kwargs)
 
         # TODO update from files
-        issues, content, count, status = self.service.update(**self.params)
+        try:
+            _ = self.params.get('values', {}).get('filesAPI')
+        except Exception as e:
+            _ = None
+        if _:
+            issues, content, count, status = self._import_filesAPI(**self.params.get('values'), update=True)
+        elif request.files:
+            issues, content, count, status = self._import_request_files(**self.params.get('values'), update=True)
+        else:
+            issues, content, count, status = self.service.update(**self.params)
 
         return ResponseObject(content=content, count=count, issues=issues, status=status).get_response()
 

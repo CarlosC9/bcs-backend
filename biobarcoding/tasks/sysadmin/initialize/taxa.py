@@ -184,7 +184,7 @@ def run():
 
 	print("Initializing organism entries with Biota taxa")
 	df = TaxaTaskTools.biota_get_df()
-	df = df[df.kingdom == 'Plantae']		# only the Plantae kingdom (species: 3791 instead of 25161)
+	df = df[df.kingdom == 'Plantae'][df.environment == 'Terrestre']		# only the Plantae kingdom (species: 3791 instead of 25161)
 
 	print(' > Getting Biota species')
 	for i, org in df[~df.species.str.contains('ssp.') | ~df.species.str.contains('subsp.')].iterrows():

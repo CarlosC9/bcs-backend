@@ -11,7 +11,7 @@ from ..db_models.core import data_object_type_id
 from ..db_models.metadata import Taxon
 from ..db_models.sa_annotations import AnnotationFormField, AnnotationFormTemplate, AnnotationFormItemObjectType, \
     AnnotationTemplate, AnnotationField, AnnotationItemFunctionalObject, AnnotationFormTemplateField
-from ..services import log_exception, get_encoding, tsv_pd_parser, csv_pd_parser, get_filtering
+from ..services import log_exception, get_encoding, tsv_pd_parser, csv_pd_parser, get_filtering, get_or_create, listify
 from ..services.bio.meta.ontologies import get_type_id
 from ..services.bio.meta.organisms import split_org_name, get_taxonomic_ranks
 
@@ -32,13 +32,6 @@ def clear_entries():
     for _ in (taxa_rows, stock_rl_rows, ann_rl_rows, ansis_rl_rows, ansis_src_rows,
               org_batch, stock_batch, specimen_batch, feat_batch, ann_batch):
         _.clear()
-
-
-def get_or_create(session, model, **params):
-    instance = session.query(model).filter_by(**params).first()
-    if not instance:
-        instance = model(**params)
-    return instance
 
 
 def gff_parser(file) -> SeqRecord:
@@ -90,29 +83,27 @@ def seqs_parser(file, _format='fasta') -> SeqRecord:
 
 def set_annotation(seq):
 
-    ann = []
-
     def get_or_create_ann_form(name: str, standard: str = '', fields: list = []):
-        form_template = get_or_create(DBSession, AnnotationFormTemplate, name=name)
+        form_template = get_or_create(DBSession, AnnotationFormTemplate, no_flush=True, name=name)
         if not form_template.id:
             DBSession.add(form_template)
             form_template.standard = form_template.standard or standard
-            get_or_create(DBSession, AnnotationFormItemObjectType,
+            get_or_create(DBSession, AnnotationFormItemObjectType, no_flush=True,
                           form_item=form_template, object_type_id=data_object_type_id['sequence'])
             for field in fields:
-                form_field = get_or_create(DBSession, AnnotationFormField, name=field)
+                form_field = get_or_create(DBSession, AnnotationFormField, no_flush=True, name=field)
                 DBSession.add(form_field)
                 form_field.standard = form_field.standard or standard
-                get_or_create(DBSession, AnnotationFormItemObjectType,
+                get_or_create(DBSession, AnnotationFormItemObjectType, no_flush=True,
                               form_item=form_field, object_type_id=data_object_type_id['sequence'])
-                get_or_create(DBSession, AnnotationFormTemplateField,
+                get_or_create(DBSession, AnnotationFormTemplateField, no_flush=True,
                               form_template=form_template, form_field=form_field)
         return form_template
 
     def encode_template_value(value: dict, standard: str = ''):
         form_value = value.copy()
         for k, v in value.items():
-            form_field = get_or_create(DBSession, AnnotationFormField, standard=standard, name=k)
+            form_field = get_or_create(DBSession, AnnotationFormField, no_flush=True, standard=standard, name=k)
             form_value[form_field.id] = form_value.get(form_field.id, form_value.pop(form_field.name, None))
         return form_value
 
@@ -137,6 +128,8 @@ def set_annotation(seq):
             ANN_ENTRIES[instance] = instance
             ann_batch.append(instance)
         return instance
+
+    ann = []
 
     # bibtex
     for ref in seq.annotations.pop('references', []):
@@ -169,15 +162,17 @@ def set_annotation(seq):
 
 
 def get_gene_field_id():
-    gene_field = get_or_create(DBSession, AnnotationFormField, name='gene')
-    DBSession.add(gene_field)
-    object_type = get_or_create(DBSession, ObjectType, name='sequence')
-    DBSession.add(object_type)
-    DBSession.flush()
-    ann_obj = get_or_create(DBSession, AnnotationFormItemObjectType,
-                            form_item_id=gene_field.id,
-                            object_type_id=object_type.id)
-    DBSession.add(ann_obj)
+    gene_field = get_or_create(DBSession, AnnotationFormField, no_flush=True, name='gene')
+    gene_field.standard = 'NEXTGENDEM' if not gene_field.standard else gene_field.standard
+    if not gene_field.id:
+        DBSession.add(gene_field)
+        object_type = get_or_create(DBSession, ObjectType, no_flush=True, name='sequence')
+        DBSession.add(object_type)
+        DBSession.flush()
+        ann_obj = get_or_create(DBSession, AnnotationFormItemObjectType, no_flush=True,
+                                form_item_id=gene_field.id,
+                                object_type_id=object_type.id)
+        DBSession.add(ann_obj)
     return gene_field.id
 
 
@@ -201,7 +196,7 @@ def find_org(seq) -> any:  # try to find out the organism from db
     return None
 
 
-def import_file(infile, _format=None, data=None, analysis_id=None, **kwargs):
+def import_file(infile, _format=None, data=None, analysis_id=None, update=False, **kwargs):
     # TODO:
     #  use kwargs (p.e. analysis_id, gene, organism_id)
     #  batch queries ?
@@ -233,9 +228,9 @@ def import_file(infile, _format=None, data=None, analysis_id=None, **kwargs):
                 if _org and _org in ORG_ENTRIES:
                     continue
                 elif _org:
-                    taxa_rows.append(get_or_create(DBSession, Taxon, name=_org))
+                    taxa_rows.append(get_or_create(DBSession, Taxon, no_flush=True, name=_org))
                     _ = dict(zip(('genus', 'species', 'infraspecific_name'), split_org_name(_org)))
-                    _row = get_or_create(DBSessionChado, Organism, **_)
+                    _row = get_or_create(DBSessionChado, Organism, no_flush=True, **_)
                     if not _row.type_id:
                         _row.type_id = org_no_rank_id
                     org_batch.append(_row)
@@ -249,7 +244,7 @@ def import_file(infile, _format=None, data=None, analysis_id=None, **kwargs):
                         continue
                     else:
                         print('Warning: Unknown organism for', seq.id)
-                        _row = get_or_create(DBSessionChado, Organism, genus='unknown', species='organism')
+                        _row = get_or_create(DBSessionChado, Organism, no_flush=True, genus='unknown', species='organism')
                         if not _row.type_id:
                             _row.type_id = org_no_rank_id
                         org_batch.append(_row)
@@ -267,22 +262,32 @@ def import_file(infile, _format=None, data=None, analysis_id=None, **kwargs):
                 _org_id = ORG_ENTRIES[_org].organism_id
                 _ind, _ind_v = seq_name2ind(seq.id)
                 if _ind not in STOCK_ENTRIES:
-                    _ = get_or_create(DBSessionChado, Stock, uniquename=_ind, type_id=ind_type_id)
+                    _ = get_or_create(DBSessionChado, Stock, no_flush=True, uniquename=_ind, type_id=ind_type_id)
                     _.organism_id = _org_id
                     STOCK_ENTRIES[_ind] = _
                     stock_batch.append(_)
                 if _ind not in SPECIMEN_ENTRIES:
-                    SPECIMEN_ENTRIES[_ind] = get_or_create(DBSession, Specimen, name=_ind)
+                    SPECIMEN_ENTRIES[_ind] = get_or_create(DBSession, Specimen, no_flush=True, name=_ind)
                     specimen_batch.append(SPECIMEN_ENTRIES[_ind])
                 # STEP 2: feature (sequence)
                 _id = f'{seq.id}.a{analysis_id}' if analysis_id else seq.id     # TODO: add gene
                 if analysis_id:
                     feat_src_batch[_id] = seq.id
                 _name = seq.name if seq.name and seq.name != '<unknown name>' \
-                            else seq.description or seq.id
-                feat_batch.append(Feature(uniquename=_id, name=_name, organism_id=_org_id,
-                                          type_id=seq_type_id, is_analysis=bool(analysis_id),
-                                          residues=str(seq.seq), seqlen=len(seq.seq)))
+                    else seq.description or seq.id
+                if update:
+                    _feat = get_or_create(DBSessionChado, Feature, no_flush=True, uniquename=_id)
+                    _feat.name = _name
+                    _feat.organism_id = _org_id
+                    _feat.type_id = seq_type_id
+                    _feat.is_analysis = bool(analysis_id)
+                    _feat.residues = str(seq.seq)
+                    _feat.seqlen = len(seq.seq)
+                else:
+                    _feat = Feature(uniquename=_id, name=_name, organism_id=_org_id,
+                                    type_id=seq_type_id, is_analysis=bool(analysis_id),
+                                    residues=str(seq.seq), seqlen=len(seq.seq))
+                feat_batch.append(_feat)
                 # STEP 3: annotations (gene/region)
                 for f in seq.features:
                     if f.type == 'gene':
@@ -327,20 +332,26 @@ def import_file(infile, _format=None, data=None, analysis_id=None, **kwargs):
                 if analysis_id:
                     try:
                         src = DBSessionChado.query(Feature).filter(Feature.uniquename == feat_src_batch.get(_id)).one()
-                        ansis_src_rows.append(Featureloc(feature_id=feature.feature_id, srcfeature_id=src.feature_id))
+                        ansis_src_rows.append(get_or_create(DBSessionChado, Featureloc, no_flush=True,
+                                                            feature_id=feature.feature_id, srcfeature_id=src.feature_id))
                     except Exception as e:
                         print('Warning: Feature source could not be found.')
-                    ansis_rl_rows.append(AnalysisFeature(analysis_id=analysis_id, feature_id=feature.feature_id))
+                    ansis_rl_rows.append(get_or_create(DBSessionChado, AnalysisFeature, no_flush=True,
+                                                       analysis_id=analysis_id, feature_id=feature.feature_id))
                 # STEP 2: sequence (sysadmin)
                 _stock_id = STOCK_ENTRIES[_ind].stock_id
                 _spec = SPECIMEN_ENTRIES[_ind]
                 _spec.native_id = _stock_id
-                seq_entries[_id] = Sequence(name=_id, specimen_id=_spec.id, native_id=feature.feature_id)
+                if update:
+                    seq_entries[_id] = get_or_create(DBSession, Sequence, no_flush=True, name=_id)
+                    seq_entries[_id].specimen_id = _spec.id
+                    seq_entries[_id].native_id = feature.feature_id
+                else:
+                    seq_entries[_id] = Sequence(name=_id, specimen_id=_spec.id, native_id=feature.feature_id)
                 seq_batch.append(seq_entries[_id])
                 # STEP 3: stock relationship (individual)
-                stock_rl_rows.append(StockFeature(stock_id=_stock_id,
-                                                  feature_id=feature.feature_id,
-                                                  type_id=feature.type_id))
+                stock_rl_rows.append(get_or_create(DBSessionChado, StockFeature, no_flush=True, stock_id=_stock_id,
+                                                   feature_id=feature.feature_id, type_id=feature.type_id))
 
             # # BATCH_READING 4: the rows that require sysadmin:sequence
             # STEP 0: add the required rows to the session and flush
@@ -361,7 +372,8 @@ def import_file(infile, _format=None, data=None, analysis_id=None, **kwargs):
                     if not seq:
                         print(f'ANN_SEQ NOT FOUND: {s} - {a}')
                         continue
-                    ann_rl_rows.append(AnnotationItemFunctionalObject(annotation_id=ann.id, object_uuid=seq.uuid))
+                    ann_rl_rows.append(get_or_create(DBSession, AnnotationItemFunctionalObject, no_flush=True,
+                                                     annotation_id=ann.id, object_uuid=seq.uuid))
             print('ANNOTATED:', len(seq_batch))
 
         print('BATCHES DONE')
