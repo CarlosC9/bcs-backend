@@ -205,6 +205,9 @@ def import_file(infile, _format=None, data=None, analysis_id=None, update=False,
 
         clear_entries()
         gene = get_filtering('gene', kwargs)        # TODO import only this region ?
+        if gene:
+            from genbank_sequences import GenbankSeqsTools
+            infile = GenbankSeqsTools.split_seqs(infile, infile + '.sp', listify(gene))
         ind_type_id = get_type_id(type='stock')
         seq_type_id = get_type_id(type='sequence', subtype='aligned' if analysis_id else None)
         gene_field_id = get_gene_field_id()
