@@ -149,7 +149,7 @@ class Service(MetaService):
     ##
 
     def attach_data(self, *content) -> list:
-        new = super(Service, self).attach_data(*content)
+        new = super(Service, self).attach_data(*content)        # TODO: thread canonical query if content is too big ?
 
         from ... import force_underscored
         from ...species_names import get_canonical_species_names

@@ -57,7 +57,7 @@ class TaxaTaskTools:
 		"""
 		print(">> WORKING ON: biota_get_csv")
 		if overwrite or not os.path.isfile(file):
-			r = requests.get(BIOTA_URL)
+			r = requests.get(BIOTA_URL, verify=False)
 			# r.encoding = r.apparent_encoding
 			with open(file, 'w') as f:
 				f.write(r.content.decode(r.encoding))
@@ -188,26 +188,26 @@ def run():
 
 	print(' > Getting Biota species')
 	for i, org in df[~df.species.str.contains('ssp.') | ~df.species.str.contains('subsp.')].iterrows():
-		print(create_request('/organisms/', split_name=1, **org, rank='species'))
+		print(create_request('organisms/', split_name=1, **org, rank='species'))
 	_th = threading.Thread(target=read_request, name='Look for canonical names',
-							args=['/organisms/'], kwargs={'filter': {'rank': 'species'}})
+							args=['organisms/'], kwargs={'filter': {'rank': 'species'}})
 	_th.start()
 
 	print(' > Getting Biota subspecies')
 	for i, org in df[df.species.str.contains('ssp.') | df.species.str.contains('subsp.')].iterrows():
-		print(create_request('/organisms/', split_name=1, **org, rank='subspecies'))
+		print(create_request('organisms/', split_name=1, **org, rank='subspecies'))
 	_th = threading.Thread(target=read_request, name='Look for canonical names',
-							args=['/organisms/'], kwargs={'filter': {'rank': 'subspecies'}})
+							args=['organisms/'], kwargs={'filter': {'rank': 'subspecies'}})
 	_th.start()
 
-	ranks = read_request('/ontologies/terms/', filter={'cv': 'taxonomic_rank'})
+	ranks = read_request('ontologies/terms/', filter={'cv': 'taxonomic_rank'})
 	for rank in [_.get('name') for _ in json.loads(ranks.text).get('content')
 					if _.get('name') and _['name'] != 'species' and _['name'] in BIOTA_COLUMNS.values()]:
 		print(' > Getting Biota ' + rank)
 		for org in TaxaTaskTools.biota_get_by_rank(df, rank):
-			print(create_request('/organisms/', species=org, rank=rank))
+			print(create_request('organisms/', species=org, rank=rank))
 		_th = threading.Thread(target=read_request, name='Look for canonical names',
-								args=['/organisms/'], kwargs={'filter': {'rank': rank}})
+								args=['organisms/'], kwargs={'filter': {'rank': rank}})
 		_th.start()
 
 	return 'DONE'

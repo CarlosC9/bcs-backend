@@ -1,3 +1,5 @@
+from os import path
+
 from ..system import SA_TASK_SESSION
 from ... import get_global_configuration_variable
 from ...rest import app_api_base
@@ -10,7 +12,7 @@ REQUEST_URL = f"{ENDPOINT}{app_api_base}"
 
 def create_request(url_suffix, **kwargs):
     try:
-        url = f"{REQUEST_URL}{url_suffix}"
+        url = path.join(REQUEST_URL, url_suffix)
         print('POST ' + url)
         return SA_TASK_SESSION.post(url, json=kwargs, headers={'Content-Type': 'application/json'})
     except Exception as e:
@@ -21,9 +23,20 @@ def create_request(url_suffix, **kwargs):
 
 def read_request(url_suffix, **kwargs):
     try:
-        url = f"{REQUEST_URL}{url_suffix}"
+        url = path.join(REQUEST_URL, url_suffix)
         print('GET ' + url)
         return SA_TASK_SESSION.get(url, json=kwargs)
+    except Exception as e:
+        print(f'Something went wrong when reading the {kwargs.get("name")}.')
+        log_exception(e)
+        return None
+
+
+def update_request(url_suffix, **kwargs):
+    try:
+        url = path.join(REQUEST_URL, url_suffix)
+        print('PUT ' + url)
+        return SA_TASK_SESSION.put(url, json=kwargs)
     except Exception as e:
         print(f'Something went wrong when reading the {kwargs.get("name")}.')
         log_exception(e)

@@ -95,6 +95,7 @@ class Service(BasicService):
             raise Exception('UPDATE: Bad request for update annotations.')
 
     def after_update(self, new_object, **values):
+
         if values.get('object_uuid'):
             ids = listify(values.get('object_uuid'))
             rl = self.db.query(AnnotationItemFunctionalObject) \
@@ -104,6 +105,13 @@ class Service(BasicService):
             for i in ids:
                 get_or_create(self.db, AnnotationItemFunctionalObject,
                               annotation_id=new_object.id, object_uuid=i)
+
+        if values.get('new_object_uuid'):
+            ids = listify(values.get('new_object_uuid'))
+            for i in ids:
+                get_or_create(self.db, AnnotationItemFunctionalObject,
+                              annotation_id=new_object.id, object_uuid=i)
+
         return values
 
     def get_query(self, query=None, purpose='delete', object_uuid=None, **kwargs) -> (object, int):

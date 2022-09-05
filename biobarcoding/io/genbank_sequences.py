@@ -3,7 +3,7 @@ from Bio import Entrez, SeqIO, SeqRecord, SeqFeature
 from biobarcoding import app_acronym
 
 Entrez.email = f"admin@{app_acronym}.eu"
-TAXON_SLOT_SIZE = "20"
+TAXON_SLOT_SIZE = "10"
 
 
 class GenbankSeqsTools:
@@ -32,19 +32,21 @@ class GenbankSeqsTools:
 		return outfile
 
 	@staticmethod
-	def split_seqs(src_file: str, dst_file: str, genes: list = ('matk', 'rbcl', 'its')):
+	def split_seqs(src_file: str, dst_file: str, genes: list = ('matk', 'rbcl', 'its'), _format: str = 'gb'):
 		"""
 		Extract genes from Genbank sequence file to a new file
 		:param src_file: pathfile with the sequences
 		:param dst_file: pathfile to store the data
+		:param genes: genes to be extracted
+		:param _format: input file format
 		:return: dst_file
 		"""
 
 		def is_gene(feat: SeqFeature):
 			"""
-			Do something
-			:param :
-			:return:
+			Check if a SeqFeature is a gene, and it is wanted
+			:param feat: a SeqFeature
+			:return: bool
 			"""
 			if not feat.qualifiers.get('gene'):
 				return False        # TODO: what is it ?
@@ -65,7 +67,7 @@ class GenbankSeqsTools:
 
 		result, missing = {}, 0
 		with open(src_file) as input_handle:
-			for record in SeqIO.parse(input_handle, 'gb'):
+			for record in SeqIO.parse(input_handle, _format):
 				_len = len(result)
 				for f in record.features:
 					if f.type == "gene" and is_gene(f):
@@ -79,7 +81,7 @@ class GenbankSeqsTools:
 		print('EXTRACTED: %s\tMISSING: %s' % (len(result), missing))
 
 		with open(dst_file, "w") as fs:
-			SeqIO.write(result.values(), fs, 'gb')
+			SeqIO.write(result.values(), fs, _format)
 		print('Sequences in file %s splited.' % (src_file))
 
 		return dst_file
@@ -113,5 +115,4 @@ def run():
 
 
 if __name__ == '__main__':
-	GenbankSeqsTools.split_seqs('/home/acurbelo/Proyectos/biodata/gbk_biota/gbk_biota_full_220824.gb',
-								'/home/acurbelo/Proyectos/biodata/gbk_biota/gbk_subseqs_full_220825.gb')
+	run()
