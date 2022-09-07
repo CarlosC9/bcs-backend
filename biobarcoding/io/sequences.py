@@ -4,12 +4,10 @@ from Bio.SeqRecord import SeqRecord
 from sqlalchemy import case, func
 
 from . import batch_iterator
-from ..db_models import DBSessionChado, DBSession, ObjectType
+from ..db_models import DBSessionChado, DBSession
 from ..db_models.bioinformatics import Sequence, Specimen
 from ..db_models.chado import Organism, Stock, Feature, StockFeature, Featureloc, AnalysisFeature
 from ..db_models.metadata import Taxon
-from ..db_models.sa_annotations import AnnotationFormField, AnnotationFormItemObjectType, \
-    AnnotationField
 from ..services import log_exception, get_encoding, tsv_pd_parser, csv_pd_parser, get_filtering, get_or_create, listify
 from ..services.bio.meta.ontologies import get_type_id
 from ..services.bio.meta.organisms import split_org_name, get_taxonomic_ranks
@@ -78,34 +76,6 @@ def seqs_parser(file, _format='fasta') -> SeqRecord:
 # ANNOTATION TOOLS
 ##
 
-def get_gene_field_id():
-    gene_field = get_or_create(DBSession, AnnotationFormField, no_flush=True, name='gene', standard='NEXTGENDEM')
-    if not gene_field.id:
-        DBSession.add(gene_field)
-        object_type = get_or_create(DBSession, ObjectType, no_flush=True, name='sequence')
-        DBSession.add(object_type)
-        DBSession.flush()
-        ann_obj = get_or_create(DBSession, AnnotationFormItemObjectType, no_flush=True,
-                                form_item_id=gene_field.id,
-                                object_type_id=object_type.id)
-        DBSession.add(ann_obj)
-    return gene_field.id
-
-
-def get_source_ann(source: any):
-    source_form_f = get_or_create(DBSession, AnnotationFormField, no_flush=True, name='source', standard='NEXTGENDEM')
-    if not source_form_f.id:
-        DBSession.add(source_form_f)
-        object_type = get_or_create(DBSession, ObjectType, no_flush=True, name='sequence')
-        DBSession.add(object_type)
-        DBSession.flush()
-        ann_obj = get_or_create(DBSession, AnnotationFormItemObjectType, no_flush=True,
-                                form_item_id=source_form_f.id,
-                                object_type_id=object_type.id)
-        DBSession.add(ann_obj)
-    return get_or_create(DBSession, AnnotationField, form_field=source_form_f, value=source).id
-
-
 def set_annotation(seq):
 
     ann = []
@@ -132,13 +102,13 @@ def set_annotation(seq):
     return ann
 
 
-def add_ann_entry(ann, seq_id):
+def add_ann_entry(ann, *seq_ids):
     from .annotations import ann_value_dump
     _hash = ann_value_dump(ann)
     if ANN_ENTRIES.get(_hash):
-        ANN_ENTRIES[_hash].add(seq_id)
+        ANN_ENTRIES[_hash].union(seq_ids)
     else:
-        ANN_ENTRIES[_hash] = {seq_id}
+        ANN_ENTRIES[_hash] = {*seq_ids}
 
 
 ##
@@ -193,10 +163,6 @@ def import_file(infile, _format=None, data=None, analysis_id=None, update=False,
             print(f'Extracting %s regions')
             from genbank_sequences import GenbankSeqsTools
             infile = GenbankSeqsTools.split_seqs(infile, infile + '.sp', listify(gene), _format)
-        gene_field_id = get_gene_field_id()
-
-        source = get_filtering('source', kwargs)
-        source_field_id = get_source_ann(source) if source else None
 
         def get_seq_uniquename(s: SeqRecord):
             return f'{s.id}.a{analysis_id}' if analysis_id else s.id     # TODO: add gene ?
@@ -325,7 +291,7 @@ def import_file(infile, _format=None, data=None, analysis_id=None, update=False,
             _q_stock = DBSession.query(Specimen).filter(
                 Specimen.name.in_([_ for _ in _q_ind if _ not in STOCK_ENTRIES]))
             for _s in _q_stock.all():
-                SPECIMEN_ENTRIES[_s.uniquename] = _s
+                SPECIMEN_ENTRIES[_s.name] = _s
 
             for seq in batch:
                 # STEP 1: stock/specimen
@@ -355,7 +321,7 @@ def import_file(infile, _format=None, data=None, analysis_id=None, update=False,
                     if f.type == 'gene':
                         # TODO: split by gene range ?
                         for ann in f.qualifiers.get('gene'):
-                            _ = {'field': {'id': gene_field_id},
+                            _ = {'field': {'name': 'gene', 'standard': 'NEXTGENDEM'},
                                  'value': ann.lower() if isinstance(ann, str) else ann}
                             add_ann_entry(_, seq.id)
                 for ann in set_annotation(seq):
@@ -434,10 +400,18 @@ def import_file(infile, _format=None, data=None, analysis_id=None, update=False,
             for k, v in ANN_ENTRIES.items():
                 _list = []
                 for uniquename in list(v):
-                    _list.append(SEQ_ENTRIES[uniquename].uuid)
+                    _list.append(str(SEQ_ENTRIES[uniquename].uuid))
                 ANN_ENTRIES[k] = _list
+            source = get_filtering('source', kwargs)
+            if source:
+                _ = {'field': {'name': 'source', 'standard': 'NEXTGENDEM'},
+                     'value': source}
+                add_ann_entry(_, *[str(_seq.uuid) for _seqs in SEQ_ENTRIES.values() for _seq in _seqs])
             from ..tasks.system import sa_seq_ann_task
-            sa_seq_ann_task.delay(ANN_ENTRIES)
+            # sa_seq_ann_task.delay(ANN_ENTRIES)
+            import pickle
+            with open('/home/acurbelo/Escritorio/tmp', 'wb') as f:
+                pickle.dump(ANN_ENTRIES, f)
         except Exception as e:
             log_exception(e)
             print('WARNING: The sequences could not be annotated.')

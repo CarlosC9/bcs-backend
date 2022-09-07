@@ -1,4 +1,4 @@
-from .. import get_or_create, listify
+from .. import get_or_create, listify, get_filtering
 from ..main import BasicService, get_orm
 from ...db_models import DBSession
 from ...db_models.core import FunctionalObject
@@ -115,10 +115,15 @@ class Service(BasicService):
         return values
 
     def get_query(self, query=None, purpose='delete', object_uuid=None, **kwargs) -> (object, int):
+
+        if get_filtering("type", kwargs) in ('template', 'field', 'text'):
+            self.orm = get_orm(f'annotation_{get_filtering("type", kwargs)}')
+
         if object_uuid:
             query = query or self.pre_query(purpose) or self.db.query(self.orm)
             query = query.join(AnnotationItemFunctionalObject).filter(
                 AnnotationItemFunctionalObject.object_uuid == object_uuid).order_by(AnnotationItemFunctionalObject.rank)
+
         return super(Service, self).get_query(query=query, **kwargs)
 
     def aux_filter(self, _filter: dict) -> list:

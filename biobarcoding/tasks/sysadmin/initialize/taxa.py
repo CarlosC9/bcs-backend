@@ -1,7 +1,7 @@
 import json
 import re
 import os.path
-import threading
+from threading import Thread
 import pandas as pd
 from Bio import Entrez
 import requests
@@ -189,15 +189,15 @@ def run():
 	print(' > Getting Biota species')
 	for i, org in df[~df.species.str.contains('ssp.') | ~df.species.str.contains('subsp.')].iterrows():
 		print(create_request('organisms/', split_name=1, **org, rank='species'))
-	_th = threading.Thread(target=read_request, name='Look for canonical names',
-							args=['organisms/'], kwargs={'filter': {'rank': 'species'}})
+	_th = Thread(target=read_request, name='Look for canonical names',
+				args=['organisms/'], kwargs={'filter': {'rank': 'species'}})
 	_th.start()
 
 	print(' > Getting Biota subspecies')
 	for i, org in df[df.species.str.contains('ssp.') | df.species.str.contains('subsp.')].iterrows():
 		print(create_request('organisms/', split_name=1, **org, rank='subspecies'))
-	_th = threading.Thread(target=read_request, name='Look for canonical names',
-							args=['organisms/'], kwargs={'filter': {'rank': 'subspecies'}})
+	_th = Thread(target=read_request, name='Look for canonical names',
+				args=['organisms/'], kwargs={'filter': {'rank': 'subspecies'}})
 	_th.start()
 
 	ranks = read_request('ontologies/terms/', filter={'cv': 'taxonomic_rank'})
@@ -206,8 +206,8 @@ def run():
 		print(' > Getting Biota ' + rank)
 		for org in TaxaTaskTools.biota_get_by_rank(df, rank):
 			print(create_request('organisms/', species=org, rank=rank))
-		_th = threading.Thread(target=read_request, name='Look for canonical names',
-								args=['organisms/'], kwargs={'filter': {'rank': rank}})
+		_th = Thread(target=read_request, name='Look for canonical names',
+					args=['organisms/'], kwargs={'filter': {'rank': rank}})
 		_th.start()
 
 	return 'DONE'

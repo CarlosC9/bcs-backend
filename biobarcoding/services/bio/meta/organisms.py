@@ -1,3 +1,6 @@
+from threading import Thread
+from time import sleep
+
 from . import MetaService
 from ... import log_exception
 from ...main import get_orm
@@ -155,12 +158,26 @@ class Service(MetaService):
         from ...species_names import get_canonical_species_names
         names = [" ".join([_['genus'], _['species'], _['infraspecific_name'] or '']).strip() for _ in new]
         c_names = cu_names = lineages = [None] * len(names)
+
+        def async_canonical_names(u: bool = False):
+            _th = Thread(target=get_canonical_species_names, name='Look for canonical names',
+                         args=[None, names], kwargs={'underscores': u})
+            _th.start()
+            for _ in range(3):
+                sleep(1)
+                if not _th.is_alive():
+                    break
+            if _th.is_alive():
+                raise Exception()
+
         try:
+            async_canonical_names()
             c_names = get_canonical_species_names(DBSession, names)
         except Exception as e:
             print('Warning: Canonical species names could not be retrieved.')
             log_exception(e)
         try:
+            async_canonical_names(True)
             cu_names = get_canonical_species_names(DBSession, names, underscores=True)
         except Exception as e:
             print('Warning: Canonical underscored species names could not be retrieved.')

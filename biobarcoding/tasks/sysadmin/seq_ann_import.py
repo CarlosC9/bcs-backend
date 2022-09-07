@@ -31,12 +31,20 @@ def run(ann_entries: dict):
 	def get_ann_type(arg):
 		return'template' if arg.get('template') else 'field' if arg.get('field') else None
 
-	def create_template(params, value):
-		r = create_request('annotation_form_templates/', **params)
-		for field_name in value:
-			_ = create_request('annotation_form_fields/', **dict(
-				list(params.items()) + [('name', field_name), ('template_id', get_response_id(r))]))
-		return r
+	def build_template(template_id, standard, value):
+		for field_name in value.copy():
+			try:
+				_ = read_request('annotation_form_fields/',
+									name=field_name, template_id=template_id, standard=standard)
+				if get_response_count(_) != 1:
+					raise Exception()
+			except Exception as e:
+				_ = create_request('annotation_form_fields/',
+									name=field_name, template_id=template_id, standard=standard)
+			if get_response_id(_):
+				value[get_response_id(_)] = value.pop(field_name)
+		print(list(value.keys()))
+		return value
 
 	c_form, c_ann = 0, 0
 	for _hash, seqs in ann_entries.items():
@@ -56,16 +64,17 @@ def run(ann_entries: dict):
 
 		# get_or_create form_item
 		try:
-			response = read_request('annotation_form_%ss/' % form_item_type, **form_item)
+			response = read_request('annotation_form_%ss/' % form_item_type, filter=form_item)
 			if get_response_count(response) != 1:
 				raise Exception()
 		except Exception as e:
 			print('"form_%s" not found, creating it' % form_item_type)
-			if form_item_type == 'template':
-				response = create_template(form_item, form_json_value)
-			else:
-				response = create_request('annotation_form_fields/', **form_item)
+			response = create_request('annotation_form_%ss/' % form_item_type, **form_item)
 			c_form += 1
+
+		if form_item_type == 'template':
+			form_template = get_response_content(response)[0]
+			build_template(form_template.get('id'), form_template.get('standard'), form_json_value)
 
 		# get_or_create template or field
 		form_item_id = get_response_id(response)
@@ -73,7 +82,7 @@ def run(ann_entries: dict):
 			continue
 		values = {'form_%s_id' % form_item_type: form_item_id, 'type': form_item_type}
 		try:
-			response = read_request('annotations', **values, value=form_value)
+			response = read_request('annotations', filter={**values, 'value': form_value})
 			if get_response_count(response) != 1:
 				raise Exception()
 		except Exception as e:
@@ -95,3 +104,12 @@ def run(ann_entries: dict):
 	print('ANNOTATION_LINKS:', len([id for seq_ids in ann_entries.values() for id in seq_ids]))
 
 	return 'DONE'
+
+
+if __name__ == '__main__':
+	from biobarcoding.tasks.system import sa_task_login
+	sa_task_login()
+	import pickle
+	with open('/home/acurbelo/Escritorio/tmp', 'rb') as f:
+		_ = pickle.load(f)
+	run(_)
