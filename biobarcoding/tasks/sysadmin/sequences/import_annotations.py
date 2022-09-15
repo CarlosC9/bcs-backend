@@ -104,12 +104,3 @@ def run(ann_entries: dict):
 	print('ANNOTATION_LINKS:', len([id for seq_ids in ann_entries.values() for id in seq_ids]))
 
 	return 'DONE'
-
-
-if __name__ == '__main__':
-	from biobarcoding.tasks.system import sa_task_login
-	sa_task_login()
-	import pickle
-	with open('/home/acurbelo/Escritorio/tmp', 'rb') as f:
-		_ = pickle.load(f)
-	run(_)

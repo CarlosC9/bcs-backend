@@ -16,18 +16,18 @@ from ....rest import filter_parse
 def get_taxonomic_ranks(rank):
     from ....db_models.chado import Cv, Cvterm
     try:
-        return DBSessionChado.query(Cvterm.cvterm_id).join(Cv) \
-            .filter(Cv.name == 'taxonomic_rank', Cvterm.name == rank).one()
+        return DBSessionChado.query(Cvterm).join(Cv) \
+            .filter(Cv.name == 'taxonomic_rank', Cvterm.name == rank).one().cvterm_id
     except Exception as e:
         pass
     try:
-        return DBSessionChado.query(Cvterm.cvterm_id).join(Cv) \
-            .filter(Cv.name == 'taxonomic', Cvterm.name == rank).one()
+        return DBSessionChado.query(Cvterm).join(Cv) \
+            .filter(Cv.name == 'taxonomic', Cvterm.name == rank).one().cvterm_id
     except Exception as e:
         pass
     try:
-        return DBSessionChado.query(Cvterm.cvterm_id).join(Cv) \
-            .filter(Cv.name == 'taxonomic_rank', Cvterm.name == 'no_rank').one()
+        return DBSessionChado.query(Cvterm).join(Cv) \
+            .filter(Cv.name == 'taxonomic_rank', Cvterm.name == 'no_rank').one().cvterm_id
     except Exception as e:
         pass
     return 1

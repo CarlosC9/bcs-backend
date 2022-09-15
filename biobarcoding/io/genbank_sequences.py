@@ -112,7 +112,3 @@ def run():
 	# TODO: import file
 
 	return 'DONE'
-
-
-if __name__ == '__main__':
-	run()

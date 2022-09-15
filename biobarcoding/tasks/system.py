@@ -69,9 +69,9 @@ def sa_seq_ann_task(ann_entries: dict):
 
     try:
         sa_task_login()
-        print('SA_TASK: seq_ann_import')
-        from biobarcoding.tasks.sysadmin import seq_ann_import
-        seq_ann_import.run(ann_entries)
+        print('SA_TASK: sequences import_annotations')
+        from .sysadmin.sequences.import_annotations import run
+        run(ann_entries)
         sa_task_logout()
         return None
     except Exception as e:
