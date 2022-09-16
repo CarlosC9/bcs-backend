@@ -233,7 +233,7 @@ def initialize_bibtex_forms():
 		},
 	]
 	for i in bibtex_fields:
-		create_request('/annotation_form_fields/', **i, cv='bibtex', standard='BibTex', object_type_id=object_type_id)
+		create_request('annotation_form_fields/', **i, cv='bibtex', standard='BibTex', object_type_id=object_type_id)
 
 	print(' > Creating BibTex templates')
 	bibtex_entities = [
@@ -407,7 +407,7 @@ def initialize_bibtex_forms():
 		},
 	]
 	for i in bibtex_entities:
-		create_request('/annotation_form_templates/', **i, cv='bibtex', standard='BibTex', object_type_id=object_type_id)
+		create_request('annotation_form_templates/', **i, cv='bibtex', standard='BibTex', object_type_id=object_type_id)
 
 
 ##
@@ -530,7 +530,7 @@ def initialize_dwc_forms():
 		uri = row['vann_preferredNamespaceUri'] + row['term_localName']
 		curie = row['vann_preferredNamespacePrefix'] + ":" + row['term_localName']
 		print('[' + curie + '](#' + curie.replace(':', '_') + ')\n' + uri)
-		create_request('/annotation_form_templates/', **__dwc_term2annotation(**row))
+		create_request('annotation_form_templates/', **__dwc_term2annotation(**row))
 
 	print('\n > Creating Darwin Core fields')
 
@@ -547,7 +547,7 @@ def initialize_dwc_forms():
 			values = __dwc_term2annotation(**row)
 			if category_label[i] not in templates:
 				values.pop('tdwgutility_organizedInClass', '')
-			create_request('/annotation_form_fields/', **values)
+			create_request('annotation_form_fields/', **values)
 
 
 def run():

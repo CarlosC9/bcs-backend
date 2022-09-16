@@ -136,7 +136,7 @@ class Service(AnsisService):
         content, count = self.create(**kwargs)
         # Read and import file content
         from ....io.sequences import import_file
-        return import_file(infile, _format, data=content_file, analysis_id=content.analysis_id)
+        return import_file(infile, _format, data=content_file, analysis_id=content.analysis_id, **kwargs)
 
     ##
     # EXPORT

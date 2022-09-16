@@ -54,3 +54,26 @@ def sa_task(process: str):
     except Exception as e:
         log_exception(e)
         return None
+
+
+@celery_app.task(name="sa_seq_ann_task", acks_late=True,
+                 # default_retry_delay=10,
+                 # autoretry_for=(Exception,),
+                 # retry_kwargs={'max_retries': 5},
+                 # retry_backoff=True,
+                 )
+def sa_seq_ann_task(ann_entries: dict):
+    """
+    Async import of sequence annotations
+    """
+
+    try:
+        sa_task_login()
+        print('SA_TASK: sequences import_annotations')
+        from .sysadmin.sequences.import_annotations import run
+        run(ann_entries)
+        sa_task_logout()
+        return None
+    except Exception as e:
+        log_exception(e)
+        return None

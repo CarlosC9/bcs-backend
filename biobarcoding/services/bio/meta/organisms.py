@@ -1,3 +1,6 @@
+from threading import Thread
+from time import sleep
+
 from . import MetaService
 from ... import log_exception
 from ...main import get_orm
@@ -13,18 +16,18 @@ from ....rest import filter_parse
 def get_taxonomic_ranks(rank):
     from ....db_models.chado import Cv, Cvterm
     try:
-        return DBSessionChado.query(Cvterm.cvterm_id).join(Cv) \
-            .filter(Cv.name == 'taxonomic_rank', Cvterm.name == rank).one()
+        return DBSessionChado.query(Cvterm).join(Cv) \
+            .filter(Cv.name == 'taxonomic_rank', Cvterm.name == rank).one().cvterm_id
     except Exception as e:
         pass
     try:
-        return DBSessionChado.query(Cvterm.cvterm_id).join(Cv) \
-            .filter(Cv.name == 'taxonomic', Cvterm.name == rank).one()
+        return DBSessionChado.query(Cvterm).join(Cv) \
+            .filter(Cv.name == 'taxonomic', Cvterm.name == rank).one().cvterm_id
     except Exception as e:
         pass
     try:
-        return DBSessionChado.query(Cvterm.cvterm_id).join(Cv) \
-            .filter(Cv.name == 'taxonomic_rank', Cvterm.name == 'no_rank').one()
+        return DBSessionChado.query(Cvterm).join(Cv) \
+            .filter(Cv.name == 'taxonomic_rank', Cvterm.name == 'no_rank').one().cvterm_id
     except Exception as e:
         pass
     return 1
@@ -149,18 +152,32 @@ class Service(MetaService):
     ##
 
     def attach_data(self, *content) -> list:
-        new = super(Service, self).attach_data(*content)
+        new = super(Service, self).attach_data(*content)        # TODO: thread canonical query if content is too big ?
 
         from ... import force_underscored
         from ...species_names import get_canonical_species_names
         names = [" ".join([_['genus'], _['species'], _['infraspecific_name'] or '']).strip() for _ in new]
         c_names = cu_names = lineages = [None] * len(names)
+
+        def async_canonical_names(u: bool = False):
+            _th = Thread(target=get_canonical_species_names, name='Look for canonical names',
+                         args=[None, names], kwargs={'underscores': u})
+            _th.start()
+            for _ in range(3):
+                sleep(1)
+                if not _th.is_alive():
+                    break
+            if _th.is_alive():
+                raise Exception()
+
         try:
+            async_canonical_names()
             c_names = get_canonical_species_names(DBSession, names)
         except Exception as e:
             print('Warning: Canonical species names could not be retrieved.')
             log_exception(e)
         try:
+            async_canonical_names(True)
             cu_names = get_canonical_species_names(DBSession, names, underscores=True)
         except Exception as e:
             print('Warning: Canonical underscored species names could not be retrieved.')

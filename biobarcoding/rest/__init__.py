@@ -100,7 +100,7 @@ class ResponseObject:
                        ctype     JSON -> dict(issues=issues)
         :return:
         """
-        if self.status == 200:
+        if self.status < 300:
             if self.content_type in ("text/json", "application/json"):
                 obj = generate_json(dict(issues=[s.as_dict() for s in self.issues],
                                          content=self.content, count=self.count))

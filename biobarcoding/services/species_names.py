@@ -4,6 +4,7 @@ from typing import List
 
 import requests
 
+from ..db_models import DBSession
 from ..db_models.metadata import SpeciesNameToCanonical
 
 GBIF_URL = 'https://api.gbif.org/v1/species/'
@@ -43,7 +44,6 @@ def get_canonical_species_names(sess, in_: List[str], underscores=False) -> List
     if sess is None:
         if engine is None:
             from biobarcoding.common.pg_helpers import create_pg_database_engine
-            from biobarcoding.db_models import DBSession
             from biobarcoding import get_global_configuration_variable
             db_connection_string = get_global_configuration_variable('DB_CONNECTION_STRING')
             engine = create_pg_database_engine(db_connection_string, "bcs", recreate_db=False)
@@ -113,7 +113,6 @@ def get_canonical_species_info(sess, in_: List[str]) -> List[dict]:
     if sess is None:
         if engine is None:
             from biobarcoding.common.pg_helpers import create_pg_database_engine
-            from biobarcoding.db_models import DBSession
             from biobarcoding import get_global_configuration_variable
             db_connection_string = get_global_configuration_variable('DB_CONNECTION_STRING')
             engine = create_pg_database_engine(db_connection_string, "bcs", recreate_db=False)
@@ -177,7 +176,6 @@ def get_canonical_species_lineages(sess, in_: List[str]) -> List[List[dict]]:
     if sess is None:
         if engine is None:
             from biobarcoding.common.pg_helpers import create_pg_database_engine
-            from biobarcoding.db_models import DBSession
             from biobarcoding import get_global_configuration_variable
             db_connection_string = get_global_configuration_variable('DB_CONNECTION_STRING')
             engine = create_pg_database_engine(db_connection_string, "bcs", recreate_db=False)

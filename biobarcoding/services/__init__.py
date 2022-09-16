@@ -174,11 +174,13 @@ def get_orm_params(orm, **params):
 
 
 # TODO: optional flush ?
-def get_or_create(session, model, **params):
+def get_or_create(session, model, no_flush=False, **params):
     # params = get_orm_params(model, **kwargs)
     instance = session.query(model).filter_by(**params).first()
     if not instance:
         instance = model(**params)
+        if no_flush:
+            return instance
         session.add(instance)
         session.flush()
         # TODO: create ACLs if possible too ?

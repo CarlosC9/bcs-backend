@@ -7,7 +7,7 @@ from ..meta.ontologies import get_type_id
 from ..meta.organisms import Service as OrgService
 from ... import get_orm_params, get_or_create, force_underscored, log_exception
 from ...main import get_orm
-from ....db_models import DBSession, DBSessionChado
+from ....db_models import DBSession
 from ....db_models.chado import Organism, StockFeature
 from ....db_models.bioinformatics import Sequence, Specimen
 from ....rest import filter_parse
@@ -247,6 +247,12 @@ class Service(BosService):
 
     def aux_filter(self, _filter: dict) -> list:
         clauses = []
+
+        if _filter.get('genus'):
+            from ....db_models.chado import Organism
+            _ids = self.db.query(Organism.organism_id)\
+                .filter(filter_parse(Organism, [{'genus': _filter.get('genus')}]))
+            clauses.append(self.orm.organism_id.in_(_ids))
 
         if _filter.get('stock_id'):
             from ....db_models.chado import StockFeature

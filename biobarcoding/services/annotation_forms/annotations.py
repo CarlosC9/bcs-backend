@@ -1,4 +1,4 @@
-from .. import get_or_create, listify
+from .. import get_or_create, listify, get_filtering
 from ..main import BasicService, get_orm
 from ...db_models import DBSession
 from ...db_models.core import FunctionalObject
@@ -95,6 +95,7 @@ class Service(BasicService):
             raise Exception('UPDATE: Bad request for update annotations.')
 
     def after_update(self, new_object, **values):
+
         if values.get('object_uuid'):
             ids = listify(values.get('object_uuid'))
             rl = self.db.query(AnnotationItemFunctionalObject) \
@@ -104,13 +105,25 @@ class Service(BasicService):
             for i in ids:
                 get_or_create(self.db, AnnotationItemFunctionalObject,
                               annotation_id=new_object.id, object_uuid=i)
+
+        if values.get('new_object_uuid'):
+            ids = listify(values.get('new_object_uuid'))
+            for i in ids:
+                get_or_create(self.db, AnnotationItemFunctionalObject,
+                              annotation_id=new_object.id, object_uuid=i)
+
         return values
 
     def get_query(self, query=None, purpose='delete', object_uuid=None, **kwargs) -> (object, int):
+
+        if get_filtering("type", kwargs) in ('template', 'field', 'text'):
+            self.orm = get_orm(f'annotation_{get_filtering("type", kwargs)}')
+
         if object_uuid:
             query = query or self.pre_query(purpose) or self.db.query(self.orm)
             query = query.join(AnnotationItemFunctionalObject).filter(
                 AnnotationItemFunctionalObject.object_uuid == object_uuid).order_by(AnnotationItemFunctionalObject.rank)
+
         return super(Service, self).get_query(query=query, **kwargs)
 
     def aux_filter(self, _filter: dict) -> list:
