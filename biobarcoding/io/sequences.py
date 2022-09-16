@@ -408,7 +408,7 @@ def import_file(infile, _format=None, data=None, analysis_id=None, update=False,
                      'value': source}
                 add_ann_entry(_, *[str(_seq.uuid) for _seqs in SEQ_ENTRIES.values() for _seq in _seqs])
             from ..tasks.system import sa_seq_ann_task
-            sa_seq_ann_task.delay(ANN_ENTRIES)
+            sa_seq_ann_task.apply_async(args=[ANN_ENTRIES], countdown=10)
         except Exception as e:
             log_exception(e)
             print('WARNING: The sequences could not be annotated.')
@@ -420,5 +420,5 @@ def import_file(infile, _format=None, data=None, analysis_id=None, update=False,
         DBSession.rollback()
         DBSessionChado.rollback()
         raise Exception(f'IMPORT sequences: file {os.path.basename(infile)} could not be imported.')
-    return None, len(seq_rows)
+    return [], len(seq_rows)
 
