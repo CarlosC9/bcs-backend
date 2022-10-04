@@ -106,7 +106,7 @@ def add_ann_entry(ann, *seq_ids):
     from .annotations import ann_value_dump
     _hash = ann_value_dump(ann)
     if ANN_ENTRIES.get(_hash):
-        ANN_ENTRIES[_hash].union(seq_ids)
+        ANN_ENTRIES[_hash] = ANN_ENTRIES[_hash].union(seq_ids)
     else:
         ANN_ENTRIES[_hash] = {*seq_ids}
 
