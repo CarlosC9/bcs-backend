@@ -284,8 +284,15 @@ class StatusChecker(ORMBase):
         from urllib.parse import urlparse
         u = urlparse(self.url)
         if self.type == 'compute-resource':
-            from ..jobs.ssh_resource import JobExecutorWithSSH
-            je = JobExecutorWithSSH('0', create_local_workspace=False, initialize_loop=False)
+            if self.resource.jm_type.name == "galaxy":
+                from biobarcoding.jobs.galaxy_resource import JobExecutorAtGalaxy as JE
+            elif self.resource.jm_type.name == "slurm":
+                from ..jobs.slurm_ssh_resource import JobExecutorWithSlurm as JE
+            elif self.resource.jm_type.name == "cipres":
+                from ..jobs.cipres_resource import JobExecutorWithCipres as JE
+            else:
+                from ..jobs.ssh_resource import JobExecutorWithSSH as JE
+            je = JE('0', create_local_workspace=False, initialize_loop=False)
             je.set_resource(json.loads(generate_json(self.resource)))
             self.details = _status = je.check()
         elif self.type == 'redis' or self.type == 'redis-cli':
