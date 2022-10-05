@@ -94,7 +94,7 @@ class Service(BasicService):
         else:
             raise Exception('UPDATE: Bad request for update annotations.')
 
-    def after_update(self, new_object, **values):
+    def after_update(self, new_object, **values) -> dict:
 
         if values.get('object_uuid'):
             ids = listify(values.get('object_uuid'))

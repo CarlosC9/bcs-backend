@@ -44,7 +44,7 @@ class FormItemService(BasicService):
             content = content.all()
         return content, count
 
-    def after_update(self, new_object, **values):
+    def after_update(self, new_object, **values) -> dict:
         if values.get('object_type_id'):
             ids = listify(values.get('object_type_id'))
             rl = self.db.query(AnnotationFormItemObjectType) \

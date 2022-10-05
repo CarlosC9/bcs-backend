@@ -95,7 +95,7 @@ def run():
 	open(srcfile, 'w').close()
 
 	print(' > Getting Biota species')
-	from biobarcoding.tasks.sysadmin.initialize.taxa import TaxaTaskTools
+	from biobarcoding.io.taxa import TaxaTaskTools
 	df = TaxaTaskTools.biota_get_df()
 	df = df[df.kingdom == 'Plantae'][df.environment == 'Terrestre']
 
