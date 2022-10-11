@@ -34,8 +34,8 @@ class Service(MetaService):
             from ....db_models.chado import Db, Dbxref
             values['dbxref_id'] = get_or_create(self.db, Dbxref,
                                                 db_id=self.db.query(Db).filter(Db.name == 'null').one().db_id,
-                                                accession=dbxref,
-                                                version=time.strftime("%Y %b %d %H:%M:%S")).dbxref_id
+                                                # version=time.strftime("%Y %b %d %H:%M:%S")
+                                                accession=dbxref).dbxref_id,
         return super(Service, self).check_values(**values)
 
     ##

@@ -296,11 +296,13 @@ class BasicService:
         content, count = self.get_query(purpose='read', **kwargs)
         if kwargs.get('id'):
             try:
-                content = self.attach_data(content.one())[0]
+                content = content.one() if get_filtering('no_attach', kwargs) \
+                    else self.attach_data(content.one())[0]
                 return content, count
             except Exception as e:
                 pass
-        content = self.attach_data(*content.all())
+        content = content.all() if get_filtering('no_attach', kwargs) \
+            else self.attach_data(*content.all())
         if kwargs.get('only_ids') or kwargs.get('values', {}).get('only_ids'):
             from sqlalchemy import inspect
             content = [c[inspect(self.orm).primary_key[0].name] for c in content]

@@ -2,6 +2,7 @@ from threading import Thread
 from time import sleep
 
 from . import MetaService
+from .taxonomies import insert_taxon
 from ... import log_exception
 from ...main import get_orm
 from ....db_models import DBSession, DBSessionChado
@@ -13,7 +14,7 @@ from ....rest import filter_parse
 # MISCELLANEOUS
 ##
 
-def get_taxonomic_ranks(rank):
+def get_taxonomic_rank(rank):
     from ....db_models.chado import Cv, Cvterm
     try:
         return DBSessionChado.query(Cvterm).join(Cv) \
@@ -83,19 +84,21 @@ class Service(MetaService):
 
     def prepare_values(self, **values) -> dict:
 
-        genus = species = ssp = ''
-        if values.get('split_name'):
-            genus, species, ssp = split_org_name(
-                values.get('organism') or values.get('name') or values.get('species') or '')
-        values['genus'] = values.get('genus') or genus
-        values['species'] = species or values.get('species')
-        values['infraspecific_name'] = values.get('infraspecific_name') \
-                                       or values.get('ssp./var.') or values.get('ssp') or ssp
+        if 'organism' in values or 'name' in values or 'species' in values:
+            genus = species = ssp = ''
+            if values.get('split_name'):
+                genus, species, ssp = split_org_name(
+                    values.get('organism') or values.get('name') or values.get('species') or '')
+            values['genus'] = values.get('genus') or genus
+            values['species'] = species or values.get('species')
+            values['infraspecific_name'] = values.get('infraspecific_name') \
+                                           or values.get('ssp./var.') or values.get('ssp') or ssp
 
-        values['type_id'] = values.get('type_id') or values.get('cvterm_id')
-        _type = values.get('type') or values.get('rank') or values.get('cvterm')
-        if _type and not values.get('type_id'):
-            values['type_id'] = get_taxonomic_ranks(_type)
+        if 'type' in values or 'rank' in values or 'cvterm_id' in values or 'cvterm' in values:
+            values['type_id'] = values.get('type_id') or values.get('cvterm_id')
+            _type = values.get('type') or values.get('rank') or values.get('cvterm')
+            if _type and not values.get('type_id'):
+                values['type_id'] = get_taxonomic_rank(_type)
 
         return super(Service, self).prepare_values(**values)
 
@@ -108,7 +111,7 @@ class Service(MetaService):
         if not values.get('species'):
             raise Exception('Missing the field "species" for organisms.')
         if not values.get('type_id'):
-            values['type_id'] = get_taxonomic_ranks('no_rank')
+            values['type_id'] = get_taxonomic_rank('no_rank')
 
         return super(Service, self).check_values(**values)
 
@@ -123,7 +126,7 @@ class Service(MetaService):
             if not values.get('infraspecific_name') and gbif.get('scientificName'):
                 values['infraspecific_name'] = ' '.join(gbif.get('scientificName').split()[2:]).strip()
             try:
-                values['type_id'] = values.get('type_id') or get_taxonomic_ranks(rank)
+                values['type_id'] = values.get('type_id') or get_taxonomic_rank(rank)
             except:
                 pass
 
@@ -142,7 +145,17 @@ class Service(MetaService):
         except:
             pass
 
-        from .taxonomies import insert_taxon
+        insert_taxon(organism_id=new_object.organism_id, **values)
+
+        return values
+
+    ##
+    # UPDATE
+    ##
+
+    def after_update(self, new_object, **values) -> dict:
+        values = super(Service, self).after_update(new_object, **values)
+
         insert_taxon(organism_id=new_object.organism_id, **values)
 
         return values

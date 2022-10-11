@@ -3,10 +3,11 @@ import os.path
 import pandas as pd
 from Bio import Entrez
 import requests
+from pygbif import species
 
 from biobarcoding import app_acronym
 from biobarcoding.services import get_encoding
-from biobarcoding.services.species_names import get_taxon_from_gbif
+from biobarcoding.services.species_names import get_taxon_from_gbif, get_lineage_from_gbif, get_children_from_gbif
 
 EMAIL = f"admin@{app_acronym}.eu"
 BIOTA_URL = "https://www.biodiversidadcanarias.es/biota/especies/export"
@@ -127,10 +128,24 @@ class TaxaTaskTools:
 		"""
 		if not orgs:
 			orgs = TaxaTaskTools.biota_get_species()
-		df = pd.DataFrame()
-		for org in orgs:
-			df = df.append(get_taxon_from_gbif(org), ignore_index=True)
-		return df
+		return pd.DataFrame([get_taxon_from_gbif(org) for org in orgs])
+
+	@staticmethod
+	def gbif_get_parents_df(*orgs):
+		"""
+		Get GBIF entries as Dataframe
+		:param orgs: list of taxa
+		:return: GBIF entries as Dataframe
+		"""
+		if not orgs:
+			df = TaxaTaskTools.biota_get_df()
+		else:
+			df = TaxaTaskTools.gbif_get_df(*orgs)
+		lineages = []
+		for i, r in df.iterrows():
+			parents = get_lineage_from_gbif(r['usageKey'].astype(int))
+			lineages += parents + [{**r.to_dict(), 'parent': parents[-1]['canonicalName']}]
+		return pd.DataFrame(lineages).drop_duplicates()
 
 	@staticmethod
 	def ncbi_taxa2txids(*orgs) -> list:

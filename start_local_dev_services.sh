@@ -112,7 +112,7 @@ if [ ! "$postgres_started" ] ; then
     init_chado "$(dirname $0)"
   elif [ "$(whoami)" == "acurbelo" ] ; then
     docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA=/var/lib/postgresql/data/ -v /var/lib/nextgendem/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
-    init_chado "$(dirname $0)"
+#    init_chado "$(dirname $0)"
   elif [ "$(whoami)" == "paula" ] ; then
     docker run --name postgres_devel -d -p 5432:5432 --rm -e POSTGRES_PASSWORD=postgres -e INSTALL_CHADO_SCHEMA=1 -e INSTALL_YEAST_DATA=0 -e PGDATA/var/lib/postgresql/data/ -v /home/paula/DATOS/pg_devel:/var/lib/postgresql/data quay.io/galaxy-genome-annotation/chado:1.31-jenkins97-pg9.5
   elif [ "$(whoami)" == "daniel" ] ; then

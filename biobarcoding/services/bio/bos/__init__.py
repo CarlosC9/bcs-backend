@@ -18,7 +18,8 @@ class BosService(BioService):
 
     def prepare_values(self, **values):
 
-        values['sourceuri'] = values.get('sourceuri', values.get('filesAPI'))
+        if 'filesAPI' in values:
+            values['sourceuri'] = values.get('sourceuri', values.get('filesAPI'))
 
         return super(BosService, self).prepare_values(**values)
 

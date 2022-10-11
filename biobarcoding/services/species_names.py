@@ -31,6 +31,15 @@ def get_lineage_from_gbif(key: int):
     return None
 
 
+def get_children_from_gbif(key: int):
+    # Match using GBIF
+    url = f"{GBIF_URL}{key}/children"
+    r = requests.request("GET", url)
+    if r.status_code == 200:
+        return r.json()
+    return None
+
+
 def get_canonical_species_names(sess, in_: List[str], underscores=False) -> List[str]:
     """
     Canonicalize species names

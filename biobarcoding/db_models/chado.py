@@ -37,6 +37,7 @@ class Organism(ORMBaseChado):
 
     @hybrid_property
     def name(self):
+        # TODO: deal with empty 'genus' and 'infraspecific_name'
         return self.genus + ' ' + self.species + coalesce(' ' + self.infraspecific_name, '')
 
 
