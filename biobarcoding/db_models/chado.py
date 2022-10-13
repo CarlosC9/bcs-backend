@@ -49,6 +49,15 @@ class Phylotree(ORMBaseChado):
     analysis = relationship(Analysis, backref=backref("phylotrees", cascade="all, delete-orphan"))
 
 
+class Phylonode(ORMBaseChado):
+    __versioned__ = {}
+    __tablename__ = "phylonode"
+    __table_args__ = {'extend_existing': True, 'autoload': True}
+
+    left_idx = Column(BigInteger, Sequence('phylonode_left_idx_seq'))
+    right_idx = Column(BigInteger, Sequence('phylonode_right_idx_seq'))
+
+
 class AnalysisFeature(ORMBaseChado):
     __versioned__ = {}
     __tablename__ = "analysisfeature"
@@ -88,12 +97,6 @@ class Feature(ORMBaseChado):
 class Featureloc(ORMBaseChado):
     __versioned__ = {}
     __tablename__ = "featureloc"
-    __table_args__ = {'extend_existing': True, 'autoload': True}
-
-
-class Phylonode(ORMBaseChado):
-    __versioned__ = {}
-    __tablename__ = "phylonode"
     __table_args__ = {'extend_existing': True, 'autoload': True}
 
 

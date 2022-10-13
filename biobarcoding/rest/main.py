@@ -240,6 +240,7 @@ def after_app_init():
     # do not add to the queue more than once
     system.sa_task.delay('initialize.annotation_forms')
     system.sa_task.delay('initialize.taxa')
+    system.sa_task.delay('taxonomies.gbif_sync')
     return None
 
 

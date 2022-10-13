@@ -1,9 +1,11 @@
 from typing import List
 
+from sqlalchemy import or_
+
 from . import MetaService
 from ...main import get_orm
-from ....db_models import DBSessionChado
 from ... import log_exception, get_or_create
+from ....db_models.chado import Phylonode, PhylonodeOrganism, Organism
 
 NAMES = {
     'gbif': 'GBIF taxonomy tree',
@@ -26,16 +28,23 @@ class Service(MetaService):
     ##
 
     def check_values(self, **values) -> dict:
+
         if not values.get('dbxref_id'):
             dbxref = values.get('dbxref', f'taxonomy:{values.get("name")}')
             if not dbxref.startswith('taxonomy:'):
                 dbxref = 'taxonomy:' + dbxref
-            import time
+            # import time
             from ....db_models.chado import Db, Dbxref
             values['dbxref_id'] = get_or_create(self.db, Dbxref,
                                                 db_id=self.db.query(Db).filter(Db.name == 'null').one().db_id,
                                                 # version=time.strftime("%Y %b %d %H:%M:%S")
-                                                accession=dbxref).dbxref_id,
+                                                accession=dbxref).dbxref_id
+
+        # # TODO default_filter by type_id
+        # if not values.get('type_id'):
+        #     from .ontologies import get_type_id
+        #     values['type_id'] = get_type_id(type=values.get('type', 'taxonomy'))
+
         return super(Service, self).check_values(**values)
 
     ##
@@ -89,7 +98,6 @@ class Service(MetaService):
         clauses = []
 
         if _filter.get('organism_id'):
-            from ....db_models.chado import Phylonode, PhylonodeOrganism
             _ids = self.db.query(Phylonode.phylotree_id).join(PhylonodeOrganism).filter(
                     filter_parse(PhylonodeOrganism, [{'organism_id': _filter.get('organism_id')}]))
             clauses.append(self.orm.phylotree_id.in_(_ids))
@@ -97,5 +105,29 @@ class Service(MetaService):
         return clauses + super(Service, self).aux_filter(_filter)
 
 
-def insert_taxon(**kwargs) -> List[str]:    # TODO
+def insert_taxon(organism_id, **kwargs) -> List[str]:    # TODO
+
+    if kwargs.get('taxonomy_id') or kwargs.get('taxonomy'):
+        self = Service()
+
+        def get_phylonode(q_filter):
+            return self.db.query(Phylonode).join(self.orm).join(PhylonodeOrganism).join(Organism) \
+                .filter(self.orm.phylotree_id == taxonomy.phylotree_id, q_filter).one()
+
+        taxonomy = get_or_create(self.db, self.orm, **self.check_values(
+            id=kwargs.get('taxonomy_id'), name=kwargs.get('taxonomy')))
+
+        try:
+            node = get_phylonode(PhylonodeOrganism.organism_id == organism_id)
+        except Exception as e:
+            node = Phylonode(phylotree_id=taxonomy.phylotree_id)
+            self.db.add(node)
+            self.db.flush()
+            get_or_create(self.db, PhylonodeOrganism, phylonode_id=node.phylonode_id, organism_id=organism_id)
+
+        if kwargs.get('parent_id') or kwargs.get('parent'):
+            parent = get_phylonode(or_(PhylonodeOrganism.organism_id == kwargs.get('parent_id'),
+                                       Organism.species == kwargs.get('parent')))
+            node.parent_phylonode_id = parent.phylonode_id
+
     return []

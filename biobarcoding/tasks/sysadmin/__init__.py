@@ -26,12 +26,12 @@ def get_response_content(r):
     return load_response(r).get('content')
 
 
-def get_response_id(r):
+def get_response_id(r, key: str = 'id'):
     try:
         c = get_response_content(r)
         if isinstance(c, (tuple, list, set)):
             c = c[0] if len(c) == 1 else {}
-        return c.get('id')
+        return c.get(key)
     except Exception as e:
         print('missing id for ', c)
         return None
