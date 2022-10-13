@@ -80,6 +80,9 @@ class ProcessAdaptorFactory:
         elif tm_processes[process_id] == "BLAST":
             from biobarcoding.jobs.ssh_process_adaptors.slurm_process_adaptors.SlurmBlastProcessAdaptor import SlurmBlastProcessAdaptor
             slurm_process_adaptor = SlurmBlastProcessAdaptor()
+        elif tm_processes[process_id] == "Beast":
+            from biobarcoding.jobs.ssh_process_adaptors.slurm_process_adaptors.SlurmBeastProcessAdaptor import SlurmBeastProcessAdaptor
+            slurm_process_adaptor = SlurmBeastProcessAdaptor()
 
         return slurm_process_adaptor
 

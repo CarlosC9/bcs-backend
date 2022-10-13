@@ -818,7 +818,7 @@ def wf1_wait_for_execution_end(job_context: str):
                                             job_executor.log_filenames_dict["universal_log"])
         return 'manage_error', job_context
     else:
-        return 3, job_context
+        return 10, job_context
 
 
 @celery_app.task(name="transfer_data_from", ack_late=ack_late_idempotent_tasks)

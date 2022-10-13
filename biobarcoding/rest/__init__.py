@@ -426,6 +426,7 @@ tm_processes = {  # Preloaded processes
     "c55280d0-f916-4401-a1a4-bb26d8179fd7": "MSA ClustalW + PAUP Parsimony",
     "ce018826-7b20-4b70-b9b3-168c0ba46eec": "PAUP Parsimony + Phylogenetic Diversity Analyzer",
     "5b315dc5-ad12-4214-bb6a-bf013f0e4b8c": "MSA ClustalW + PAUP Parsimony + Phylogenetic Diversity Analyzer",
+    "848b46b0-8602-42a2-a3fd-1b9be728d729": "Beast"
 }
 
 tm_system_functions = {

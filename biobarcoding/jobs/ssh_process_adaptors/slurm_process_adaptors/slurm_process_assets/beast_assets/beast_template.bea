@@ -1,0 +1,21 @@
+template ./myTemplate;
+$imports
+
+$linktree;
+rename tree $first_alignment = treepartition;
+
+set mutationRate@estimate $alignments = false;
+
+$substitution_models
+
+use [prior] = $method;
+
+$clock_models
+
+$monophyly
+
+set chains=$threads;
+
+set fileName[tracelog] = beast.log;
+
+set logEvery = 5000;

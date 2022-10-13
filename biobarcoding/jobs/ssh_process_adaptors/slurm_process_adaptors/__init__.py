@@ -1,11 +1,12 @@
 import abc
 import os
 
+from dotted.collection import DottedList
+
 from biobarcoding.jobs.ssh_process_adaptors import SSHProcessAdaptor
 
 
 class SlurmProcessAdaptor(SSHProcessAdaptor, abc.ABC):
-
     '''The methods of the subinterfaces are all private'''
     HPC_PARAMETERS_KEY = "hpc_parameters"
 
@@ -17,11 +18,17 @@ class SlurmProcessAdaptor(SSHProcessAdaptor, abc.ABC):
     def adapt_job_context(self, job_context):
         script_parameters = job_context["process"]["inputs"]["parameters"]["script_params"]
         hpc_parameters = job_context["process"]["inputs"]["parameters"]["hpc_params"]
+        if isinstance(job_context["process"]["inputs"]["data"][0], DottedList):
+            data = job_context["process"]["inputs"]["data"][0]
+            job_context["process"]["inputs"]["data"] = data
+        else:
+            data = job_context["process"]["inputs"]["data"]
+
         new_process_parameters = {
             self.SCRIPT_KEY: self.get_script_filenames(),
             self.SCRIPT_FILES_KEY: self.get_script_files_list(),
             self.SCRIPT_PARAMS_KEY: {"process_parameters": self.parse_script_params({
-                    "script_parameters": script_parameters, "hpc_parameters": hpc_parameters}),
+                "script_parameters": script_parameters, "hpc_parameters": hpc_parameters, "data": data}),
                 "hpc_parameters": hpc_parameters},
             self.HPC_PARAMETERS_KEY: hpc_parameters
         }
@@ -32,5 +39,7 @@ class SlurmProcessAdaptor(SSHProcessAdaptor, abc.ABC):
     def parse_dict_env_variables(self, d: dict):
         env_variables = ""
         for key, value in d.items():
-            env_variables += f"{key}={value},"
-        return env_variables[:-1] # remove last comma
+            key = str(key).replace("'", "")
+            value = str(value).replace("'", "")
+            env_variables += f"{key}=\'{value}\',"
+        return env_variables[:-1]# remove last comma

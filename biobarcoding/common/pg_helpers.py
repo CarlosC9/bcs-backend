@@ -43,12 +43,14 @@ RESOURCE_PROCESSES_DICT = {
     "balder - slurm": [
         "MAFFT",
         "Mr Bayes",
-        "BLAST"
+        "BLAST",
+        "Beast"
     ],
     "Teide HPC - slurm": [
         "MAFFT",
         "Mr Bayes",
-        "BLAST"
+        "BLAST",
+        "Beast"
     ],
     "San Diego Supercomputer Center - cipres": [
         "Mr Bayes",
@@ -66,6 +68,7 @@ PROCESSES_INPUTS = {
     "c55280d0-f916-4401-a1a4-bb26d8179fd7": 'biobarcoding/inputs_schema/clustalw+paup_parsimony_formly.json',
     "ce018826-7b20-4b70-b9b3-168c0ba46eec": 'biobarcoding/inputs_schema/paup_parsimony+pda_formly.json',
     "5b315dc5-ad12-4214-bb6a-bf013f0e4b8c": 'biobarcoding/inputs_schema/clustalw+paup_parsimony+pda_formly.json',
+    "848b46b0-8602-42a2-a3fd-1b9be728d729": 'biobarcoding/inputs_schema/beast_formly.json'
 }
 
 

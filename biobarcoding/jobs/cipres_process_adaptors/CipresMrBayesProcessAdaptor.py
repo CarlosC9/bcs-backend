@@ -38,9 +38,9 @@ class CipresMrBayesProcessAdaptor(CipresProcessAdaptor):
 
     def parse_script_params(self, process_parameters):
         mrbayes_parameters = process_parameters["script_params"]["Mr Bayes"]
-        hpc_parameters = process_parameters["hpc_params"]
+        '''hpc_parameters = process_parameters["hpc_params"]
         mrbayes_parameters['cpus_per_task'] = hpc_parameters['cpus_per_task']
-        mrbayes_parameters['time'] = hpc_parameters['time']
+        mrbayes_parameters['time'] = hpc_parameters['time']'''
         mrbayes_parameters['filename'] = self.OUTPUT_FILENAME_WITHOUT_EXTENSION
 
         return self.parse_dict_env_variables(mrbayes_parameters)

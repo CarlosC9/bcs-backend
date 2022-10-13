@@ -2,7 +2,10 @@
 REST interface to manage JOBS API
 """
 import json
+from redis import Redis
+import redis_lock
 
+import redis
 from dotted.collection import DottedDict
 from flask import Blueprint
 from flask import request, make_response, Response, jsonify, g
@@ -71,6 +74,7 @@ class JobAPI(MethodView):
     page: int = None
     page_size: int = None
     decorators = []  # Add decorators: identity, function execution permissions, logging, etc.
+    conn = Redis()
 
     @n_session(read_only=True)
     def get(self, job_id=None):
@@ -265,6 +269,8 @@ class JobAPI(MethodView):
     def put(self, job_id):
         # Update job? For now, only allow changing status
         # (also, return "status", because cannot change "cancelled" status)
+        lock = redis_lock.Lock(self.conn, str(job_id))
+        lock.acquire()
         db = g.n_session.db_session
         req = request.get_json()
         job = db.query(Job).filter(Job.id == job_id).first()
@@ -298,6 +304,7 @@ class JobAPI(MethodView):
         r = ResponseObject(issues=[Issue(i_type, msg)],
                            status=status,
                            content=dict(status=job_status, requested_status=req["status"]))
+        lock.release()
         return r.get_response()
 
     def __check_data(self, data):

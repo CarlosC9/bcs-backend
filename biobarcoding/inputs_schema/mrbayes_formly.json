@@ -105,7 +105,8 @@
         "templateOptions": {
           "label": "Number of generations",
           "required": true,
-          "type": "number"
+          "type": "number",
+          "min": 1
         },
         "defaultValue": "1000000"
       },
@@ -115,7 +116,8 @@
         "templateOptions": {
           "label": "Number of chains",
           "required": true,
-          "type": "number"
+          "type": "number",
+          "min": 1
         },
         "defaultValue": "4"
       },
@@ -125,7 +127,8 @@
         "templateOptions": {
           "label": "Sample frequency",
           "required": true,
-          "type": "number"
+          "type": "number",
+          "min": 1
         },
         "defaultValue": "500"
       },

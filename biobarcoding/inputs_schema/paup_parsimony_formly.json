@@ -115,7 +115,6 @@
       {
         "key": "search",
         "type": "select",
-        "defaultValue": "OFF",
         "className": "formly_subfield",
         "templateOptions": {
           "label": "Search Strategy",

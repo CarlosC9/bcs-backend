@@ -1,0 +1,34 @@
+[
+  {
+    "key": "Beast",
+    "wrappers": ["subprocess-wrapper"],
+    "templateOptions": { "label": "Beast" },
+    "fieldGroup": [
+      {
+        "key": "multiple_selector",
+        "type": "multiple-selector",
+        "validators": {
+          "validation": [
+            "multiple-selector"
+          ]
+        },
+        "templateOptions": {
+          "label": "Multiple Alignments Selector",
+          "required": true,
+          "extension": "fasta",
+          "queryParams": "?header=\"organism_canon_underscored\"",
+          "bos": "alignment",
+          "process": "beast",
+          "changeExpr": "this.changeTaxons($event, field)"
+        }
+      },
+      {
+        "key": "monophyly",
+        "type": "monophyly",
+        "templateOptions": {
+          "required": false
+        }
+      }
+    ]
+  }
+]

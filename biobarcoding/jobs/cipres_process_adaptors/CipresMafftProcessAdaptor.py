@@ -32,10 +32,10 @@ class CipresMafftProcessAdaptor(CipresProcessAdaptor):
     def parse_script_params(self, process_parameters):
         mafft_parameters = process_parameters["script_params"]["MAFFT"]
         mafft_parameters['input_filename'] = self.INPUT_FILENAME
-        hpc_parameters = process_parameters["hpc_params"]
+        '''hpc_parameters = process_parameters["hpc_params"]
         mafft_parameters['cpus_per_task'] = hpc_parameters['cpus_per_task']
         mafft_parameters['ntasks'] = hpc_parameters['ntasks']
-        mafft_parameters['time'] = hpc_parameters['time']
+        mafft_parameters['time'] = hpc_parameters['time']'''
 
         return self.parse_dict_env_variables(mafft_parameters)
 

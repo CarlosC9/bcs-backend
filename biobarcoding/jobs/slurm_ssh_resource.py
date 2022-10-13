@@ -56,16 +56,16 @@ class RemoteSlurmClient(RemoteSSHClient):
         tmp = f"--tmp={hpc_parameters['tmp']}" if 'tmp' in hpc_parameters else ""'''
 
         process_parameters = script_params['process_parameters']
-
+        #sbatch --open-mode=truncate --error=stderr.txt --output=stdout.txt --
         cmd = (
                 f"ssh {self.SSH_OPTIONS} {self.username}@{self.host} \"cd {self.remote_workspace} " +
-                f"&& sbatch {ntasks} {cpus_per_task} {cpus_per_gpu} {gpus} {priority} " +
+                f"&& sbatch --mem-per-cpu=2G {ntasks} {cpus_per_task} {cpus_per_gpu} {gpus} {priority} " +
                 f"{time} --export=ALL,{process_parameters} --chdir={self.remote_workspace} " +
                 f"--open-mode=truncate --error={self.remote_workspace}/{os.path.basename(self.logs_dict['submit_stderr'])} " +
                 f"--output={self.remote_workspace}/{os.path.basename(self.logs_dict['submit_stdout'])} " +
                 f"{script_file}\"" + " | awk 'NF{print $NF; exit}'")
 
-        print(repr(cmd))
+        print(cmd)
         popen_pipe = os.popen(cmd)
         pid = popen_pipe.readline().strip()
         print(f"PID: {pid}")
@@ -93,7 +93,7 @@ class RemoteSlurmClient(RemoteSSHClient):
         @param pid: Job ID to kill
         """
         if pid is not None and pid != "":
-            last_job_remotely = psutil.pid_exists(int(pid))
+            last_job_remotely = not psutil.pid_exists(int(pid))
             if last_job_remotely:
                 os.system(f"ssh {self.username}@{self.host} 'scancel {pid}'")
             else:

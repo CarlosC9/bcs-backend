@@ -2,7 +2,7 @@
   {
     "key": "BLAST",
     "wrappers": ["subprocess-wrapper"],
-    "templateOptions": { "label": "MSA ClustalW" },
+    "templateOptions": { "label": "BLAST" },
     "fieldGroup": [
       {
         "key": "sequence_selector",
