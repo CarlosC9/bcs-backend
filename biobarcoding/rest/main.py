@@ -237,10 +237,11 @@ def after_a_request(response):
 @base_app_pkg.flask_app.before_first_request
 def after_app_init():
     from ..tasks import system
-    # do not add to the queue more than once
-    system.sa_task.delay('initialize.annotation_forms')
-    system.sa_task.delay('initialize.taxa')
-    system.sa_task.delay('taxonomies.gbif_sync')
+    # TODO: do not add to the queue more than once
+    tasks = ('initialize.annotation_forms', 'initialize.taxa',
+             'taxonomies.biota_sync', 'taxonomies.gbif_sync')
+    for t in tasks:
+        system.sa_task.delay(t)
     return None
 
 

@@ -176,10 +176,7 @@ class Service(MetaService):
             _th = Thread(target=get_canonical_species_names, name='Look for canonical names',
                          args=[None, names], kwargs={'underscores': u})
             _th.start()
-            for _ in range(3):
-                sleep(1)
-                if not _th.is_alive():
-                    break
+            _th.join(3)
             if _th.is_alive():
                 raise Exception()
 

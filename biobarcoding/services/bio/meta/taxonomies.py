@@ -7,12 +7,6 @@ from ...main import get_orm
 from ... import log_exception, get_or_create
 from ....db_models.chado import Phylonode, PhylonodeOrganism, Organism
 
-NAMES = {
-    'gbif': 'GBIF taxonomy tree',
-    'ncbi': 'NCBI taxonomy tree',
-    'biota': 'BIOTA taxonomy tree',
-}
-
 
 ##
 # TAXONOMY SERVICE
@@ -40,10 +34,12 @@ class Service(MetaService):
                                                 # version=time.strftime("%Y %b %d %H:%M:%S")
                                                 accession=dbxref).dbxref_id
 
-        # # TODO default_filter by type_id
-        # if not values.get('type_id'):
-        #     from .ontologies import get_type_id
-        #     values['type_id'] = get_type_id(type=values.get('type', 'taxonomy'))
+        if not values.get('type_id'):
+            from .ontologies import get_type_id
+            try:
+                values['type_id'] = get_type_id(type=values.get('type', 'taxonomy'))
+            except:
+                pass
 
         return super(Service, self).check_values(**values)
 
@@ -88,7 +84,7 @@ class Service(MetaService):
 
     def get_query(self, query=None, **kwargs):
         query = query or self.db.query(self.orm)
-        from ....db_models.chado import Dbxref
+        from ....db_models.chado import Dbxref      # TODO filter by type_id instead
         query = query.filter(self.orm.dbxref_id.in_(
             self.db.query(Dbxref.dbxref_id).filter(Dbxref.accession.like('taxonomy:%')).subquery()))
         return super(Service, self).get_query(query=query, **kwargs)
@@ -105,7 +101,7 @@ class Service(MetaService):
         return clauses + super(Service, self).aux_filter(_filter)
 
 
-def insert_taxon(organism_id, **kwargs) -> List[str]:    # TODO
+def insert_taxon(organism_id, **kwargs) -> List[str]:
 
     if kwargs.get('taxonomy_id') or kwargs.get('taxonomy'):
         self = Service()

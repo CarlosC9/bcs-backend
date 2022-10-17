@@ -15,14 +15,16 @@ def run():
 
 	print(' > Getting Biota species')
 	for i, org in df[~df.species.str.contains('ssp.') | ~df.species.str.contains('subsp.')].iterrows():
-		print(create_request('organisms/', split_name=1, **org, rank='species'))
+		print(create_request('organisms/', split_name=1, **org,
+							annotations=[{'template': 'Biota', 'value': org.to_dict()}], rank='species'))
 	_th = Thread(target=read_request, name='Look for canonical names',
 				args=['organisms/'], kwargs={'filter': {'rank': 'species'}})
 	_th.start()
 
 	print(' > Getting Biota subspecies')
 	for i, org in df[df.species.str.contains('ssp.') | df.species.str.contains('subsp.')].iterrows():
-		print(create_request('organisms/', split_name=1, **org, rank='subspecies'))
+		print(create_request('organisms/', split_name=1, **org,
+							annotations=[{'template': 'Biota', 'value': org.to_dict()}], rank='subspecies'))
 	_th = Thread(target=read_request, name='Look for canonical names',
 				args=['organisms/'], kwargs={'filter': {'rank': 'subspecies'}})
 	_th.start()
