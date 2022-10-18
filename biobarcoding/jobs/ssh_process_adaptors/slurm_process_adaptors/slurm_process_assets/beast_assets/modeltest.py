@@ -38,7 +38,7 @@ def get_substitution_models(alignments_filenames: [], threads: str):
     sub_models = {}
     for aln_f in alignments_filenames:
         if not os.path.exists(f"{aln_f.split('.')[0]}_modeltest.out"):
-            os.system(f"{MODELTEST_FOLDER}/modeltest-ng-mpi -p {threads} --disable-checkpoint -m HKY,TrN -i {aln_f} -o {aln_f.split('.')[0]}_modeltest")
+            os.system(f"{os.getenv('BEAST_DEPENDENCIES_PATH')}/modeltest-ng-mpi -p {threads} --disable-checkpoint -m HKY,TrN -i {aln_f} -o {aln_f.split('.')[0]}_modeltest")
         sub_model = get_substitution_model(f"{aln_f.split('.')[0]}_modeltest.out")
         sub_models[aln_f.split(".")[0]] = sub_model
     return sub_models

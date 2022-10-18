@@ -12,7 +12,7 @@ list_descendants ()
   echo "kill ${children}"
 }
 
-nohup bash -c "beast -beagle_CPU -threads $2 $1" &
+nohup bash -c "$BEAST_DEPENDENCIES_PATH/beast/bin/beast -beagle_CPU -threads $2 $1" &
 pid=$!
 pgid=$(ps -p $pid -o pgid=)
 echo "---PID--- ${pid}"

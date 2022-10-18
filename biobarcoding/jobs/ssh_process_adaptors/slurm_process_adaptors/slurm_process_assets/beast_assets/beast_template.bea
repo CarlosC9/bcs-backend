@@ -1,7 +1,7 @@
-template ./myTemplate;
+$template;
 $imports
 
-$linktree;
+$linktree
 rename tree $first_alignment = treepartition;
 
 set mutationRate@estimate $alignments = false;

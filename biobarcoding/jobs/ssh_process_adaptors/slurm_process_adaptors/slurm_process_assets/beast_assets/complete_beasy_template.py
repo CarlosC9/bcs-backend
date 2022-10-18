@@ -5,7 +5,7 @@ import modeltest
 
 
 def create_imports_str(alignments_dict: []):
-    import_template = "import $alignment;\n"
+    import_template = f"import {os.getenv('my_dir')}/$alignment;\n"
     import_str = ""
     for a in alignments_dict.keys():
         if not os.path.exists(f"{a}.nex"):
@@ -87,9 +87,12 @@ if __name__ == '__main__':
     with open("beast_template.bea", "r") as f:
         template = f.read()
     if len(alignments_dict.keys()) > 1:
-        template = template.replace("$linktree", f"link tree {alignments_str}")
+        template = template.replace("$linktree", f"link tree {alignments_str};")
     else:
         template = template.replace("$linktree", "")
+
+    template = template.replace("$template",
+                                f"template {os.getenv('BEAST_DEPENDENCIES_PATH')}/beast/templates/myTemplate.xml")
     template = template.replace("$method", method_str)
     template = template.replace("$imports", imports_str)
     template = template.replace("$alignments", alignments_str)
