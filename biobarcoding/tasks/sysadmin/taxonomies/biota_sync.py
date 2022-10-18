@@ -10,7 +10,7 @@ def run():
 
 	print(">> Querying Biota")
 	biota_df = TaxaTaskTools.biota_get_df()
-	ranks = [_ for _ in RANKS if _ in biota_df.columns]
+	ranks = [_ for _ in RANKS[:-2] if _ in biota_df.columns]
 	biota_df = biota_df[biota_df.genus.isin(ngd_genus)][ranks]
 
 	biota_taxa = []

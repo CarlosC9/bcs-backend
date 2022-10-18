@@ -173,6 +173,7 @@ def get_default_configuration_dict():
         TESTING="True",
         SELF_SCHEMA="",
         ACL_ENABLED="False",
+        INIT_TAXA="False",
     )
 
 

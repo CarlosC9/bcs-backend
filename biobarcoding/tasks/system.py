@@ -1,7 +1,8 @@
+from NamedAtomicLock import NamedAtomicLock
 import requests
 
 from . import celery_app
-from .. import get_global_configuration_variable
+from .. import get_global_configuration_variable, app_acronym
 from ..rest import app_api_base
 from ..services import log_exception
 
@@ -12,14 +13,17 @@ ENDPOINT = get_global_configuration_variable("ENDPOINT_URL")
 if 'SA_TASK_SESSION' not in globals():
     SA_TASK_SESSION = requests.Session()
 
+lock = NamedAtomicLock(f"{app_acronym}-backend-lock")
+
 
 # ----------------------------------------------------------------------------------------------------------------------
 # THE TASKS
 # ----------------------------------------------------------------------------------------------------------------------
 
-@celery_app.on_after_finalize.connect
-def setup_periodic_tasks(sender, **kwargs):
-    sender.add_periodic_task(30.0, sa_task.s('status_checkers'), name='check subsystem status')
+# @celery_app.on_after_finalize.connect
+# def setup_periodic_tasks(sender, **kwargs):
+#     # TODO: set canonical taxa search
+#     sender.add_periodic_task(30.0, sa_task.s('status_checkers'), name='check subsystem status', expires=10)
 
 
 def sa_task_login():
@@ -45,6 +49,7 @@ def sa_task(process: str):
     """
 
     try:
+        lock.acquire()
         sa_task_login()
         print('SA_TASK: ' + process)
         from importlib import import_module
@@ -54,6 +59,8 @@ def sa_task(process: str):
     except Exception as e:
         log_exception(e)
         return None
+    finally:
+        lock.release()
 
 
 @celery_app.task(name="sa_seq_ann_task", acks_late=True,

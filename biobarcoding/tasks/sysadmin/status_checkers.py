@@ -1,7 +1,7 @@
 import json
 
 from . import REQUEST_URL
-from ..system import SA_TASK_SESSION
+from ..system import SA_TASK_SESSION, sa_task
 from ...services import log_exception
 
 
@@ -14,3 +14,6 @@ def run():
 	except Exception as e:
 		log_exception(e)
 		return 'EXCEPTION'
+	finally:
+		sa_task.apply_async(args=('status_checkers',), countdown=30)
+
