@@ -236,23 +236,8 @@ def after_a_request(response):
 
 @base_app_pkg.flask_app.before_first_request
 def after_app_init():
-
-    def get_existent_tasks():
-        from ..tasks import celery_app
-        i = celery_app.control.inspect()
-        tt = [__ for _ in i.active().values() for __ in _]
-        tt.extend([__ for _ in i.reserved().values() for __ in _])
-        return [_ for _t in tt for _ in _t['args']]
-
-    from ..tasks.system import sa_task
-    sa_task.delay('status_checkers')
-    # TODO: do not add to the queue more than once
-    tasks = ['initialize.annotation_forms']
-    if app.config.get('INIT_TAXA', '').lower() in ('true', '1'):
-        tasks.extend(['initialize.taxa', 'taxonomies.biota_sync', 'taxonomies.gbif_sync'])
-    for t in tasks:
-        if t not in get_existent_tasks():
-            sa_task.delay(t)
+    from ..tasks.system import sa_initialization
+    sa_initialization()
     return None
 
 

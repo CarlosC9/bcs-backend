@@ -5,7 +5,7 @@ from .. import create_request, read_request
 from ....io.taxa import TaxaTaskTools, BIOTA_COLUMNS
 
 
-def run():
+def run(**kwargs):
 
 	print("Initializing organism entries with Biota taxa")
 	df = TaxaTaskTools.biota_get_df()

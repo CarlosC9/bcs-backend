@@ -2,7 +2,7 @@ from . import get_ngd_genus, push_taxonomy, RANKS
 from ....io.taxa import TaxaTaskTools
 
 
-def run():
+def run(**kwargs):
 	print("Synchronizing taxonomic hierarchy with Biota")
 
 	print(">> Get data from ngd")

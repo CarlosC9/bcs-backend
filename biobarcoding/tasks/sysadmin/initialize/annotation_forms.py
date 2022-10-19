@@ -550,7 +550,7 @@ def initialize_dwc_forms():
 			create_request('annotation_form_fields/', **values)
 
 
-def run():
+def run(**kwargs):
 	print("Initializing BibTex and Darwin Core annotation forms")
 	global object_type_id
 	url = f"{REQUEST_URL}/object_types/"

@@ -421,4 +421,3 @@ def import_file(infile, _format=None, data=None, analysis_id=None, update=False,
         DBSessionChado.rollback()
         raise Exception(f'IMPORT sequences: file {os.path.basename(infile)} could not be imported.')
     return [], len(seq_rows)
-

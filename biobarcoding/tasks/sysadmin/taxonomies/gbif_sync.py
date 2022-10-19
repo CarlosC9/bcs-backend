@@ -4,7 +4,7 @@ from pygbif import species
 from . import get_ngd_genus, push_taxonomy
 
 
-def run():
+def run(**kwargs):
 	print("Synchronizing taxonomic hierarchy with GBIF")
 
 	print(">> Get data from ngd")

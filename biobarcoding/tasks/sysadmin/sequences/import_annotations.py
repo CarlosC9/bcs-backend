@@ -1,11 +1,11 @@
 import json
 
-from biobarcoding.services import log_exception
-from biobarcoding.tasks.sysadmin import create_request, read_request, update_request, \
+from .. import create_request, read_request, update_request, \
 	get_response_count, get_response_content, get_response_id
+from ....services import log_exception
 
 
-def run(ann_entries: dict):
+def run(ann_entries: dict, **kwargs):
 
 	def get_ann_type(arg):
 		return'template' if arg.get('template') else 'field' if arg.get('field') else None
