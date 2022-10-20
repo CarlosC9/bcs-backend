@@ -10,7 +10,7 @@ from ..db_models.chado import Organism, Stock, Feature, StockFeature, Featureloc
 from ..db_models.metadata import Taxon
 from ..services import log_exception, get_encoding, tsv_pd_parser, csv_pd_parser, get_filtering, get_or_create, listify
 from ..services.bio.meta.ontologies import get_type_id
-from ..services.bio.meta.organisms import split_org_name, get_taxonomic_ranks
+from ..services.bio.meta.organisms import split_org_name, get_taxonomic_rank
 
 BATCH_SIZE = 500
 ORG_ENTRIES, STOCK_ENTRIES, SPECIMEN_ENTRIES, SEQ_ENTRIES, ANN_ENTRIES = {}, {}, {}, {}, {}
@@ -152,7 +152,7 @@ def import_file(infile, _format=None, data=None, analysis_id=None, update=False,
 
         ind_type_id = get_type_id(type='stock')
         seq_type_id = get_type_id(type='sequence', subtype='aligned' if analysis_id else None)
-        org_no_rank_id = get_taxonomic_ranks('no_rank')
+        org_no_rank_id = get_taxonomic_rank('no_rank')
         unknown_org = get_or_create(DBSessionChado, Organism, no_flush=True, genus='unknown', species='organism')
         if not unknown_org.type_id:
             unknown_org.type_id = org_no_rank_id
@@ -421,4 +421,3 @@ def import_file(infile, _format=None, data=None, analysis_id=None, update=False,
         DBSessionChado.rollback()
         raise Exception(f'IMPORT sequences: file {os.path.basename(infile)} could not be imported.')
     return [], len(seq_rows)
-

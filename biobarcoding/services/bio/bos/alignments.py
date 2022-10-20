@@ -43,7 +43,7 @@ class Service(AnsisService):
     # READ
     ##
 
-    def attach_data(self, *content):
+    def attach_data(self, *content) -> list:
         new = super(Service, self).attach_data(*content)
 
         _ids = [_['analysis_id'] for _ in new]

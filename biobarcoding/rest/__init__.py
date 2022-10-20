@@ -173,6 +173,7 @@ def get_default_configuration_dict():
         TESTING="True",
         SELF_SCHEMA="",
         ACL_ENABLED="False",
+        INIT_TAXA="False",
     )
 
 
@@ -1436,6 +1437,8 @@ def filter_parse(orm, filter, aux_filter=None, session=None):
             return obj.in_(datefy(value))
         if op == "eq":
             return obj == datefy(value)
+        if op == "ne":
+            return obj != datefy(value)
         if op == "between":
             return obj.between_(datefy(left), datefy(right))
         if op == "le":

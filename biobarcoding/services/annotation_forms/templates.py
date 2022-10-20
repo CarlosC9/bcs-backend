@@ -52,7 +52,7 @@ class Service(FormItemService):
 
         return values
 
-    def after_update(self, new_object, **values):
+    def after_update(self, new_object, **values) -> dict:
         values = super(Service, self).after_update(new_object, **values)
 
         if values.get('field_id') is not None:

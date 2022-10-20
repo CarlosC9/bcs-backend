@@ -21,6 +21,6 @@ class Service(SysService):
 		new_object.check_status()
 		return super(Service, self).after_create(new_object, **values)
 
-	def after_update(self, new_object, **values):
+	def after_update(self, new_object, **values) -> dict:
 		new_object.check_status()
 		return super(Service, self).after_update(new_object, **values)

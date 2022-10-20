@@ -1,32 +1,11 @@
 import json
 
-from biobarcoding.services import log_exception
-from biobarcoding.tasks.sysadmin import create_request, read_request, update_request
+from .. import create_request, read_request, update_request, \
+	get_response_count, get_response_content, get_response_id
+from ....services import log_exception
 
 
-def run(ann_entries: dict):
-
-	def load_response(r):
-		try:
-			return json.loads(r.text)
-		except Exception as e:
-			return {}
-
-	def get_response_count(r):
-		return load_response(r).get('count')
-
-	def get_response_content(r):
-		return load_response(r).get('content')
-
-	def get_response_id(r):
-		try:
-			c = get_response_content(r)
-			if isinstance(c, (tuple, list, set)):
-				c = c[0] if len(c) == 1 else {}
-			return c.get('id')
-		except Exception as e:
-			print('missing id for ', c)
-			return None
+def run(ann_entries: dict, **kwargs):
 
 	def get_ann_type(arg):
 		return'template' if arg.get('template') else 'field' if arg.get('field') else None
