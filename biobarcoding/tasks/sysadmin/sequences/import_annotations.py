@@ -40,6 +40,7 @@ def run(ann_entries: dict, **kwargs):
 			form_json_value = json.loads(form_value)
 		except Exception as e:
 			form_json_value = form_value
+			form_value = json.dumps(form_value)
 
 		# get_or_create form_item
 		try:
@@ -54,6 +55,7 @@ def run(ann_entries: dict, **kwargs):
 		if form_item_type == 'template':
 			form_template = get_response_content(response)[0]
 			build_template(form_template.get('id'), form_template.get('standard'), form_json_value)
+			form_value = json.dumps(form_json_value)
 
 		# get_or_create template or field
 		form_item_id = get_response_id(response)
@@ -66,7 +68,7 @@ def run(ann_entries: dict, **kwargs):
 				raise Exception()
 		except Exception as e:
 			print('"%s_item" not found, creating it' % form_item_type)
-			create_request('annotations', **values, object_uuid=seqs, value=form_json_value)
+			response = create_request('annotations', **values, object_uuid=seqs, value=form_json_value)
 			c_ann += 1
 			continue
 

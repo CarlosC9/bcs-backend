@@ -1424,7 +1424,7 @@ def filter_parse(orm, filter, aux_filter=None, session=None):
                                 continue
             return arg
 
-        if not isinstance(condition, dict):
+        if not isinstance(condition, dict) or not condition.get('op'):
             if isinstance(condition, (list, tuple)):
                 return obj.in_(datefy(condition))
             return obj == datefy(condition)
