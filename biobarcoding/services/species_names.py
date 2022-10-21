@@ -40,6 +40,77 @@ def get_children_from_gbif(key: int):
     return None
 
 
+def parse_species_names(sess, in_: List[str], underscores=False) -> List[str]:
+    """
+    Canonicalize species names
+
+    :param sess: Database session to access the cache table
+    :param in_: List of species names to canonicalize
+    :param underscores: if True, replace whitespace and "-" by "_"
+    :return: List of canonicalized species names. None if it was not possible to do
+    """
+
+    from pygbif import species
+    cn = dict(zip(in_, species.name_parser(in_)))
+
+    from biobarcoding import engine
+    if sess is None:
+        if engine is None:
+            from biobarcoding.common.pg_helpers import create_pg_database_engine
+            from biobarcoding import get_global_configuration_variable
+            db_connection_string = get_global_configuration_variable('DB_CONNECTION_STRING')
+            engine = create_pg_database_engine(db_connection_string, "bcs", recreate_db=False)
+            DBSession.configure(bind=engine)  # reconfigure the sessionmaker used by this scoped_session
+        sess = DBSession()
+
+    _ = []
+    any_gbif_request = False
+    for sn in in_:
+        lsn = sn.lower().strip()
+        found = False
+        if lsn not in species_names_map:
+            # Check existence in database
+            species_name = sess.query(SpeciesNameToCanonical).filter(SpeciesNameToCanonical.name == lsn).first()
+            if species_name:
+                # The entry may exist but it can be wrong
+                if species_name.canonical_name == "":
+                    pass  # Activate the following line to avoid repeating the lookup into the database
+                    # species_names_map[lsn] = None
+                else:
+                    found = True
+                    species_names_map[lsn] = species_name.canonical_name
+            else:
+                # Match using GBIF
+                r = cn.get(sn)
+                if r:
+                    species_name = SpeciesNameToCanonical()
+                    species_name.name = lsn
+                    if not r.get('canonicalName') or r.get('canonicalName', '').startswith('? ') \
+                            or r.get('type') != 'SCIENTIFIC':
+                        species_name.canonical_name = ""
+                        species_name.scientific_name = ""
+                    else:
+                        species_name.canonical_name = r["canonicalName"]
+                        species_name.scientific_name = r["scientificName"]
+                        species_names_map[lsn] = species_name.canonical_name
+                        found = True
+                    any_gbif_request = True
+                    sess.add(species_name)
+        else:
+            found = True
+        if found:
+            v = species_names_map[lsn]
+            if underscores and v:
+                v = re.sub("[, -]", "_", v)
+        else:
+            v = None
+        _.append(v)
+    if any_gbif_request:
+        sess.commit()
+
+    return _
+
+
 def get_canonical_species_names(sess, in_: List[str], underscores=False) -> List[str]:
     """
     Canonicalize species names

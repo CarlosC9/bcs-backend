@@ -197,14 +197,14 @@ class Service(BosService):
             if "organism" in format.lower():    # ('organismID', 'organism', 'organism_canon', 'organism_canon_underscored')
                 orgs = self.db.query(self.orm.uniquename, Organism.organism_id, Organism.name) \
                     .join(Organism).filter(self.orm.uniquename.in_([x.uniquename for x in seqs])).all()
-                from ...species_names import get_canonical_species_names
+                from ...species_names import parse_species_names
                 underscored = "underscore" in format.lower()
                 for seq_id, org_id, name in orgs:
                     if "id" in format.lower():
                         headers[seq_id] = str(org_id)
                     elif "canon" in format.lower():
-                        headers[seq_id] = get_canonical_species_names(DBSession, [name],
-                                                                      underscores=underscored)[0]
+                        headers[seq_id] = parse_species_names(DBSession, [name],
+                                                              underscores=underscored)[0]
                     if not headers.get(seq_id):
                         headers[seq_id] = force_underscored(name) if underscored else name
         return headers
