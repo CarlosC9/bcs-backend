@@ -87,11 +87,18 @@ def sa_seq_ann_task(ann_entries: dict):
 
 def run_sa_task_once(proc: str):
 
-    def get_existent_tasks():
+    def get_existent_tasks() -> list:
         i = celery_app.control.inspect()
-        sa_tt = [t for tt in i.active().values() for t in tt if t['name'] == 'sa_task']
-        sa_tt.extend([t for tt in i.reserved().values() for t in tt if t['name'] == 'sa_task'])
-        return [_['args'][0] for _ in sa_tt]
+        sa_tt = []
+        try:
+            sa_tt.extend([t['args'][0] for tt in i.active().values() for t in tt if t['name'] == 'sa_task'])
+        except Exception as e:
+            pass
+        try:
+            sa_tt.extend([t['args'][0] for tt in i.reserved().values() for t in tt if t['name'] == 'sa_task'])
+        except Exception as e:
+            pass
+        return sa_tt
 
     if proc not in get_existent_tasks():
         sa_task.delay(proc)
@@ -101,7 +108,7 @@ def sa_initialization():
 
     tasks = ['initialize.annotation_forms']
 
-    if get_global_configuration_variable('INIT_TAXA', '').lower() in ('true', '1'):
+    if get_global_configuration_variable('INIT_TAXA', 'False').lower() in ('true', '1'):
         tasks.extend(['initialize.taxa', 'taxonomies.biota_sync', 'taxonomies.gbif_sync'])
 
     for t in tasks:
