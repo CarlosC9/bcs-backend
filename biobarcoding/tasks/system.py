@@ -86,11 +86,11 @@ def run_sa_task_once(proc: str):
         i = celery_app.control.inspect()
         sa_tt = []
         try:
-            sa_tt.extend([t['args'][0] for tt in i.active().values() for t in tt if t['name'] == 'sa_task'])
+            sa_tt += [t['args'][0] for tt in i.active().values() for t in tt if t['name'] == 'sa_task']
         except Exception as e:
             pass
         try:
-            sa_tt.extend([t['args'][0] for tt in i.reserved().values() for t in tt if t['name'] == 'sa_task'])
+            sa_tt += [t['args'][0] for tt in i.reserved().values() for t in tt if t['name'] == 'sa_task']
         except Exception as e:
             pass
         return sa_tt

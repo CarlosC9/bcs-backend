@@ -1,5 +1,4 @@
 from threading import Thread
-from time import sleep
 
 from . import MetaService
 from .taxonomies import insert_taxon
@@ -168,27 +167,42 @@ class Service(MetaService):
         new = super(Service, self).attach_data(*content)        # TODO: thread canonical query if content is too big ?
 
         from ... import force_underscored
-        from ...species_names import get_canonical_species_names
+        from ...species_names import parse_species_names
         names = [" ".join([_['genus'], _['species'], _['infraspecific_name'] or '']).strip() for _ in new]
         c_names = cu_names = lineages = [None] * len(names)
 
         def async_canonical_names(u: bool = False):
-            _th = Thread(target=get_canonical_species_names, name='Look for canonical names',
-                         args=[None, names], kwargs={'underscores': u})
+
+            class GBIFThread(Thread):
+
+                def __init__(self, **_kwargs):
+                    Thread.__init__(self, **_kwargs)
+                    self.value = None
+
+                def run(self):
+                    try:
+                        if self._target:
+                            self.value = self._target(*self._args, **self._kwargs)
+                    finally:
+                        del self._target, self._args, self._kwargs
+
+            _th = GBIFThread(target=parse_species_names, name='Look for canonical names',
+                             args=[None, names], kwargs={'underscores': u})
             _th.start()
             _th.join(3)
-            if _th.is_alive():
+            if not _th.value or _th.is_alive():
                 raise Exception()
+            return _th.value
 
         try:
-            async_canonical_names()
-            c_names = get_canonical_species_names(DBSession, names)
+            c_names = async_canonical_names()
+            # c_names = parse_species_names(DBSession, names)
         except Exception as e:
             print('Warning: Canonical species names could not be retrieved.')
             log_exception(e)
         try:
-            async_canonical_names(True)
-            cu_names = get_canonical_species_names(DBSession, names, underscores=True)
+            cu_names = async_canonical_names(True)
+            # cu_names = parse_species_names(DBSession, names, underscores=True)
         except Exception as e:
             print('Warning: Canonical underscored species names could not be retrieved.')
             log_exception(e)

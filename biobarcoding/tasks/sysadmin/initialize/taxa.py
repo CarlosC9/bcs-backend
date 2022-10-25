@@ -2,6 +2,7 @@ import json
 from threading import Thread
 
 from .. import create_request, read_request
+from ..taxonomies import TAXA_LOCK
 from ....io.taxa import TaxaTaskTools, BIOTA_COLUMNS
 
 
@@ -13,30 +14,37 @@ def run(**kwargs):
 
 	# TODO: read all taxa without gbif canonical query
 
-	print(' > Getting Biota species')
-	for i, org in df[~df.species.str.contains('ssp.') | ~df.species.str.contains('subsp.')].iterrows():
-		print(create_request('organisms/', split_name=1, **org,
-							annotations=[{'template': 'Biota', 'value': org.to_dict()}], rank='species'))
-	_th = Thread(target=read_request, name='Look for canonical names',
-				args=['organisms/'], kwargs={'filter': {'rank': 'species'}})
-	_th.start()
+	try:
+		TAXA_LOCK.acquire()
 
-	print(' > Getting Biota subspecies')
-	for i, org in df[df.species.str.contains('ssp.') | df.species.str.contains('subsp.')].iterrows():
-		print(create_request('organisms/', split_name=1, **org,
-							annotations=[{'template': 'Biota', 'value': org.to_dict()}], rank='subspecies'))
-	_th = Thread(target=read_request, name='Look for canonical names',
-				args=['organisms/'], kwargs={'filter': {'rank': 'subspecies'}})
-	_th.start()
-
-	ranks = read_request('ontologies/terms/', filter={'cv': 'taxonomic_rank'})
-	for rank in [_.get('name') for _ in json.loads(ranks.text).get('content')
-					if _.get('name') and _['name'] != 'species' and _['name'] in BIOTA_COLUMNS.values()]:
-		print(' > Getting Biota ' + rank)
-		for org in TaxaTaskTools.biota_get_by_rank(df, rank):
-			print(create_request('organisms/', species=org, rank=rank))
+		print(' > Getting Biota species')
+		for i, org in df[~df.species.str.contains('ssp.') | ~df.species.str.contains('subsp.')].iterrows():
+			print(create_request('organisms/', split_name=1, **org,
+								annotations=[{'template': 'Biota', 'value': org.to_dict()}], rank='species'))
 		_th = Thread(target=read_request, name='Look for canonical names',
-					args=['organisms/'], kwargs={'filter': {'rank': rank}})
+					args=['organisms/'], kwargs={'filter': {'rank': 'species'}})
 		_th.start()
+
+		print(' > Getting Biota subspecies')
+		for i, org in df[df.species.str.contains('ssp.') | df.species.str.contains('subsp.')].iterrows():
+			print(create_request('organisms/', split_name=1, **org,
+								annotations=[{'template': 'Biota', 'value': org.to_dict()}], rank='subspecies'))
+		_th = Thread(target=read_request, name='Look for canonical names',
+					args=['organisms/'], kwargs={'filter': {'rank': 'subspecies'}})
+		_th.start()
+
+		ranks = read_request('ontologies/terms/', filter={'cv': 'taxonomic_rank'})
+		for rank in [_.get('name') for _ in json.loads(ranks.text).get('content')
+						if _.get('name') and _['name'] != 'species' and _['name'] in BIOTA_COLUMNS.values()]:
+			print(' > Getting Biota ' + rank)
+			for org in TaxaTaskTools.biota_get_by_rank(df, rank):
+				print(create_request('organisms/', species=org, rank=rank))
+			_th = Thread(target=read_request, name='Look for canonical names',
+						args=['organisms/'], kwargs={'filter': {'rank': rank}})
+			_th.start()
+
+	finally:
+		if TAXA_LOCK.locked():
+			TAXA_LOCK.release()
 
 	return 'DONE'
