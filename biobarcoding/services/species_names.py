@@ -63,39 +63,34 @@ def parse_species_names(sess, in_: List[str], underscores=False) -> List[str]:
             DBSession.configure(bind=engine)  # reconfigure the sessionmaker used by this scoped_session
         sess = DBSession()
 
-    _ = []
+    res = []
     any_gbif_request = False
+    global species_names_map
+    species_names_map = dict(
+        sess.query(SpeciesNameToCanonical.name, SpeciesNameToCanonical.canonical_name)
+            .filter(SpeciesNameToCanonical.name.in_([_sn.lower().strip() for _sn in in_])).all()
+    )
+
     for sn in in_:
         lsn = sn.lower().strip()
         found = False
         if lsn not in species_names_map:
-            # Check existence in database
-            species_name = sess.query(SpeciesNameToCanonical).filter(SpeciesNameToCanonical.name == lsn).first()
-            if species_name:
-                # The entry may exist but it can be wrong
-                if species_name.canonical_name == "":
-                    pass  # Activate the following line to avoid repeating the lookup into the database
-                    # species_names_map[lsn] = None
+            # Match using GBIF
+            r = cn.get(sn)
+            if r:
+                species_name = SpeciesNameToCanonical()
+                species_name.name = lsn
+                if not r.get('canonicalName') or r.get('canonicalName', '').startswith('? ') \
+                        or r.get('type') != 'SCIENTIFIC':
+                    species_name.canonical_name = ""
+                    species_name.scientific_name = ""
                 else:
-                    found = True
+                    species_name.canonical_name = r["canonicalName"]
+                    species_name.scientific_name = r["scientificName"]
                     species_names_map[lsn] = species_name.canonical_name
-            else:
-                # Match using GBIF
-                r = cn.get(sn)
-                if r:
-                    species_name = SpeciesNameToCanonical()
-                    species_name.name = lsn
-                    if not r.get('canonicalName') or r.get('canonicalName', '').startswith('? ') \
-                            or r.get('type') != 'SCIENTIFIC':
-                        species_name.canonical_name = ""
-                        species_name.scientific_name = ""
-                    else:
-                        species_name.canonical_name = r["canonicalName"]
-                        species_name.scientific_name = r["scientificName"]
-                        species_names_map[lsn] = species_name.canonical_name
-                        found = True
-                    any_gbif_request = True
-                    sess.add(species_name)
+                    found = True
+                any_gbif_request = True
+                sess.add(species_name)
         else:
             found = True
         if found:
@@ -104,11 +99,11 @@ def parse_species_names(sess, in_: List[str], underscores=False) -> List[str]:
                 v = re.sub("[, -]", "_", v)
         else:
             v = None
-        _.append(v)
+        res.append(v)
     if any_gbif_request:
         sess.commit()
 
-    return _
+    return res
 
 
 def get_canonical_species_names(sess, in_: List[str], underscores=False) -> List[str]:

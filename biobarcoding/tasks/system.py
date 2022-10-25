@@ -1,8 +1,7 @@
-from NamedAtomicLock import NamedAtomicLock
 import requests
 
 from . import celery_app
-from .. import get_global_configuration_variable, app_acronym
+from .. import get_global_configuration_variable
 from ..rest import app_api_base
 from ..services import log_exception
 
@@ -12,8 +11,6 @@ ENDPOINT = get_global_configuration_variable("ENDPOINT_URL")
 
 if 'SA_TASK_SESSION' not in globals():
     SA_TASK_SESSION = requests.Session()
-
-lock = NamedAtomicLock(f"{app_acronym}-backend-lock")
 
 
 # ----------------------------------------------------------------------------------------------------------------------
@@ -51,7 +48,6 @@ def sa_task(process: str, countdown: int = 0, **kwargs):
     """
 
     try:
-        lock.acquire()
         sa_task_login()
         print('SA_TASK: ' + process)
         from importlib import import_module
@@ -62,7 +58,6 @@ def sa_task(process: str, countdown: int = 0, **kwargs):
         log_exception(e)
         return None
     finally:
-        lock.release()
         if countdown:
             sa_task.apply_async(args=(process, countdown), kwargs=kwargs, countdown=countdown)
 

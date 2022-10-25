@@ -1,7 +1,11 @@
 import json
 import pandas as pd
+from redis.client import Redis
+from redis_lock import Lock
 
+from biobarcoding import app_acronym
 from .. import create_request, read_request, update_request, get_response_content, get_response_count, get_response_id
+from ... import get_redis_host
 
 NAMES = {
     'gbif': 'GBIF taxonomy tree',
@@ -13,6 +17,8 @@ RANKS = ('superkingdom', 'kingdom', 'superphylum', 'phylum', 'subphylum', 'super
          'superorder', 'order', 'suborder', 'superfamily', 'family', 'subfamily', 'genus', 'subgenus',
          'species', 'subspecies')
 
+TAXA_LOCK = Lock(Redis(get_redis_host()), f"{app_acronym}-sysadmin-lock")
+
 
 def get_taxonomic_ranks() -> any:
 	ranks = read_request('ontologies/terms/', filter={'cv': ('taxonomy', 'taxonomic_rank')})
@@ -20,9 +26,14 @@ def get_taxonomic_ranks() -> any:
 
 
 def get_ngd_genus() -> set:
-	ngd_taxa = [t for t in get_response_content(
-		read_request('organisms/', filter={'genus': {'op': 'ne', 'unary': ''}}, no_attach=True))]
-	return set(pd.DataFrame(ngd_taxa)['genus'])
+	try:
+		TAXA_LOCK.acquire()
+		ngd_taxa = [t for t in get_response_content(
+			read_request('organisms/', filter={'genus': {'op': 'ne', 'unary': ''}}, no_attach=True))]
+		return set(pd.DataFrame(ngd_taxa)['genus'])
+	finally:
+		if TAXA_LOCK.locked():
+			TAXA_LOCK.release()
 
 
 def push_taxonomy(taxonomy: str = 'gbif', taxa: list = []):

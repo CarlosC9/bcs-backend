@@ -65,10 +65,10 @@ flower==0.9.7
 #cachier==1.2.2
 #tablib <- dictmapper (convert nested dict's to CSV)
 # some installations for :
-# sudo apt-get install libgnutls28-dev
-# sudo apt-get install libgdal-dev
-# check gdal-config --version to pip install GDAL==version
-# GDAL==`gdal-config --version`
+# $ sudo apt-get install libgnutls28-dev
+# $ sudo apt-get install libgdal-dev
+# $ GDAL=`gdal-config --version`
+# $ pip install GDAL==$GDAL
 GeoAlchemy2>=0.8.5
 geopandas>=0.9.0
 geoserver-rest>=1.6.1,<2.0.0
