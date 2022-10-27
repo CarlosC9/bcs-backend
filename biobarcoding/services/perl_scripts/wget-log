@@ -1,0 +1,11 @@
+--2022-10-24 15:02:44--  ftp://ftp.ncbi.nlm.nih.gov/pub/taxonomy/taxdump.tar.gz.md5
+           => “taxdump.tar.gz.md5”
+Resolviendo ftp.ncbi.nlm.nih.gov (ftp.ncbi.nlm.nih.gov)... 165.112.9.230, 130.14.250.7, 2607:f220:41e:250::11, ...
+Conectando con ftp.ncbi.nlm.nih.gov (ftp.ncbi.nlm.nih.gov)[165.112.9.230]:21... conectado.
+Accediendo como anonymous... ¡Sesión iniciada!
+==> SYST ... hecho.    ==> PWD ... hecho.
+==> TYPE I ... hecho.  ==> CWD (1) /pub/taxonomy ... hecho.
+==> SIZE taxdump.tar.gz.md5 ... 49
+El fichero ya fue recuperado.
+2022-10-24 15:02:47 (0,00 B/s) - “taxdump.tar.gz.md5” guardado [49]
+
